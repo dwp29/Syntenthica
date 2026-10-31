@@ -28,8 +28,8 @@ ksud
   what   : KernelSU userspace daemon, also shipped inside the flashable zip
 
 STATUS.json
-  bytes  : 4940
-  sha256 : abbe9d8012b455145c8f1742cef31f0a35150e2630bfd41c623c365431afa479
+  bytes  : 5030
+  sha256 : a6179d59f41c19c53a35cd043e5b73b2d4e05b53dbc92db3503d22b8217fdff8
   flash? : no
   what   : machine-readable build record: uname, config flags, hashes, what was not tested
 

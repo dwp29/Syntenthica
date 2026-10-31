@@ -25,10 +25,12 @@
     "cert_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140",
     "apk": {
       "name": "Synthetica-2.0.apk",
-      "bytes": 8637527,
-      "sha256": "fef90c01a5620ba7251b85c07c62542339dad335baeb81f93b610262aed78d9d"
+      "bytes": 9161501,
+      "sha256": "7bded761808c560fa5511acf32d3ce728adedce663002820815d00176526b567"
     },
-    "note": "kernel built with this certificate; the old manager APK is not accepted by this kernel and the new APK is not accepted by older kernels"
+    "note": "kernel built with this certificate; the old manager APK is not accepted by this kernel and the new APK is not accepted by older kernels",
+    "uapi_version": 4,
+    "upstream_commit": "ea51427ff700f73909e7e8c8717cc3241322ee1e"
   },
   "mandatory_KSU": true,
   "compile_exit_code": 0,

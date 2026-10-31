@@ -1,33 +1,36 @@
 {
-  "kind": "MANAGER_BUILT_FROM_SOURCE_GLASS_UI",
+  "kind": "MANAGER_BUILT_FROM_SOURCE_LIQUID_GLASS_UI",
   "version": "2.0",
+  "uapi_version": 4,
   "upstream": {
     "repo": "KernelSU-Next/KernelSU-Next",
-    "commit": "31946acd2f529b2b24e5e4f0267cfacb5d13498c"
+    "commit": "ea51427ff700f73909e7e8c8717cc3241322ee1e"
   },
   "output_apk": {
     "name": "Synthetica-2.0.apk",
-    "bytes": 8637527,
-    "sha256": "fef90c01a5620ba7251b85c07c62542339dad335baeb81f93b610262aed78d9d"
+    "bytes": 9161501,
+    "sha256": "7bded761808c560fa5511acf32d3ce728adedce663002820815d00176526b567"
   },
   "package": "net.ember.labs",
   "cert_der_bytes": 1381,
   "cert_size_hex": "0x565",
   "cert_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140",
   "theme": {
-    "palette": "iOS glass: pale gradient, system blue / mint / violet, white frosted cards",
-    "dynamic_color": "forced off (upstream default repainted the app from the wallpaper)",
-    "typography": "system sans, clean iOS style",
-    "splash": "custom Compose GlassSplash (Synthetica wordmark) + pale window splash",
-    "background": "animated soft colour fields behind every screen (GlassBackground)"
+    "palette": "iOS Liquid Glass (Light, Dark & AMOLED) with real GPU RenderEffect/GraphicsLayer blur",
+    "dynamic_color": "forced off (iOS Liquid Glass palette active across all modes)",
+    "layout": "Manager 1.16 (Rollercoaster) exact 4-tab floating bottom bar + Home/Boost/Settings/About layout rebranded to Synthetica",
+    "splash": "3D Liquid Glass squircle pedestal + crystal Synthetica emblem (SyntheticaGlassSplash)",
+    "launcher_icon": "3D iOS Liquid Glass adaptive + legacy + Android 13 monochrome icons",
+    "update_check": "disabled by default (no upstream KernelSU-Next update nag)"
   },
-  "jni_injected": [
-    "lib/arm64-v8a/libksud.so"
-  ],
-  "signed_with": "secretkey/synthetica-2.0.p12 (alias synthetica; private key kept local)",
+  "jni_verified": {
+    "libkernelsu_so_uapi": 4,
+    "libksud_so_bytes": 5518544,
+    "libksud_so_sha256": "c305965796afb55ae8dad3a122935c995a818e07c637a9ef4c3e375202e4a427"
+  },
+  "signed_with": "secretkey/synthetica-2.0.p12 (alias synthetica; private key kept strictly local and shredded)",
   "limitations": [
-    "this is a themed fork of KernelSU-Next, not an independent manager",
-    "KernelSU-Next is GPL-3.0: the patches used here are in ci/ksun-overlay/ of this repo",
-    "every kernel that should accept this APK must embed this certificate"
+    "themed fork of KernelSU-Next (GPL-3.0); overlay sources in build-kit/ci/ksun-overlay/",
+    "matches Synthetica-2.0 kernel certificate (0x565 / fe833710...) for in-place install without kernel reflash"
   ]
 }
