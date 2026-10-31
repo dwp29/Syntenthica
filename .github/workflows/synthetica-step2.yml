@@ -1,0 +1,135 @@
+name: "Synthetica 2.0 - Step 2 & 3 Kernel + Flashable Package"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-step2.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: synthetica-2-0-step2
+  cancel-in-progress: false
+
+jobs:
+  kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    name: "Step 2 & 3: Kernel (synthetica, base 1.16 @ c1e6f795, JOBS=4) + Flashable ZIP"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Install host kernel toolchain (exact required packages)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 lld-18 llvm-18 \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler \
+            cpio lz4 xz-utils python3 patch openssl zip rsync git curl binutils
+          mkdir -p build-kit/artifacts ci-stage/step2
+          {
+            clang-18 --version | head -1
+            ld.lld-18 --version
+            aarch64-linux-gnu-gcc --version | head -1
+            arm-linux-gnueabi-gcc --version | head -1
+          } | tee build-kit/artifacts/TOOLCHAIN.txt
+          {
+            echo "=== OS ==="
+            cat /etc/os-release | head -n 6
+            echo "=== Hardware ==="
+            nproc
+            free -h
+            df -h /
+            echo "=== Toolchain ==="
+            cat build-kit/artifacts/TOOLCHAIN.txt
+          } > ci-stage/step2/ENV-STEP2.txt
+
+      - name: Verify Step 1 Manager Certificate Identity before Kernel Build
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("build-kit/artifacts/manager/MANAGER.json")
+          assert p.exists(), "MANAGER.json from Step 1 missing!"
+          d = json.loads(p.read_text())
+          print("Step 1 MANAGER.json:", json.dumps(d, indent=2))
+          assert d["package"] == "net.ember.labs"
+          assert d["cert_der_bytes"] == 1381
+          assert d["cert_size_hex"] == "0x565"
+          assert d["cert_sha256"] == "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140"
+          PY
+
+      - name: "Step 2/3: Build Kernel (SP_JOBS=4 SP_PROFILE=synthetica SP_BUILD_NAME=Synthetica SP_BUILD_KVER=2.0)"
+        run: |
+          set -euo pipefail
+          (
+            cd build-kit
+            export PATH="/usr/lib/llvm-18/bin:$PATH"
+            SP_JOBS=4 \
+            SP_RELEASE_VERSION=2.0 \
+            SP_PROFILE=synthetica \
+            SP_BUILD_NAME=Synthetica \
+            SP_BUILD_KVER=2.0 \
+            SP_WORK_DIR=/tmp/sp-kernel-2.0 \
+              python3 scripts/build_chronicle_base.py
+          ) 2>&1 | tee ci-stage/step2/step2-kernel-console.log
+
+      - name: "Step 3/3: Package Flashable Synthetica-2.0.zip & Synthetica-2.0-LOG.zip"
+        run: |
+          set -euo pipefail
+          (
+            cd build-kit
+            SP_WORK_DIR=/tmp/sp-pkg-2.0 python3 scripts/package_release.py
+          ) 2>&1 | tee -a build-kit/artifacts/build.log | tee ci-stage/step2/step3-package-console.log
+          echo "=== Verify Linux version inside Image.gz ==="
+          gzip -dc build-kit/artifacts/Image.gz | strings | grep -m1 "^Linux version"
+          ls -lh build-kit/artifacts/
+
+      - name: Upload full artifacts bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica-step2-3-${{ github.run_id }}
+          path: |
+            build-kit/artifacts/
+            ci-stage/step2/
+          if-no-files-found: warn
+
+      - name: Push Step 2 & 3 outputs back to session branch
+        if: always()
+        env:
+          REC_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          remote="https://x-access-token:${REC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name "synthetica-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -f ci-stage/step2/
+          for f in \
+            build-kit/artifacts/Image.gz \
+            build-kit/artifacts/Synthetica-2.0.zip \
+            build-kit/artifacts/Synthetica-2.0-LOG.zip \
+            build-kit/artifacts/STATUS.json \
+            build-kit/artifacts/RELEASE-INFO.json \
+            build-kit/artifacts/RELEASE-SHA256SUMS.txt \
+            build-kit/artifacts/ARTIFACTS-MANIFEST.txt \
+            build-kit/artifacts/generated.config.txt \
+            build-kit/artifacts/TOOLCHAIN.txt \
+            build-kit/artifacts/build.log \
+            build-kit/artifacts/FAILED.txt; do
+            [ -f "$f" ] && git add -f "$f" || true
+          done
+          git commit -qm "ci: step 2 & 3 kernel and flashable packages (run ${GITHUB_RUN_ID})" || exit 0
+          for i in 1 2 3; do
+            git pull --rebase "$remote" "${GITHUB_REF_NAME}" || true
+            git push "$remote" "HEAD:refs/heads/${GITHUB_REF_NAME}" && break
+            sleep 5
+          done

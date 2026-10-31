@@ -13,3 +13,7 @@ manager-source/
 Synthetica-2.0-SOURCE*
 google_drive/
 .work-*
+
+out/
+__pycache__/
+*.pyc
