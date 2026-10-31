@@ -1,0 +1,105 @@
+[fetch] https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/31946acd2f529b2b24e5e4f0267cfacb5d13498c
+[patch] MainActivity: glass background + glass splash
+[patch] build.gradle.kts: apksign plugin removed (signed outside Gradle)
+[brand] theme overlaid: Color.kt Theme.kt Type.kt Glass.kt Shapes.kt
+[brand] icons replaced: 15; adaptive icon + glass splash theme written
+[package] applicationId = net.ember.labs
+[brand] app_name -> Synthetica
+$ git init -q  (cwd=/tmp/sp-manager-src-2.0/ksun)
+$ git config user.email ci@local  (cwd=/tmp/sp-manager-src-2.0/ksun)
+$ git config user.name synthetica-ci  (cwd=/tmp/sp-manager-src-2.0/ksun)
+$ git add -A  (cwd=/tmp/sp-manager-src-2.0/ksun)
+$ git commit -qm Synthetica 2.0  (cwd=/tmp/sp-manager-src-2.0/ksun)
+$ git tag -f 2.0  (cwd=/tmp/sp-manager-src-2.0/ksun)
+$ /tmp/sp-manager-src-2.0/ksun/manager/gradlew :app:assembleRelease --no-daemon --stacktrace -Pkotlin.jvm.target.validation.mode=warning  (cwd=/tmp/sp-manager-src-2.0/ksun/manager)
+Note: /tmp/sp-manager-src-2.0/ksun/manager/app/build/generated/aidl_source_output_dir/release/out/com/rifsxd/ksunext/IKsuInterface.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :app:mergeReleaseGeneratedProguardFiles
+> Task :app:processReleaseJavaRes
+> Task :app:expandReleaseArtProfileWildcards
+> Task :app:mergeReleaseJavaResource
+> Task :app:minifyReleaseWithR8
+> Task :app:convertShrunkResourcesToBinaryRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:optimizeReleaseResources
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+
+[Incubating] Problems report is available at: file:///tmp/sp-manager-src-2.0/ksun/manager/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.2.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 3m 5s
+55 actionable tasks: 55 executed
+[gradle] built /tmp/sp-manager-src-2.0/ksun/manager/app/build/outputs/apk/release/KernelSU_Next_2.0_30001-release.apk (4542758 B)
+[package] verified net.ember.labs inside KernelSU_Next_2.0_30001-release.apk
+[jni] injected lib/arm64-v8a/libksud.so (5518544 B)
+[jni] libksud.so + libkernelsu.so present
+[jni] after injection: 8572185 B
+[tools] SDK build-tools: /home/runner/android-sdk/build-tools/36.1.0
+$ keytool -genkeypair -keystore /tmp/sp-manager-src-2.0/identity.p12 -storetype PKCS12 -alias synthetica -keyalg RSA -keysize 4096 -validity 10000 -storepass sp-manager-source -keypass sp-manager-source -dname CN=Synthetica Manager, O=Synthetica, C=ID
+Generating 4,096 bit RSA key pair and self-signed certificate (SHA384withRSA) with a validity of 10,000 days
+	for: CN=Synthetica Manager, O=Synthetica, C=ID
+$ /home/runner/android-sdk/build-tools/36.1.0/zipalign -p -f 4 /tmp/sp-manager-src-2.0/ksun/manager/app/build/outputs/apk/release/KernelSU_Next_2.0_30001-release.apk /tmp/sp-manager-src-2.0/manager-aligned.apk
+$ /home/runner/android-sdk/build-tools/36.1.0/apksigner sign --ks /tmp/sp-manager-src-2.0/identity.p12 --ks-key-alias synthetica --ks-pass pass:sp-manager-source --key-pass pass:sp-manager-source --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out /tmp/sp-manager-src-2.0/manager-signed.apk /tmp/sp-manager-src-2.0/manager-aligned.apk
+$ /home/runner/android-sdk/build-tools/36.1.0/apksigner verify --verbose --print-certs /tmp/sp-manager-src-2.0/manager-signed.apk
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Synthetica Manager, O=Synthetica, C=ID
+Signer #1 certificate SHA-256 digest: 51a3fa0ea2b94d1cdf0f08c6369b72f819421f3293c819c1084f4a055847d104
+Signer #1 certificate SHA-1 digest: 6d4e26a6d4339396294700a96a525c0a0f78f36b
+Signer #1 certificate MD5 digest: b837bd37e293a3aa2b96db11f2cbafd6
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 4096
+Signer #1 public key SHA-256 digest: 7e2025c35f0d365761d7d2bcb9da3756a59261c9210b0aca761e4367b2f20137
+Signer #1 public key SHA-1 digest: 6efc7342c71e3cbfca5850059b08c9993cd88d4e
+Signer #1 public key MD5 digest: 0711254a0de8a3762d41f6d773315cee
+$ keytool -exportcert -rfc -alias synthetica -keystore /tmp/sp-manager-src-2.0/identity.p12 -storepass sp-manager-source -file /tmp/sp-manager-src-2.0/cert.pem
+Certificate stored in file </tmp/sp-manager-src-2.0/cert.pem>
+$ openssl x509 -in /tmp/sp-manager-src-2.0/cert.pem -outform DER -out /tmp/sp-manager-src-2.0/cert.der
+{
+  "kind": "MANAGER_BUILT_FROM_SOURCE_GLASS_UI",
+  "version": "2.0",
+  "upstream": {
+    "repo": "KernelSU-Next/KernelSU-Next",
+    "commit": "31946acd2f529b2b24e5e4f0267cfacb5d13498c"
+  },
+  "output_apk": {
+    "name": "Synthetica-2.0.apk",
+    "bytes": 8637527,
+    "sha256": "e7a4e69b653174e9f72b57a21c2d767e952d8576683c9a9a7db487431c24b60a"
+  },
+  "package": "net.ember.labs",
+  "cert_der_bytes": 1319,
+  "cert_size_hex": "0x527",
+  "cert_sha256": "51a3fa0ea2b94d1cdf0f08c6369b72f819421f3293c819c1084f4a055847d104",
+  "theme": {
+    "palette": "iOS glass: pale gradient, system blue / mint / violet, white frosted cards",
+    "dynamic_color": "forced off (upstream default repainted the app from the wallpaper)",
+    "typography": "system sans, clean iOS style",
+    "splash": "custom Compose GlassSplash (Synthetica wordmark) + pale window splash",
+    "background": "animated soft colour fields behind every screen (GlassBackground)"
+  },
+  "jni_injected": [
+    "lib/arm64-v8a/libksud.so"
+  ],
+  "signed_with": "one-time key generated in this run; this APK becomes the pinned identity",
+  "limitations": [
+    "this is a themed fork of KernelSU-Next, not an independent manager",
+    "KernelSU-Next is GPL-3.0: the patches used here are in ci/ksun-overlay/ of this repo",
+    "every kernel that should accept this APK must embed this certificate"
+  ]
+}
+DONE: /home/runner/work/Syntenthica/Syntenthica/build-kit/artifacts/manager/Synthetica-2.0.apk (8637527 B) cert 1319 B

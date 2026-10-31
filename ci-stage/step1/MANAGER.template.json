@@ -1,0 +1,33 @@
+{
+  "kind": "MANAGER_BUILT_FROM_SOURCE_GLASS_UI",
+  "version": "2.0",
+  "upstream": {
+    "repo": "KernelSU-Next/KernelSU-Next",
+    "commit": "31946acd2f529b2b24e5e4f0267cfacb5d13498c"
+  },
+  "output_apk": {
+    "name": "Synthetica-2.0.apk",
+    "bytes": 8637527,
+    "sha256": "e7a4e69b653174e9f72b57a21c2d767e952d8576683c9a9a7db487431c24b60a"
+  },
+  "package": "net.ember.labs",
+  "cert_der_bytes": 1319,
+  "cert_size_hex": "0x527",
+  "cert_sha256": "51a3fa0ea2b94d1cdf0f08c6369b72f819421f3293c819c1084f4a055847d104",
+  "theme": {
+    "palette": "iOS glass: pale gradient, system blue / mint / violet, white frosted cards",
+    "dynamic_color": "forced off (upstream default repainted the app from the wallpaper)",
+    "typography": "system sans, clean iOS style",
+    "splash": "custom Compose GlassSplash (Synthetica wordmark) + pale window splash",
+    "background": "animated soft colour fields behind every screen (GlassBackground)"
+  },
+  "jni_injected": [
+    "lib/arm64-v8a/libksud.so"
+  ],
+  "signed_with": "one-time key generated in this run; this APK becomes the pinned identity",
+  "limitations": [
+    "this is a themed fork of KernelSU-Next, not an independent manager",
+    "KernelSU-Next is GPL-3.0: the patches used here are in ci/ksun-overlay/ of this repo",
+    "every kernel that should accept this APK must embed this certificate"
+  ]
+}
