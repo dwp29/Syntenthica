@@ -1,0 +1,69 @@
+verified Synthetica-2.0.zip: 16 entries, CRC ok
+verified Synthetica-2.0-LOG.zip: 4 entries, CRC ok
+{
+  "kind": "RELEASE_2.0_PACKAGES_UNQUALIFIED_FLASH_AT_OWN_RISK",
+  "release_version": "2.0",
+  "uname_release": "4.14.357-openela-Synthetica-2.0",
+  "kernel_image_gz_sha256": "58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff",
+  "kernel_image_gz_bytes": 14570501,
+  "flashable_zip": {
+    "name": "Synthetica-2.0.zip",
+    "bytes": 21567245,
+    "sha256": "b1a0be5c7402a14d25f64fab495d6dd7e945dab18fa55c2fd164c5ced853897c"
+  },
+  "log_collector_zip": {
+    "name": "Synthetica-2.0-LOG.zip",
+    "bytes": 861633,
+    "sha256": "0832820bc4646a1069dd4b2ef96ce17a6cc5cc522080a9e668c730d644fd15c0"
+  },
+  "anykernel3": {
+    "repository": "osm0sis/AnyKernel3",
+    "commit": "41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1",
+    "archive_url": "https://codeload.github.com/osm0sis/AnyKernel3/tar.gz/41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1",
+    "archive_bytes": 3099416,
+    "archive_sha256": "792b37fec7d1221570a4f1deb777a2d2cb8261596b1465a70bd7abfb30e268a2"
+  },
+  "flashable_entries": [
+    "BUILD-INFO.txt",
+    "Image.gz",
+    "LICENSE",
+    "META-INF/com/google/android/update-binary",
+    "META-INF/com/google/android/updater-script",
+    "README-FLASH.txt",
+    "anykernel.sh",
+    "ksud",
+    "tools/ak3-core.sh",
+    "tools/busybox",
+    "tools/fec",
+    "tools/httools_static",
+    "tools/lptools_static",
+    "tools/magiskboot",
+    "tools/magiskpolicy",
+    "tools/snapshotupdater_static"
+  ],
+  "log_collector_entries": [
+    "META-INF/com/google/android/update-binary",
+    "META-INF/com/google/android/updater-script",
+    "README-FLASH.txt",
+    "tools/busybox"
+  ],
+  "installer_behaviour": [
+    "no boot backup (removed in 2.0 by request)",
+    "writes an installation log to <storage>/Synthetica/install-log-<time>.txt",
+    "no auto reboot",
+    "no modules",
+    "no /data writes"
+  ],
+  "log_collector_behaviour": [
+    "read-only",
+    "writes only under <storage>/synthetica-logs/",
+    "collects dmesg, last_kmsg, pstore, recovery logs, partition hashes",
+    "13-installed-kernel.txt: kernel version strings read out of the live boot partition",
+    "14-installed-zip.txt: which SYNTHETICA-PULSE zip is on storage",
+    "12-backup-listing/: copies BACKUP-INFO.txt if one exists from older releases"
+  ],
+  "physical_boot_root_tests": 0,
+  "bootloop_fix_proven": false,
+  "private_signing_key_exported": false
+}
+manifest: /home/runner/work/Syntenthica/Syntenthica/build-kit/artifacts/ARTIFACTS-MANIFEST.txt

@@ -1,0 +1,167 @@
+release=2.0 jobs=4
+[inputs] ci/rollercoaster sources OK (builder sha256 033ea7e5789b129a...)
+[download] https://codeload.github.com/Saamitk/kernel_xiaomi_sm6250-switchoff/tar.gz/c1e6f795b557b7bf92220c91f05a42b456de7a74
+[download] 200408248 bytes -> /tmp/sp-kernel-2.0/tree.tar.gz
+{
+  "base_tree": {
+    "repository": "Saamitk/kernel_xiaomi_sm6250-switchoff",
+    "commit": "c1e6f795b557b7bf92220c91f05a42b456de7a74",
+    "ref": "a",
+    "archive_url": "https://codeload.github.com/Saamitk/kernel_xiaomi_sm6250-switchoff/tar.gz/c1e6f795b557b7bf92220c91f05a42b456de7a74",
+    "archive_bytes": 200408248,
+    "archive_sha256": "a68c9e306a3e14de92a258b185531a2562e3631f616a74b7882fc2667ac10ec0"
+  }
+}
+[pin] base tree matches ci/SOURCES_CHRONICLE_BASE.json
+[extract] /tmp/sp-kernel-2.0/tree.tar.gz -> /tmp/sp-kernel-2.0/tree
+[manager] package net.ember.labs cert 1381 B fe833710a733f630...
+[identity] release string will be 4.14.357-openela-Synthetica-2.0
+
+$ bash /home/runner/work/Syntenthica/Syntenthica/build-kit/ci/rollercoaster/build-rollercoaster.sh /tmp/sp-kernel-2.0/tree synthetica 4   (cwd=/tmp/sp-kernel-2.0/tree)
+  AR      init/built-in.a
+  AR      built-in.a
+  LD      vmlinux.o
+  MODPOST vmlinux.o
+  KSYM    .tmp_kallsyms1.o
+  KSYM    .tmp_kallsyms2.o
+  LD      vmlinux
+  SORTEX  vmlinux
+  SYSMAP  System.map
+find: ‘arch/arm64/boot/dts/’: No such file or directory
+find: ‘arch/arm64/boot/dts/’: No such file or directory
+  OBJCOPY arch/arm64/boot/Image
+find: ‘arch/arm64/boot/dts/’: No such file or directory
+find: ‘arch/arm64/boot/dts/’: No such file or directory
+  GZIP    arch/arm64/boot/Image.gz
+make[1]: Leaving directory '/tmp/sp-kernel-2.0/tree/out-synthetica'
+-rw-r--r-- 1 runner runner 14570501 Oct 31 09:47 /tmp/sp-kernel-2.0/tree/out-synthetica/arch/arm64/boot/Image.gz
+--- kemas AnyKernel3 ---
+  OK   paket: Image.gz + ksud + anykernel.sh (tanpa backup otomatis)
+==============================================================
+ SELESAI: /home/runner/work/Syntenthica/Syntenthica/build-kit/artifacts/Synthetica-2.0.zip
+ 48035c81ac8ec89b056fcb1a10d2e81a738e03f8cef8d9ed0578ca81220038ff  Synthetica-2.0.zip
+---------                     -------
+ 22175682                     25 files
+==============================================================
+[exit 0 in 1168s]
+{
+  "KSU": "y",
+  "KSU_MANUAL_HOOK": "y",
+  "KSU_KPROBES_HOOK": null,
+  "KSU_SUSFS": "y",
+  "KSU_SUSFS_SUS_PATH": "y",
+  "NOMOUNT": "y",
+  "KPROBES": "n",
+  "KRETPROBES": null,
+  "MODULE_SIG_FORCE": "y",
+  "MODVERSIONS": "y",
+  "EROFS_FS": "y",
+  "BPF_EVENTS": "y",
+  "PREEMPT": "y",
+  "LOCALVERSION": "\"-Synthetica-2.0\"",
+  "HZ": "100",
+  "HZ_300": "n",
+  "CPU_FREQ_DEFAULT_GOV_PERFORMANCE": "n",
+  "CPU_BOOST": "y",
+  "MSM_PERFORMANCE": "y",
+  "SCHED_TUNE": "y",
+  "DEFAULT_IOSCHED": "\"cfq\"",
+  "IOSCHED_DEADLINE": "y",
+  "FUNCTION_TRACER": "n",
+  "FTRACE": "y"
+}
+[uname] 4.14.357-openela-Synthetica-2.0
+[rename] Synthetica-2.0.zip -> REFERENCE-NOT-FOR-FLASH-Synthetica-2.0.zip (no boot backup inside; reference only)
+
+STATUS.json
+{
+  "kind": "VARIANT_synthetica_2.0_COMPILED_ONLY_UNVERIFIED",
+  "release_version": "2.0",
+  "uname_release": "4.14.357-openela-Synthetica-2.0",
+  "base_tree": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74 (branch a)",
+  "base_tree_archive": {
+    "repository": "Saamitk/kernel_xiaomi_sm6250-switchoff",
+    "commit": "c1e6f795b557b7bf92220c91f05a42b456de7a74",
+    "ref": "a",
+    "archive_url": "https://codeload.github.com/Saamitk/kernel_xiaomi_sm6250-switchoff/tar.gz/c1e6f795b557b7bf92220c91f05a42b456de7a74",
+    "archive_bytes": 200408248,
+    "archive_sha256": "a68c9e306a3e14de92a258b185531a2562e3631f616a74b7882fc2667ac10ec0"
+  },
+  "base_tree_pin_state": "VERIFIED",
+  "build_recipe": "ci/rollercoaster/build-rollercoaster.sh <tree> chronicle (graziemille 1.2.0 sources)",
+  "profile": "synthetica",
+  "ksu_driver": "KernelSU-Next legacy, in-tree (Rollercoaster ksun-legacy-susfs-v2, declared 34000)",
+  "ksu_hook_mode": "manual (CONFIG_KSU_MANUAL_HOOK=y, CONFIG_KPROBES=n)",
+  "ksu_userspace": "ksud 5518552 B shipped in the zip, installed to /data/adb/ksud",
+  "manager": {
+    "package": "net.ember.labs",
+    "package_was": null,
+    "cert_der_bytes": 1381,
+    "cert_size_hex": "0x565",
+    "cert_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140",
+    "apk": {
+      "name": "Synthetica-2.0.apk",
+      "bytes": 8637527,
+      "sha256": "fef90c01a5620ba7251b85c07c62542339dad335baeb81f93b610262aed78d9d"
+    },
+    "note": "kernel built with this certificate; the old manager APK is not accepted by this kernel and the new APK is not accepted by older kernels"
+  },
+  "mandatory_KSU": true,
+  "compile_exit_code": 0,
+  "image_gz_bytes": 14570501,
+  "image_gz_sha256": "58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff",
+  "config_sha256": "248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b",
+  "features": {
+    "KSU": "y",
+    "KSU_MANUAL_HOOK": "y",
+    "KSU_KPROBES_HOOK": null,
+    "KSU_SUSFS": "y",
+    "KSU_SUSFS_SUS_PATH": "y",
+    "NOMOUNT": "y",
+    "KPROBES": "n",
+    "KRETPROBES": null,
+    "MODULE_SIG_FORCE": "y",
+    "MODVERSIONS": "y",
+    "EROFS_FS": "y",
+    "BPF_EVENTS": "y",
+    "PREEMPT": "y",
+    "LOCALVERSION": "\"-Synthetica-2.0\"",
+    "HZ": "100",
+    "HZ_300": "n",
+    "CPU_FREQ_DEFAULT_GOV_PERFORMANCE": "n",
+    "CPU_BOOST": "y",
+    "MSM_PERFORMANCE": "y",
+    "SCHED_TUNE": "y",
+    "DEFAULT_IOSCHED": "\"cfq\"",
+    "IOSCHED_DEADLINE": "y",
+    "FUNCTION_TRACER": "n",
+    "FTRACE": "y"
+  },
+  "module_signatures_verified": false,
+  "physical_boot_root_tests": "NOT_RUN",
+  "bootloop_fix_proven": false,
+  "private_signing_key_exported": false,
+  "installer": "ci/release/anykernel.sh (boot backup + rollback before write, ksud install, no auto reboot)",
+  "why": "1.14 proved the chronicle-base recipe boots and gives root on this phone. This build only replaces the release identity with ours (CONFIG_LOCALVERSION -> 4.14.357-openela-Synthetica-2.0), so the next step is not taken on an unproven base. Every other config value, patch and tool is identical to 1.14.",
+  "identity_change": {
+    "release_string": "4.14.357-openela-Synthetica-2.0",
+    "was": "4.14.357-openela-Rollercoaster-Chronicle-1.2.0 (1.14, known-good)",
+    "only_knob": "CONFIG_LOCALVERSION (byte-identical sources, patches, profiles and toolchain)",
+    "expected_side_effect": "vermagic changes, so /vendor modules built for this ROM keep being rejected - exactly as they already were"
+  },
+  "known_good_reference": {
+    "version": "1.14",
+    "run": "40813125790",
+    "flashable_sha256": "36b4af73e06aae172194a09b58d896fc573618199a0687d23d5400fad795928d",
+    "device_result": "boot + root confirmed on 2026-10-29 (su in Termux gave uid 0)"
+  },
+  "provenance_note": "Kernel sources are GPL-2.0 upstream + graziemille's Rollercoaster changes; see ci/rollercoaster/README.md and licenses/ for attribution.",
+  "policy": "module signature enforcement left as the recipe sets it; nothing disabled, no SELinux bypass, no vbmeta/firmware writes",
+  "test_protocol": [
+    "boot must be observed on the device before any claim of a fix",
+    "installer backs up the current boot partition first; restore it if the device does not boot",
+    "on failure: flash the log collector and send <storage>/synthetica-logs/<timestamp>/"
+  ]
+}
+
+DONE: Image.gz 14570501 B sha256 58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff

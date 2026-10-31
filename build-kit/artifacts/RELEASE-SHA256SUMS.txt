@@ -1,0 +1,2 @@
+b1a0be5c7402a14d25f64fab495d6dd7e945dab18fa55c2fd164c5ced853897c  Synthetica-2.0.zip
+0832820bc4646a1069dd4b2ef96ce17a6cc5cc522080a9e668c730d644fd15c0  Synthetica-2.0-LOG.zip
