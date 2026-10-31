@@ -1,33 +1,322 @@
-[fetch] https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/31946acd2f529b2b24e5e4f0267cfacb5d13498c
-[patch] MainActivity: glass background + glass splash
-[patch] build.gradle.kts: apksign plugin removed (signed outside Gradle)
-[brand] theme overlaid: Color.kt Theme.kt Type.kt Glass.kt Shapes.kt
-[brand] icons replaced: 15; adaptive icon + glass splash theme written
-[package] applicationId = net.ember.labs
-[brand] app_name -> Synthetica
-$ git init -q  (cwd=/tmp/sp-manager-src-2.0/ksun)
-$ git config user.email ci@local  (cwd=/tmp/sp-manager-src-2.0/ksun)
-$ git config user.name synthetica-ci  (cwd=/tmp/sp-manager-src-2.0/ksun)
-$ git add -A  (cwd=/tmp/sp-manager-src-2.0/ksun)
-$ git commit -qm Synthetica 2.0  (cwd=/tmp/sp-manager-src-2.0/ksun)
-$ git tag -f 2.0  (cwd=/tmp/sp-manager-src-2.0/ksun)
-$ /tmp/sp-manager-src-2.0/ksun/manager/gradlew :app:assembleRelease --no-daemon --stacktrace -Pkotlin.jvm.target.validation.mode=warning  (cwd=/tmp/sp-manager-src-2.0/ksun/manager)
-Note: /tmp/sp-manager-src-2.0/ksun/manager/app/build/generated/aidl_source_output_dir/release/out/com/rifsxd/ksunext/IKsuInterface.java uses unchecked or unsafe operations.
-Note: Recompile with -Xlint:unchecked for details.
++ git init
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /tmp/sp-manager-src-2.0/.git/
++ git remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
++ git fetch --depth 1 origin ea51427ff700f73909e7e8c8717cc3241322ee1e
+From https://github.com/KernelSU-Next/KernelSU-Next
+ * branch            ea51427ff700f73909e7e8c8717cc3241322ee1e -> FETCH_HEAD
++ git checkout FETCH_HEAD
+Note: switching to 'FETCH_HEAD'.
 
-> Task :app:mergeReleaseGeneratedProguardFiles
-> Task :app:processReleaseJavaRes
-> Task :app:expandReleaseArtProfileWildcards
-> Task :app:mergeReleaseJavaResource
-> Task :app:minifyReleaseWithR8
-> Task :app:convertShrunkResourcesToBinaryRelease
-> Task :app:compileReleaseArtProfile
-> Task :app:optimizeReleaseResources
-> Task :app:packageRelease
-> Task :app:createReleaseApkListingFileRedirect
-> Task :app:assembleRelease
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
 
-[Incubating] Problems report is available at: file:///tmp/sp-manager-src-2.0/ksun/manager/build/reports/problems/problems-report.html
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at ea51427 ksud: enhance risk detection logic
+[ksud] Extracted arm64 libksud.so (5518544 bytes) -> /tmp/sp-manager-src-2.0/manager/app/src/main/jniLibs/arm64-v8a/libksud.so
++ /tmp/sp-manager-src-2.0/manager/gradlew :app:assembleRelease --no-daemon --stacktrace
+Downloading https://services.gradle.org/distributions/gradle-9.2.0-bin.zip
+............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+
+Welcome to Gradle 9.2.0!
+
+Here are the highlights of this release:
+ - Windows ARM support
+ - Improved publishing APIs
+ - Better guidance for dependency verification failures
+
+For more details see https://docs.gradle.org/9.2.0/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.2.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Type-safe project accessors is an incubating feature.
+
+> Configure project :app
+WARNING: The option setting 'android.enableAppCompileTimeRClass=true' is experimental.
+The current default is 'false'.
+WARNING: The option setting 'android.r8.maxWorkers=4' is experimental.
+The current default is '1'.
+w: file:///tmp/sp-manager-src-2.0/manager/app/build.gradle.kts:38:5: 'fun BaseAppModuleExtension.kotlinOptions(configure: Action<DeprecatedKotlinJvmOptions>): Unit' is deprecated. Please migrate to the compilerOptions DSL. More details are here: https://kotl.in/u1r8ln.
+w: file:///tmp/sp-manager-src-2.0/manager/app/build.gradle.kts:39:9: 'var jvmTarget: String' is deprecated. Please migrate to the compilerOptions DSL. More details are here: https://kotl.in/u1r8ln.
+Checking the license for package Android SDK Build-Tools 35 in /home/runner/android-sdk/licenses
+License for package Android SDK Build-Tools 35 accepted.
+Preparing "Install Android SDK Build-Tools 35 v.35.0.0".
+"Install Android SDK Build-Tools 35 v.35.0.0" ready.
+Installing Android SDK Build-Tools 35 in /home/runner/android-sdk/build-tools/35.0.0
+"Install Android SDK Build-Tools 35 v.35.0.0" complete.
+"Install Android SDK Build-Tools 35 v.35.0.0" finished.
+[=========                              ] 25%                                   
+> Task :app:mergeScripts
+> Task :app:preBuild
+> Task :app:preReleaseBuild
+
+> Task :app:configureCMakeRelease[arm64-v8a]
+C/C++: CMake Warning:
+C/C++:   Manually-specified variables were not used by the project:
+C/C++:     DEBUG_SYMBOLS_PATH
+
+> Task :app:buildCMakeRelease[arm64-v8a]
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:buildKotlinToolingMetadata
+> Task :app:stripReleaseDebugSymbols
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:mergeReleaseNativeDebugMetadata
+> Task :app:generateReleaseBuildConfig
+> Task :app:generateReleaseResValues
+> Task :app:generateReleaseResources
+> Task :app:compileReleaseAidl
+> Task :app:packageReleaseResources
+> Task :app:processReleaseNavigationResources
+> Task :app:parseReleaseLocalResources
+> Task :app:javaPreCompileRelease
+> Task :app:generateReleaseRFile
+> Task :app:mergeReleaseArtProfile
+> Task :app:checkReleaseAarMetadata
+> Task :app:compileReleaseNavigationResources
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseStartupProfile
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseResources
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseResources
+> Task :app:kspReleaseKotlin
+
+> Task :app:compileReleaseKotlin FAILED
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/component/SearchBar.kt:125:17 'fun RowScope.AnimatedVisibility(visible: Boolean, modifier: Modifier = ..., enter: EnterTransition = ..., exit: ExitTransition = ..., label: String = ..., content: @Composable() ComposableFunction1<AnimatedVisibilityScope, Unit>): Unit' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/component/SearchBar.kt:133:17 'fun RowScope.AnimatedVisibility(visible: Boolean, modifier: Modifier = ..., enter: EnterTransition = ..., exit: ExitTransition = ..., label: String = ..., content: @Composable() ComposableFunction1<AnimatedVisibilityScope, Unit>): Unit' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/About.kt:3:19 Unresolved reference 'Os'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/About.kt:66:17 Unresolved reference 'Os'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:5:19 Unresolved reference 'Os'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:171:21 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:171:35 Unresolved reference 'Os'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:175:39 Unresolved reference 'release'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:176:39 Unresolved reference 'machine'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:187:25 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:187:39 Unresolved reference 'Os'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:216:39 Unresolved reference 'release'.
+e: file:///tmp/sp-manager-src-2.0/manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt:217:39 Unresolved reference 'machine'.
+
+[Incubating] Problems report is available at: file:///tmp/sp-manager-src-2.0/manager/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+* Exception is:
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileReleaseKotlin'.
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
+	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:121)
+	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:41)
+	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+	at org.gradle.execution.plan.DefaultNodeExecutor.executeLocalTaskNode(DefaultNodeExecutor.java:55)
+	at org.gradle.execution.plan.DefaultNodeExecutor.execute(DefaultNodeExecutor.java:34)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:355)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:343)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:328)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:289)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:130)
+	at org.gradle.internal.Factories$1.create(Factories.java:33)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withoutLocks$2(DefaultWorkerLeaseService.java:344)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:342)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:326)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLock(DefaultWorkerLeaseService.java:331)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:126)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:92)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForAll(DefaultAsyncWorkTracker.java:78)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForCompletion(DefaultAsyncWorkTracker.java:66)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:260)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:237)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:220)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:203)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:170)
+	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:105)
+	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:44)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:59)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:56)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:56)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:44)
+	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:50)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:28)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:68)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.execute(RemovePreviousOutputsStep.java:38)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:61)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:26)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.execute(ResolveInputChangesStep.java:28)
+	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:189)
+	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:75)
+	at org.gradle.internal.Either$Right.fold(Either.java:176)
+	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:73)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:48)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:64)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.execute(ResolveChangesStep.java:35)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:62)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:40)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:76)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:45)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:136)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:66)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:38)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.execute(HandleStaleOutputsStep.java:75)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.execute(HandleStaleOutputsStep.java:41)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:297)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:44)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:31)
+	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:64)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
+	... 30 more
+Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
+	at org.jetbrains.kotlin.gradle.tasks.TasksUtilsKt.throwExceptionIfCompilationFailed(tasksUtils.kt:21)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:119)
+	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:74)
+	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:68)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:64)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:61)
+	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:100)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:61)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:58)
+	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:176)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:194)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:127)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:169)
+	at org.gradle.internal.Factories$1.create(Factories.java:33)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:269)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:267)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:259)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:132)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
+	... 2 more
+
 
 Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
 
@@ -35,71 +324,19 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.2.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 5s
-55 actionable tasks: 55 executed
-[gradle] built /tmp/sp-manager-src-2.0/ksun/manager/app/build/outputs/apk/release/KernelSU_Next_2.0_30001-release.apk (4542758 B)
-[package] verified net.ember.labs inside KernelSU_Next_2.0_30001-release.apk
-[jni] injected lib/arm64-v8a/libksud.so (5518544 B)
-[jni] libksud.so + libkernelsu.so present
-[jni] after injection: 8572185 B
-[tools] SDK build-tools: /home/runner/android-sdk/build-tools/36.1.0
-$ keytool -genkeypair -keystore /tmp/sp-manager-src-2.0/identity.p12 -storetype PKCS12 -alias synthetica -keyalg RSA -keysize 4096 -validity 10000 -storepass sp-manager-source -keypass sp-manager-source -dname CN=Synthetica Manager, O=Synthetica, C=ID
-Generating 4,096 bit RSA key pair and self-signed certificate (SHA384withRSA) with a validity of 10,000 days
-	for: CN=Synthetica Manager, O=Synthetica, C=ID
-$ /home/runner/android-sdk/build-tools/36.1.0/zipalign -p -f 4 /tmp/sp-manager-src-2.0/ksun/manager/app/build/outputs/apk/release/KernelSU_Next_2.0_30001-release.apk /tmp/sp-manager-src-2.0/manager-aligned.apk
-$ /home/runner/android-sdk/build-tools/36.1.0/apksigner sign --ks /tmp/sp-manager-src-2.0/identity.p12 --ks-key-alias synthetica --ks-pass pass:sp-manager-source --key-pass pass:sp-manager-source --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out /tmp/sp-manager-src-2.0/manager-signed.apk /tmp/sp-manager-src-2.0/manager-aligned.apk
-$ /home/runner/android-sdk/build-tools/36.1.0/apksigner verify --verbose --print-certs /tmp/sp-manager-src-2.0/manager-signed.apk
-Verifies
-Verified using v1 scheme (JAR signing): false
-Verified using v2 scheme (APK Signature Scheme v2): true
-Verified using v3 scheme (APK Signature Scheme v3): true
-Verified using v3.1 scheme (APK Signature Scheme v3.1): false
-Verified using v4 scheme (APK Signature Scheme v4): false
-Verified for SourceStamp: false
-Number of signers: 1
-Signer #1 certificate DN: CN=Synthetica Manager, O=Synthetica, C=ID
-Signer #1 certificate SHA-256 digest: 51a3fa0ea2b94d1cdf0f08c6369b72f819421f3293c819c1084f4a055847d104
-Signer #1 certificate SHA-1 digest: 6d4e26a6d4339396294700a96a525c0a0f78f36b
-Signer #1 certificate MD5 digest: b837bd37e293a3aa2b96db11f2cbafd6
-Signer #1 key algorithm: RSA
-Signer #1 key size (bits): 4096
-Signer #1 public key SHA-256 digest: 7e2025c35f0d365761d7d2bcb9da3756a59261c9210b0aca761e4367b2f20137
-Signer #1 public key SHA-1 digest: 6efc7342c71e3cbfca5850059b08c9993cd88d4e
-Signer #1 public key MD5 digest: 0711254a0de8a3762d41f6d773315cee
-$ keytool -exportcert -rfc -alias synthetica -keystore /tmp/sp-manager-src-2.0/identity.p12 -storepass sp-manager-source -file /tmp/sp-manager-src-2.0/cert.pem
-Certificate stored in file </tmp/sp-manager-src-2.0/cert.pem>
-$ openssl x509 -in /tmp/sp-manager-src-2.0/cert.pem -outform DER -out /tmp/sp-manager-src-2.0/cert.der
-{
-  "kind": "MANAGER_BUILT_FROM_SOURCE_GLASS_UI",
-  "version": "2.0",
-  "upstream": {
-    "repo": "KernelSU-Next/KernelSU-Next",
-    "commit": "31946acd2f529b2b24e5e4f0267cfacb5d13498c"
-  },
-  "output_apk": {
-    "name": "Synthetica-2.0.apk",
-    "bytes": 8637527,
-    "sha256": "e7a4e69b653174e9f72b57a21c2d767e952d8576683c9a9a7db487431c24b60a"
-  },
-  "package": "net.ember.labs",
-  "cert_der_bytes": 1319,
-  "cert_size_hex": "0x527",
-  "cert_sha256": "51a3fa0ea2b94d1cdf0f08c6369b72f819421f3293c819c1084f4a055847d104",
-  "theme": {
-    "palette": "iOS glass: pale gradient, system blue / mint / violet, white frosted cards",
-    "dynamic_color": "forced off (upstream default repainted the app from the wallpaper)",
-    "typography": "system sans, clean iOS style",
-    "splash": "custom Compose GlassSplash (Synthetica wordmark) + pale window splash",
-    "background": "animated soft colour fields behind every screen (GlassBackground)"
-  },
-  "jni_injected": [
-    "lib/arm64-v8a/libksud.so"
-  ],
-  "signed_with": "one-time key generated in this run; this APK becomes the pinned identity",
-  "limitations": [
-    "this is a themed fork of KernelSU-Next, not an independent manager",
-    "KernelSU-Next is GPL-3.0: the patches used here are in ci/ksun-overlay/ of this repo",
-    "every kernel that should accept this APK must embed this certificate"
-  ]
-}
-DONE: /home/runner/work/Syntenthica/Syntenthica/build-kit/artifacts/manager/Synthetica-2.0.apk (8637527 B) cert 1319 B
+BUILD FAILED in 1m 43s
+40 actionable tasks: 40 executed
+Traceback (most recent call last):
+  File "/home/runner/work/Syntenthica/Syntenthica/build-kit/scripts/build_manager_source.py", line 286, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/runner/work/Syntenthica/Syntenthica/build-kit/scripts/build_manager_source.py", line 280, in main
+    built_apk = build_gradle(src)
+                ^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/Syntenthica/Syntenthica/build-kit/scripts/build_manager_source.py", line 245, in build_gradle
+    run(
+  File "/home/runner/work/Syntenthica/Syntenthica/build-kit/scripts/build_manager_source.py", line 42, in run
+    subprocess.run(cmd, cwd=cwd, env=env, check=True)
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/tmp/sp-manager-src-2.0/manager/gradlew', ':app:assembleRelease', '--no-daemon', '--stacktrace']' returned non-zero exit status 1.
