@@ -1,0 +1,24 @@
+diff --git a/KernelSU-Next/kernel/manager/apk_sign.c b/KernelSU-Next/kernel/manager/apk_sign.c
+index e4fa7d97a..85fd5ce37 100644
+--- a/KernelSU-Next/kernel/manager/apk_sign.c
++++ b/KernelSU-Next/kernel/manager/apk_sign.c
+@@ -315,10 +315,15 @@ static __always_inline bool check_v2_signature(char *path,
+ clean:
+ 	filp_close(fp, 0);
+ 
+-	if (v2_signing_valid && (v3_signing_exist || v3_1_signing_exist)) {
+-		pr_err("Unexpected v3 signature scheme found!\n");
+-		return false;
+-	}
++	/*
++	 * Rollercoaster: blok v3/v3.1 TIDAK membatalkan hasil verifikasi v2.
++	 * Identitas Manager tetap ditentukan sertifikat di blok v2 (ukuran + sha256)
++	 * dan digest v2 menutup seluruh isi APK. Menolak v3 membuat setiap APK yang
++	 * ditandatangani alat modern (v2+v3) tidak dikenali kernel, sehingga Manager
++	 * tampil "No root" walau su berjalan (gejala m0 pada /proc/version).
++	 */
++	if (v2_signing_valid && (v3_signing_exist || v3_1_signing_exist))
++		pr_info("v3 signature block found, v2 verified - accepted (Rollercoaster)\n");
+ 
+ 	return v2_signing_valid;
+ }

@@ -1,0 +1,28 @@
+--- a/include/linux/cred.h
++++ b/include/linux/cred.h
+@@ -263,6 +263,25 @@
+  * on task_struct are attached by const pointers to prevent accidental
+  * alteration of otherwise immutable credential sets.
+  */
++/*
++ * get_cred_rcu - get a reference on a credential set under RCU
++ * @cred: the credential set
++ *
++ * Added explicitly for SUSFS. This tree stores cred->usage as atomic_long_t,
++ * so the reference must be taken with atomic_long_inc_not_zero(); the older
++ * spelling (atomic_inc_not_zero on atomic_t) does not compile here.
++ */
++static inline const struct cred *get_cred_rcu(const struct cred *cred)
++{
++	struct cred *nonconst_cred = (struct cred *) cred;
++	if (!cred)
++		return NULL;
++	if (!atomic_long_inc_not_zero(&nonconst_cred->usage))
++		return NULL;
++	validate_creds(cred);
++	return cred;
++}
++
+ static inline void put_cred(const struct cred *_cred)
+ {
+ 	struct cred *cred = (struct cred *) _cred;

@@ -1,0 +1,59 @@
+diff --git a/drivers/misc/aw8624_haptic/aw8624.c b/drivers/misc/aw8624_haptic/aw8624.c
+index fc5f02a33..f7bde8a84 100755
+--- a/drivers/misc/aw8624_haptic/aw8624.c
++++ b/drivers/misc/aw8624_haptic/aw8624.c
+@@ -3954,34 +3954,6 @@ static struct attribute_group aw8624_vibrator_attribute_group = {
+  * i2c driver
+  *
+  ******************************************************/
+-static int aw8624_timed_output_get_time(struct timed_output_dev *sdev)
+-{
+-	struct aw8624 *aw8624 = container_of(sdev, struct aw8624, timed_output);
+-
+-	if (hrtimer_active(&aw8624->timer))
+-		return ktime_to_ms(hrtimer_get_remaining(&aw8624->timer));
+-
+-	return aw8624->state ? aw8624->duration : 0;
+-}
+-
+-static void aw8624_timed_output_enable(struct timed_output_dev *sdev, int timeout)
+-{
+-	struct aw8624 *aw8624 = container_of(sdev, struct aw8624, timed_output);
+-
+-	mutex_lock(&aw8624->lock);
+-	aw8624->duration = timeout;
+-
+-	if (timeout > 0) {
+-		aw8624->state = 1;
+-		aw8624_haptic_start(aw8624);
+-	} else {
+-		aw8624->state = 0;
+-		aw8624_haptic_stop(aw8624);
+-	}
+-
+-	mutex_unlock(&aw8624->lock);
+-}
+-
+ static int
+ aw8624_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
+ {
+diff --git a/drivers/misc/aw8624_haptic/aw8624.h b/drivers/misc/aw8624_haptic/aw8624.h
+index f0decbe69..9182f4de8 100755
+--- a/drivers/misc/aw8624_haptic/aw8624.h
++++ b/drivers/misc/aw8624_haptic/aw8624.h
+@@ -22,7 +22,6 @@
+ #include <linux/cdev.h>
+ #include <linux/leds.h>
+ #include <linux/atomic.h>
+-#include <linux/timed_output.h>
+ 
+ /*********************************************************
+  *
+@@ -314,7 +313,6 @@ struct aw8624 {
+ 	struct work_struct rtp_work;
+ 	struct delayed_work ram_work;
+ 	struct delayed_work stop_work;
+-    struct timed_output_dev timed_output;
+ 
+ 	struct fileops fileops;
+ 	struct ram ram;

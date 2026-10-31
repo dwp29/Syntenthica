@@ -1,0 +1,180 @@
+name: "Synthetica 2.0 (manager glass UI first, then daily kernel - one matched batch)"
+# 2.0 fixes the two defects of the 1.20 manager build:
+#   1. it shipped with applicationId com.rifsxd.ksunext, so it installed as a SECOND app labelled
+#      "KernelSU Next" next to the real SYNTHETICA NEXT, and the running 1.19.1 kernel rejected it
+#      (different certificate) - which read on the phone as "root gone, UI unchanged";
+#   2. it was missing the 5.5 MB libksud.so (5.1 MB APK instead of 9.3 MB).
+# Both are now applied and ASSERTED before signing: package id read back out of the built manifest,
+# libksud.so/libkernelsu.so presence checked.
+#
+# 1.20 shipped 5.1 MB instead of 9.3 MB: the release build had no libksud.so, because upstream
+# produces that 5.5 MB binary in ITS CI (jniLibs/ is gitignored) and copies it in before Gradle.
+# Without that step the manager would install without the embedded ksud, which it uses for
+# install/repair flows. 2.0 injects the byte-identical binary from the known-good
+# ci/rollercoaster/manager/base.apk after Gradle and asserts it is present before signing.
+#
+# Order matters (requested): the manager APK is built FIRST; the kernel job needs it and embeds
+# its certificate, so this batch cannot produce a "no root" mismatch. Kernel base is the proven
+# 1.16 recipe (tree c1e6f795, chronicle lineage) with the new `synthetica` daily profile.
+on:
+  workflow_dispatch:
+  push:
+    # TEMPORARY: removed as soon as this run is queued.
+    branches: [arena/ffb5a788-krnlproject]
+    paths:
+      - 'ci/ksun-overlay/**'
+      - 'ci/build_manager_source.py'
+      - 'ci/ksun-overlay/**'
+      - 'ci/branding/**'
+      - 'ci/build_chronicle_base.py'
+      - 'ci/package_release.py'
+      - 'ci/release/anykernel.sh'
+      - 'ci/rollercoaster/**'
+      - '.github/workflows/build-2.0.yml'
+permissions:
+  contents: write
+concurrency:
+  group: synthetica-2-0
+  cancel-in-progress: false
+
+jobs:
+  manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    name: 1/2 manager APK (Synthetica, iOS glass UI)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android SDK (manual, no third-party action)
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -sSLo /tmp/cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platform-tools" "platforms;android-36" "build-tools;36.1.0" \
+            "ndk;29.0.14206865" "cmake;3.22.1" 2>&1 | tail -6
+          ls "$SDK"
+      - name: Build, sign, measure
+        env:
+          SP_RELEASE_VERSION: '2.0'
+          SP_WORK_DIR: /tmp/sp-manager-src
+        run: |
+          set -euo pipefail
+          python3 ci/build_manager_source.py 2>&1 | tee manager-src.log
+          test -f artifacts/manager/MANAGER.json
+      - name: Retain manager
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: SP-MANAGER-2.0-${{ github.run_id }}
+          path: |
+            artifacts/manager/
+            manager-src.log
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Publish APK + identity (and the log when it failed)
+        if: always()
+        env:
+          REC_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          remote="https://x-access-token:${REC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for i in 1 2 3; do
+            d=/tmp/rec-mgr-$$
+            rm -rf "$d"
+            git clone -q --depth 1 -b ci-records-release "$remote" "$d" || { mkdir -p "$d"; ( cd "$d" && git init -q -b ci-records-release ); git -C "$d" remote add origin "$remote"; }
+            mkdir -p "$d/synthetica-2.0"
+            cp -f artifacts/manager/*.apk "$d/synthetica-2.0/" 2>/dev/null || true
+            cp -f artifacts/manager/MANAGER.json "$d/synthetica-2.0/" 2>/dev/null || true
+            cp -f artifacts/manager/FAILED.txt "$d/synthetica-2.0/" 2>/dev/null || true
+            # the CI log is not readable from outside, so keep the interesting tail in the repo
+            tail -n 400 manager-src.log > "$d/synthetica-2.0/MANAGER-BUILD-LOG.txt" 2>/dev/null || true
+            git -C "$d" config user.name synthetica-ci
+            git -C "$d" config user.email ci-records@users.noreply.github.com
+            git -C "$d" add -A
+            git -C "$d" commit -qm "Synthetica 2.0 manager (run ${GITHUB_RUN_ID})" || true
+            git -C "$d" push -q "$remote" HEAD:refs/heads/ci-records-release && { echo published; break; }
+            sleep 6
+          done
+
+  kernel:
+    needs: manager
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    name: 2/2 kernel (daily, base 1.16 recipe)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install host toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18 llvm-18 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils \
+            python3 patch openssl zip rsync
+          mkdir -p artifacts
+          { clang-18 --version | head -1; ld.lld-18 --version; } | tee artifacts/TOOLCHAIN.txt
+      - name: Fetch manager identity
+        uses: actions/download-artifact@v4
+        with:
+          name: SP-MANAGER-2.0-${{ github.run_id }}
+          path: artifacts/manager-src
+      - name: Use that certificate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/manager
+          cp -f artifacts/manager-src/artifacts/manager/MANAGER.json artifacts/manager/ 2>/dev/null || \
+            cp -f artifacts/manager-src/MANAGER.json artifacts/manager/
+          cp -f artifacts/manager-src/artifacts/manager/*.apk artifacts/manager/ 2>/dev/null || true
+          python3 -c "import json;d=json.load(open('artifacts/manager/MANAGER.json'));print('cert',d['cert_der_bytes'],d['cert_sha256'][:16])"
+      - name: Build chronicle
+        env:
+          SP_JOBS: '4'
+          SP_RELEASE_VERSION: '2.0'
+          SP_PROFILE: 'synthetica'
+          SP_BUILD_NAME: 'Synthetica'
+          SP_BUILD_KVER: '2.0'
+          SP_WORK_DIR: /tmp/sp-chronicle
+        run: python3 ci/build_chronicle_base.py
+      - name: Package
+        run: python3 ci/package_release.py 2>&1 | tee -a artifacts/build.log
+      - name: Retain kernel
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: SP-2.0-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Publish records
+        if: always()
+        continue-on-error: true
+        env:
+          REC_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          d=/tmp/rec-v2.0
+          rm -rf "$d"
+          remote="https://x-access-token:${REC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone -q --depth 1 -b ci-records-release "$remote" "$d" || { mkdir -p "$d"; ( cd "$d" && git init -q -b ci-records-release ); git -C "$d" remote add origin "$remote"; }
+          mkdir -p "$d/synthetica-2.0"
+          for f in artifacts/STATUS.json artifacts/RELEASE-INFO.json artifacts/RELEASE-SHA256SUMS.txt \
+                   artifacts/generated.config.txt artifacts/build.log artifacts/FAILED.txt \
+                   artifacts/ARTIFACTS-MANIFEST.txt artifacts/manager/MANAGER.json artifacts/TOOLCHAIN.txt; do
+            [ -f "$f" ] && cp "$f" "$d/synthetica-2.0/" || true
+          done
+          git -C "$d" config user.name synthetica-ci
+          git -C "$d" config user.email ci-records@users.noreply.github.com
+          git -C "$d" add -A
+          git -C "$d" commit -qm "Synthetica 2.0 kernel records (run ${GITHUB_RUN_ID})" || true
+          git -C "$d" push -q "$remote" HEAD:refs/heads/ci-records-release || true

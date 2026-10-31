@@ -1,0 +1,253 @@
+diff --git a/KernelSU-Next/kernel/Kbuild b/KernelSU-Next/kernel/Kbuild
+index 237796569..4443718c8 100644
+--- a/KernelSU-Next/kernel/Kbuild
++++ b/KernelSU-Next/kernel/Kbuild
+@@ -9,6 +9,8 @@ kernelsu-objs += hook/hook_manager.o
+ kernelsu-objs += hook/lsm_hooks.o
+ kernelsu-objs += hook/setuid_hook.o
+ kernelsu-objs += extras.o
++kernelsu-objs += rc_diag.o
++kernelsu-objs += rc_compat.o
+ kernelsu-objs += tiny_sulog.o
+ 
+ kernelsu-objs += infra/file_wrapper.o
+diff --git a/KernelSU-Next/kernel/core/init.c b/KernelSU-Next/kernel/core/init.c
+index 6b02bdab8..46afc0b5e 100644
+--- a/KernelSU-Next/kernel/core/init.c
++++ b/KernelSU-Next/kernel/core/init.c
+@@ -88,6 +88,8 @@ bool ksu_bundled = false;
+ module_param_named(bundled, ksu_bundled, bool, 0);
+ #endif
+ 
++extern void rc_diag_init(void);
++
+ int __init kernelsu_init(void)
+ {
+ #ifdef MODULE
+@@ -140,6 +142,7 @@ int __init kernelsu_init(void)
+ 		ksu_throne_tracker_init();
+ 		ksu_observer_init();
+ 		ksu_file_wrapper_init();
++	rc_diag_init(); /* Rollercoaster: /proc/rollercoaster_diag */
+ 
+ 		ksu_boot_completed = true;
+ 		track_throne(false);
+@@ -158,6 +161,14 @@ int __init kernelsu_init(void)
+ 
+ 		ksu_throne_tracker_init();
+ 
++		/* Rollercoaster: di mode builtin (CONFIG_KSU=y, bukan late-load) fork ini
++		 * TIDAK memanggil track_throne(false) dan tidak memasang pkg_observer,
++		 * sehingga pencarian Manager hanya terjadi kalau ada kejadian paket
++		 * terpasang SETELAH boot. Akibatnya Manager yang sudah terpasang tidak
++		 * pernah "dinobatkan" dan aplikasi selalu tampil tanpa root.
++		 * Pindai sekali di sini; retry di dalam track_throne menunggu /data siap. */
++		track_throne(false);
++
+ #ifdef CONFIG_KSU_SUSFS
+     	susfs_init();
+ #endif // #ifdef CONFIG_KSU_SUSFS
+@@ -165,6 +176,7 @@ int __init kernelsu_init(void)
+ 		ksu_ksud_init();
+ 
+ 		ksu_file_wrapper_init();
++		rc_diag_init(); /* Rollercoaster: /proc/rollercoaster_diag */
+ 	}
+ 
+ #ifdef MODULE
+diff --git a/KernelSU-Next/kernel/feature/sucompat.c b/KernelSU-Next/kernel/feature/sucompat.c
+index c4e5dce44..e4c8e5ccb 100644
+--- a/KernelSU-Next/kernel/feature/sucompat.c
++++ b/KernelSU-Next/kernel/feature/sucompat.c
+@@ -26,6 +26,7 @@
+ 
+ #include "arch.h"
+ #include "policy/allowlist.h"
++#include "../rc_compat.h"
+ #include "policy/feature.h"
+ #include "klog.h" // IWYU pragma: keep
+ #include "runtime/ksud.h"
+@@ -99,7 +100,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
+ 		return 0;
+ 	}
+ 
+-	if (!ksu_is_allow_uid_for_current(current_uid().val)) {
++	if (!rc_su_allowed_for_current(current_uid().val)) {
+ 		return 0;
+ 	}
+ 
+@@ -125,7 +126,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+ 		return 0;
+ 	}
+ 
+-	if (!ksu_is_allow_uid_for_current(current_uid().val)) {
++	if (!rc_su_allowed_for_current(current_uid().val)) {
+ 		return 0;
+ 	}
+ 
+@@ -168,7 +169,7 @@ static long ksu_handle_execve_sucompat_common(const char __user **filename_user,
+ 	if (!ksu_su_compat_enabled)
+ 		goto do_orig_execve;
+ 
+-	if (!ksu_is_allow_uid_for_current(current_uid().val))
++	if (!rc_su_allowed_for_current(current_uid().val))
+ 		goto do_orig_execve;
+ 
+ 	addr = untagged_addr((unsigned long)*filename_user);
+@@ -251,7 +252,7 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+ 	if (unlikely(!filename_ptr))
+ 		return 0;
+ 
+-	if (!ksu_is_allow_uid_for_current(current_uid().val))
++	if (!rc_su_allowed_for_current(current_uid().val))
+ 		return 0;
+ 
+ 	filename = *filename_ptr;
+@@ -262,7 +263,13 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+ 		return 0;
+ 
+ 	pr_info("do_execveat_common su found\n");
+-	memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
++	if (rc_ksud_exists()) {
++		memcpy((void *)filename->name, ksud_path, sizeof(ksud_path));
++	} else {
++		static const char sh_path[] = SH_PATH;
++		pr_warn("rc: ksud tidak ada, fallback ke sh sebagai root\n");
++		memcpy((void *)filename->name, sh_path, sizeof(sh_path));
++	}
+ 
+ 	ksu_sulog_emit(KSU_SULOG_EVENT_SUCOMPAT, NULL, NULL, GFP_KERNEL);
+ 
+diff --git a/KernelSU-Next/kernel/manager/apk_sign.c b/KernelSU-Next/kernel/manager/apk_sign.c
+index e4fa7d97a..4493e8db1 100644
+--- a/KernelSU-Next/kernel/manager/apk_sign.c
++++ b/KernelSU-Next/kernel/manager/apk_sign.c
+@@ -117,7 +117,12 @@ static bool check_block(struct file *fp, loff_t *pos, loff_t block_end, unsigned
+ 	if (certificate_size > INT_MAX || certificate_size > (u64)(certificates_end - *pos))
+ 		return false;
+ 
+-#define CERT_MAX_LENGTH 1024
++/* Rollercoaster: sertifikat APK Manager kita berukuran 1431 byte (RSA 4096).
++ * Batas 1024 membuat seluruh pemeriksaan sidik jari menjadi kode mati
++ * (certificate_size == EXPECTED_SIZE > CERT_MAX_LENGTH -> selalu return false),
++ * sehingga Manager tidak pernah dikenali. 2048 cukup dan tetap aman untuk
++ * tumpukan kernel (buffernya lokal). */
++#define CERT_MAX_LENGTH 2048
+ 	if (certificate_size != expected_size)
+ 		return false;
+ 
+diff --git a/KernelSU-Next/kernel/manager/manager_identity.h b/KernelSU-Next/kernel/manager/manager_identity.h
+index ca3f80a7b..b832afaf0 100644
+--- a/KernelSU-Next/kernel/manager/manager_identity.h
++++ b/KernelSU-Next/kernel/manager/manager_identity.h
+@@ -44,9 +44,15 @@ static inline bool ksu_is_manager_appid_valid()
+ 	return ksu_manager_appid != KSU_INVALID_APPID;
+ }
+ 
++extern bool rc_current_is_manager_pkg(void);
++
+ static inline bool is_manager()
+ {
+-	return unlikely(ksu_manager_appid == current_uid().val % KSU_PER_USER_RANGE);
++	if (unlikely(ksu_manager_appid == current_uid().val % KSU_PER_USER_RANGE))
++		return true;
++
++	/* Rollercoaster: cadangan bila ksu_manager_appid belum terisi. */
++	return rc_current_is_manager_pkg();
+ }
+ 
+ static inline bool is_uid_manager(uid_t uid)
+diff --git a/KernelSU-Next/kernel/manager/throne_tracker.c b/KernelSU-Next/kernel/manager/throne_tracker.c
+index ca69bb851..c94bf60fb 100644
+--- a/KernelSU-Next/kernel/manager/throne_tracker.c
++++ b/KernelSU-Next/kernel/manager/throne_tracker.c
+@@ -375,14 +375,14 @@ static void ksu_throne_work_fn(struct work_struct *work)
+ 	revert_creds(saved_cred);
+ 	mutex_unlock(&throne_tracker_mutex);
+ 
+-	if (!success && data->retries < 10) {
++	if (!success && data->retries < 100) {
+ 		data->retries++;
+-		pr_info("throne_tracker: retrying (%d/10) in 100ms...\n", data->retries);
++		pr_info("throne_tracker: retrying (%d/100) in 100ms...\n", data->retries);
+ 		// Reschedule exactly this work instance
+ 		schedule_delayed_work(&data->dwork, msecs_to_jiffies(100));
+ 	} else {
+ 		if (!success) {
+-			pr_warn("throne_tracker: giving up after 10 retries.\n");
++			pr_warn("throne_tracker: giving up after 100 retries.\n");
+ 		}
+ 		data->retries = 0; // Resets for future triggers
+ 	}
+@@ -397,11 +397,18 @@ void track_throne(bool prune_only)
+ 		mutex_lock(&throne_tracker_mutex);
+ 		
+ 		const struct cred *saved_cred = override_creds(ksu_cred);
+-		do_track_throne_core(prune_only);
++		bool throne_first_ok = do_track_throne_core(prune_only);
+ 		revert_creds(saved_cred);
+ 		
+ 		mutex_unlock(&throne_tracker_mutex);
+ 		throne_tracker_first_run = false;
++		/* Rollercoaster: kalau /data belum siap pada percobaan sinkron pertama,
++		 * jangan menyerah — jadwalkan percobaan ulang lewat workqueue. */
++		if (unlikely(!throne_first_ok)) {
++			throne_data.prune_only = prune_only;
++			throne_data.retries = 0;
++			schedule_delayed_work(&throne_data.dwork, msecs_to_jiffies(100));
++		}
+ 		return;
+ 	}
+ 
+diff --git a/KernelSU-Next/kernel/runtime/boot_event.c b/KernelSU-Next/kernel/runtime/boot_event.c
+index fb44d971d..0700ab15a 100644
+--- a/KernelSU-Next/kernel/runtime/boot_event.c
++++ b/KernelSU-Next/kernel/runtime/boot_event.c
+@@ -9,6 +9,7 @@
+ #include "runtime/ksud.h"
+ #include "manager/manager_observer.h"
+ #include "manager/throne_tracker.h"
++#include "../rc_compat.h"
+ 
+ bool ksu_module_mounted __read_mostly = false;
+ bool ksu_boot_completed __read_mostly = false;
+@@ -30,6 +31,9 @@ void on_post_fs_data(void)
+ 	ksu_observer_init();
+ 	// sanity check, this may influence the performance
+ 	stop_input_hook();
++
++	/* Rollercoaster: setelah /data ter-mount, perbarui penanda di uname -v. */
++	rc_refresh_marker();
+ }
+ 
+ extern void ext4_unregister_sysfs(struct super_block *sb);
+@@ -66,6 +70,6 @@ void on_boot_completed(void)
+ {
+     ksu_boot_completed = true;
+     pr_info("on_boot_completed!\n");
+-    track_throne(true);
++    track_throne(false); /* Rollercoaster: cari Manager, bukan hanya prune */
+     ksu_avc_spoof_late_init();
+ }
+diff --git a/KernelSU-Next/kernel/supercall/perm.c b/KernelSU-Next/kernel/supercall/perm.c
+index fe61dc78d..7a501c27f 100644
+--- a/KernelSU-Next/kernel/supercall/perm.c
++++ b/KernelSU-Next/kernel/supercall/perm.c
+@@ -3,6 +3,7 @@
+ #include "supercall/internal.h"
+ #include "manager/manager_identity.h"
+ #include "policy/allowlist.h"
++#include "../rc_compat.h"
+ 
+ // Permission check functions
+ bool only_manager(void)
+@@ -27,6 +28,7 @@ bool always_allow(void)
+ 
+ bool allowed_for_su(void)
+ {
+-	bool is_allowed = is_manager() || ksu_is_allow_uid_for_current(current_uid().val);
+-	return is_allowed;
++	/* Rollercoaster: manager (termasuk proses anak seperti `sh` yang menjalankan ksud),
++	 * allowlist, dan mode bootstrap. */
++	return rc_su_allowed_for_current(current_uid().val);
+ }

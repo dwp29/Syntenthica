@@ -1,0 +1,66 @@
+{
+  "kind": "RELEASE_1.16_PACKAGES_UNQUALIFIED_FLASH_AT_OWN_RISK",
+  "release_version": "1.16",
+  "uname_release": "4.14.357-openela-SYNTHETICA-PULSE-1.16",
+  "kernel_image_gz_sha256": "0ac323639de49a8f69adea6e40bd310f1c82524cc491f13e982b28a35109986f",
+  "kernel_image_gz_bytes": 14571455,
+  "flashable_zip": {
+    "name": "SYNTHETICA-PULSE-1.16-flashable.zip",
+    "bytes": 21569560,
+    "sha256": "2b8f98d8556b711ec506e596f9f16617a4eb70b7df85613b586c5c87d9d8845f"
+  },
+  "log_collector_zip": {
+    "name": "SYNTHETICA-PULSE-1.16-log-collector.zip",
+    "bytes": 861635,
+    "sha256": "48fa2b97e6b172d047c3f41ec4209d4c22e0c89ae19de6f84d7a1a5043a24743"
+  },
+  "anykernel3": {
+    "repository": "osm0sis/AnyKernel3",
+    "commit": "41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1",
+    "archive_url": "https://codeload.github.com/osm0sis/AnyKernel3/tar.gz/41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1",
+    "archive_bytes": 3099416,
+    "archive_sha256": "792b37fec7d1221570a4f1deb777a2d2cb8261596b1465a70bd7abfb30e268a2"
+  },
+  "flashable_entries": [
+    "BUILD-INFO.txt",
+    "Image.gz",
+    "LICENSE",
+    "META-INF/com/google/android/update-binary",
+    "META-INF/com/google/android/updater-script",
+    "README-FLASH.txt",
+    "anykernel.sh",
+    "ksud",
+    "tools/ak3-core.sh",
+    "tools/busybox",
+    "tools/fec",
+    "tools/httools_static",
+    "tools/lptools_static",
+    "tools/magiskboot",
+    "tools/magiskpolicy",
+    "tools/snapshotupdater_static"
+  ],
+  "log_collector_entries": [
+    "META-INF/com/google/android/update-binary",
+    "META-INF/com/google/android/updater-script",
+    "README-FLASH.txt",
+    "tools/busybox"
+  ],
+  "installer_behaviour": [
+    "backs up current boot partition to <storage>/synthetica-pulse-backups/",
+    "aborts without writing if no writable storage is available",
+    "no auto reboot",
+    "no modules",
+    "no /data writes"
+  ],
+  "log_collector_behaviour": [
+    "read-only",
+    "writes only under <storage>/synthetica-logs/",
+    "collects dmesg, last_kmsg, pstore, recovery logs, partition hashes",
+    "13-installed-kernel.txt: kernel version strings read out of the live boot partition",
+    "14-installed-zip.txt: which SYNTHETICA-PULSE zip is on storage",
+    "12-backup-listing/: copies BACKUP-INFO.txt (pre-flash boot sha256)"
+  ],
+  "physical_boot_root_tests": 0,
+  "bootloop_fix_proven": false,
+  "private_signing_key_exported": false
+}

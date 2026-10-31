@@ -1,0 +1,65 @@
+{
+  "kind": "manager rebrand + pinned-key signing, measured for the kernel",
+  "version": "1.19.1",
+  "brand": "SYNTHETICA NEXT",
+  "base_apk": {
+    "name": "base.apk",
+    "bytes": 8456822,
+    "sha256": "d0aeef4c85cf1cfb720ddef8e7b7c0a2eefb6db1f4be4cb943b5ac017baad5aa"
+  },
+  "output_apk": {
+    "name": "SYNTHETICA-NEXT-MANAGER-1.19.1.apk",
+    "bytes": 9324793,
+    "sha256": "a98d675b05481537394fc6814922df6f54ce6b5fa78242bdac67596acbf07dcb"
+  },
+  "package_was": "com.rifsxd.ksunext",
+  "package": "net.ember.labs",
+  "cert_der_bytes": 1341,
+  "cert_size_hex": "0x53d",
+  "cert_sha256": "98722b6f45dec3b445a49aa8fe77f156bfb5d78a966da41da2cf018f218a605d",
+  "signed_with": "pinned identity: this APK is kept and every later kernel embeds its certificate, so no private key is stored anywhere",
+  "branding": {
+    "label_files": [
+      "res/values-bg-rBG/strings.xml",
+      "res/values-bn-rBD/strings.xml",
+      "res/values-de-rDE/strings.xml",
+      "res/values-es-rEM/strings.xml",
+      "res/values-fa-rIR/strings.xml",
+      "res/values-fr-rFR/strings.xml",
+      "res/values-hi-rIN/strings.xml",
+      "res/values-hu-rHU/strings.xml",
+      "res/values-in-rID/strings.xml",
+      "res/values-it-rIT/strings.xml",
+      "res/values-ja-rJP/strings.xml",
+      "res/values-ko-rKR/strings.xml",
+      "res/values-pl-rPL/strings.xml",
+      "res/values-pt-rBR/strings.xml",
+      "res/values-ru-rRU/strings.xml",
+      "res/values-sv-rSE/strings.xml",
+      "res/values-th-rTH/strings.xml",
+      "res/values-tr-rTR/strings.xml",
+      "res/values-uk-rUA/strings.xml",
+      "res/values-vi-rVN/strings.xml",
+      "res/values-zh-rCN/strings.xml",
+      "res/values-zh-rTW/strings.xml",
+      "res/values/strings.xml"
+    ],
+    "icons": [
+      "res/mipmap-xhdpi/ic_launcher.png <- ic_launcher-xhdpi.png",
+      "res/mipmap-xxhdpi/ic_launcher.png <- ic_launcher-xxhdpi.png",
+      "res/mipmap-hdpi/ic_launcher.png <- ic_launcher-hdpi.png",
+      "res/mipmap-xxxhdpi/ic_launcher.png <- ic_launcher-xxxhdpi.png",
+      "res/mipmap-mdpi/ic_launcher.png <- ic_launcher-mdpi.png",
+      "res/mipmap-anydpi/ic_launcher.xml <- adaptive (sp_fg/sp_bg)"
+    ],
+    "splash": [
+      "res/values/styles.xml"
+    ],
+    "splash_bg": "#04040A"
+  },
+  "install_hint": "update over the previous manager (same package + same key). Kernels built before 1.19 were signed against a different key and will not accept this APK - use the APK and the kernel from the same batch.",
+  "limitations": [
+    "Compose screens inside the app cannot be restyled from outside; this changes the label, launcher icons and splash, not the in-app UI",
+    "does not hide mounts or files (SuSFS kernel_umount / sus_path + App Profile do that)"
+  ]
+}

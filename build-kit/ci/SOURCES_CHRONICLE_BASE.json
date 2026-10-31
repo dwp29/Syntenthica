@@ -1,0 +1,19 @@
+{
+  "label": "chronicle-base-tree",
+  "repository": "Saamitk/kernel_xiaomi_sm6250-switchoff",
+  "commit": "c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "ref": "a",
+  "archive_url": "https://codeload.github.com/Saamitk/kernel_xiaomi_sm6250-switchoff/tar.gz/c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "archive_bytes": 200408248,
+  "archive_sha256": "a68c9e306a3e14de92a258b185531a2562e3631f616a74b7882fc2667ac10ec0",
+  "measured_at": "2026-10-29T03:30Z",
+  "measured_by": "sandbox download of codeload tar.gz, sha256 over the archive as stored",
+  "evidence": [
+    "drivers/kernelsu is a symlink to ../KernelSU-Next/kernel",
+    "drivers/Makefile:195 obj-$(CONFIG_KSU) += kernelsu/",
+    "drivers/Kconfig:228 source \"drivers/kernelsu/Kconfig\"",
+    "arch/arm64/configs/vendor/xiaomi/miatoll_defconfig present (defconfig base used by the builder)",
+    "AnyKernel3/ present in the tree",
+    "all four ci/rollercoaster/patches/*.patch apply cleanly with git apply --check"
+  ]
+}

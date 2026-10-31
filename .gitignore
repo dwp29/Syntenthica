@@ -1,0 +1,15 @@
+# Private signing keys - NEVER commit or upload
+secretkey/
+*.p12
+*.jks
+*.keystore
+*.pem
+*.der
+*.key
+
+# Raw extracted trees / downloads
+kernel-tree/
+manager-source/
+Synthetica-2.0-SOURCE*
+google_drive/
+.work-*

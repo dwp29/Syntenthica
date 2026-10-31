@@ -1,0 +1,20 @@
+Fix a duplicate declaration that breaks any build with CONFIG_FUNCTION_TRACER.
+
+kernel/trace/trace_event_perf.c declares `struct perf_event *event;` twice inside
+perf_ftrace_function_call(). The enclosing #ifdef CONFIG_FUNCTION_TRACER is never
+compiled in the shipped miatoll_defconfig, so the tree builds as published, but
+enabling the function tracer (needed to match the export set of the kernel that
+boots on this device) fails with "redefinition of 'event'".
+
+This is a compiler-error fix only: no behaviour change, no config change.
+
+--- a/kernel/trace/trace_event_perf.c
++++ b/kernel/trace/trace_event_perf.c
+@@ -428,7 +428,6 @@
+ {
+ 	struct perf_event *event;
+ 	struct ftrace_entry *entry;
+-	struct perf_event *event;
+ 	struct hlist_head head;
+ 	struct pt_regs regs;
+ 	int rctx;

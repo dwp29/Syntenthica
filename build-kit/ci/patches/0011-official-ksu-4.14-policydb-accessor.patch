@@ -1,0 +1,21 @@
+--- a/kernel/selinux/rules.c
++++ b/kernel/selinux/rules.c
+@@ -19,8 +19,18 @@
+ static struct policydb *get_policydb(void)
+ {
+ 	struct policydb *db;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+ 	struct selinux_policy *policy = rcu_dereference(selinux_state.policy);
+ 	db = &policy->policydb;
++#else
++	/*
++	 * Kernel 4.14 has no selinux_policy wrapper: the loaded policy lives in the
++	 * selinux_ss substructure of selinux_state (same accessor the tree uses in
++	 * security/selinux/ss/services.c).
++	 */
++	struct selinux_ss *ss = selinux_state.ss;
++	db = &ss->policydb;
++#endif
+ 	return db;
+ }
+ 

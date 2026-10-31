@@ -1,0 +1,20 @@
+[
+  {
+    "label": "kernel",
+    "repository": "crdroidandroid/android_kernel_xiaomi_sm6250",
+    "commit": "8b4afb3dd59ea7f94bef73d61bc23a2b713b1df7",
+    "archive_url": "https://codeload.github.com/crdroidandroid/android_kernel_xiaomi_sm6250/tar.gz/8b4afb3dd59ea7f94bef73d61bc23a2b713b1df7",
+    "archive_bytes": 198910430,
+    "archive_sha256": "cf006825574ff944a4e3a4663c3d6a7946a0e35373bae2d3a389ae233b892274",
+    "extraction_path": "/home/user/build/synthetica-r0/kernel"
+  },
+  {
+    "label": "ksu",
+    "repository": "KernelSU-Next/KernelSU-Next",
+    "commit": "465490a26667ba4cf00b3be975a7e28e53978829",
+    "archive_url": "https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/465490a26667ba4cf00b3be975a7e28e53978829",
+    "archive_bytes": 129205,
+    "archive_sha256": "5839b4f740c434c837906291c2c82b59e18ca294f3532b1255e653ea1d9d12fd",
+    "extraction_path": "/home/user/build/synthetica-r0/ksu"
+  }
+]

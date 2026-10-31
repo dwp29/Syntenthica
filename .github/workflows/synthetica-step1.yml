@@ -1,0 +1,100 @@
+name: "Synthetica 2.0 - Step 1/3 Manager APK (Unsigned Build)"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-step1.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: synthetica-2-0-step1
+  cancel-in-progress: false
+
+jobs:
+  manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    name: "Step 1: Build Manager APK (Ubuntu 24.04, JDK 21, SDK 36 / BT 36.1.0 / NDK 29.0.14206865 / CMake 3.22.1)"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Android SDK (exact required versions)
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -sSLo /tmp/cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platform-tools" "platforms;android-36" "build-tools;36.1.0" \
+            "ndk;29.0.14206865" "cmake;3.22.1" 2>&1 | tail -10
+          mkdir -p ci-stage/step1
+          {
+            echo "=== OS ==="
+            cat /etc/os-release | head -n 6
+            echo "=== Hardware ==="
+            nproc
+            free -h
+            df -h /
+            echo "=== Java ==="
+            java -version 2>&1
+            echo "=== SDK Installed ==="
+            ls -1 "$SDK/platforms" "$SDK/build-tools" "$SDK/ndk" "$SDK/cmake"
+          } > ci-stage/step1/ENV-STEP1.txt
+
+      - name: Build Manager APK from KernelSU-Next @ 31946acd + Glass UI + JNI injection + zipalign
+        run: |
+          set -euo pipefail
+          mkdir -p ci-stage/step1
+          (
+            cd build-kit
+            SP_RELEASE_VERSION=2.0 SP_WORK_DIR=/tmp/sp-manager-src-2.0 \
+              python3 scripts/build_manager_source.py
+          ) 2>&1 | tee ci-stage/step1/manager-src.log
+          cp -f /tmp/sp-manager-src-2.0/manager-aligned.apk ci-stage/step1/manager-aligned.apk
+          cp -f "$ANDROID_SDK_ROOT/build-tools/36.1.0/lib/apksigner.jar" ci-stage/step1/apksigner.jar
+          cp -f build-kit/artifacts/manager/MANAGER.json ci-stage/step1/MANAGER.template.json
+          ls -lh ci-stage/step1/
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica-step1-${{ github.run_id }}
+          path: ci-stage/step1/
+          if-no-files-found: warn
+
+      - name: Push Step 1 stage back to session branch
+        if: always()
+        env:
+          REC_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          remote="https://x-access-token:${REC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config user.name "synthetica-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -f ci-stage/step1/
+          git commit -qm "ci: step 1 manager build output (run ${GITHUB_RUN_ID})" || exit 0
+          for i in 1 2 3; do
+            git pull --rebase "$remote" "${GITHUB_REF_NAME}" || true
+            git push "$remote" "HEAD:refs/heads/${GITHUB_REF_NAME}" && break
+            sleep 5
+          done

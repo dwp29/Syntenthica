@@ -1,0 +1,11 @@
+--- a/kernel/ksu.c
++++ b/kernel/ksu.c
+@@ -102,4 +102,7 @@
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("weishu");
+ MODULE_DESCRIPTION("Android KernelSU");
+-MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
++/*
++ * MODULE_IMPORT_NS() only exists from Linux 5.4 on; this kernel is 4.14 and has no
++ * symbol namespaces, so the import is dropped instead of forcing a fake definition.
++ */
