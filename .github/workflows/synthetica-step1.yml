@@ -60,16 +60,13 @@ jobs:
             ls -1 "$SDK/platforms" "$SDK/build-tools" "$SDK/ndk" "$SDK/cmake"
           } > ci-stage/step1/ENV-STEP1.txt
 
-      - name: Build Manager APK from KernelSU-Next @ 31946acd + Glass UI + JNI injection + zipalign
+      - name: Build Manager APK from KernelSU-Next @ ea51427ff7 (UAPI v4) + iOS Liquid Glass + zipalign
         run: |
           set -euo pipefail
           mkdir -p ci-stage/step1
-          (
-            cd build-kit
-            SP_RELEASE_VERSION=2.0 SP_WORK_DIR=/tmp/sp-manager-src-2.0 \
-              python3 scripts/build_manager_source.py
-          ) 2>&1 | tee ci-stage/step1/manager-src.log
-          cp -f /tmp/sp-manager-src-2.0/manager-aligned.apk ci-stage/step1/manager-aligned.apk
+          SYNTHETICA_MANAGER_WORKDIR=/tmp/sp-manager-src-2.0 \
+          SYNTHETICA_UNSIGNED_APK="$PWD/ci-stage/step1/manager-aligned.apk" \
+            python3 build-kit/scripts/build_manager_source.py 2>&1 | tee ci-stage/step1/manager-src.log
           cp -f "$ANDROID_SDK_ROOT/build-tools/36.1.0/lib/apksigner.jar" ci-stage/step1/apksigner.jar
           cp -f build-kit/artifacts/manager/MANAGER.json ci-stage/step1/MANAGER.template.json
           ls -lh ci-stage/step1/
