@@ -122,7 +122,7 @@ fun SearchAppBar(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = !onSearch,
                     enter = fadeIn(),
                     exit = fadeOut(),
@@ -130,7 +130,7 @@ fun SearchAppBar(
                     title()
                 }
 
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = onSearch,
                     enter = fadeIn(),
                     exit = fadeOut(),

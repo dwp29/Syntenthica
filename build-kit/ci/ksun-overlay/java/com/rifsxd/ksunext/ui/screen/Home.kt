@@ -2,8 +2,8 @@ package com.rifsxd.ksunext.ui.screen
 
 import android.content.Context
 import android.os.Build
-import android.os.Os
 import android.os.PowerManager
+import android.system.Os
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically

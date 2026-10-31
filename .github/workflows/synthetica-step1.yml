@@ -5,6 +5,9 @@ on:
       - arena/96cbd65a-syntenthica
     paths:
       - '.github/workflows/synthetica-step1.yml'
+      - 'build-kit/scripts/build_manager_source.py'
+      - 'build-kit/ci/ksun-overlay/**'
+      - 'build-kit/ci/branding/**'
 
 permissions:
   contents: write

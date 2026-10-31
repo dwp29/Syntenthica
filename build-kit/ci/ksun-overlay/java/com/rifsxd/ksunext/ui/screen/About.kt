@@ -1,6 +1,6 @@
 package com.rifsxd.ksunext.ui.screen
 
-import android.os.Os
+import android.system.Os
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
