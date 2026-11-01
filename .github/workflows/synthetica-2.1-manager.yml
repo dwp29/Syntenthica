@@ -1,0 +1,78 @@
+name: "Synthetica 2.1 - Cyberbrutalist Manager (unsigned)"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-2.1-manager.yml'
+      - 'build-kit/scripts/build_manager_21.py'
+      - 'build-kit/ci/build_manager_cyberbrutal_patch.py'
+      - 'build-kit/ci/ksun-cyberbrutal/**'
+      - 'build-kit/ci/branding-cyberbrutal/**'
+      - 'tests/test_synthetica21_*.py'
+permissions:
+  contents: read
+concurrency:
+  group: synthetica-2-1-manager-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test runtime helpers against fake filesystem only
+        run: |
+          set -euo pipefail
+          sh -n build-kit/ci/ksun-cyberbrutal/assets/synthetica-control.sh
+          sh -n build-kit/ci/ksun-cyberbrutal/assets/synthetica-boost-compat.sh
+          python3 -m unittest discover -s tests -p 'test_synthetica21_*.py' -v
+      - name: Install Android SDK (same tool versions as working 2.0 build)
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo /tmp/cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platform-tools" "platforms;android-36" "build-tools;36.1.0" \
+            "ndk;29.0.14206865" "cmake;3.22.1" 2>&1 | tail -10
+      - name: Build unsigned Manager from UAPI 4 source
+        run: |
+          set -euo pipefail
+          mkdir -p ci-stage/step21
+          SYNTHETICA_MANAGER_WORKDIR=/tmp/synthetica-21-manager \
+          SYNTHETICA_UNSIGNED_APK="$PWD/ci-stage/step21/manager-aligned.apk" \
+            python3 build-kit/scripts/build_manager_21.py 2>&1 | tee ci-stage/step21/manager-build.log
+          cp "$ANDROID_SDK_ROOT/build-tools/36.1.0/lib/apksigner.jar" ci-stage/step21/apksigner.jar
+      - name: Verify APK metadata, alignment and native contents
+        run: |
+          set -euo pipefail
+          APK=ci-stage/step21/manager-aligned.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.1.0/zipalign" -c -p 4 "$APK"
+          "$ANDROID_SDK_ROOT/build-tools/36.1.0/aapt" dump badging "$APK" > /tmp/synthetica21-badging.txt
+          head -1 /tmp/synthetica21-badging.txt | tee ci-stage/step21/APK-BADGING.txt
+          grep -F "name='net.ember.labs'" ci-stage/step21/APK-BADGING.txt
+          grep -F "versionCode='30002'" ci-stage/step21/APK-BADGING.txt
+          grep -F "versionName='2.1'" ci-stage/step21/APK-BADGING.txt
+          unzip -t "$APK" | tail -1
+          for item in lib/arm64-v8a/libkernelsu.so lib/arm64-v8a/libksud.so assets/synthetica-control.sh assets/synthetica-boost-compat.sh; do
+            unzip -p "$APK" "$item" | sha256sum
+          done | tee ci-stage/step21/PAYLOAD-SHA256.txt
+      - name: Upload unsigned build and logs (no signing materials)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica21-unsigned-${{ github.run_id }}
+          path: ci-stage/step21/
+          if-no-files-found: warn
