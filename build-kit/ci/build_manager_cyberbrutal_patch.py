@@ -200,6 +200,13 @@ def patch_main_activity(src: Path) -> None:
         "slideOutHorizontally(targetOffsetX = { it * animationDirection }, animationSpec = tween(250)) + fadeIn(animationSpec = tween(210))",
         "slideOutHorizontally(targetOffsetX = { it * animationDirection }, animationSpec = tween(250)) + fadeOut(animationSpec = tween(180))",
     )
+    # Some UAPI-v4 detail routes use literal +/-it rather than offsetSign.
+    s = re.sub(
+        r'(slideOutHorizontally\([^\n]*?\)) \+ fadeIn\(animationSpec = tween\(210\)\)',
+        r'\1 + fadeOut(animationSpec = tween(180))',
+        s,
+    )
+    assert not re.search(r'slideOutHorizontally\([^\n]*\) \+ fadeIn\(', s), "exit transition has EnterTransition"
     assert "slideOutHorizontally" in s and "fadeOut(animationSpec = tween(180))" in s, "nav transition patch failed"
 
     # 5. Cyberbrutalist Chamfered 5-Tab BottomBar Dock with Acid-Volt active block
@@ -751,6 +758,13 @@ def patch_module_screen(src: Path) -> None:
         "    itemIndex: Int = 0,\n"
         "    module: ModuleViewModel.ModuleInfo,",
         "ModuleItem signature itemIndex",
+    )
+    # The UAPI-v4 source also includes a positional @Preview invocation.
+    s = must_replace(
+        s,
+        "    ModuleItem(\n        EmptyDestinationsNavigator,\n        module,",
+        "    ModuleItem(\n        EmptyDestinationsNavigator,\n        0,\n        module,",
+        "ModuleItem preview itemIndex",
     )
 
     old_mod_card = """    Card(
