@@ -75,8 +75,8 @@ jobs:
           "$ANDROID_SDK_ROOT/build-tools/36.1.0/aapt" dump badging "$APK" > /tmp/synthetica21-badging.txt
           head -1 /tmp/synthetica21-badging.txt | tee ci-stage/step21/APK-BADGING.txt
           grep -F "name='net.ember.labs'" ci-stage/step21/APK-BADGING.txt
-          grep -F "versionCode='30003'" ci-stage/step21/APK-BADGING.txt
-          grep -F "versionName='2.1.1'" ci-stage/step21/APK-BADGING.txt
+          grep -F "versionCode='30004'" ci-stage/step21/APK-BADGING.txt
+          grep -F "versionName='2.1.2'" ci-stage/step21/APK-BADGING.txt
           unzip -t "$APK" | tail -1
           for item in lib/arm64-v8a/libkernelsu.so lib/arm64-v8a/libksud.so assets/synthetica-control.sh assets/synthetica-boost-compat.sh; do
             unzip -p "$APK" "$item" | sha256sum

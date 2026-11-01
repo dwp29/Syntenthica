@@ -265,36 +265,47 @@ def patch_main_activity(src: Path) -> None:
     say("[patch] MainActivity: backdrop + BrutalSplash + transparent Scaffold + 5-tab Cyberbrutal dock")
 
 
-def relocate_home_contributors(text: str, credits_overlay: str) -> str:
-    """Remove Home's credits only after verifying the About overlay preserves them."""
+def relocate_home_sections(text: str, credits_overlay: str, about_overlay: str) -> str:
+    """Move credits and issue reporting only after About preserves the originals."""
     old_calls = (
         "            InfoCard(autoExpand = developerOptionsEnabled)\n"
         "            IssueReportCard()\n"
         "            ContributorsCard()"
     )
-    new_calls = (
-        "            BrutalStaggerItem(index = 3) { InfoCard(autoExpand = developerOptionsEnabled) }\n"
-        "            BrutalStaggerItem(index = 4) { IssueReportCard() }"
-    )
+    new_calls = "            BrutalStaggerItem(index = 3) { InfoCard(autoExpand = developerOptionsEnabled) }"
     if text.count(old_calls) != 1:
-        raise RuntimeError("Expected exactly one Home contributors call")
+        raise RuntimeError("Expected exactly one Home credits and issue-report call")
     text = text.replace(old_calls, new_calls, 1)
     start_anchor = "\ndata class Contributor(\n"
-    end_anchor = "\n@Composable\nfun IssueReportCard()"
-    if text.count(start_anchor) != 1 or text.count(end_anchor) != 1:
-        raise RuntimeError("Expected one upstream contributor block followed by IssueReportCard")
+    issue_anchor = "\n@Composable\nfun IssueReportCard()"
+    end_anchor = '\n@SuppressLint("RestrictedApi")\nfun handleDynamicShortcuts'
+    if any(text.count(anchor) != 1 for anchor in (start_anchor, issue_anchor, end_anchor)):
+        raise RuntimeError("Expected one contributor block and one issue-report block on Home")
     start = text.index(start_anchor)
-    end = text.index(end_anchor, start)
-    old_block = text[start:end]
+    issue = text.index(issue_anchor, start)
+    end = text.index(end_anchor, issue)
+    old_credits = text[start:issue]
+    old_issue = text[issue:end]
     for field in ("login", "name", "githubUrl", "role", "donationUrl"):
         pattern = rf'\b{field}\s*=\s*"([^"\n]*)"'
-        old_values = re.findall(pattern, old_block)
+        old_values = re.findall(pattern, old_credits)
         new_values = re.findall(pattern, credits_overlay)
         if old_values != new_values or (field == "login" and not old_values):
             raise RuntimeError(f"About credits do not preserve upstream contributor field: {field}")
+    issue_resources = (
+        "R.string.issue_report_title", "R.string.issue_report_body", "R.string.issue_report_body_2",
+        "R.string.issue_report_github_link", "R.string.issue_report_telegram_link",
+        "R.string.issue_report_github", "R.string.issue_report_telegram",
+        "R.drawable.ic_github", "R.drawable.ic_telegram",
+    )
+    for resource in issue_resources:
+        if resource not in old_issue or resource not in about_overlay:
+            raise RuntimeError(f"About issue reporting does not preserve upstream resource: {resource}")
+    if "uriHandler.openUri(githubIssueUrl)" not in about_overlay or "uriHandler.openUri(telegramUrl)" not in about_overlay:
+        raise RuntimeError("About issue-report links are not connected")
     text = text[:start] + text[end:]
-    if "ContributorsCard(" in text or "data class Contributor(" in text:
-        raise RuntimeError("Contributor implementation still exists on Home")
+    if any(marker in text for marker in ("ContributorsCard(", "data class Contributor(", "IssueReportCard(")):
+        raise RuntimeError("Credits or issue reporting implementation still exists on Home")
     return text
 
 
@@ -396,9 +407,10 @@ def patch_home_screen(src: Path) -> None:
         "Home disable upstream update nag by default",
     )
 
-    # Keep issue reporting on Home; move all preserved upstream credits to About.
+    # Move both Home sections to About while preserving upstream credits and report links.
     credits = (OVERLAY / "component/ContributorsSection.kt").read_text(encoding="utf-8")
-    s = relocate_home_contributors(s, credits)
+    about = (OVERLAY / "component/AboutCard.kt").read_text(encoding="utf-8")
+    s = relocate_home_sections(s, credits, about)
 
     # SuperuserCard & ModuleCard: brutalPlate + DepartureBoardText count + FadeInText label
     old_su_card = """    ElevatedCard(

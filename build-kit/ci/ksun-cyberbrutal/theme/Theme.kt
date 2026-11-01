@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -16,10 +17,32 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 
-// Live observable states so switching theme or departure-board motion inside Synthetica Control
-// updates every screen immediately without restarting the process.
+// Appearance preferences are observable, so they update all themed screens immediately.
 val SyntheticaThemeModeState = mutableStateOf("dark")   // "dark" | "light" | "amoled" | "auto"
 val SyntheticaDepartureAnimState = mutableStateOf(true)
+val SyntheticaAccentState = mutableStateOf("volt")
+
+/** Contrasting variants for the same accent on dark and light surfaces. */
+data class SyntheticaAccentOption(
+    val id: String,
+    val label: String,
+    val darkColor: Color,
+    val lightColor: Color,
+)
+
+// Five new choices in addition to the original Volt accent. These are not status colors.
+val SyntheticaAccentOptions = listOf(
+    SyntheticaAccentOption("volt", "VOLT", Color(0xFFD4FF00), Color(0xFF415B00)),
+    SyntheticaAccentOption("cyan", "CYAN", Color(0xFF4BE5FF), Color(0xFF005A6B)),
+    SyntheticaAccentOption("violet", "VIOLET", Color(0xFFC69CFF), Color(0xFF6735A1)),
+    SyntheticaAccentOption("rose", "ROSE", Color(0xFFFF8AB8), Color(0xFF99204F)),
+    SyntheticaAccentOption("amber", "AMBER", Color(0xFFFFB661), Color(0xFF803B00)),
+    SyntheticaAccentOption("mint", "MINT", Color(0xFF76F5B0), Color(0xFF005C37)),
+)
+
+private fun resolveAccent(id: String?): SyntheticaAccentOption =
+    SyntheticaAccentOptions.firstOrNull { it.id == id } ?: SyntheticaAccentOptions.first()
+
 private var prefsInitialized = false
 
 fun syncSyntheticaThemePrefs(context: Context) {
@@ -29,6 +52,7 @@ fun syncSyntheticaThemePrefs(context: Context) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         SyntheticaThemeModeState.value = prefs.getString("synthetica_theme_mode", "dark") ?: "dark"
         SyntheticaDepartureAnimState.value = prefs.getBoolean("synthetica_departure_anim", true)
+        SyntheticaAccentState.value = resolveAccent(prefs.getString("synthetica_accent", "volt")).id
     }
 }
 
@@ -48,6 +72,17 @@ fun setSyntheticaDepartureAnim(context: Context, enabled: Boolean) {
         context.getSharedPreferences("settings", Context.MODE_PRIVATE)
             .edit()
             .putBoolean("synthetica_departure_anim", enabled)
+            .apply()
+    }
+}
+
+fun setSyntheticaAccent(context: Context, id: String) {
+    val resolved = resolveAccent(id).id
+    SyntheticaAccentState.value = resolved
+    runCatching {
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .edit()
+            .putString("synthetica_accent", resolved)
             .apply()
     }
 }
@@ -138,6 +173,19 @@ fun Color.blend(other: Color, ratio: Float): Color {
     )
 }
 
+private fun ColorScheme.withAccent(option: SyntheticaAccentOption, dark: Boolean): ColorScheme {
+    val accent = if (dark) option.darkColor else option.lightColor
+    return copy(
+        primary = accent,
+        onPrimary = if (dark) BRUTAL_INK else Color.White,
+        primaryContainer = accent.blend(if (dark) Color.Black else Color.White, 0.85f),
+        onPrimaryContainer = accent,
+        onSecondaryContainer = if (dark) accent else onSecondaryContainer,
+        surfaceTint = accent,
+        inversePrimary = if (dark) option.lightColor else option.darkColor,
+    )
+}
+
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun KernelSUTheme(
@@ -159,11 +207,12 @@ fun KernelSUTheme(
     }
     val effectiveAmoled = amoledMode || mode == "amoled"
 
-    val scheme = when {
+    val baseScheme = when {
         !effectiveDark -> IndustrialLightBrutalScheme
         effectiveAmoled -> AmoledCyberBrutalScheme
         else -> ObsidianCyberBrutalScheme
     }
+    val scheme = baseScheme.withAccent(resolveAccent(SyntheticaAccentState.value), effectiveDark)
 
     BrutalSystemBarStyle(isDark = effectiveDark)
 

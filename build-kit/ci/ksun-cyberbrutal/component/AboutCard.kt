@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -103,9 +104,65 @@ private fun AboutPanel(onDismiss: () -> Unit) {
             ) {
                 AboutCardContent()
                 Spacer(Modifier.height(20.dp))
+                IssueReportSection()
+                Spacer(Modifier.height(20.dp))
                 ContributorsSection()
             }
         }
+    }
+}
+
+@Composable
+private fun IssueReportSection() {
+    val uriHandler = LocalUriHandler.current
+    val githubIssueUrl = stringResource(R.string.issue_report_github_link)
+    val telegramUrl = stringResource(R.string.issue_report_telegram_link)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.issue_report_title).uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.issue_report_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.issue_report_body_2),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { uriHandler.openUri(githubIssueUrl) }, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_github),
+                    contentDescription = stringResource(R.string.issue_report_github),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            IconButton(onClick = { uriHandler.openUri(telegramUrl) }, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_telegram),
+                    contentDescription = stringResource(R.string.issue_report_telegram),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        Text(
+            text = "UPSTREAM // KERNELSU-NEXT",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 

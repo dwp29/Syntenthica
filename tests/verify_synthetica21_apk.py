@@ -82,15 +82,27 @@ def main(apk: Path) -> None:
             if candidate.read("assets/" + name) != (assets / name).read_bytes():
                 raise ValueError(f"APK asset {name} does not match the tested source")
         dex = b"".join(candidate.read(name) for name in candidate.namelist() if name.endswith(".dex"))
-        if not dex or b"KERNELSU-NEXT // CREDITS" not in dex:
-            raise ValueError("About contributor section missing from APK bytecode")
-        if b"TEST DEPARTURE BOARD ANIMATION" in dex or b"SOLARI DEPARTURE BOARD TEST TRIGGERED" in dex:
-            raise ValueError("Removed departure-board test button still present in APK bytecode")
+        required_markers = (
+            b"KERNELSU-NEXT // CREDITS", b"UPSTREAM // KERNELSU-NEXT", b"DEVICE TELEMETRY",
+            b"TEXT ANIMATION", b"ACCENT COLOR", b"CYAN", b"VIOLET", b"ROSE", b"AMBER", b"MINT",
+        )
+        missing = [marker.decode() for marker in required_markers if marker not in dex]
+        if not dex or missing:
+            raise ValueError(f"Expected UI markers missing from APK bytecode: {missing}")
+        removed_markers = (
+            b"TEST DEPARTURE BOARD ANIMATION", b"SOLARI DEPARTURE BOARD TEST TRIGGERED",
+            b"AIRPORT SPLIT-FLAP DEPARTURE TEXT", b"DEPARTURE TELEMETRY",
+            b"[02] RUNTIME PROFILE", b"[03] MEMORY / GPU / I/O MATRIX",
+            b"[04] KERNEL SECURITY STATUS", b"[05] CYBERBRUTAL DISPLAY & MOTION",
+            b"[06] CONSOLE & INSTALL LOG",
+        )
+        if any(marker in dex for marker in removed_markers):
+            raise ValueError("An obsolete UI label remains in APK bytecode")
         print("APK ZIP CRC: OK")
         print("JNI accessor: UAPI 4; code matches 2.0 except ELF build ID")
         print("libksud.so:", hashlib.sha256(daemon).hexdigest(), "matches 2.0")
         print("Bundled runtime helpers match tested source")
-        print("About credits marker present; departure-board test button strings absent")
+        print("About credits/reporting and accent markers present; obsolete labels absent")
         print("Runtime/device behavior: NOT TESTED")
 
 

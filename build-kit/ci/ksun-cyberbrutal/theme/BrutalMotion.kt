@@ -59,6 +59,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rifsxd.ksunext.BuildConfig
 import kotlinx.coroutines.delay
 
 private const val SOLARI_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/-:#+[]"
@@ -114,8 +115,8 @@ fun DepartureBoardText(
     val resolvedColor = color.takeOrElse {
         style.color.takeOrElse { LocalContentColor.current }
     }
-    val isDarkBg = MaterialTheme.colorScheme.background.luminance() < 0.4f
-    val flapAccent = if (isDarkBg) BRUTAL_VOLT else BRUTAL_SIGNAL
+    val flapAccent = MaterialTheme.colorScheme.primary
+    val flapOnAccent = MaterialTheme.colorScheme.onPrimary
 
     var elapsedMs by remember(text, triggerKey, animEnabled) {
         mutableIntStateOf(if (!animEnabled || units.isEmpty()) Int.MAX_VALUE else -1)
@@ -172,7 +173,7 @@ fun DepartureBoardText(
     }
 
     val tick = elapsedMs
-    val display: AnnotatedString = remember(text, tick, resolvedColor, flapAccent) {
+    val display: AnnotatedString = remember(text, tick, resolvedColor, flapAccent, flapOnAccent) {
         buildAnnotatedString {
             val slotScale = if (units.size > 24) 24f / units.size.toFloat() else 1f
             for (i in units.indices) {
@@ -205,7 +206,7 @@ fun DepartureBoardText(
                         val flapChar = SOLARI_GLYPHS[if (glyphIdx < 0) -glyphIdx else glyphIdx]
                         withStyle(
                             SpanStyle(
-                                color = if (isDarkBg) BRUTAL_INK else Color.White,
+                                color = flapOnAccent,
                                 background = flapAccent,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Black,
@@ -294,8 +295,7 @@ fun BrutalStaggerItem(
 ) {
     val progress = remember(triggerKey) { Animatable(0f) }
     val clampedIndex = index.coerceIn(0, 10)
-    val isDarkBg = MaterialTheme.colorScheme.background.luminance() < 0.4f
-    val scanColor = if (isDarkBg) BRUTAL_VOLT else BRUTAL_SIGNAL
+    val scanColor = MaterialTheme.colorScheme.primary
 
     LaunchedEffect(triggerKey) {
         progress.snapTo(0f)
@@ -349,10 +349,9 @@ fun Modifier.brutalPlate(
     active: Boolean = false,
     accent: Color? = null,
 ): Modifier = composed {
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.4f
     val borderColor = MaterialTheme.colorScheme.outline
-    val railColor = accent ?: if (isDark) BRUTAL_VOLT else BRUTAL_SIGNAL
-    val cornerSecondary = if (isDark) BRUTAL_CYAN else BRUTAL_INK
+    val railColor = accent ?: MaterialTheme.colorScheme.primary
+    val cornerSecondary = MaterialTheme.colorScheme.secondary
 
     this.drawWithContent {
         drawContent()
@@ -432,8 +431,8 @@ fun CyberBrutalBackdrop(modifier: Modifier = Modifier) {
         isDark -> Color(0xFF202736)
         else -> Color(0xFFC8C5B8)
     }
-    val accent = if (isDark) BRUTAL_VOLT else BRUTAL_SIGNAL
-    val secondary = if (isDark) BRUTAL_CYAN else BRUTAL_INK
+    val accent = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
 
     Box(
         modifier = modifier
@@ -522,9 +521,8 @@ fun BrutalSplash(
     progress: Float = 0f,
     modifier: Modifier = Modifier,
 ) {
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.4f
-    val volt = if (isDark) BRUTAL_VOLT else BRUTAL_INK
-    val cyan = if (isDark) BRUTAL_CYAN else BRUTAL_SIGNAL
+    val volt = MaterialTheme.colorScheme.primary
+    val cyan = MaterialTheme.colorScheme.secondary
     val dim = MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
@@ -603,9 +601,9 @@ fun BrutalSplash(
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "v2.1",
+                        text = "v${BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (isDark) BRUTAL_INK else BRUTAL_VOLT,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Black
                     )
                 }

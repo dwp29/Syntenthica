@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -65,6 +66,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -77,16 +81,16 @@ import com.rifsxd.ksunext.Natives
 import com.rifsxd.ksunext.ui.LocalNavBarEnabled
 import com.rifsxd.ksunext.ui.LocalScrollState
 import com.rifsxd.ksunext.ui.rememberScrollConnection
-import com.rifsxd.ksunext.ui.theme.BRUTAL_CYAN
-import com.rifsxd.ksunext.ui.theme.BRUTAL_INK
-import com.rifsxd.ksunext.ui.theme.BRUTAL_SIGNAL
-import com.rifsxd.ksunext.ui.theme.BRUTAL_VOLT
 import com.rifsxd.ksunext.ui.theme.BrutalStaggerItem
 import com.rifsxd.ksunext.ui.theme.DepartureBoardText
 import com.rifsxd.ksunext.ui.theme.FadeInText
+import com.rifsxd.ksunext.ui.theme.SyntheticaAccentOption
+import com.rifsxd.ksunext.ui.theme.SyntheticaAccentOptions
+import com.rifsxd.ksunext.ui.theme.SyntheticaAccentState
 import com.rifsxd.ksunext.ui.theme.SyntheticaDepartureAnimState
 import com.rifsxd.ksunext.ui.theme.SyntheticaThemeModeState
 import com.rifsxd.ksunext.ui.theme.brutalPlate
+import com.rifsxd.ksunext.ui.theme.setSyntheticaAccent
 import com.rifsxd.ksunext.ui.theme.setSyntheticaDepartureAnim
 import com.rifsxd.ksunext.ui.theme.setSyntheticaThemeMode
 import com.rifsxd.ksunext.ui.util.createRootShell
@@ -347,9 +351,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
         telemetry = readTelemetrySnapshot()
     }
 
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.4f
-    val accent = if (isDark) BRUTAL_VOLT else BRUTAL_SIGNAL
-    val subAccent = if (isDark) BRUTAL_CYAN else BRUTAL_INK
+    val accent = MaterialTheme.colorScheme.primary
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -409,7 +411,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                 .padding(bottom = navBarPadding),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 01: LIVE TELEMETRY DEPARTURE BOARD
+            // Live device telemetry
             BrutalStaggerItem(index = 0, triggerKey = boardTrigger) {
                 Card(
                     modifier = Modifier
@@ -430,7 +432,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                                 Icon(Icons.Filled.Speed, null, tint = accent, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = "[01] DEPARTURE TELEMETRY",
+                                    text = "DEVICE TELEMETRY",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = accent
                                 )
@@ -443,7 +445,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                                 DepartureBoardText(
                                     text = if (telemetry.hasRoot) "ROOT:ONLINE" else "READ-ONLY",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = subAccent,
+                                    color = accent,
                                     triggerKey = boardTrigger
                                 )
                             }
@@ -460,7 +462,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                 }
             }
 
-            // 02: RUNTIME PERFORMANCE PROFILE
+            // Runtime performance profile
             BrutalStaggerItem(index = 1, triggerKey = boardTrigger) {
                 Card(
                     modifier = Modifier
@@ -476,7 +478,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             Icon(Icons.Filled.Bolt, null, tint = accent, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "[02] RUNTIME PROFILE // OPT-IN",
+                                text = "RUNTIME PROFILE // OPT-IN",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = accent
                             )
@@ -534,7 +536,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                 }
             }
 
-            // 03: MEMORY, ZRAM, GPU & I/O TUNABLES
+            // Memory, GPU and I/O controls
             BrutalStaggerItem(index = 2, triggerKey = boardTrigger) {
                 Card(
                     modifier = Modifier
@@ -550,7 +552,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             Icon(Icons.Filled.Memory, null, tint = accent, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "[03] MEMORY / GPU / I/O MATRIX",
+                                text = "MEMORY / GPU / I/O MATRIX",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = accent
                             )
@@ -677,7 +679,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                 Text("NETWORK / AUDIO BOOST (2.0)", color = accent)
             }
 
-            // 04: observed kernel security status (no bootloader or integrity spoofing)
+            // Observed kernel security status (no bootloader or integrity spoofing)
             BrutalStaggerItem(index = 3, triggerKey = boardTrigger) {
                 Card(
                     modifier = Modifier
@@ -693,7 +695,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             Icon(Icons.Filled.Security, null, tint = accent, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "[04] KERNEL SECURITY STATUS",
+                                text = "KERNEL SECURITY STATUS",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = accent
                             )
@@ -705,7 +707,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                 }
             }
 
-            // 05: CYBERBRUTAL DISPLAY & MOTION ENGINE
+            // Appearance and text motion
             BrutalStaggerItem(index = 4, triggerKey = boardTrigger) {
                 Card(
                     modifier = Modifier
@@ -721,12 +723,17 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             Icon(Icons.Filled.Tune, null, tint = accent, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "[05] CYBERBRUTAL DISPLAY & MOTION",
+                                text = "DISPLAY & MOTION",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = accent
                             )
                         }
 
+                        Text(
+                            text = "BASE THEME",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         val curMode = SyntheticaThemeModeState.value
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -749,6 +756,25 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             }
                         }
 
+                        Text(
+                            text = "ACCENT COLOR",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val activeAccent = SyntheticaAccentState.value
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            SyntheticaAccentOptions.forEach { option ->
+                                AccentChoiceChip(
+                                    option = option,
+                                    isSelected = activeAccent == option.id,
+                                    onClick = { setSyntheticaAccent(context, option.id) }
+                                )
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -756,11 +782,11 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "AIRPORT SPLIT-FLAP DEPARTURE TEXT",
+                                    text = "TEXT ANIMATION",
                                     style = MaterialTheme.typography.labelMedium
                                 )
                                 Text(
-                                    text = "Mechanical Solari character flip across Modules, Apps & Telemetry",
+                                    text = "Animate text on supported screens",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -778,7 +804,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                 }
             }
 
-            // 06: CONSOLE + KERNEL INSTALL LOG VIEWER
+            // Console and kernel install log viewer
             BrutalStaggerItem(index = 5, triggerKey = boardTrigger) {
                 Card(
                     modifier = Modifier
@@ -794,7 +820,7 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             Icon(Icons.Filled.Terminal, null, tint = accent, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "[06] CONSOLE & INSTALL LOG // ${telemetry.installLogTitle}",
+                                text = "CONSOLE & INSTALL LOG // ${telemetry.installLogTitle}",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = accent
                             )
@@ -878,6 +904,42 @@ private fun BrutalActionButton(
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Black,
             maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun AccentChoiceChip(
+    option: SyntheticaAccentOption,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.4f
+    val swatch = if (isDark) option.darkColor else option.lightColor
+    val foreground = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val background = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    Row(
+        modifier = Modifier
+            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+            .background(background)
+            .semantics { selected = isSelected }
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(swatch)
+                .border(1.dp, if (isSelected) foreground else swatch),
+        )
+        Text(
+            text = option.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = foreground,
+            fontWeight = FontWeight.Bold,
         )
     }
 }
