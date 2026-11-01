@@ -50,6 +50,48 @@ jobs:
           python3 research/hyperos4/verify_archive.py --inspect-core \
             "$RUNNER_TEMP/synthetica-base.zip" > "$RUNNER_TEMP/baseline-audit.json"
 
+      - name: Fingerprint fixed-size portions of the public reference ZIP
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          # Only public reference ZIP bytes are read; no Drive files or credentials.
+          path = Path(os.environ['RUNNER_TEMP']) / 'synthetica-base.zip'
+          part_size = 104857600
+          partial_43_bytes = 86760763
+          parts = []
+          prefix_43 = None
+          with path.open('rb') as stream:
+              while True:
+                  digest = hashlib.sha256()
+                  prefix_digest = hashlib.sha256()
+                  prefix_count = 0
+                  part_count = 0
+                  while part_count < part_size:
+                      block = stream.read(min(4 * 1024 * 1024, part_size - part_count))
+                      if not block:
+                          break
+                      digest.update(block)
+                      if len(parts) == 42 and prefix_count < partial_43_bytes:
+                          fragment = block[:partial_43_bytes - prefix_count]
+                          prefix_digest.update(fragment)
+                          prefix_count += len(fragment)
+                      part_count += len(block)
+                  if not part_count:
+                      break
+                  parts.append({'number': len(parts) + 1, 'bytes': part_count, 'sha256': digest.hexdigest()})
+                  if len(parts) == 43:
+                      prefix_43 = {'bytes': prefix_count, 'sha256': prefix_digest.hexdigest()}
+          summary = {'source': 'verified_public_zip', 'part_size': part_size, 'parts': parts,
+                     'part_43_prefix': prefix_43}
+          out = Path(os.environ['RUNNER_TEMP']) / 'reference-part-hashes.json'
+          out.write_text(json.dumps(summary, indent=2) + '\n')
+          text = json.dumps(summary, separators=(',', ':'))
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::notice file=.github/workflows/synthetica-project-baseline.yml,line=1,title=Public reference part hashes::' + escaped)
+          PY
+
       - name: Publish compact diagnostics, never image bytes
         if: always()
         env:
