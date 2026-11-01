@@ -176,6 +176,12 @@ umask 077
 if [ -L "$STATE_DIR" ] || ! mkdir -p "$STATE_DIR" || ! chmod 700 "$STATE_DIR"; then
     printf 'ERROR: private state directory unavailable; no values changed\n'; exit 2
 fi
+# Serialize app and WebUI actions as well as separate Manager processes. A stale
+# lock only lasts until reboot, because its name includes the boot ID.
+LOCK="$STATE_DIR/lock-$BOOT_ID"
+if ! mkdir "$LOCK" 2>/dev/null; then printf 'ERROR: another control action is running; no values changed\n'; exit 2; fi
+trap 'rmdir "$LOCK" 2>/dev/null || true' 0
+trap 'exit 2' HUP INT TERM
 STATE="$STATE_DIR/$BOOT_ID.tsv"
 if [ -L "$STATE" ] || ! touch "$STATE"; then printf 'ERROR: state file unavailable; no values changed\n'; exit 2; fi
 

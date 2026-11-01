@@ -1,0 +1,6 @@
+id=synthetica21_control
+name=Synthetica 2.1 Cyberbrutal WebUI
+version=v2.1
+versionCode=2100
+author=graziemille
+description=Opt-in runtime control companion. No boot image modifications; ROM and device support are unverified.

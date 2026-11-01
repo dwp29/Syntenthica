@@ -9,7 +9,11 @@ on:
       - 'build-kit/ci/build_manager_cyberbrutal_patch.py'
       - 'build-kit/ci/ksun-cyberbrutal/**'
       - 'build-kit/ci/branding-cyberbrutal/**'
+      - 'build-kit/ci/module-cyberbrutal/**'
+      - 'build-kit/scripts/package_webui21.py'
       - 'tests/test_synthetica21_*.py'
+      - 'tests/test_synthetica21_webui.js'
+      - 'tests/verify_synthetica21_apk.py'
 permissions:
   contents: write
 concurrency:
@@ -25,12 +29,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Clear prior generated output
+        run: |
+          rm -rf ci-stage/step21
+          mkdir -p ci-stage/step21
       - name: Test runtime helpers against fake filesystem only
         run: |
           set -euo pipefail
           sh -n build-kit/ci/ksun-cyberbrutal/assets/synthetica-control.sh
           sh -n build-kit/ci/ksun-cyberbrutal/assets/synthetica-boost-compat.sh
           python3 -m unittest discover -s tests -p 'test_synthetica21_*.py' -v
+          node --check build-kit/ci/module-cyberbrutal/webroot/panel.js
+          node tests/test_synthetica21_webui.js
       - name: Install Android SDK (same tool versions as working 2.0 build)
         run: |
           set -euo pipefail
@@ -50,6 +60,8 @@ jobs:
       - name: Build unsigned Manager from UAPI 4 source
         run: |
           set -euo pipefail
+          # Avoid publishing a stale APK if this build fails partway through.
+          rm -rf ci-stage/step21
           mkdir -p ci-stage/step21
           SYNTHETICA_MANAGER_WORKDIR=/tmp/synthetica-21-manager \
           SYNTHETICA_UNSIGNED_APK="$PWD/ci-stage/step21/manager-aligned.apk" \
@@ -69,6 +81,8 @@ jobs:
           for item in lib/arm64-v8a/libkernelsu.so lib/arm64-v8a/libksud.so assets/synthetica-control.sh assets/synthetica-boost-compat.sh; do
             unzip -p "$APK" "$item" | sha256sum
           done | tee ci-stage/step21/PAYLOAD-SHA256.txt
+          python3 tests/verify_synthetica21_apk.py "$APK" | tee ci-stage/step21/APK-STATIC-VERIFY.txt
+          python3 build-kit/scripts/package_webui21.py ci-stage/step21/Synthetica-2.1-Cyberbrutal-WebUI-Module.zip
       - name: Upload unsigned build and logs (no signing materials)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -83,9 +97,9 @@ jobs:
           [ -d ci-stage/step21 ] || exit 0
           git config user.name 'synthetica-ci'
           git config user.email 'ci@users.noreply.github.com'
-          for file in manager-aligned.apk manager-build.log apksigner.jar APK-BADGING.txt PAYLOAD-SHA256.txt; do
-            [ ! -f "ci-stage/step21/$file" ] || git add -f "ci-stage/step21/$file"
-          done
+          # This directory is freshly recreated during the unsigned-only build.
+          # Stage deletions too, so a failed run cannot leave an older APK behind.
+          git add -A -f ci-stage/step21/
           git diff --cached --quiet && exit 0
           git commit -qm "ci: save unsigned Synthetica 2.1 build diagnostics (run ${GITHUB_RUN_ID})"
           git pull --rebase origin "${GITHUB_REF_NAME}"

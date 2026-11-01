@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SYNTHETICA // CYBERBRUTAL 2.1</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<div class="grid-bg"></div>
+<header class="hud">
+  <div class="brand"><div class="mark">S</div><div>
+    <h1>SYNTHETICA // 2.1</h1>
+    <p class="sub">CYBERBRUTAL TELEMETRY // OPTIONAL WEBUI</p>
+  </div></div>
+  <div class="hud-actions">
+    <button class="chip" id="themeBtn">LIGHT / DARK</button>
+    <div class="verdict" id="verdict">PROBING KERNEL...</div>
+  </div>
+</header>
+<main>
+  <section class="plate active">
+    <div class="plate-head"><span>[01] PERFORMANCE MATRIX</span><span>OPT-IN</span></div>
+    <p class="sub">Gaming raises CPU/GPU floors and may increase heat and battery use. Revert attempts to restore values saved on this boot.</p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" data-cmd="profile_gaming" disabled>GAMING</button>
+      <button class="btn" data-cmd="profile_daily" disabled>DAILY</button>
+      <button class="btn warn" data-cmd="profile_revert" disabled>REVERT</button>
+    </div>
+  </section>
+  <section class="plate">
+    <div class="plate-head"><span>[02] DEPARTURE TELEMETRY</span><button class="chip" id="refresh">SCAN</button></div>
+    <div class="telemetry">
+      <div class="meter"><span class="k">CPU GOV</span><span class="v" id="t-gov">--</span></div>
+      <div class="meter"><span class="k">CPU MIN</span><span class="v" id="t-cpu">--</span></div>
+      <div class="meter"><span class="k">GPU LEVEL</span><span class="v" id="t-gpu">--</span></div>
+      <div class="meter"><span class="k">THERMAL RAW</span><span class="v" id="t-temp">--</span></div>
+      <div class="meter"><span class="k">SWAPPINESS</span><span class="v" id="t-swap">--</span></div>
+      <div class="meter"><span class="k">ZRAM BYTES</span><span class="v" id="t-zram">--</span></div>
+    </div>
+  </section>
+  <section class="plate">
+    <div class="plate-head"><span>[03] KERNEL CONSOLE</span><span>RUNTIME</span></div>
+    <pre id="log">SYS.READY // NO CHANGES APPLIED.</pre>
+    <p class="sub" style="margin-top:10px">Node availability varies by ROM. Kernel-name detection does not prove compatibility. Auto mode and benchmark are not included in this build.</p>
+  </section>
+</main>
+<script src="panel.js"></script>
+</body>
+</html>

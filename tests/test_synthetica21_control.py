@@ -118,6 +118,22 @@ class ControlTests(unittest.TestCase):
         self.assertIn("No prior changes", result.stdout)
         self.assertEqual(self.read("proc/sys/vm/swappiness"), "40")
 
+    def test_concurrent_actions_are_rejected_without_changes(self) -> None:
+        self.state.mkdir()
+        (self.state / "lock-11111111-1111-1111-1111-111111111111").mkdir()
+        result = self.run_control("swap:40")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("another control action is running", result.stdout)
+        self.assertEqual(self.read("proc/sys/vm/swappiness"), "60")
+
+    def test_read_only_node_is_reported_as_failure(self) -> None:
+        node = self.proc / "sys/vm/swappiness"
+        node.chmod(0o444)
+        result = self.run_control("swap:40")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not writable", result.stdout)
+        self.assertEqual(self.read("proc/sys/vm/swappiness"), "60")
+
     def test_symlink_state_dir_is_refused(self) -> None:
         other = self.root / "other"
         other.mkdir()
