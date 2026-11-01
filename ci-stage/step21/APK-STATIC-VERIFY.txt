@@ -1,0 +1,5 @@
+APK ZIP CRC: OK
+JNI accessor: UAPI 4; code matches 2.0 except ELF build ID
+libksud.so: c305965796afb55ae8dad3a122935c995a818e07c637a9ef4c3e375202e4a427 matches 2.0
+Bundled runtime helpers match tested source
+Runtime/device behavior: NOT TESTED
