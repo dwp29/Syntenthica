@@ -1,0 +1,94 @@
+name: "Synthetica-Project — original ROM read-only baseline"
+
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    # Only an explicit change to this workflow starts a large download.
+    paths:
+      - '.github/workflows/synthetica-project-baseline.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetica-project-baseline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: "Read-only original ZIP and component identity"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out this exact commit without retaining credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Run host-only tests on synthetic ZIPs
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_hyperos4_preflight.py' -v
+
+      - name: Download published original to ephemeral runner storage only
+        id: download
+        run: |
+          set -euo pipefail
+          # The URL is public. The file is neither committed nor uploaded as an artifact.
+          # Subsequent inspection stops unless the pinned byte count and SHA-256 match.
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --retry 2 --retry-delay 5 --connect-timeout 30 --max-time 3000 \
+            --max-filesize 4512854711 \
+            --output "$RUNNER_TEMP/synthetica-base.zip" \
+            'https://pixeldrain.com/api/file/DKkWRTMZ?download'
+
+      - name: Verify identity and stream only the three core members
+        id: audit
+        run: |
+          set -euo pipefail
+          python3 research/hyperos4/verify_archive.py --inspect-core \
+            "$RUNNER_TEMP/synthetica-base.zip" > "$RUNNER_TEMP/baseline-audit.json"
+
+      - name: Publish compact diagnostics, never image bytes
+        if: always()
+        env:
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'baseline-audit.json'
+          summary = {'download': os.environ['DOWNLOAD_OUTCOME'], 'audit': os.environ['AUDIT_OUTCOME']}
+          if path.is_file():
+              try:
+                  data = json.loads(path.read_text())
+                  summary.update({
+                      'status': data.get('status'),
+                      'zip_bytes': data.get('observed', {}).get('bytes'),
+                      'zip_sha256': data.get('observed', {}).get('sha256'),
+                      'directory_findings': (data.get('archive') or {}).get('finding_count'),
+                      'error': data.get('error'),
+                  })
+                  core = data.get('core_members') or {}
+                  summary['reference_matches'] = core.get('matches_reference')
+                  summary['super'] = core.get('members', {}).get('super.img')
+                  summary['super_prefix'] = core.get('super_prefix')
+              except (ValueError, OSError) as exc:
+                  summary['report_error'] = str(exc)[:200]
+          text = json.dumps(summary, ensure_ascii=True, separators=(',', ':'))
+          # Workflow command escaping; diagnostic only, not a proof of bootability.
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::notice file=research/hyperos4/verify_archive.py,line=1,title=Baseline identity::' + escaped)
+          print('Baseline audit (no image bytes): ' + text)
+          PY
+
+      - name: Retain only the small diagnostic manifest
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica-project-baseline-audit
+          path: ${{ runner.temp }}/baseline-audit.json
+          if-no-files-found: ignore
+          retention-days: 3
