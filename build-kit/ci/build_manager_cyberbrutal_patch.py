@@ -106,6 +106,7 @@ def apply_overlays(src: Path) -> None:
         OVERLAY / "screen/SyntheticaControl.kt": app / "ui/screen/SyntheticaControl.kt",
         OVERLAY / "screen/BoostLegacy.kt": app / "ui/screen/BoostLegacy.kt",
         OVERLAY / "component/AboutCard.kt": app / "ui/component/AboutCard.kt",
+        OVERLAY / "component/ContributorsSection.kt": app / "ui/component/ContributorsSection.kt",
         OVERLAY / "component/SearchBar.kt": app / "ui/component/SearchBar.kt",
         OVERLAY / "component/SettingsItem.kt": app / "ui/component/SettingsItem.kt",
     }
@@ -264,6 +265,39 @@ def patch_main_activity(src: Path) -> None:
     say("[patch] MainActivity: backdrop + BrutalSplash + transparent Scaffold + 5-tab Cyberbrutal dock")
 
 
+def relocate_home_contributors(text: str, credits_overlay: str) -> str:
+    """Remove Home's credits only after verifying the About overlay preserves them."""
+    old_calls = (
+        "            InfoCard(autoExpand = developerOptionsEnabled)\n"
+        "            IssueReportCard()\n"
+        "            ContributorsCard()"
+    )
+    new_calls = (
+        "            BrutalStaggerItem(index = 3) { InfoCard(autoExpand = developerOptionsEnabled) }\n"
+        "            BrutalStaggerItem(index = 4) { IssueReportCard() }"
+    )
+    if text.count(old_calls) != 1:
+        raise RuntimeError("Expected exactly one Home contributors call")
+    text = text.replace(old_calls, new_calls, 1)
+    start_anchor = "\ndata class Contributor(\n"
+    end_anchor = "\n@Composable\nfun IssueReportCard()"
+    if text.count(start_anchor) != 1 or text.count(end_anchor) != 1:
+        raise RuntimeError("Expected one upstream contributor block followed by IssueReportCard")
+    start = text.index(start_anchor)
+    end = text.index(end_anchor, start)
+    old_block = text[start:end]
+    for field in ("login", "name", "githubUrl", "role", "donationUrl"):
+        pattern = rf'\b{field}\s*=\s*"([^"\n]*)"'
+        old_values = re.findall(pattern, old_block)
+        new_values = re.findall(pattern, credits_overlay)
+        if old_values != new_values or (field == "login" and not old_values):
+            raise RuntimeError(f"About credits do not preserve upstream contributor field: {field}")
+    text = text[:start] + text[end:]
+    if "ContributorsCard(" in text or "data class Contributor(" in text:
+        raise RuntimeError("Contributor implementation still exists on Home")
+    return text
+
+
 def patch_home_screen(src: Path) -> None:
     f = src / "manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt"
     s = f.read_text()
@@ -362,17 +396,9 @@ def patch_home_screen(src: Path) -> None:
         "Home disable upstream update nag by default",
     )
 
-    # Stagger InfoCard, IssueReportCard, ContributorsCard
-    s = must_replace(
-        s,
-        "            InfoCard(autoExpand = developerOptionsEnabled)\n"
-        "            IssueReportCard()\n"
-        "            ContributorsCard()",
-        "            BrutalStaggerItem(index = 3) { InfoCard(autoExpand = developerOptionsEnabled) }\n"
-        "            BrutalStaggerItem(index = 4) { IssueReportCard() }\n"
-        "            BrutalStaggerItem(index = 5) { ContributorsCard() }",
-        "Home stagger cards",
-    )
+    # Keep issue reporting on Home; move all preserved upstream credits to About.
+    credits = (OVERLAY / "component/ContributorsSection.kt").read_text(encoding="utf-8")
+    s = relocate_home_contributors(s, credits)
 
     # SuperuserCard & ModuleCard: brutalPlate + DepartureBoardText count + FadeInText label
     old_su_card = """    ElevatedCard(
@@ -1240,6 +1266,7 @@ def sanity_check_kotlin_sources(src: Path) -> None:
         "screen/Settings.kt",
         "screen/Customization.kt",
         "component/AboutCard.kt",
+        "component/ContributorsSection.kt",
         "component/SearchBar.kt",
         "component/SettingsItem.kt",
     ]

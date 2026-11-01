@@ -774,21 +774,6 @@ fun SyntheticaControlScreen(navigator: DestinationsNavigator) {
                             )
                         }
 
-                        OutlinedButton(
-                            onClick = {
-                                consoleMsg = "SOLARI DEPARTURE BOARD TEST TRIGGERED"
-                                boardTrigger++
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            border = BorderStroke(1.dp, accent),
-                            shape = MaterialTheme.shapes.small
-                        ) {
-                            Text(
-                                text = "[ TEST DEPARTURE BOARD ANIMATION ]",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = accent
-                            )
-                        }
                     }
                 }
             }

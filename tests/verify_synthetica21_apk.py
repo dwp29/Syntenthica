@@ -81,10 +81,16 @@ def main(apk: Path) -> None:
         for name in ("synthetica-control.sh", "synthetica-boost-compat.sh"):
             if candidate.read("assets/" + name) != (assets / name).read_bytes():
                 raise ValueError(f"APK asset {name} does not match the tested source")
+        dex = b"".join(candidate.read(name) for name in candidate.namelist() if name.endswith(".dex"))
+        if not dex or b"KERNELSU-NEXT // CREDITS" not in dex:
+            raise ValueError("About contributor section missing from APK bytecode")
+        if b"TEST DEPARTURE BOARD ANIMATION" in dex or b"SOLARI DEPARTURE BOARD TEST TRIGGERED" in dex:
+            raise ValueError("Removed departure-board test button still present in APK bytecode")
         print("APK ZIP CRC: OK")
         print("JNI accessor: UAPI 4; code matches 2.0 except ELF build ID")
         print("libksud.so:", hashlib.sha256(daemon).hexdigest(), "matches 2.0")
         print("Bundled runtime helpers match tested source")
+        print("About credits marker present; departure-board test button strings absent")
         print("Runtime/device behavior: NOT TESTED")
 
 

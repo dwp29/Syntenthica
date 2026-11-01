@@ -42,8 +42,8 @@ def apply_version_and_architecture(src: Path) -> None:
     for old, new, label in (
         ('abiFilters("arm64-v8a", "x86_64", "riscv64")', 'abiFilters("arm64-v8a")', "cmake ABIs"),
         ('abiFilters += listOf("arm64-v8a", "x86_64", "riscv64")', 'abiFilters += listOf("arm64-v8a")', "APK ABIs"),
-        ('val managerVersionCode by extra(getVersionCode())', 'val managerVersionCode by extra(30002)', "version code"),
-        ('val managerVersionName by extra(getVersionName())', 'val managerVersionName by extra("2.1")', "version name"),
+        ('val managerVersionCode by extra(getVersionCode())', 'val managerVersionCode by extra(30003)', "version code"),
+        ('val managerVersionName by extra(getVersionName())', 'val managerVersionName by extra("2.1.1")', "version name"),
     ):
         data = replace_exact_once(data, old, new, label)
     gradle.write_text(data, encoding="utf-8")
@@ -85,7 +85,7 @@ def prepare_tree(src: Path) -> None:
     for name in ("synthetica-control.sh", "synthetica-boost-compat.sh"):
         shutil.copy2(asset_dir / name, target_dir / name)
     base.extract_ksud_arm64(src / "manager/app/src/main/jniLibs/arm64-v8a")
-    print("[compat] Native source UAPI 4; 2.1 Cyberbrutal UI; package net.ember.labs; versionCode 30002", flush=True)
+    print("[compat] Native source UAPI 4; 2.1.1 Cyberbrutal UI; package net.ember.labs; versionCode 30003", flush=True)
 
 
 def main() -> int:
