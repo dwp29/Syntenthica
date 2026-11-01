@@ -11,7 +11,7 @@ on:
       - 'build-kit/ci/branding-cyberbrutal/**'
       - 'tests/test_synthetica21_*.py'
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: synthetica-2-1-manager-${{ github.ref }}
   cancel-in-progress: false
@@ -76,3 +76,17 @@ jobs:
           name: synthetica21-unsigned-${{ github.run_id }}
           path: ci-stage/step21/
           if-no-files-found: warn
+      - name: Save unsigned output and diagnostics to the session branch
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -d ci-stage/step21 ] || exit 0
+          git config user.name 'synthetica-ci'
+          git config user.email 'ci@users.noreply.github.com'
+          for file in manager-aligned.apk manager-build.log apksigner.jar APK-BADGING.txt PAYLOAD-SHA256.txt; do
+            [ ! -f "ci-stage/step21/$file" ] || git add -f "ci-stage/step21/$file"
+          done
+          git diff --cached --quiet && exit 0
+          git commit -qm "ci: save unsigned Synthetica 2.1 build diagnostics (run ${GITHUB_RUN_ID})"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
