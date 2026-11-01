@@ -87,9 +87,15 @@ jobs:
                      'part_43_prefix': prefix_43}
           out = Path(os.environ['RUNNER_TEMP']) / 'reference-part-hashes.json'
           out.write_text(json.dumps(summary, indent=2) + '\n')
-          text = json.dumps(summary, separators=(',', ':'))
-          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-          print('::notice file=.github/workflows/synthetica-project-baseline.yml,line=1,title=Public reference part hashes::' + escaped)
+          # GitHub truncates oversized annotations, so publish short, parseable batches.
+          for offset in range(0, len(parts), 8):
+              batch = parts[offset:offset + 8]
+              text = json.dumps(batch, separators=(',', ':'))
+              escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              title = f'Public reference parts {batch[0]["number"]}-{batch[-1]["number"]}'
+              print(f'::notice file=.github/workflows/synthetica-project-baseline.yml,line=1,title={title}::{escaped}')
+          text = json.dumps(prefix_43, separators=(',', ':'))
+          print('::notice file=.github/workflows/synthetica-project-baseline.yml,line=1,title=Public reference part 43 prefix::' + text)
           PY
 
       - name: Publish compact diagnostics, never image bytes
@@ -131,6 +137,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: synthetica-project-baseline-audit
-          path: ${{ runner.temp }}/baseline-audit.json
+          path: |
+            ${{ runner.temp }}/baseline-audit.json
+            ${{ runner.temp }}/reference-part-hashes.json
           if-no-files-found: ignore
           retention-days: 3
