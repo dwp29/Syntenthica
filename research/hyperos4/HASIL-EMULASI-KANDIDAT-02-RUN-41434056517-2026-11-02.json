@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "status": "all_scenarios_passed",
+  "source": "existing unpublished draft; three independently checked assets",
+  "candidate_before": {
+    "bytes": 4713790039,
+    "sha256": "395c79099ccb2718d6309ce24606071a017fbbf4afb313e9b741649ccf27c372"
+  },
+  "candidate_after": {
+    "bytes": 4713790039,
+    "sha256": "395c79099ccb2718d6309ce24606071a017fbbf4afb313e9b741649ccf27c372"
+  },
+  "updater_sha256": "94fb81532b96bbf78f2e8d7e9d5426bf7a7d5eec6a35f208fda9209e38839d02",
+  "actual_guarded_script_sha256": "8053b434315f4511804cd6bb6066e442e984ec0523783d36334362427d787252",
+  "zip_comment_bytes": 0,
+  "qemu": {
+    "bytes": 12918384,
+    "sha256": "4f55e2e88dc05dc0f619562d5795b8eb25ed2ad2547504fb4835207a6911c350"
+  },
+  "qemu_source": "https://github.com/RuriOSS/qemu-user-static-x86_64/tree/adf37fd001dfa1f20d681b9cf0cedcba82b92bf9",
+  "qemu_git_blob": "df7501e7cff2e43df6fff8342710d28a6967c369",
+  "isolation": {
+    "user_mount_pid_network_namespaces": true,
+    "chroot": true,
+    "readonly_bind_input": true,
+    "capabilities_dropped": true,
+    "no_new_privileges": true,
+    "fake_targets_are_regular_files_or_directories": true,
+    "device_access": false
+  },
+  "scenario_count": 6,
+  "scenarios": [
+    {
+      "scenario": "actual_guarded_zip64_device_rejected",
+      "input": "actual ZIP, mounted read-only",
+      "exit_code": 1,
+      "reported_completed": false,
+      "device_rejected": true,
+      "open_failure_reported": false,
+      "assert_failed": false,
+      "fake_targets": {
+        "super": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        },
+        "boot": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        },
+        "dtbo": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        }
+      },
+      "stderr_selinux_fixture_warning": true,
+      "stdout_tail": "script aborted: E3004: This package is for device: curtana,excalibur,gram,joyeuse,miatoll; this device is .\nui_print E3004: This package is for device: curtana,excalibur,gram,joyeuse,miatoll; this device is .\nlog error: 3004\n",
+      "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+    },
+    {
+      "scenario": "actual_guarded_script_success",
+      "input": "synthetic ZIP; fake property values and fake payloads",
+      "substituted_script_sha256": "ffccf7015035fde85ced1345b447e400b40637ead9c3fc0971ea2729657cc37f",
+      "exit_code": 0,
+      "reported_completed": true,
+      "device_rejected": false,
+      "open_failure_reported": false,
+      "assert_failed": false,
+      "fake_targets": {
+        "super": {
+          "type": "regular",
+          "bytes": 2176,
+          "sha256": "fb05d20e1e1dee83548b322622e5fbdc5134ee3e0996a3698f126a92a4f32057",
+          "unchanged_sentinel": false
+        },
+        "boot": {
+          "type": "regular",
+          "bytes": 2112,
+          "sha256": "97555894a0082a683d474bc88127c11cd8b74563ee47af4cfb98f85340f27192",
+          "unchanged_sentinel": false
+        },
+        "dtbo": {
+          "type": "regular",
+          "bytes": 2112,
+          "sha256": "511659683b8066b292954d886b707f515202db3bf37d9e4849e98a4ce20a8a30",
+          "unchanged_sentinel": false
+        }
+      },
+      "stderr_selinux_fixture_warning": true,
+      "stdout_tail": "progress 0.020000 10\nui_print **************************************************\n**************************************************\nui_print - Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\n- Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\nui_print - OS: Xiaomi HyperOS 4\n- OS: Xiaomi HyperOS 4\nui_print - Base: Xiaomi 18 Pro Max\n- Base: Xiaomi 18 Pro Max\nui_print - Ported by: @dizaxyz\n- Ported by: @dizaxyz\nui_print **************************************************\n**************************************************\nui_print - Patching super image unconditionally...\n- Patching super image unconditionally...\nui_print - Patching boot image unconditionally...\n- Patching boot image unconditionally...\nprogress 0.100000 10\nui_print - Patching dtbo image unconditionally...\n- Patching dtbo image unconditionally...\nui_print - Flashing completed. Have a good day.\n- Flashing completed. Have a good day.\nui_print - Join @dizasports for more ports and hotfixes!\n- Join @dizasports for more ports and hotfixes!\nui_print #antikangingaction #savethecommunity\n#antikangingaction #savethecommunity\nset_progress 1.000000\nui_print script succeeded: result was [1.000000]\n",
+      "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+    },
+    {
+      "scenario": "actual_guarded_script_wrong_device",
+      "input": "synthetic ZIP; fake property values and fake payloads",
+      "substituted_script_sha256": "f333438db9038516d8008eea2f5e5e6453cf0179649c996375086a1037bd504e",
+      "exit_code": 1,
+      "reported_completed": false,
+      "device_rejected": true,
+      "open_failure_reported": false,
+      "assert_failed": false,
+      "fake_targets": {
+        "super": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        },
+        "boot": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        },
+        "dtbo": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        }
+      },
+      "stderr_selinux_fixture_warning": true,
+      "stdout_tail": "script aborted: E3004: This package is for device: curtana,excalibur,gram,joyeuse,miatoll; this device is not-a-miatoll-device.\nui_print E3004: This package is for device: curtana,excalibur,gram,joyeuse,miatoll; this device is not-a-miatoll-device.\nlog error: 3004\n",
+      "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+    },
+    {
+      "scenario": "actual_guarded_script_super_open_failure",
+      "input": "synthetic ZIP; fake property values and fake payloads",
+      "substituted_script_sha256": "ffccf7015035fde85ced1345b447e400b40637ead9c3fc0971ea2729657cc37f",
+      "exit_code": 1,
+      "reported_completed": false,
+      "device_rejected": false,
+      "open_failure_reported": true,
+      "assert_failed": true,
+      "fake_targets": {
+        "super": {
+          "type": "directory"
+        },
+        "boot": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        },
+        "dtbo": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        }
+      },
+      "stderr_selinux_fixture_warning": true,
+      "stdout_tail": "progress 0.020000 10\nui_print **************************************************\n**************************************************\nui_print - Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\n- Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\nui_print - OS: Xiaomi HyperOS 4\n- OS: Xiaomi HyperOS 4\nui_print - Base: Xiaomi 18 Pro Max\n- Base: Xiaomi 18 Pro Max\nui_print - Ported by: @dizaxyz\n- Ported by: @dizaxyz\nui_print **************************************************\n**************************************************\nui_print - Patching super image unconditionally...\n- Patching super image unconditionally...\npackage_extract_file: can't open /dev/block/bootdevice/by-name/super for write: Is a directory\nscript aborted: assert failed: package_extract_file(\"super.img\", \"/dev/block/bootdevice/by-name/super\")\nui_print assert failed: package_extract_file(\"super.img\", \"/dev/block/bootdevice/by-name/super\")\nlog error: 25\n",
+      "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+    },
+    {
+      "scenario": "actual_guarded_script_boot_open_failure",
+      "input": "synthetic ZIP; fake property values and fake payloads",
+      "substituted_script_sha256": "ffccf7015035fde85ced1345b447e400b40637ead9c3fc0971ea2729657cc37f",
+      "exit_code": 1,
+      "reported_completed": false,
+      "device_rejected": false,
+      "open_failure_reported": true,
+      "assert_failed": true,
+      "fake_targets": {
+        "super": {
+          "type": "regular",
+          "bytes": 2176,
+          "sha256": "fb05d20e1e1dee83548b322622e5fbdc5134ee3e0996a3698f126a92a4f32057",
+          "unchanged_sentinel": false
+        },
+        "boot": {
+          "type": "directory"
+        },
+        "dtbo": {
+          "type": "regular",
+          "bytes": 46,
+          "sha256": "4e2e6cc827d1abceb6848fb5e227c4ac46c3d3cb23f417c2b1498f943df4522b",
+          "unchanged_sentinel": true
+        }
+      },
+      "stderr_selinux_fixture_warning": true,
+      "stdout_tail": "progress 0.020000 10\nui_print **************************************************\n**************************************************\nui_print - Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\n- Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\nui_print - OS: Xiaomi HyperOS 4\n- OS: Xiaomi HyperOS 4\nui_print - Base: Xiaomi 18 Pro Max\n- Base: Xiaomi 18 Pro Max\nui_print - Ported by: @dizaxyz\n- Ported by: @dizaxyz\nui_print **************************************************\n**************************************************\nui_print - Patching super image unconditionally...\n- Patching super image unconditionally...\nui_print - Patching boot image unconditionally...\n- Patching boot image unconditionally...\npackage_extract_file: can't open /dev/block/bootdevice/by-name/boot for write: Is a directory\nscript aborted: assert failed: package_extract_file(\"boot.img\", \"/dev/block/bootdevice/by-name/boot\")\nui_print assert failed: package_extract_file(\"boot.img\", \"/dev/block/bootdevice/by-name/boot\")\nlog error: 25\n",
+      "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+    },
+    {
+      "scenario": "actual_guarded_script_dtbo_open_failure",
+      "input": "synthetic ZIP; fake property values and fake payloads",
+      "substituted_script_sha256": "ffccf7015035fde85ced1345b447e400b40637ead9c3fc0971ea2729657cc37f",
+      "exit_code": 1,
+      "reported_completed": false,
+      "device_rejected": false,
+      "open_failure_reported": true,
+      "assert_failed": true,
+      "fake_targets": {
+        "super": {
+          "type": "regular",
+          "bytes": 2176,
+          "sha256": "fb05d20e1e1dee83548b322622e5fbdc5134ee3e0996a3698f126a92a4f32057",
+          "unchanged_sentinel": false
+        },
+        "boot": {
+          "type": "regular",
+          "bytes": 2112,
+          "sha256": "97555894a0082a683d474bc88127c11cd8b74563ee47af4cfb98f85340f27192",
+          "unchanged_sentinel": false
+        },
+        "dtbo": {
+          "type": "directory"
+        }
+      },
+      "stderr_selinux_fixture_warning": true,
+      "stdout_tail": "progress 0.020000 10\nui_print **************************************************\n**************************************************\nui_print - Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\n- Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\nui_print - OS: Xiaomi HyperOS 4\n- OS: Xiaomi HyperOS 4\nui_print - Base: Xiaomi 18 Pro Max\n- Base: Xiaomi 18 Pro Max\nui_print - Ported by: @dizaxyz\n- Ported by: @dizaxyz\nui_print **************************************************\n**************************************************\nui_print - Patching super image unconditionally...\n- Patching super image unconditionally...\nui_print - Patching boot image unconditionally...\n- Patching boot image unconditionally...\nprogress 0.100000 10\nui_print - Patching dtbo image unconditionally...\n- Patching dtbo image unconditionally...\npackage_extract_file: can't open /dev/block/bootdevice/by-name/dtbo for write: Is a directory\nscript aborted: assert failed: package_extract_file(\"dtbo.img\", \"/dev/block/bootdevice/by-name/dtbo\")\nui_print assert failed: package_extract_file(\"dtbo.img\", \"/dev/block/bootdevice/by-name/dtbo\")\nlog error: 25\n",
+      "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+    }
+  ],
+  "limitations": [
+    "The actual ZIP was opened by its bundled updater and stopped at device assertion; no actual ROM image was extracted from it.",
+    "The five write-behavior scenarios use the actual guarded script with property expressions replaced and small synthetic image data.",
+    "QEMU is a pinned community binary in a disposable sandbox, not OrangeFox or a real phone.",
+    "Outer recovery ZIP acceptance, signature policy, encryption, AVB, rollback, real partition writes and boot were not tested.",
+    "The guards cannot undo partial earlier writes or catch a failure that the updater does not report."
+  ]
+}
