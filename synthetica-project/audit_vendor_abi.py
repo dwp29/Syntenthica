@@ -21,7 +21,7 @@ MAX_STRTAB = 8 * 1024**2
 MAX_NEEDED = 512
 MAX_LIB_ENTRIES = 50000
 MAX_EXAMPLES = 25
-LIBNAME = re.compile(r'[A-Za-z0-9_+.-]{1,200}\.so(?:\.[0-9]+)*\Z')
+LIBNAME = re.compile(r'[A-Za-z0-9_+@.-]{1,200}\.so(?:\.[0-9]+)*\Z')
 LIB_ROOTS = {
     'system': {32: '/system/lib', 64: '/system/lib64'},
     'system_ext': {32: '/lib', 64: '/lib64'},
@@ -118,7 +118,7 @@ def dynamic_needed(entry, size: int) -> tuple[list[str], int]:
     return sorted(set(names)), invalid
 
 
-def header_arch(entry, size: int) -> tuple[int, int] | None:
+def header_arch(entry, size: int) -> tuple[int, int, int] | None:
     if size < 20:
         return None
     try:
@@ -127,7 +127,8 @@ def header_arch(entry, size: int) -> tuple[int, int] | None:
         return None
     if head[:4] != b'\x7fELF' or head[4] not in (1, 2) or head[5] != 1 or head[6] != 1:
         return None
-    return (32 if head[4] == 1 else 64, struct.unpack_from('<H', head, 18)[0])
+    return (32 if head[4] == 1 else 64, struct.unpack_from('<H', head, 18)[0],
+            struct.unpack_from('<H', head, 16)[0])
 
 
 class Collector:
@@ -195,7 +196,7 @@ class Collector:
                 elif item.type == inventory.pytsk3.TSK_FS_META_TYPE_LNK:
                     kind = 'symlink_not_followed'
                 elif item.type == inventory.pytsk3.TSK_FS_META_TYPE_REG:
-                    expected = (bits, 40 if bits == 32 else 183)
+                    expected = (bits, 40 if bits == 32 else 183, 3)  # ET_DYN, not merely an ARM ELF
                     kind = 'matching_elf_header' if header_arch(entry, int(item.size)) == expected else 'other_or_unreadable'
                 else:
                     kind = 'other_or_unreadable'

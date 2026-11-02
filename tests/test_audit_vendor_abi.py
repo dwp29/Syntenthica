@@ -48,9 +48,9 @@ def dynamic_elf(bits: int, names: list[str]) -> bytes:
 class AbiTests(unittest.TestCase):
     def test_parses_both_classes_and_deduplicates_dependencies(self):
         for bits in (32, 64):
-            data = dynamic_elf(bits, ['liba.so', 'libb.so', 'liba.so'])
+            data = dynamic_elf(bits, ['android.hardware.foo@1.0.so', 'liba.so', 'libb.so', 'liba.so'])
             names, invalid = audit.dynamic_needed(Buffer(data), len(data))
-            self.assertEqual(names, ['liba.so', 'libb.so'])
+            self.assertEqual(names, ['android.hardware.foo@1.0.so', 'liba.so', 'libb.so'])
             self.assertEqual(invalid, 0)
             self.assertEqual(elf.classify_elf(Buffer(data), len(data))['class'], bits)
 

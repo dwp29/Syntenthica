@@ -21,8 +21,8 @@ on:
 # copied temporarily to inspect linker headers; no ROM code is ever executed.
 # Official EROFS fsck runs without network/caps in a read-only chroot with
 # bounded tmpfs and must pass synthetic controls before candidate access.
-# Final bounded phases inspect DT_NEEDED/lib headers and package AVB/OTA
-# metadata as data; neither claims runtime compatibility or device security.
+# Final bounded phases inspect DT_NEEDED/lib headers (including HIDL names)
+# and package AVB/OTA metadata as data; neither claims device compatibility.
 permissions:
   contents: write
   checks: write
