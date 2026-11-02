@@ -1,0 +1,3229 @@
+{
+  "schema": "synthetica-vintf-readonly-inventory-v1",
+  "scope": "existing guarded candidate; temporary ext4 copies inspected without mount or device",
+  "candidate_before": {
+    "bytes": 4713790039,
+    "sha256": "395c79099ccb2718d6309ce24606071a017fbbf4afb313e9b741649ccf27c372"
+  },
+  "candidate_after": {
+    "bytes": 4713790039,
+    "sha256": "395c79099ccb2718d6309ce24606071a017fbbf4afb313e9b741649ccf27c372"
+  },
+  "groups": [
+    {
+      "super": {
+        "bytes": 8589934592,
+        "sha256": "3ae6b934491d3828b43904070a17bab89d56ddf0a79d599b11fd9cb701476673",
+        "zip_crc_checked_at_eof": true
+      },
+      "extents": {
+        "system": {
+          "before": {
+            "bytes": 1732870144,
+            "sha256": "1a27a6d10de5bb55d2e5a0dc543af181e8227fb9970053f1880f0e86520d01f0"
+          },
+          "after": {
+            "bytes": 1732870144,
+            "sha256": "1a27a6d10de5bb55d2e5a0dc543af181e8227fb9970053f1880f0e86520d01f0"
+          }
+        },
+        "system_ext": {
+          "before": {
+            "bytes": 1407295488,
+            "sha256": "7e6bba489094b01194919a5ee69e63778ac0d1bef3b16ce25d325fbf0b991f1e"
+          },
+          "after": {
+            "bytes": 1407295488,
+            "sha256": "7e6bba489094b01194919a5ee69e63778ac0d1bef3b16ce25d325fbf0b991f1e"
+          }
+        },
+        "vendor": {
+          "before": {
+            "bytes": 1490268160,
+            "sha256": "814f8cad2da33d842656773ab94b01f5d54d39726a650ea5bec0ed7472fa099a"
+          },
+          "after": {
+            "bytes": 1490268160,
+            "sha256": "814f8cad2da33d842656773ab94b01f5d54d39726a650ea5bec0ed7472fa099a"
+          }
+        }
+      }
+    },
+    {
+      "super": {
+        "bytes": 8589934592,
+        "sha256": "3ae6b934491d3828b43904070a17bab89d56ddf0a79d599b11fd9cb701476673",
+        "zip_crc_checked_at_eof": true
+      },
+      "extents": {
+        "product": {
+          "before": {
+            "bytes": 3891687424,
+            "sha256": "f25da6d0a79f0f39c565b03bbbb679e22149577216276bc30d74b86a22770079"
+          },
+          "after": {
+            "bytes": 3891687424,
+            "sha256": "f25da6d0a79f0f39c565b03bbbb679e22149577216276bc30d74b86a22770079"
+          }
+        }
+      }
+    }
+  ],
+  "scan_roots": [
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf",
+      "status": "read"
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf",
+      "status": "read"
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf",
+      "status": "read"
+    },
+    {
+      "partition": "vendor",
+      "path": "/odm/etc/vintf",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "product",
+      "path": "/etc/vintf",
+      "status": "read"
+    }
+  ],
+  "documents": [
+    {
+      "partition": "product",
+      "path": "/etc/vintf/compatibility_matrix.xml",
+      "bytes": 649,
+      "sha256": "8c6eb347309b678feda0b75e117a8f607a210d6b30b051570dcce72a709a7094",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "aidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "product",
+      "path": "/etc/vintf/manifest/vendor.qti.qvirt-service.xml",
+      "bytes": 319,
+      "sha256": "c6c3a1e1c491453e5b86d63b9d51a99aee85ef6270a6076031a034a6d97f30fa",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.202404.xml",
+      "bytes": 59688,
+      "sha256": "9373d231207920dec970ecaac611817af723313e94c32bbf54cf0c5715645b2a",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": "202404",
+      "target_level": null,
+      "hal_count": 84,
+      "hal_formats": {
+        "aidl": 83,
+        "native": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": [
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.face",
+          "format": "aidl",
+          "versions": [
+            "3-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFace"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "aidl",
+          "versions": [
+            "3-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFingerprint"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [],
+              "regex_instances": [
+                "[^/]+/[0-9]+"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.gatekeeper",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IGatekeeper"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.health",
+          "format": "aidl",
+          "versions": [
+            "3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IHealth"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.light",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ILights"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.power",
+          "format": "aidl",
+          "versions": [
+            "5"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IPower"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeyMintDevice"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRemotelyProvisionedComponent"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.sensors",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        }
+      ]
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.202504.xml",
+      "bytes": 60855,
+      "sha256": "a21eba5d7ccf35458f3ca2e8205ea0be5105c4206537b4c95eb32ec4ca10d3c8",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": "202504",
+      "target_level": null,
+      "hal_count": 88,
+      "hal_formats": {
+        "aidl": 87,
+        "native": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": [
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.face",
+          "format": "aidl",
+          "versions": [
+            "3-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFace"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "aidl",
+          "versions": [
+            "3-5"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFingerprint"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [],
+              "regex_instances": [
+                "[^/]+/[0-9]+"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.gatekeeper",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IGatekeeper"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.health",
+          "format": "aidl",
+          "versions": [
+            "3-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IHealth"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.light",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ILights"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.power",
+          "format": "aidl",
+          "versions": [
+            "5-6"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IPower"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeyMintDevice"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRemotelyProvisionedComponent"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.sensors",
+          "format": "aidl",
+          "versions": [
+            "2-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        }
+      ]
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.202604.xml",
+      "bytes": 23109,
+      "sha256": "500741b818c61d0c71b65515ff99b98d7939620fbb961d8845929be49cc5393f",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": "202604",
+      "target_level": null,
+      "hal_count": 92,
+      "hal_formats": {
+        "aidl": 91,
+        "native": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": [
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "aidl",
+          "versions": [
+            "1-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.face",
+          "format": "aidl",
+          "versions": [
+            "3-5"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFace"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "aidl",
+          "versions": [
+            "3-5"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFingerprint"
+              ],
+              "instances": [
+                "default",
+                "udfps"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": [
+                "hci[1-9][0-9]*"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "aidl",
+          "versions": [
+            "1-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [],
+              "regex_instances": [
+                "[^/]+/[0-9]+"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.gatekeeper",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IGatekeeper"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.health",
+          "format": "aidl",
+          "versions": [
+            "3-5"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IHealth"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.light",
+          "format": "aidl",
+          "versions": [
+            "2-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ILights"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.power",
+          "format": "aidl",
+          "versions": [
+            "5-7"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IPower"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-5"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeyMintDevice"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRemotelyProvisionedComponent"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.sensors",
+          "format": "aidl",
+          "versions": [
+            "2-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        }
+      ]
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.7.xml",
+      "bytes": 103894,
+      "sha256": "e268a08dd96b5d1198a4c4948d7f3a9c96727cc4395a8bb3a1da4707530826ff",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": "7",
+      "target_level": null,
+      "hal_count": 100,
+      "hal_formats": {
+        "aidl": 51,
+        "hidl": 49
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": [
+        {
+          "name": "android.hardware.audio",
+          "format": "hidl",
+          "versions": [
+            "6.0",
+            "7.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IDevicesFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "hidl",
+          "versions": [
+            "6.0",
+            "7.0"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IEffectsFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.face",
+          "format": "hidl",
+          "versions": [
+            "1.0"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBiometricsFace"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.face",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFace"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "hidl",
+          "versions": [
+            "2.1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBiometricsFingerprint"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFingerprint"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "hidl",
+          "versions": [
+            "1.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "hidl",
+          "versions": [
+            "2.4-7"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [],
+              "regex_instances": [
+                "[^/]+/[0-9]+"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [],
+              "regex_instances": [
+                "[^/]+/[0-9]+"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.gatekeeper",
+          "format": "hidl",
+          "versions": [
+            "1.0"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IGatekeeper"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.graphics.composer",
+          "format": "hidl",
+          "versions": [
+            "2.1-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IComposer"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.health",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IHealth"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.keymaster",
+          "format": "hidl",
+          "versions": [
+            "3.0",
+            "4.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeymasterDevice"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.keymaster",
+          "format": "hidl",
+          "versions": [
+            "4.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeymasterDevice"
+              ],
+              "instances": [
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.light",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ILights"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "hidl",
+          "versions": [
+            "1.2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.power",
+          "format": "aidl",
+          "versions": [
+            "2-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IPower"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.radio",
+          "format": "hidl",
+          "versions": [
+            "1.2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISap"
+              ],
+              "instances": [
+                "slot1",
+                "slot2"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.radio",
+          "format": "hidl",
+          "versions": [
+            "1.6"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRadio"
+              ],
+              "instances": [
+                "slot1",
+                "slot2",
+                "slot3"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.radio",
+          "format": "hidl",
+          "versions": [
+            "1.2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISap"
+              ],
+              "instances": [
+                "slot1",
+                "slot2"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeyMintDevice"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRemotelyProvisionedComponent"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.sensors",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.sensors",
+          "format": "hidl",
+          "versions": [
+            "1.0",
+            "2.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        }
+      ]
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.8.xml",
+      "bytes": 100397,
+      "sha256": "d33b5d56e3d630bc9416427f3296db1cdbf457e840e939f63fb7bde85e692259",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": "8",
+      "target_level": null,
+      "hal_count": 87,
+      "hal_formats": {
+        "aidl": 75,
+        "hidl": 11,
+        "native": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": [
+        {
+          "name": "android.hardware.audio",
+          "format": "hidl",
+          "versions": [
+            "6.0",
+            "7.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IDevicesFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "hidl",
+          "versions": [
+            "6.0",
+            "7.0"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IEffectsFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.face",
+          "format": "aidl",
+          "versions": [
+            "3-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFace"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "aidl",
+          "versions": [
+            "3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IFingerprint"
+              ],
+              "instances": [
+                "default",
+                "virtual"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "hidl",
+          "versions": [
+            "1.0-1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [],
+              "regex_instances": [
+                "[^/]+/[0-9]+"
+              ]
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.gatekeeper",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IGatekeeper"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.health",
+          "format": "aidl",
+          "versions": [
+            "1-2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IHealth"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.light",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ILights"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.power",
+          "format": "aidl",
+          "versions": [
+            "4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IPower"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IKeyMintDevice"
+              ],
+              "instances": [
+                "default",
+                "strongbox"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.security.keymint",
+          "format": "aidl",
+          "versions": [
+            "1-3"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRemotelyProvisionedComponent"
+              ],
+              "instances": [
+                "default",
+                "strongbox",
+                "widevine"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.sensors",
+          "format": "aidl",
+          "versions": [
+            "2"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        }
+      ]
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.device.xml",
+      "bytes": 107745,
+      "sha256": "232025c275427fb3f8f5b82f845e518c6f16768400f3953ed0d375d84f8a6ea9",
+      "root": "compatibility-matrix",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 385,
+      "hal_formats": {
+        "aidl": 244,
+        "hidl": 141
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": [
+        {
+          "name": "android.hardware.nfc",
+          "format": "hidl",
+          "versions": [
+            "1.0"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        },
+        {
+          "name": "android.hardware.radio",
+          "format": "hidl",
+          "versions": [
+            "1.0-4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IRadio"
+              ],
+              "instances": [
+                "slot1",
+                "slot2"
+              ],
+              "regex_instances": []
+            },
+            {
+              "name": [
+                "ISap"
+              ],
+              "instances": [
+                "slot1",
+                "slot2"
+              ],
+              "regex_instances": []
+            }
+          ],
+          "optional_attribute": null
+        }
+      ]
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest.xml",
+      "bytes": 2158,
+      "sha256": "b9a2ee3ab7e2edcf3dc20737336cb838e7aa2a401f842e36d3a6402fecd0e433",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 9,
+      "hal_formats": {
+        "aidl": 1,
+        "hidl": 7,
+        "native": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/android.frameworks.stats-service.xml",
+      "bytes": 302,
+      "sha256": "0a8c3597585cf9af2c7bdbb63307fe8b166eb353a1f61e29441d4a44c83ebacc",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/android.system.keystore2-service.xml",
+      "bytes": 305,
+      "sha256": "297270541e7c2d576df080fca26b0208fcc5be095a971cda7a2c15ccc52b3430",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/android.system.mieed-service.xml",
+      "bytes": 250,
+      "sha256": "3f150bbd7c50a00ad59e21febcaaf4754ddefd9811b7900b068cebaea2e204e7",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/android.system.net.netd-service.xml",
+      "bytes": 256,
+      "sha256": "341b514fec4eba4685925ac4e6734bae6061f2a4f9d0254b88ae39ee004f218f",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/android.system.suspend-service.xml",
+      "bytes": 292,
+      "sha256": "7eff4e114e33d1275dd99b0c1a5c91a04ef6f2ba84a7d1af32ad3635735371cb",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/android.system.vold-service.xml",
+      "bytes": 241,
+      "sha256": "a211b21a679093c11afde045b54113268af6135edfa0d70ecb806a93e5fddd93",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/app_launcher_service.xml",
+      "bytes": 271,
+      "sha256": "188994fa0b1cfb8265d04c097da26b2fd5853300bf2827ec7e6f5456915c0d02",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/manifest_android.frameworks.cameraservice.service.xml",
+      "bytes": 549,
+      "sha256": "997a729b5836499a0d4e6387a6019916070264fcf85645035e3b426b7a344d56",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "aidl": 1,
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/manifest_media_c2_software.xml",
+      "bytes": 545,
+      "sha256": "efef93595686a610c379538578a5f42b70e27717d8d2ae3a9a4c47fb408a6cec",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "aidl": 1,
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/manifest_services_android.frameworks.devicestate.xml",
+      "bytes": 300,
+      "sha256": "cc09de50d211dfc2e707ffc9148c85bb854f350c212b94ab8fb0972d254ad898",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/manifest_services_android.frameworks.location.xml",
+      "bytes": 329,
+      "sha256": "fd47c69a3f5298243fcfc21ff33dbf6cc24a68cd28eb219ddf75c3123323ece9",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/manifest/manifest_services_android.frameworks.vibrator.xml",
+      "bytes": 298,
+      "sha256": "7cb3d23f37270e284f3979bb8c39316e4b3d58518cfd337d3fe5dd4718fdae85",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest.xml",
+      "bytes": 625,
+      "sha256": "14bf5e9ace4504695d6fe0067547d8ea7f51be335cdda37316641ff7083def9b",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "hidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/android.hidl.allocator@1.0-service.xml",
+      "bytes": 350,
+      "sha256": "b0444198fcfedc428719034c6fcb926a66fa00e866ce5b857c1e2a0de47751f4",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/com.xiaomi.pms.deferredcameraservice-service.xml",
+      "bytes": 342,
+      "sha256": "2cde4ff26c99de24f04001760ba42697ff97680f866e949771f18d6193e192a7",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/com.xiaomi.pms.videoplayprocservice-service.xml",
+      "bytes": 339,
+      "sha256": "31bb5190ccc2c140d574825b98e246265d865f8e2b946629ea9249b7f509fa90",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/manifest_hypsys_system.xml",
+      "bytes": 355,
+      "sha256": "0a340d63e498f47acd83187c367e8491a5d7bc84d4adec42d197b31eb8bb98fc",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/manifest_mosey.xml",
+      "bytes": 278,
+      "sha256": "7f30bfce083cdc81923ae15fd1533d7c8123eef28f176d5c5d9aea4b9223a883",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/vendor.qti.hardware.sigma_miracast.xml",
+      "bytes": 468,
+      "sha256": "77cfd4787e87a394fa178cb343b47954b42289a23bc7aa2bf5591cc94f64260d",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/vendor.qti.hardware.sigma_miracast_aidl.xml",
+      "bytes": 347,
+      "sha256": "2753999b5d500f0362544ee07021cb7ac2b44901a9528cf71507dd9bbfe07873",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/vendor.qti.hardware.systemhelperaidl.xml",
+      "bytes": 444,
+      "sha256": "d33cb0b6c0f208eb30f633dd61691e24f1bbda26dcd874bf8bdf5f1e0c2a31ae",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/vendor.qti.qccsyshal_aidl-service.xml",
+      "bytes": 308,
+      "sha256": "05251536915bb7727df26541eda2a75b6a5c3e147c373afad622e1b3024a81de",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf/manifest/vendor.qti.qesdsys.service.xml",
+      "bytes": 298,
+      "sha256": "f85d88ae972197fae6796a899baaf2572bc899e179d628d6ffac9cb5675e6127",
+      "root": "manifest",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/compatibility_matrix.xml",
+      "bytes": 2528,
+      "sha256": "e7505601563a65612390285b41aec326feac451d5a1d8dd1a416371cf48c33ca",
+      "root": "compatibility-matrix",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 9,
+      "hal_formats": {
+        "hidl": 9
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest.xml",
+      "bytes": 26829,
+      "sha256": "a45cdf9c8d689cfaefc9c54ca19353557f0cd38a7136f06c97d1b7dc262c3d81",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": "4",
+      "hal_count": 73,
+      "hal_formats": {
+        "aidl": 1,
+        "hidl": 72
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.audio",
+          "format": "hidl",
+          "versions": [
+            "6.0"
+          ],
+          "fqnames": [
+            "@6.0::IDevicesFactory/default"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "IDevicesFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.audio.effect",
+          "format": "hidl",
+          "versions": [
+            "6.0"
+          ],
+          "fqnames": [
+            "@6.0::IEffectsFactory/default"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "IEffectsFactory"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.bluetooth",
+          "format": "hidl",
+          "versions": [
+            "1.0"
+          ],
+          "fqnames": [
+            "@1.0::IBluetoothHci/default"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "IBluetoothHci"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.camera.provider",
+          "format": "hidl",
+          "versions": [
+            "2.4"
+          ],
+          "fqnames": [
+            "@2.4::ICameraProvider/legacy/0"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "ICameraProvider"
+              ],
+              "instances": [
+                "legacy/0"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.gatekeeper",
+          "format": "hidl",
+          "versions": [
+            "1.0"
+          ],
+          "fqnames": [
+            "@1.0::IGatekeeper/default"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "IGatekeeper"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.keymaster",
+          "format": "hidl",
+          "versions": [
+            "4.0"
+          ],
+          "fqnames": [
+            "@4.0::IKeymasterDevice/default"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "IKeymasterDevice"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.nfc",
+          "format": "hidl",
+          "versions": [
+            "1.2"
+          ],
+          "fqnames": [
+            "@1.2::INfc/default"
+          ],
+          "interfaces": [
+            {
+              "name": [
+                "INfc"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        },
+        {
+          "name": "android.hardware.radio",
+          "format": "hidl",
+          "versions": [],
+          "fqnames": [
+            "@1.2::ISap/slot1",
+            "@1.2::ISap/slot2",
+            "@1.4::IRadio/slot1",
+            "@1.4::IRadio/slot2"
+          ],
+          "interfaces": []
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.atrace@1.0-service.xml",
+      "bytes": 323,
+      "sha256": "49e4a804e77b653064e7cb8fc5dc6c6b4aeea2ae4a2a62dab0ff52e0c463ee01",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.biometrics.fingerprint@2.1-service.xml",
+      "bytes": 348,
+      "sha256": "473cf370500637de575dc89fbac74e4942d969717a0a72cb5adaa3511bdba693",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.biometrics.fingerprint",
+          "format": "hidl",
+          "versions": [
+            "2.1"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IBiometricsFingerprint"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.cas@1.2-service.xml",
+      "bytes": 323,
+      "sha256": "9357fb5a7b17fe81638ec82f79d06007bb35c19016e676104fa55449b5f0f0d2",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.dumpstate@1.1-service.xiaomi.xml",
+      "bytes": 329,
+      "sha256": "388b9e7b24adf678fccf59dacc79b948093688bc34c40124c2563c2c3809747d",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.gnss@2.1-service-qti.xml",
+      "bytes": 1779,
+      "sha256": "b12c00daff67f15983eaf9952d0ded199b2868ad1b9fb512fcab5f6bf813773d",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.graphics.mapper-impl-qti-display.xml",
+      "bytes": 2226,
+      "sha256": "00105bbff83fa177fff8c10776678fddcf99179464d866bd688a1bf61ee563b4",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "hidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.health@2.1.xml",
+      "bytes": 218,
+      "sha256": "d79a8058bf0dd9d4cf7bf65f6ef2f47c3fd9452e641ebc746465d619aabb509c",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.health",
+          "format": "hidl",
+          "versions": [],
+          "fqnames": [
+            "@2.1::IHealth/default"
+          ],
+          "interfaces": []
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.lights-qti.xml",
+      "bytes": 171,
+      "sha256": "570ac710477a2e70c8c983e4eea18ddd398907af0502ac95557f4293e9f85cc9",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.light",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [
+            "ILights/default"
+          ],
+          "interfaces": []
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.neuralnetworks@1.3-service-qti-hta.xml",
+      "bytes": 361,
+      "sha256": "7f64773bee106cd0fd1e7328490376951f3d95eb35bb2876a1da4eca598f8695",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.neuralnetworks@1.3-service-qti.xml",
+      "bytes": 460,
+      "sha256": "1fe231b6b3fd8ec56d0d4063ec9e547be4248da930b9c471212ff9cc9f4afc99",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.sensors@2.0-multihal.xml",
+      "bytes": 319,
+      "sha256": "5915f6e142726b3b608379a2e03c2b23478c393b310b024ac7687f73458a630e",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.sensors",
+          "format": "hidl",
+          "versions": [
+            "2.0"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "ISensors"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.usb@1.0-service.xml",
+      "bytes": 311,
+      "sha256": "b88632abdb99848c9dd12d9cdb714c705e5470db816660af627627c8ad6f029f",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.wifi.hostapd.xml",
+      "bytes": 828,
+      "sha256": "bf31731f363793a2ced1848032888811be66f00a05f213a5499afd47df3f1d83",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "hidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml",
+      "bytes": 313,
+      "sha256": "5b785b5e6f63baab071ca757ec3e5bf0ee7a877186c17e2b36ce5bc63112756e",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest.xml",
+      "bytes": 618,
+      "sha256": "44eb838887d1bb904a0270bb80592691e0dcb01cea920012e681eb62bfb55b47",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "hidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_android.hardware.drm@1.3-service.clearkey.xml",
+      "bytes": 945,
+      "sha256": "4b9a9214df27df7f546dcd7b27efac3803f8d172548671c8d94903ef1d804aef",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_android.hardware.drm@1.3-service.widevine.xml",
+      "bytes": 945,
+      "sha256": "61cee1f6a061cf5348ca82f5326bd09cedda6bf2eea016c9ad3374f2cd03df7a",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_vendor.xiaomi.hardware.mfidoca.xml",
+      "bytes": 1854,
+      "sha256": "45259bc6ec5b86a2f78055bca9f6735b512e461e7aa84fd0b2d1a9e4c7fda343",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_vendor.xiaomi.hardware.mlipay.xml",
+      "bytes": 1854,
+      "sha256": "f56f457cd6ce24f24ded6b5557aaa02c3006dba497a9deca280019ecc3b36d46",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_vendor.xiaomi.hardware.mtdservice.xml",
+      "bytes": 1856,
+      "sha256": "976366fcd3f56df32ac5430a52f3c41fa2c8457ac0e6a745f637629ee47033a9",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_vendor.xiaomi.hardware.tidaservice.xml",
+      "bytes": 1859,
+      "sha256": "aef5af99620a76ff1e134f4db776e3ce85639b537472005f316f1f0cef6662be",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/manifest_vendor.xiaomi.hardware.vsimapp.xml",
+      "bytes": 1855,
+      "sha256": "ed9f56830965353c71378e68ec5044bcfc9265e470095a869358cbb62e12ce34",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/power.xml",
+      "bytes": 1687,
+      "sha256": "541769636e0fe848700a472da66eddaffdfd00de06aab236827edbb334ca8bc3",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.power",
+          "format": "aidl",
+          "versions": [],
+          "fqnames": [
+            "IPower/default"
+          ],
+          "interfaces": []
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.qti.gnss@4.0-service.xml",
+      "bytes": 690,
+      "sha256": "a2febcc396f453bdabfe60f8adc9b0bc89b110845b3bd4b0c582ce35054a5f4e",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "hidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.qti.hardware.display.allocator-service.xml",
+      "bytes": 2203,
+      "sha256": "7a916b6ca645ff92e2f1df462ae44e8e7316ffe339d384cbfc352a8e395ae3f5",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 2,
+      "hal_formats": {
+        "hidl": 2
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.qti.hardware.display.composer-service.xml",
+      "bytes": 2953,
+      "sha256": "944b74f6eba32f03cf63d5e3b956dc3f270bce4244b6babf441816c7e3b286b9",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 5,
+      "hal_formats": {
+        "hidl": 5
+      },
+      "selected_device_hals": [
+        {
+          "name": "android.hardware.graphics.composer",
+          "format": "hidl",
+          "versions": [
+            "2.4"
+          ],
+          "fqnames": [],
+          "interfaces": [
+            {
+              "name": [
+                "IComposer"
+              ],
+              "instances": [
+                "default"
+              ],
+              "regex_instances": []
+            }
+          ]
+        }
+      ],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.qti.hardware.servicetracker@1.2-service.xml",
+      "bytes": 472,
+      "sha256": "f57b12f5747dc5ba00186e1254dabebd071561c72ce3ae866cf8f9ce0ef901e0",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.xiaomi.hardware.micharge@1.0.xml",
+      "bytes": 361,
+      "sha256": "6917fc87232c03ee17949ac056807c8debbc9fc7e232275b512ff60e0f5a34d2",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.xiaomi.hardware.misys@1.0.xml",
+      "bytes": 1845,
+      "sha256": "602a8cfdc94b35daef282f36849223d6e23e88d5391d7af2f03debd66fcea2c4",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.xiaomi.hardware.misys@2.0.xml",
+      "bytes": 1845,
+      "sha256": "08cb47e46714816eb8b3aac650b651e8c39e12c4dcaa709b10f79b337f684ab4",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.xiaomi.hardware.misys@3.0.xml",
+      "bytes": 1845,
+      "sha256": "7a3c8ba2914cf7e10c6af6382586b1ec6f7354d18d6821ee4a42dcf95fe23478",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.xiaomi.hardware.misys@4.0.xml",
+      "bytes": 1845,
+      "sha256": "d12c17f64453f3f5ac00aedd57658135def706d7c05b664b83054ffed96ebdcd",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "hidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest/vendor.xiaomi.hardware.vibratorfeature.service.xml",
+      "bytes": 1718,
+      "sha256": "24d49bdb7721de21a8e0204d290da6464798af149f51d47b22b80669e561ad7e",
+      "root": "manifest",
+      "type": "device",
+      "level": null,
+      "target_level": null,
+      "hal_count": 1,
+      "hal_formats": {
+        "aidl": 1
+      },
+      "selected_device_hals": [],
+      "selected_framework_matrix_hals": []
+    }
+  ],
+  "level_comparison": {
+    "vendor_primary_target_level": "4",
+    "framework_explicit_levels_seen": [
+      "202404",
+      "202504",
+      "202604",
+      "7",
+      "8"
+    ],
+    "visible_explicit_target_level_files": [],
+    "visible_unlevelled_framework_matrix_files": [
+      "product:/etc/vintf/compatibility_matrix.xml",
+      "system:/system/etc/vintf/compatibility_matrix.device.xml"
+    ],
+    "scan_roots_not_fully_read": [
+      {
+        "partition": "vendor",
+        "path": "/odm/etc/vintf",
+        "status": "missing_or_unreadable"
+      }
+    ],
+    "meaning": "inventory only; not a libvintf/checkvintf compatibility verdict"
+  },
+  "selected_name_format_observations": [
+    {
+      "matrix": "system:/system/etc/vintf/compatibility_matrix.device.xml",
+      "matrix_level": null,
+      "name": "android.hardware.nfc",
+      "format": "aidl",
+      "versions": [],
+      "fqnames": [],
+      "interfaces": [
+        {
+          "name": [
+            "INfc"
+          ],
+          "instances": [
+            "default"
+          ],
+          "regex_instances": []
+        }
+      ],
+      "optional_attribute": null,
+      "name_format_seen_in_vendor_manifest_files": false,
+      "visible_vendor_files": []
+    },
+    {
+      "matrix": "system:/system/etc/vintf/compatibility_matrix.device.xml",
+      "matrix_level": null,
+      "name": "android.hardware.nfc",
+      "format": "hidl",
+      "versions": [
+        "1.0"
+      ],
+      "fqnames": [],
+      "interfaces": [
+        {
+          "name": [
+            "INfc"
+          ],
+          "instances": [
+            "default"
+          ],
+          "regex_instances": []
+        }
+      ],
+      "optional_attribute": null,
+      "name_format_seen_in_vendor_manifest_files": true,
+      "visible_vendor_files": [
+        "vendor:/etc/vintf/manifest.xml"
+      ]
+    },
+    {
+      "matrix": "system:/system/etc/vintf/compatibility_matrix.device.xml",
+      "matrix_level": null,
+      "name": "android.hardware.radio",
+      "format": "hidl",
+      "versions": [
+        "1.0-4"
+      ],
+      "fqnames": [],
+      "interfaces": [
+        {
+          "name": [
+            "IRadio"
+          ],
+          "instances": [
+            "slot1",
+            "slot2"
+          ],
+          "regex_instances": []
+        },
+        {
+          "name": [
+            "ISap"
+          ],
+          "instances": [
+            "slot1",
+            "slot2"
+          ],
+          "regex_instances": []
+        }
+      ],
+      "optional_attribute": null,
+      "name_format_seen_in_vendor_manifest_files": true,
+      "visible_vendor_files": [
+        "vendor:/etc/vintf/manifest.xml"
+      ]
+    }
+  ],
+  "limitations": [
+    "Inventory is not checkvintf, libvintf, VTS, a recovery test, or device boot evidence.",
+    "Runtime SKU/ODM/APEX fragments, mounted files, property overrides, kernel and HAL behavior can differ.",
+    "Unlevelled framework matrices can be combined at the device level by AOSP libvintf; missing an explicitly labelled matrix is not by itself a failure.",
+    "Name/format presence is not a version, instance, requirement, override or compatibility match; no missing-service verdict is made.",
+    "Declarations, hashes and target levels do not establish which HAL services run or whether the device is compatible.",
+    "No ROM image was modified, uploaded, installed, or executed."
+  ]
+}
