@@ -32,6 +32,7 @@ import audit_guarded_zip64_draft as draft
 import audit_updater_emulation as emu
 import audit_vintf_candidate as inventory
 import audit_policy_metadata as policy_metadata
+import audit_vendor_elf_metadata as elf_metadata
 import github_guarded_release as transfer
 import github_guarded_report_relay as relay
 import verify_preservation as guard
@@ -443,6 +444,7 @@ def main() -> int:
         (snapshot / part).mkdir(parents=True, exist_ok=True)
     seen, legacy, apex, policies = {}, [], [], []
     policy_files, mapping_dirs, private_policy_text = [], [], {}
+    elf_observations = {}
     def capture(partition, path, data):
         capture_snapshot(snapshot, seen, partition, path, data)
         observation = policy_observation(data, partition, path)
@@ -452,6 +454,10 @@ def main() -> int:
         scan_legacy(image, partition, capture, legacy)
         scan_apex_packages(image, partition, apex)
         policy_metadata.scan(image, partition, policy_files, mapping_dirs, private_policy_text)
+        if partition == 'vendor':
+            elf_observations['vendor_bin'] = elf_metadata.scan_vendor(image)
+        elif partition == 'system':
+            elf_observations['system'] = elf_metadata.scan_system(image)
     download = args.work / 'download'
     download.mkdir()
     candidate = draft.download_existing_draft(download)
@@ -485,6 +491,7 @@ def main() -> int:
         'groups': groups, 'scan_roots': roots, 'legacy_inputs': legacy,
         'apex_package_counts_only': apex, 'explicit_sepolicy_observations': policies,
         'split_policy_static_metadata': policy_metadata.summarize(policy_files, mapping_dirs, private_policy_text),
+        'vendor_elf_and_linker_static_metadata': elf_observations,
         'snapshot_documents': len(seen), 'prior_inventory_documents': len(docs),
         'prior_inventory_identities_match': True, 'snapshot_documents_unchanged_after_checks': True,
         'scenarios': [
@@ -515,7 +522,8 @@ def main() -> int:
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (CheckAuditError, policy_metadata.PolicyMetadataError, inventory.VintfAuditError, lp.LPError, draft.DraftTestError,
+    except (CheckAuditError, policy_metadata.PolicyMetadataError, elf_metadata.ElfMetadataError,
+            inventory.VintfAuditError, lp.LPError, draft.DraftTestError,
             emu.SimulationError, relay.RelayError, transfer.TransferError, guard.AuditError,
             OSError, ValueError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
         print(f'::error title=Partial VINTF snapshot audit stopped::{exc}', file=sys.stderr)
