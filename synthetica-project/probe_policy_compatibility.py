@@ -32,6 +32,7 @@ import audit_checkvintf_snapshot as check
 import audit_guarded_zip64_draft as draft
 import audit_updater_emulation as emu
 import audit_vintf_candidate as inventory
+import audit_vndk_candidates as vndk
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_CIL = 16 * 1024 * 1024
@@ -478,11 +479,12 @@ def main() -> int:
     snapshot = sandbox / 'snapshot'
     for part in check.MAPPINGS:
         (snapshot / part).mkdir(parents=True, exist_ok=True)
-    seen, policy_rows, mapping_version = {}, [], {}
+    seen, policy_rows, mapping_version, vndk_rows = {}, [], {}, []
     def capture(part, path, data):
         check.capture_snapshot(snapshot, seen, part, path, data)
     def capture_extra(image, part):
         capture_partition(image, part, sandbox / 'policy', policy_rows, mapping_version)
+        vndk_rows.append(vndk.scan_partition(image, part))
     downloads = args.work / 'downloads'
     downloads.mkdir()
     candidate = draft.download_existing_draft(downloads)
@@ -496,6 +498,7 @@ def main() -> int:
         docs.extend(more)
         groups.append(group)
     check.verify_inventory(docs, seen)
+    vndk_declarations = vndk.snapshot_declarations(snapshot, seen)
     print('Compiling actual bounded policy snapshot with neverallow checks enabled', flush=True)
     strict_args = candidate_args(policy_rows)
     compile_result = compile_isolated(sandbox, strict_args, 'candidate')
@@ -524,6 +527,7 @@ def main() -> int:
         'tool': tool, 'compiler_controls': synthetic, 'checkvintf_controls': check_controls,
         'runtime_reference_controls': reference_synthetic,
         'verified_extents_and_super': groups, 'policy_inputs': policy_rows,
+        'vndk_candidate_inventory': vndk_rows, 'vndk_declarations': vndk_declarations,
         'verified_vendor_mapping_version': mapping_version,
         'compiler': compile_result, 'runtime_reference_compiler': reference_result,
         'vintf_hypothesis': vintf,
@@ -534,6 +538,7 @@ def main() -> int:
             'Strict compilation keeps neverallow checks enabled; the separately labelled AOSP init comparison uses -N only on disposable host output.',
             'Reference -N skips compiler assertions; it does not disable SELinux device enforcement, and its output is never shipped or installed.',
             'Actual ODM, SKU, genfs selection, userdebug policy, APEX and device kernel state are unknown.',
+            'On-disk VNDK files, symlinks and declarations cannot prove activation, provenance, signer trust or ABI compatibility.',
             'VINTF version change is only a counterfactual temporary snapshot, not a validated or applied fix.',
             'Neither host compile nor VINTF snapshot proves AVB, recovery acceptance, policy load, HAL ABI or boot.',
             'No package, image, security setting, device or recovery was modified or tested.',
@@ -549,7 +554,7 @@ def main() -> int:
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (PolicyProbeError, check.CheckAuditError, inventory.VintfAuditError,
+    except (PolicyProbeError, check.CheckAuditError, inventory.VintfAuditError, vndk.VndkAuditError,
             draft.DraftTestError, emu.SimulationError, OSError, ValueError,
             zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
         print(f'::error title=Policy compatibility probe stopped::{exc}', file=sys.stderr)

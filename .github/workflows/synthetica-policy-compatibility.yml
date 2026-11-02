@@ -13,7 +13,8 @@ on:
 # JSON. Strict compilation retains neverallow checks; a separate read-only AOSP
 # init comparison skips compile-time assertions only, with no device enforcement
 # changes. Its output remains in disposable tmpfs and is never installed. The
-# temporary VINTF alternative is restored and never inserted into a ROM.
+# temporary VINTF alternative is restored and never inserted into a ROM. VNDK
+# names and declarations are inventoried; no donor files are added or trusted.
 permissions:
   contents: write
   checks: write
@@ -48,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           for test in test_probe_policy_compatibility.py test_audit_policy_metadata.py \
-            test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
+            test_audit_vndk_candidates.py test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
             test_hyperos4_lp_metadata.py test_github_guarded_report_relay.py; do
             python -m unittest discover -s tests -p "$test" -v
           done
@@ -108,6 +109,8 @@ jobs:
                       or summary.get('runtime_reference_compiler', {}).get('compiled_output_is_disposable_not_shipped') is not True
                       or summary.get('runtime_reference_controls', {}).get('candidate_and_device_policy_modified') is not False
                       or summary.get('runtime_reference_controls', {}).get('unknown_symbol_still_rejected_exit_code') == 0
+                      or len(summary.get('vndk_candidate_inventory', [])) != 4
+                      or len(summary.get('vndk_declarations', [])) != 3
                       or summary.get('vintf_hypothesis', {}).get('temporary_snapshot_restored') is not True
                       or len(summary.get('compiler_controls', [])) != 3
                       or len(summary.get('checkvintf_controls', [])) != 3):
