@@ -29,54 +29,15 @@ jobs:
           set -euo pipefail
           exec > >(tee "$RUNNER_TEMP/checkvintf-fetch.log") 2>&1
           cd "$RUNNER_TEMP"
-          base='https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest'
-          chrome="$(command -v google-chrome || command -v chromium || true)"
-          if [ -z "$chrome" ]; then echo 'A headless browser is unavailable'; exit 1; fi
-          # Android CI is a JavaScript viewer, not a direct binary URL. Resolve
-          # only its public short-lived storage link; never print or persist it
-          # outside the disposable runner. No Google login is used.
-          fetch_public_artifact() {
-            local artifact="$1" destination="$2" max_bytes="$3" link
-            echo "Resolving public artifact: $artifact"
-            "$chrome" --headless --no-sandbox --disable-gpu --no-first-run \
-              --user-data-dir="$RUNNER_TEMP/chrome-profile-$artifact" \
-              --virtual-time-budget=12000 --timeout=30000 --dump-dom "$base/$artifact" \
-              > "$RUNNER_TEMP/artifact-dom.html" 2> "$RUNNER_TEMP/artifact-browser.log"
-            link="$(python3 - "$RUNNER_TEMP/artifact-dom.html" "$artifact" <<'PY'
-          import html.parser, pathlib, sys, urllib.parse
-          class Links(html.parser.HTMLParser):
-              def __init__(self):
-                  super().__init__(); self.urls = []; self.links = []; self.text = []; self.hidden = 0
-              def handle_starttag(self, tag, attrs):
-                  if tag in ('script', 'style'): self.hidden += 1
-                  href = dict(attrs).get('href', '') if tag == 'a' else ''
-                  u = urllib.parse.urlsplit(href)
-                  if href: self.links.append((u.hostname or '', u.path[:180]))
-                  if (u.scheme == 'https' and u.hostname == 'storage.googleapis.com'
-                          and u.path.startswith('/android-build/builds/aosp-android-latest-release-')
-                          and '/16644040/' in u.path and u.path.endswith('/' + sys.argv[2])):
-                      self.urls.append(href)
-              def handle_endtag(self, tag):
-                  if tag in ('script', 'style'): self.hidden = max(0, self.hidden - 1)
-              def handle_data(self, data):
-                  if not self.hidden and data.strip(): self.text.append(data.strip()[:160])
-          parser = Links(); parser.feed(pathlib.Path(sys.argv[1]).read_text())
-          urls = set(parser.urls)
-          if len(urls) != 1:
-              print('Viewer text (bounded):', parser.text[:20], file=sys.stderr)
-              print('Link host/path only (no queries):', parser.links[:20], file=sys.stderr)
-              raise SystemExit('Expected one official Android Build storage download link')
-          print(urls.pop())
-          PY
-            )"
-            rm -f -- "$RUNNER_TEMP/artifact-dom.html" "$RUNNER_TEMP/artifact-browser.log"
-            curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
-              --retry 2 --max-time 900 --max-filesize "$max_bytes" "$link" -o "$destination"
-            unset link
-          }
-          fetch_public_artifact multiple.intoto.jsonl android-build.intoto.jsonl 2097152
-          fetch_public_artifact manifest_16644040.xml android-build-manifest.xml 2097152
-          fetch_public_artifact otatools.zip android-otatools.zip 734003200
+          # The Android CI viewer itself is HTML. Its documented /raw/ route
+          # redirects to the public artifact without logging the signed URL.
+          base='https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest/raw'
+          echo 'Fetching published in-toto statement'
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 180 --max-filesize 2097152 "$base/multiple.intoto.jsonl" -o android-build.intoto.jsonl
+          echo 'Fetching source manifest'
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 180 --max-filesize 2097152 "$base/manifest_16644040.xml" -o android-build-manifest.xml
+          echo 'Fetching official otatools'
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 900 --max-filesize 734003200 "$base/otatools.zip" -o android-otatools.zip
           python3 - <<'PY'
           import base64, hashlib, json, os, stat, xml.etree.ElementTree as ET, zipfile
           from pathlib import Path
