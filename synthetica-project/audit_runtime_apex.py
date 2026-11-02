@@ -4,8 +4,8 @@
 This only reads a verified ext4 copy and a single APK/ZIP member. The package
 and payload copies are temporary, never mounted or executed; no policy, image,
 or device is changed. A package on disk does not prove APEX activation or
-signature validity. Unsupported filesystems and unreadable inputs are reported
-without guessing their contents.
+signature validity. EROFS uses a separately controlled isolated host tool;
+unsupported filesystems and unreadable inputs are not guessed.
 """
 from __future__ import annotations
 
@@ -136,7 +136,7 @@ def inspect_ext4_payload(payload: Path) -> list[dict]:
     return rows
 
 
-def inspect_system(image: Path) -> dict:
+def inspect_system(image: Path, erofs_inspector=None) -> dict:
     if inventory.pytsk3 is None:
         raise ApexAuditError('Missing filesystem reader')
     disk = inventory.pytsk3.Img_Info(str(image))
@@ -169,6 +169,13 @@ def inspect_system(image: Path) -> dict:
                   ]}
         if fmt == 'ext4':
             result['payload']['linker_headers'] = inspect_ext4_payload(payload)
+        elif fmt == 'erofs' and erofs_inspector is not None:
+            extracted = erofs_inspector(payload)
+            if extracted.get('input_sha256') != payload_result['sha256']:
+                raise ApexAuditError('EROFS tool input does not match verified payload')
+            result['payload']['isolated_erofs_audit'] = extracted
+            result['payload']['linker_headers'] = (extracted.get('files', [])
+                if extracted.get('tool_exit_code') == 0 else 'not_inspected_tool_error')
         else:
             result['payload']['linker_headers'] = 'not_inspected_unsupported_filesystem'
         return result

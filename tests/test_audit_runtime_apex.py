@@ -47,6 +47,29 @@ class RuntimeApexTests(unittest.TestCase):
 
     @unittest.skipUnless(inventory.pytsk3 is not None and Path('/usr/sbin/mke2fs').is_file(),
                          'pytsk3 and mke2fs are required')
+    def test_erofs_callback_must_use_exact_payload_and_may_report_incomplete(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            tree = root / 'tree'
+            (tree / 'system/apex').mkdir(parents=True)
+            erofs = b'\0' * 1024 + b'\xe2\xe1\xf5\xe0' + b'\0' * 60
+            with zipfile.ZipFile(tree / 'system/apex/com.android.runtime.apex', 'w') as z:
+                z.writestr('apex_payload.img', erofs)
+            image = root / 'system.img'
+            with image.open('wb') as f:
+                f.truncate(16 * 1024**2)
+            subprocess.run(['/usr/sbin/mke2fs', '-q', '-F', '-t', 'ext4', '-d', str(tree), str(image)], check=True)
+            def incomplete(payload):
+                return {'input_sha256': hashlib.sha256(payload.read_bytes()).hexdigest(),
+                        'tool_exit_code': 1, 'files': []}
+            result = audit.inspect_system(image, erofs_inspector=incomplete)
+            self.assertEqual(result['payload']['filesystem'], 'erofs')
+            self.assertEqual(result['payload']['linker_headers'], 'not_inspected_tool_error')
+            with self.assertRaises(audit.ApexAuditError):
+                audit.inspect_system(image, erofs_inspector=lambda _: {'input_sha256': 'wrong', 'tool_exit_code': 0})
+
+    @unittest.skipUnless(inventory.pytsk3 is not None and Path('/usr/sbin/mke2fs').is_file(),
+                         'pytsk3 and mke2fs are required')
     def test_runtime_apex_linkers_are_inspected_as_data_only(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

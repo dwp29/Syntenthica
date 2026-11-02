@@ -34,6 +34,7 @@ import audit_vintf_candidate as inventory
 import audit_policy_metadata as policy_metadata
 import audit_vendor_elf_metadata as elf_metadata
 import audit_runtime_apex as runtime_apex
+import audit_erofs_extract as erofs_extract
 import github_guarded_release as transfer
 import github_guarded_report_relay as relay
 import verify_preservation as guard
@@ -440,6 +441,10 @@ def main() -> int:
     print('Running positive, negative and malformed synthetic controls', flush=True)
     controls = run_controls(sandbox)
     print('All three isolated synthetic controls produced the expected categories', flush=True)
+    erofs_tool = erofs_extract.prepare_tools(args.otatools, sandbox, HOST_LIBS)
+    print('Running isolated synthetic EROFS controls before candidate access', flush=True)
+    erofs_controls = erofs_extract.run_controls(sandbox, args.work)
+    print('Both synthetic EROFS controls passed', flush=True)
     snapshot = sandbox / 'snapshot'
     for part in MAPPINGS:
         (snapshot / part).mkdir(parents=True, exist_ok=True)
@@ -459,7 +464,8 @@ def main() -> int:
             elf_observations['vendor_bin'] = elf_metadata.scan_vendor(image)
         elif partition == 'system':
             elf_observations['system'] = elf_metadata.scan_system(image)
-            elf_observations['runtime_apex'] = runtime_apex.inspect_system(image)
+            elf_observations['runtime_apex'] = runtime_apex.inspect_system(
+                image, erofs_inspector=lambda payload: erofs_extract.isolated_extract(sandbox, payload, control=False))
     download = args.work / 'download'
     download.mkdir()
     candidate = draft.download_existing_draft(download)
@@ -487,8 +493,8 @@ def main() -> int:
     result = {
         'schema': 'synthetica-checkvintf-partial-snapshot-v1',
         'scope': 'verified guarded candidate, four ext4 partitions; host-only partial snapshot',
-        'tool': tool,
-        'synthetic_controls': controls,
+        'tool': tool, 'erofs_tool': erofs_tool,
+        'synthetic_controls': controls, 'erofs_synthetic_controls': erofs_controls,
         'candidate_before': before, 'candidate_after': after,
         'groups': groups, 'scan_roots': roots, 'legacy_inputs': legacy,
         'apex_package_counts_only': apex, 'explicit_sepolicy_observations': policies,
@@ -524,7 +530,8 @@ def main() -> int:
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (CheckAuditError, policy_metadata.PolicyMetadataError, elf_metadata.ElfMetadataError, runtime_apex.ApexAuditError,
+    except (CheckAuditError, policy_metadata.PolicyMetadataError, elf_metadata.ElfMetadataError,
+            runtime_apex.ApexAuditError, erofs_extract.ErofsAuditError,
             inventory.VintfAuditError, lp.LPError, draft.DraftTestError,
             emu.SimulationError, relay.RelayError, transfer.TransferError, guard.AuditError,
             OSError, ValueError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
