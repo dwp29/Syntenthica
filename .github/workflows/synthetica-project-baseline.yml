@@ -30,6 +30,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_hyperos4_preflight.py' -v
+          python3 -m unittest discover -s tests -p 'test_hyperos4_lp_metadata.py' -v
+          python3 -m unittest discover -s tests -p 'test_rom_preservation.py' -v
 
       - name: Download published original to ephemeral runner storage only
         id: download
@@ -49,6 +51,14 @@ jobs:
           set -euo pipefail
           python3 research/hyperos4/verify_archive.py --inspect-core \
             "$RUNNER_TEMP/synthetica-base.zip" > "$RUNNER_TEMP/baseline-audit.json"
+
+      - name: Verify preservation guard against the stock ZIP
+        id: preservation
+        run: |
+          set -euo pipefail
+          # Exact stock identity is a test fixture, not a newly built ROM.
+          python3 synthetica-project/verify_preservation.py \
+            "$RUNNER_TEMP/synthetica-base.zip" > "$RUNNER_TEMP/preservation-audit.json"
 
       - name: Fingerprint fixed-size portions of the public reference ZIP
         run: |
@@ -103,12 +113,23 @@ jobs:
         env:
           DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          PRESERVATION_OUTCOME: ${{ steps.preservation.outcome }}
         run: |
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           path = Path(os.environ['RUNNER_TEMP']) / 'baseline-audit.json'
-          summary = {'download': os.environ['DOWNLOAD_OUTCOME'], 'audit': os.environ['AUDIT_OUTCOME']}
+          summary = {'download': os.environ['DOWNLOAD_OUTCOME'], 'audit': os.environ['AUDIT_OUTCOME'],
+                     'preservation': os.environ['PRESERVATION_OUTCOME']}
+          guard = Path(os.environ['RUNNER_TEMP']) / 'preservation-audit.json'
+          if guard.is_file():
+              try:
+                  checked = json.loads(guard.read_text())
+                  summary['preservation_status'] = checked.get('status')
+                  summary['preservation_checked_files'] = len(checked.get('entries') or [])
+                  summary['preservation_mismatch_count'] = len(checked.get('mismatches') or [])
+              except (ValueError, OSError) as exc:
+                  summary['preservation_report_error'] = str(exc)[:200]
           if path.is_file():
               try:
                   data = json.loads(path.read_text())
@@ -139,6 +160,7 @@ jobs:
           name: synthetica-project-baseline-audit
           path: |
             ${{ runner.temp }}/baseline-audit.json
+            ${{ runner.temp }}/preservation-audit.json
             ${{ runner.temp }}/reference-part-hashes.json
           if-no-files-found: ignore
           retention-days: 3
