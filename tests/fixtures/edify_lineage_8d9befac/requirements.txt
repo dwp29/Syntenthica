@@ -1,0 +1,3 @@
+# Linux x86_64 wheels from PyPI, checked before execution by pip.
+bison-bin==3.8.2.3 --hash=sha256:bd468dc2809d0e1d0b7677409b5846ea152a6bfabe5014e50fbc7d5265389532
+flex-bin==2.6.4.2 --hash=sha256:7dcfef74b0872c3e23e63c6b5b30c17324314297773cdc451e2951d4d265aca1
