@@ -145,6 +145,8 @@ class ToolAndControlTests(unittest.TestCase):
             bad_matrix = (base / 'fail/system/etc/vintf/compatibility_matrix.1.xml').read_text()
             self.assertIn('<sepolicy-version>0.0</sepolicy-version>', good_matrix)
             self.assertIn('<sepolicy-version>1.0</sepolicy-version>', bad_matrix)
+            self.assertIn('<sepolicy><version>0.0</version></sepolicy>',
+                          (base / 'pass/vendor/etc/vintf/manifest.xml').read_text())
             self.assertEqual((base / 'bad/vendor/etc/vintf/manifest.xml').read_text(), '<manifest')
 
     def test_exit_categories_do_not_confuse_errors_or_incompatibility(self):

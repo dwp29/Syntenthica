@@ -255,7 +255,8 @@ def create_synthetic_fixture(base: Path, matrix_version: str, *, malformed: bool
             f'<sepolicy><sepolicy-version>{matrix_version}</sepolicy-version>'
             '<kernel-sepolicy-version>0</kernel-sepolicy-version></sepolicy></compatibility-matrix>',
         'vendor/etc/vintf/manifest.xml': ('<manifest' if malformed else
-            '<manifest version="1.0" target-level="1" type="device"/>'),
+            '<manifest version="1.0" target-level="1" type="device">'
+            '<sepolicy><version>0.0</version></sepolicy></manifest>'),
         'vendor/compatibility_matrix.xml': '<compatibility-matrix version="1.0" type="device"/>',
     }
     for mapping in MAPPINGS:
