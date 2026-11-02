@@ -181,7 +181,10 @@ class SyntheticExt4Tests(unittest.TestCase):
                                       check=True, capture_output=True)
                 self.assertNotIn(b'error', proc.stderr.lower())
             digest = hashlib.sha256(image.read_bytes()).hexdigest()
-            docs, roots = audit.scan_partition(image, 'vendor')
+            captured = []
+            docs, roots = audit.scan_partition(image, 'vendor', capture=lambda *row: captured.append(row))
+            self.assertEqual(captured, [('vendor', '/etc/vintf/manifest.xml', xml.read_bytes())])
+            self.assertEqual(hashlib.sha256(captured[0][2]).hexdigest(), docs[0]['sha256'])
             self.assertEqual(hashlib.sha256(image.read_bytes()).hexdigest(), digest)
             self.assertEqual(len(docs), 1)
             self.assertEqual(docs[0]['target_level'], '4')
@@ -209,12 +212,18 @@ class SyntheticExt4Tests(unittest.TestCase):
                 z.writestr('super.img', super_image)
             spec = {'vendor': {'bytes': len(partition), 'sha256': hashlib.sha256(partition).hexdigest()}}
             window = {'vendor': {'start': 4096, 'end': 4096 + len(partition), **spec['vendor']}}
+            captured, visited = [], []
             with mock.patch.object(audit, 'SUPER_BYTES', len(super_image)), \
                     mock.patch.object(audit, 'RESERVE_BYTES', 0), \
                     mock.patch.object(audit.lp, 'MAX_PREFIX', 4096), \
                     mock.patch.object(audit, 'extent_windows', return_value=window), \
                     mock.patch.object(audit.builder, 'BASE_SUPER_SHA', hashlib.sha256(super_image).hexdigest()):
-                docs, roots, result = audit.audit_group(archive, root, ('vendor',), spec)
+                docs, roots, result = audit.audit_group(
+                    archive, root, ('vendor',), spec,
+                    capture=lambda *row: captured.append(row),
+                    scan_extra=lambda path, name: visited.append((path.is_file(), name)))
+            self.assertEqual(visited, [(True, 'vendor')])
+            self.assertEqual(captured, [('vendor', '/etc/vintf/manifest.xml', xml.read_bytes())])
             self.assertTrue(result['super']['zip_crc_checked_at_eof'])
             self.assertEqual(result['extents']['vendor']['before'], result['extents']['vendor']['after'])
             self.assertEqual(docs[0]['target_level'], '4')

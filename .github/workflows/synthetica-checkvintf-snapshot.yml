@@ -1,0 +1,119 @@
+name: Synthetica partial AOSP checkvintf snapshot
+
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-checkvintf-snapshot.yml'
+  workflow_dispatch:
+
+# The candidate and four ext4 copies remain only on this disposable runner.
+# Neither release assets nor any device, partition image, AVB or firmware is
+# changed. Synthetic controls must pass before the large candidate download.
+# AOSP checkvintf tests a partial snapshot, not the actual device's runtime.
+permissions:
+  contents: write
+  checks: write
+
+concurrency:
+  group: synthetica-partial-vintf-check
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 100
+    steps:
+      - name: Check out the exact audit revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Use the audited Python version
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.11'
+
+      - name: Install the pinned read-only filesystem reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --require-hashes \
+            -r synthetica-project/requirements-boot-audit.txt
+
+      - name: Run bounded host regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_audit_checkvintf_snapshot.py' -v
+          python -m unittest discover -s tests -p 'test_audit_vintf_candidate.py' -v
+          python -m unittest discover -s tests -p 'test_hyperos4_lp_metadata.py' -v
+          python -m unittest discover -s tests -p 'test_github_guarded_report_relay.py' -v
+
+      - name: Fetch the exact public Android 17 host tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest/raw/otatools.zip'
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --retry 2 --max-time 900 --max-filesize 734003200 "$url" -o "$RUNNER_TEMP/aosp-otatools.zip"
+          echo 'bc85557aa0c59a7d0b48b8175250948d67b2d0f293bd74eb8d5753ba4ad7781f  '"$RUNNER_TEMP/aosp-otatools.zip" | sha256sum -c -
+
+      - name: Run controls and inspect the verified partial snapshot
+        id: audit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/synthetica-checkvintf"
+          python -u synthetica-project/audit_checkvintf_snapshot.py \
+            --otatools "$RUNNER_TEMP/aosp-otatools.zip" \
+            --work "$RUNNER_TEMP/synthetica-checkvintf" \
+            --report "$RUNNER_TEMP/synthetica-checkvintf-result.json" \
+            2>&1 | tee "$RUNNER_TEMP/synthetica-checkvintf-audit.log"
+
+      - name: Preserve only bounded report metadata or safe failure details
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          report = root / 'synthetica-checkvintf-result.json'
+          outcome = os.environ['AUDIT_OUTCOME']
+          if outcome == 'success' and report.is_file():
+              result = json.loads(report.read_text())
+              if (result.get('schema') != 'synthetica-checkvintf-partial-snapshot-v1'
+                      or result.get('candidate_before') != result.get('candidate_after')
+                      or result.get('prior_inventory_identities_match') is not True
+                      or result.get('snapshot_documents_unchanged_after_checks') is not True
+                      or len(result.get('synthetic_controls', [])) != 3
+                      or len(result.get('groups', [])) != 2):
+                  raise SystemExit('Partial check report failed its integrity conditions')
+              summary = ('Partial host-only VINTF snapshot; not a full compatibility or boot verdict.\n\n'
+                         + json.dumps(result, ensure_ascii=True, separators=(',', ':')))
+              conclusion = 'success'
+          else:
+              path = root / 'synthetica-checkvintf-audit.log'
+              # Only synthetic-control logs or the audit's bounded operational
+              # messages are printed by the script, never candidate XML/output.
+              log = path.read_text(errors='replace')[:15000] if path.exists() else '(audit not started)'
+              summary = 'Partial VINTF host audit did not finish; no compatibility or boot verdict.\n\n' + log
+              conclusion = 'neutral'
+          if len(summary) > 45000:
+              raise SystemExit('Unexpectedly large audit metadata')
+          payload = {'name': 'Synthetica partial checkvintf metadata', 'head_sha': os.environ['GITHUB_SHA'],
+                     'status': 'completed', 'conclusion': conclusion,
+                     'output': {'title': 'Partial host VINTF snapshot only', 'summary': summary}}
+          subprocess.run(['gh', 'api', '--method', 'POST', 'repos/dwp29/Syntenthica/check-runs', '--input', '-'],
+                         input=json.dumps(payload).encode(), stdout=subprocess.DEVNULL, check=True)
+          PY

@@ -227,7 +227,8 @@ def _read_tsk_file(entry, size: int) -> bytes:
     return b"".join(blocks)
 
 
-def scan_partition(image: Path, partition: str) -> tuple[list[dict], list[dict]]:
+def scan_partition(image: Path, partition: str, capture=None) -> tuple[list[dict], list[dict]]:
+    """Inventory XML; an optional caller can capture the same verified bytes locally."""
     if pytsk3 is None:
         raise VintfAuditError("The pinned pytsk3 host dependency is missing")
     docs, roots = [], []
@@ -270,7 +271,10 @@ def scan_partition(image: Path, partition: str) -> tuple[list[dict], list[dict]]
                     elif item.type == pytsk3.TSK_FS_META_TYPE_REG and name.lower().endswith(".xml"):
                         if len(docs) >= MAX_FILES:
                             raise VintfAuditError("VINTF XML file count exceeds limit")
-                        docs.append(parse_vintf(_read_tsk_file(entry, int(item.size)), partition, path))
+                        data = _read_tsk_file(entry, int(item.size))
+                        docs.append(parse_vintf(data, partition, path))
+                        if capture is not None:
+                            capture(partition, path, data)
                     elif item.type == pytsk3.TSK_FS_META_TYPE_LNK:
                         roots.append({"partition": partition, "path": path, "status": "symlink_not_followed"})
         return docs, roots
@@ -324,7 +328,8 @@ def compare_selected_names(docs: list[dict], target_level: str | None) -> list[d
     return sorted(results, key=lambda row: (row["matrix"], row["name"], row["format"]))
 
 
-def audit_group(candidate: Path, work: Path, names: tuple[str, ...], specs: dict) -> tuple[list[dict], list[dict], dict]:
+def audit_group(candidate: Path, work: Path, names: tuple[str, ...], specs: dict,
+                capture=None, scan_extra=None) -> tuple[list[dict], list[dict], dict]:
     if shutil.disk_usage(work).free < sum(specs[n]["bytes"] for n in names) + RESERVE_BYTES:
         raise VintfAuditError("Insufficient disposable storage for extents plus safety reserve")
     with tempfile.TemporaryDirectory(prefix="vintf-partitions-", dir=work) as td:
@@ -356,7 +361,9 @@ def audit_group(candidate: Path, work: Path, names: tuple[str, ...], specs: dict
         for name, path in paths.items():
             print(f"Inspecting verified {name} VINTF XML without mounting", flush=True)
             before = emu.regular_identity(path, specs[name]["bytes"], specs[name]["sha256"])
-            partition_docs, partition_roots = scan_partition(path, name)
+            partition_docs, partition_roots = scan_partition(path, name, capture=capture)
+            if scan_extra is not None:
+                scan_extra(path, name)
             after = emu.regular_identity(path, specs[name]["bytes"], specs[name]["sha256"])
             docs.extend(partition_docs)
             roots.extend(partition_roots)
