@@ -10,7 +10,9 @@ on:
   workflow_dispatch:
 
 # The unpublished candidate is readable only with an authorized token. This
-# workflow never edits releases, writes an image, or accesses a real device.
+# workflow never edits releases, modifies an input image, or accesses a device;
+# it creates disposable read-only-inspected extent copies on the runner.
+# Revision 2 also inventories selected HAL names/formats, without a verdict.
 permissions:
   contents: write
   checks: write

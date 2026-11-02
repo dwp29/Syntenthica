@@ -187,22 +187,30 @@ def parse_vintf(data: bytes, partition: str, path: str) -> dict:
         return {**base, "ignored_non_vintf_root": True}
     hals = _children(root, "hal")
     formats = {}
-    selected = []
+    selected_device = []
+    selected_matrix = []
     for hal in hals:
         fmt = hal.get("format", "hidl")
         formats[fmt] = formats.get(fmt, 0) + 1
         names = _text(hal, "name")
-        if root_tag != "manifest" or root.get("type") != "device" or len(names) != 1 or names[0] not in SELECTED_HALS:
+        if len(names) != 1 or names[0] not in SELECTED_HALS:
             continue
         interfaces = []
         for interface in _children(hal, "interface"):
             interfaces.append({"name": _text(interface, "name"), "instances": _text(interface, "instance"),
                                "regex_instances": _text(interface, "regex-instance")})
-        selected.append({"name": names[0], "format": fmt, "versions": _text(hal, "version"),
-                         "fqnames": _text(hal, "fqname"), "interfaces": interfaces})
+        entry = {"name": names[0], "format": fmt, "versions": _text(hal, "version"),
+                 "fqnames": _text(hal, "fqname"), "interfaces": interfaces}
+        if root_tag == "manifest" and root.get("type") == "device":
+            selected_device.append(entry)
+        elif root_tag == "compatibility-matrix" and root.get("type") == "framework":
+            # Preserve the literal attribute only. Do not infer compatibility or
+            # requiredness after libvintf merging, versions, SKU or APEX input.
+            selected_matrix.append({**entry, "optional_attribute": hal.get("optional")})
     return {**base, "type": root.get("type"), "level": root.get("level"),
             "target_level": root.get("target-level"), "hal_count": len(hals),
-            "hal_formats": dict(sorted(formats.items())), "selected_device_hals": selected}
+            "hal_formats": dict(sorted(formats.items())), "selected_device_hals": selected_device,
+            "selected_framework_matrix_hals": selected_matrix}
 
 
 def _read_tsk_file(entry, size: int) -> bytes:
@@ -294,6 +302,28 @@ def compare_levels(docs: list[dict], roots: list[dict]) -> dict:
             "meaning": "inventory only; not a libvintf/checkvintf compatibility verdict"}
 
 
+def compare_selected_names(docs: list[dict], target_level: str | None) -> list[dict]:
+    """Only compare visible names/formats, never versions, instances or compatibility."""
+    provided = {}
+    for doc in docs:
+        if doc.get("partition") != "vendor" or doc.get("root") != "manifest" or doc.get("type") != "device":
+            continue
+        for entry in doc.get("selected_device_hals", []):
+            provided.setdefault((entry["name"], entry["format"]), set()).add(f"{doc['partition']}:{doc['path']}")
+    results = []
+    for doc in docs:
+        if (doc.get("partition") not in ("system", "system_ext", "product")
+                or doc.get("root") != "compatibility-matrix" or doc.get("type") != "framework"
+                or (doc.get("level") is not None and doc.get("level") != target_level)):
+            continue
+        for entry in doc.get("selected_framework_matrix_hals", []):
+            matches = sorted(provided.get((entry["name"], entry["format"]), set()))
+            results.append({"matrix": f"{doc['partition']}:{doc['path']}", "matrix_level": doc.get("level"),
+                            **entry, "name_format_seen_in_vendor_manifest_files": bool(matches),
+                            "visible_vendor_files": matches})
+    return sorted(results, key=lambda row: (row["matrix"], row["name"], row["format"]))
+
+
 def audit_group(candidate: Path, work: Path, names: tuple[str, ...], specs: dict) -> tuple[list[dict], list[dict], dict]:
     if shutil.disk_usage(work).free < sum(specs[n]["bytes"] for n in names) + RESERVE_BYTES:
         raise VintfAuditError("Insufficient disposable storage for extents plus safety reserve")
@@ -356,17 +386,20 @@ def main() -> int:
         roots.extend(group_roots)
         groups.append(info)
     after = emu.regular_identity(candidate, draft.CANDIDATE_BYTES, draft.CANDIDATE_SHA256)
+    levels = compare_levels(docs, roots)
     result = {
         "schema": "synthetica-vintf-readonly-inventory-v1",
         "scope": "existing guarded candidate; temporary ext4 copies inspected without mount or device",
         "candidate_before": before, "candidate_after": after,
         "groups": groups, "scan_roots": roots,
         "documents": sorted(docs, key=lambda d: (d["partition"], d["path"])),
-        "level_comparison": compare_levels(docs, roots),
+        "level_comparison": levels,
+        "selected_name_format_observations": compare_selected_names(docs, levels["vendor_primary_target_level"]),
         "limitations": [
             "Inventory is not checkvintf, libvintf, VTS, a recovery test, or device boot evidence.",
             "Runtime SKU/ODM/APEX fragments, mounted files, property overrides, kernel and HAL behavior can differ.",
             "Unlevelled framework matrices can be combined at the device level by AOSP libvintf; missing an explicitly labelled matrix is not by itself a failure.",
+            "Name/format presence is not a version, instance, requirement, override or compatibility match; no missing-service verdict is made.",
             "Declarations, hashes and target levels do not establish which HAL services run or whether the device is compatible.",
             "No ROM image was modified, uploaded, installed, or executed.",
         ],

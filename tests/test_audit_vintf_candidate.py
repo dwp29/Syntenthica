@@ -62,6 +62,32 @@ class VintfParserTests(unittest.TestCase):
         self.assertEqual(comparison["visible_explicit_target_level_files"], ["product:/etc/vintf/matrix.xml"])
         self.assertEqual(comparison["scan_roots_not_fully_read"], roots)
 
+    def test_selected_name_format_only_does_not_claim_version_match(self):
+        vendor = audit.parse_vintf(self.device, "vendor", "/etc/vintf/manifest.xml")
+        xml = b'''<compatibility-matrix type="framework">
+          <hal format="hidl" optional="false"><name>android.hardware.camera.provider</name><version>2.9</version>
+            <interface><name>ICameraProvider</name><regex-instance>external/.*</regex-instance></interface></hal>
+          <hal format="hidl"><name>android.hardware.power</name><version>1.3</version></hal>
+          <hal format="aidl"><name>android.hardware.camera.provider</name><version>99</version></hal>
+        </compatibility-matrix>'''
+        matrix = audit.parse_vintf(xml, "system", "/system/etc/vintf/compatibility_matrix.device.xml")
+        rows = audit.compare_selected_names([vendor, matrix], "4")
+        self.assertEqual(len(rows), 3)
+        by_name = {(x["name"], x["format"]): x for x in rows}
+        camera = by_name[("android.hardware.camera.provider", "hidl")]
+        self.assertTrue(camera["name_format_seen_in_vendor_manifest_files"])
+        self.assertEqual(camera["versions"], ["2.9"])
+        self.assertEqual(camera["optional_attribute"], "false")
+        self.assertEqual(camera["interfaces"][0]["regex_instances"], ["external/.*"])
+        self.assertFalse(by_name[("android.hardware.camera.provider", "aidl")]["name_format_seen_in_vendor_manifest_files"])
+        self.assertFalse(by_name[("android.hardware.power", "hidl")]["name_format_seen_in_vendor_manifest_files"])
+        self.assertNotIn("compatible", camera)
+
+    def test_higher_level_matrix_not_implicitly_treated_as_target_requirement(self):
+        vendor = audit.parse_vintf(self.device, "vendor", "/etc/vintf/manifest.xml")
+        higher = audit.parse_vintf(b'<compatibility-matrix type="framework" level="7"><hal><name>android.hardware.power</name></hal></compatibility-matrix>', "system", "/system/etc/vintf/matrix.xml")
+        self.assertEqual(audit.compare_selected_names([vendor, higher], "4"), [])
+
     def test_missing_or_ambiguous_primary_is_rejected(self):
         matrix = audit.parse_vintf(self.framework, "system", "/system/etc/vintf/compatibility_matrix.7.xml")
         vendor = audit.parse_vintf(self.device, "vendor", "/etc/vintf/manifest.xml")
