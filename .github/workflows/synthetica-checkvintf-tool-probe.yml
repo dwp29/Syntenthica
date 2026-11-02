@@ -46,17 +46,25 @@ jobs:
           import html.parser, pathlib, sys, urllib.parse
           class Links(html.parser.HTMLParser):
               def __init__(self):
-                  super().__init__(); self.urls = []
+                  super().__init__(); self.urls = []; self.links = []; self.text = []; self.hidden = 0
               def handle_starttag(self, tag, attrs):
+                  if tag in ('script', 'style'): self.hidden += 1
                   href = dict(attrs).get('href', '') if tag == 'a' else ''
                   u = urllib.parse.urlsplit(href)
+                  if href: self.links.append((u.hostname or '', u.path[:180]))
                   if (u.scheme == 'https' and u.hostname == 'storage.googleapis.com'
                           and u.path.startswith('/android-build/builds/aosp-android-latest-release-')
                           and '/16644040/' in u.path and u.path.endswith('/' + sys.argv[2])):
                       self.urls.append(href)
+              def handle_endtag(self, tag):
+                  if tag in ('script', 'style'): self.hidden = max(0, self.hidden - 1)
+              def handle_data(self, data):
+                  if not self.hidden and data.strip(): self.text.append(data.strip()[:160])
           parser = Links(); parser.feed(pathlib.Path(sys.argv[1]).read_text())
           urls = set(parser.urls)
           if len(urls) != 1:
+              print('Viewer text (bounded):', parser.text[:20], file=sys.stderr)
+              print('Link host/path only (no queries):', parser.links[:20], file=sys.stderr)
               raise SystemExit('Expected one official Android Build storage download link')
           print(urls.pop())
           PY
