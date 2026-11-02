@@ -23,7 +23,9 @@ concurrency:
 jobs:
   inspect:
     if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
-    runs-on: ubuntu-24.04
+    # Ubuntu 22.04 has already passed the locked-down user-namespace controls.
+    # Do not relax host isolation when newer runners deny uid_map.
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
     env:
       GH_TOKEN: ${{ github.token }}
