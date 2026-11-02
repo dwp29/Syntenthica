@@ -1,6 +1,6 @@
 # Status kelanjutan Syntenthica boot-first
 
-**Diperbarui:** 2 November 2026. **Status:** audit host baca-saja; belum ada uji perangkat atau persetujuan flash kandidat.
+**Diperbarui:** 2 November 2026. **Status:** dua tahap audit host yang direncanakan selesai; kandidat tetap hold, belum ada uji perangkat atau persetujuan flash kandidat. [Ringkasan akhir](https://drive.google.com/file/d/19Z4TrJgKINU6XTzozBWXKdhA2ivKP-Cl/view).
 
 ## Keputusan dan batas pengguna
 
@@ -10,7 +10,9 @@ Persetujuan terbatas pada satu file identitas non-eksekusi pada kandidat pertama
 
 ## Temuan terkini
 
-- [Run 41456952143](https://github.com/dwp29/Syntenthica/actions/runs/41456952143) menyelesaikan **54 tes host**, tiga kontrol sintetis, `checkvintf` AOSP dan metadata policy baca-saja. Dua skenario snapshot parsial sama-sama exit **65 / INCOMPATIBLE**; tool melaporkan sepolicy manifest vendor **30.0** tidak memenuhi matriks framework dan tidak menemukan matriks tepat FCM **4**. Workflow sukses berarti audit selesai, **bukan** kandidat lolos; hasil ini tidak membuktikan kegagalan boot. [Rincian audit](AUDIT-CHECKVINTF-PARSIAL-SELINUX-2026-11-02.md).
+- [Run akhir 41466512890](https://github.com/dwp29/Syntenthica/actions/runs/41466512890) menyelesaikan dua tahap host. Dari 194 executable vendor yang diparsing, 344 pasangan nama/bitness dependency memiliki nama dan header ELF dasar yang cocok pada root terpilih, enam hanya terlihat sebagai symlink, dan 36 tidak terlihat pada root terpilih. Ini bukan pembuktian ABI maupun library hilang. ZIP kandidat dan empat extent tetap utuh.
+- Paket memiliki komentar ZIP kosong, tidak ada entri `vbmeta*.img`, dan tidak terlihat footer AVB kanonis pada boot/dtbo. Offset metadata OTA masih tidak cocok. Keadaan vbmeta terpisah, AVB, rollback, enkripsi dan penerimaan recovery pada ponsel tetap tidak diketahui; jangan melemahkan pengaman.
+- [Run 41456952143](https://github.com/dwp29/Syntenthica/actions/runs/41456952143) menyelesaikan **54 tes host**, tiga kontrol sintetis, `checkvintf` AOSP dan metadata policy baca-saja. Dua skenario snapshot parsial sama-sama exit **65 / INCOMPATIBLE**; tool melaporkan sepolicy manifest vendor **30.0** tidak memenuhi matriks framework dan tidak menemukan matriks tepat FCM **4**. Workflow sukses berarti audit selesai, **bukan** kandidat lolos; hasil ini tidak membuktikan kegagalan boot. [Rincian audit](https://drive.google.com/file/d/1XIVMCiRAzKnQ0sMFtW40aNY6FTefGm5t/view).
 - **Beda dua field policy:** VINTF menyatakan **30.0**, sedangkan `plat_sepolicy_vers.txt` vendor terbaca **31.0**. Mapping `31.0.cil` terlihat di tiga partisi; isi tiga pasangan berkas digest policy platform versus vendor berbeda. Hasil statis ini tidak membuktikan policy yang digunakan atau berhasil dimuat pada perangkat.
 - [Run 41460808839](https://github.com/dwp29/Syntenthica/actions/runs/41460808839) menginventarisasi header ELF `vendor/bin` secara baca-saja: **11 ARM 32-bit** menggunakan `/system/bin/linker`, **183 AArch64 64-bit** menggunakan `/system/bin/linker64`, dan satu ARM 32-bit tidak memiliki `PT_INTERP`. Ada 178 symlink yang tidak diikuti. Kedua path linker system adalah symlink ke runtime APEX. [Run 41463290011](https://github.com/dwp29/Syntenthica/actions/runs/41463290011) berhasil membaca payload EROFS terisolasi dan menemukan linker ARM 32-bit serta AArch64 64-bit di dalam paket. Tanda tangan/aktivasi APEX dan kompatibilitas kernel/library tetap belum dibuktikan.
 - Audit updater terisolasi sebelumnya lulus **17 skenario lokal**, dan [run 41434731862](https://github.com/dwp29/Syntenthica/actions/runs/41434731862) lulus **7 skenario** pada host. Guard berhenti pada kegagalan yang diuji, tetapi tidak memulihkan penulisan sebelumnya atau parsial. Ini bukan OrangeFox, partisi nyata atau bukti boot.
@@ -30,4 +32,4 @@ Persetujuan terbatas pada satu file identitas non-eksekusi pada kandidat pertama
 
 ## Lanjutkan dengan aman
 
-Pertahankan sumber, kandidat dan backup. Batasi kelanjutan menjadi dua tahap host: (1) pemeriksaan dependensi dan ABI vendor/linker sejauh dapat dibuktikan dari data yang tersedia; (2) penutupan pemeriksaan integritas, AVB/rollback dan batas data recovery/enkripsi. Setelah itu rangkum temuan dan status hold; hal yang memerlukan ponsel ditandai belum diketahui, bukan dipaksakan. Tindakan pada perangkat atau perubahan di luar persetujuan awal memerlukan keputusan dan persetujuan spesifik terpisah.
+Dua tahap host yang disepakati telah selesai dan hasilnya dirangkum pada `RINGKASAN-AKHIR-UJI-HOST-2026-11-02.md`. Pertahankan sumber, kandidat dan backup; data yang memerlukan ponsel tetap belum diketahui. Tidak ada pengujian perangkat atau modifikasi image/keamanan dalam pekerjaan ini. Tindakan pada perangkat atau perubahan di luar persetujuan awal memerlukan keputusan dan persetujuan spesifik terpisah.

@@ -29,8 +29,12 @@ Setelah alat host resmi AOSP `fsck.erofs` lulus kontrol sintetis positif/rusak p
 
 Ini membuktikan kedua file ada **dalam paket yang diperiksa**, bukan bahwa APEX tersebut aktif atau linker dapat berjalan di kernel dan namespace perangkat. Tidak ada binary ROM yang dijalankan. Tanda tangan APEX maupun statement build tool belum diverifikasi.
 
+## Pemeriksaan DT_NEEDED lanjutan
+
+[Run 41466512890](https://github.com/dwp29/Syntenthica/actions/runs/41466512890) mem-parsing `DT_NEEDED` dari 194 executable vendor yang memiliki interpreter yang dikenali; tidak ada kegagalan parser atau nama yang ditolak. Dari pasangan nama dan bitness, 344 memiliki nama serta header ELF dasar yang sesuai pada direktori library langsung terpilih, enam hanya terlihat sebagai symlink yang tidak diikuti, dan 36 tidak terlihat pada direktori tersebut. Ini **bukan** pembuktian ABI cocok ataupun bukti 36 library hilang: APEX, ODM, subdirektori, namespace dan versi simbol belum diselesaikan.
+
 ## Batasan
 
-Pemeriksaan ini tidak mengikuti symlink vendor, menilai `DT_NEEDED`, namespace linker, library 32/64-bit, versi simbol, kemampuan ARM 32-bit kernel, APEX aktif, kebijakan SELinux, AVB, service HAL, recovery atau boot. Tidak boleh menyimpulkan bahwa dukungan 32-bit ada atau tidak ada hanya dari header ELF dan nama symlink.
+Pemeriksaan ini tidak mengikuti symlink vendor atau menyelesaikan dependency `DT_NEEDED` dalam namespace linker, dan tidak membuktikan ABI library 32/64-bit, versi simbol, kemampuan ARM 32-bit kernel, APEX aktif, kebijakan SELinux, AVB, service HAL, recovery atau boot. Tidak boleh menyimpulkan bahwa dukungan 32-bit ada atau tidak ada hanya dari header ELF dan nama symlink.
 
 Paket, binary dan kernel ROM tidak dieksekusi; image serta perangkat tidak diubah. Fitur serta modul tetap **hold**; tindakan pada perangkat di luar persetujuan awal tetap memerlukan persetujuan spesifik.
