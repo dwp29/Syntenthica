@@ -2,11 +2,13 @@
 
 **Tanggal:** 2 November 2026. **Status:** inventaris baca-saja di host; belum ada uji perangkat dan belum ada kesimpulan kompatibilitas atau bukti boot.
 
+**Pembaruan:** setelah inventaris ini, [audit checkvintf parsial](https://drive.google.com/file/d/1XIVMCiRAzKnQ0sMFtW40aNY6FTefGm5t/view) selesai pada [run 41456952143](https://github.com/dwp29/Syntenthica/actions/runs/41456952143). Tool melaporkan `INCOMPATIBLE` untuk dua skenario snapshot parsial, termasuk diagnostik FCM 4 dan sepolicy 30.0. Ini bukan vonis pada perangkat atau bukti gagal boot; keberhasilan workflow berarti pemeriksaan selesai, bukan kandidat lolos.
+
 ## Ringkasan
 
 Audit atas kandidat kedua menemukan bahwa manifest vendor utama menyatakan **target FCM 4**, sedangkan matriks framework yang berlabel tingkat dan terlihat pada empat partisi yang diperiksa menyatakan **7, 8, 202404, 202504 dan 202604**. Tidak terlihat matriks berlabel eksplisit 4 di lokasi yang dibaca. Ini **petunjuk yang perlu diselidiki, bukan bukti bahwa ROM pasti gagal boot**.
 
-Ada dua matriks framework tanpa label tingkat: satu di system dan satu di product. Source AOSP yang diperiksa dapat menggabungkan matriks tanpa label pada tingkat target perangkat dan memasukkan informasi dari tingkat lebih tinggi sebagai opsional. Implementasi serta sumber input runtime ROM ini belum dibuktikan sama dengan source referensi tersebut. Pemeriksaan formal `checkvintf` belum dijalankan. [1](https://source.android.com/docs/core/architecture/vintf/match-rules) [2](https://android.googlesource.com/platform/system/libvintf/+/a1ff1e5a0835fd2cfe4c904efc6da5274b8824c1/CompatibilityMatrix.cpp)
+Ada dua matriks framework tanpa label tingkat: satu di system dan satu di product. Source AOSP yang diperiksa dapat menggabungkan matriks tanpa label pada tingkat target perangkat dan memasukkan informasi dari tingkat lebih tinggi sebagai opsional. Implementasi serta sumber input runtime ROM ini belum dibuktikan sama dengan source referensi tersebut. Pemeriksaan `checkvintf` host parsial kemudian dijalankan; hasil dan batasannya dicatat pada pembaruan di atas. [1](https://source.android.com/docs/core/architecture/vintf/match-rules) [2](https://android.googlesource.com/platform/system/libvintf/+/a1ff1e5a0835fd2cfe4c904efc6da5274b8824c1/CompatibilityMatrix.cpp)
 
 ## Identitas dan cara pemeriksaan
 
@@ -39,4 +41,4 @@ Rincian hasil inventaris: `HASIL-INVENTARIS-VINTF-KANDIDAT-02-2026-11-02.json`; 
 
 Koreksi penyimpanan sesi sebelumnya: JSON rincian analisis init SELinux sempat tersedia lokal tetapi tidak bertahan saat lingkungan kerja dipulihkan. Provider konektor telah memblokir pengunggahannya; jangan mengirim ulang atau mengubah kontennya untuk melewati filter. [Ringkasan audit AVB/SELinux tetap tersedia di Drive](https://drive.google.com/file/d/14FqxFcc3wu6TXqeN5k8QMQOaw4Zmirhf/view).
 
-Langkah berikutnya adalah menyiapkan pembacaan kompatibilitas VINTF formal dengan versi alat yang dapat diaudit dan sumber runtime yang jelas, kemudian menilai AVB, enkripsi serta hambatan boot lainnya. Tindakan pada perangkat atau perubahan di luar persetujuan awal tetap memerlukan keputusan spesifik terpisah.
+Langkah berikutnya adalah menindaklanjuti hasil checkvintf parsial tanpa menganggap sumber runtime yang hilang telah diketahui, lalu menilai AVB, enkripsi serta hambatan boot lainnya. Tindakan pada perangkat atau perubahan di luar persetujuan awal tetap memerlukan keputusan spesifik terpisah.

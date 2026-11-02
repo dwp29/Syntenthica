@@ -1,0 +1,710 @@
+{
+  "schema": "synthetica-checkvintf-partial-snapshot-v1",
+  "scope": "verified guarded candidate, four ext4 partitions; host-only partial snapshot",
+  "tool": {
+    "build": "16644040",
+    "target": "aosp_cf_x86_64_only_phone-userdebug",
+    "otatools_bytes": 531408471,
+    "otatools_sha256": "bc85557aa0c59a7d0b48b8175250948d67b2d0f293bd74eb8d5753ba4ad7781f",
+    "checkvintf_sha256": "6f7601b9409ac5db70d8b05bc98d117fe68456464e710eb2e2964c7edf1325db",
+    "libvintf_revision": "df89ad736e14ac375f61d50fa543ae7cd746a140",
+    "host_runtime_sha256": {
+      "libdl.so.2": "3eaaa4aefd9c28f3867c96a427c3cbec9191cb61c4c9d0a2cb4a765d66064499",
+      "libpthread.so.0": "fbed9505adacada2abb37c6b43be2df6de81e742712c6025694ba48de62c7e78",
+      "libm.so.6": "3dd5511ae94785c9f921429b0f2b2f7aabb461b6f0e6de6dfdbef15f24bdfee6",
+      "librt.so.1": "5f20d34fb3bb4d84b4edeb6ca11fa5b48c705207253741619acab7cc758185fb",
+      "libgcc_s.so.1": "fc9d43b2f6c20e53b009238f767c5b949d202389e20de9e202ea684b4ba3729a",
+      "libc.so.6": "b2cf6c33b74d2f22543b7a469a75b538911e690f769d0b238843a49465b83793",
+      "ld-linux-x86-64.so.2": "41daf7836f7fce21a40ca63a00c5caf21b05a35a76ccc075d86f1716212cdf01"
+    },
+    "official_build_statement_digest_matched_in_probe": true,
+    "official_statement_signature_verified": false
+  },
+  "synthetic_controls": [
+    {
+      "scenario": "pass",
+      "expected": "compatible_for_supplied_snapshot",
+      "exit_code": 0,
+      "tool_result": "compatible_for_supplied_snapshot",
+      "stdout_sha256": "7919188202363aa0c40b38b4679b5eda0266d1657a1a8a9224ea4df80e452537",
+      "stderr_sha256": "6d25776d442e9757b82cc89563892749b9f510b61679061877e5d8f0f4e0ae05",
+      "missing_fcm_version_reported": null,
+      "mismatched_sepolicy_version_reported": null,
+      "diagnostic_markers": {
+        "missing_exact_target_fcm_matrix": false,
+        "device_vs_framework_matrix_incompatible": false,
+        "framework_vs_device_matrix_incompatible": false,
+        "no_device_manifest": false,
+        "no_framework_manifest": false,
+        "no_framework_matrix": false,
+        "no_device_matrix": false,
+        "failed_parsing": false,
+        "fragment_merge_error": false,
+        "apex_mentioned": true,
+        "nfc_mentioned": false,
+        "sepolicy_mentioned": false,
+        "explicit_sepolicy_version_mismatch": false
+      }
+    },
+    {
+      "scenario": "fail",
+      "expected": "incompatible_for_supplied_snapshot",
+      "exit_code": 65,
+      "tool_result": "incompatible_for_supplied_snapshot",
+      "stdout_sha256": "ceb667a72e35bc17003e9b4fc4b7759f151e69f24abded58e3dc1d66a47f96e7",
+      "stderr_sha256": "e2ce2e4dea2e8418e99447debcd9b0378c998ab5ad799fa21291bb0b5ef9f733",
+      "missing_fcm_version_reported": null,
+      "mismatched_sepolicy_version_reported": "0.0",
+      "diagnostic_markers": {
+        "missing_exact_target_fcm_matrix": false,
+        "device_vs_framework_matrix_incompatible": true,
+        "framework_vs_device_matrix_incompatible": false,
+        "no_device_manifest": false,
+        "no_framework_manifest": false,
+        "no_framework_matrix": false,
+        "no_device_matrix": false,
+        "failed_parsing": false,
+        "fragment_merge_error": false,
+        "apex_mentioned": true,
+        "nfc_mentioned": false,
+        "sepolicy_mentioned": true,
+        "explicit_sepolicy_version_mismatch": true
+      }
+    },
+    {
+      "scenario": "bad",
+      "expected": "tool_error_or_incomplete_input",
+      "exit_code": 70,
+      "tool_result": "tool_error_or_incomplete_input",
+      "stdout_sha256": "5b6de164d129b2f8b3a8185d7880dffa26d61e26a0191a9b6d73d62befbae908",
+      "stderr_sha256": "a6c24a20800082717137ea3d124a102868380a3bae37e1c56c026c922dcf57a2",
+      "missing_fcm_version_reported": null,
+      "mismatched_sepolicy_version_reported": null,
+      "diagnostic_markers": {
+        "missing_exact_target_fcm_matrix": false,
+        "device_vs_framework_matrix_incompatible": false,
+        "framework_vs_device_matrix_incompatible": false,
+        "no_device_manifest": true,
+        "no_framework_manifest": false,
+        "no_framework_matrix": false,
+        "no_device_matrix": false,
+        "failed_parsing": false,
+        "fragment_merge_error": false,
+        "apex_mentioned": true,
+        "nfc_mentioned": false,
+        "sepolicy_mentioned": false,
+        "explicit_sepolicy_version_mismatch": false
+      }
+    }
+  ],
+  "candidate_before": {
+    "bytes": 4713790039,
+    "sha256": "395c79099ccb2718d6309ce24606071a017fbbf4afb313e9b741649ccf27c372"
+  },
+  "candidate_after": {
+    "bytes": 4713790039,
+    "sha256": "395c79099ccb2718d6309ce24606071a017fbbf4afb313e9b741649ccf27c372"
+  },
+  "groups": [
+    {
+      "super": {
+        "bytes": 8589934592,
+        "sha256": "3ae6b934491d3828b43904070a17bab89d56ddf0a79d599b11fd9cb701476673",
+        "zip_crc_checked_at_eof": true
+      },
+      "extents": {
+        "system": {
+          "before": {
+            "bytes": 1732870144,
+            "sha256": "1a27a6d10de5bb55d2e5a0dc543af181e8227fb9970053f1880f0e86520d01f0"
+          },
+          "after": {
+            "bytes": 1732870144,
+            "sha256": "1a27a6d10de5bb55d2e5a0dc543af181e8227fb9970053f1880f0e86520d01f0"
+          }
+        },
+        "system_ext": {
+          "before": {
+            "bytes": 1407295488,
+            "sha256": "7e6bba489094b01194919a5ee69e63778ac0d1bef3b16ce25d325fbf0b991f1e"
+          },
+          "after": {
+            "bytes": 1407295488,
+            "sha256": "7e6bba489094b01194919a5ee69e63778ac0d1bef3b16ce25d325fbf0b991f1e"
+          }
+        },
+        "vendor": {
+          "before": {
+            "bytes": 1490268160,
+            "sha256": "814f8cad2da33d842656773ab94b01f5d54d39726a650ea5bec0ed7472fa099a"
+          },
+          "after": {
+            "bytes": 1490268160,
+            "sha256": "814f8cad2da33d842656773ab94b01f5d54d39726a650ea5bec0ed7472fa099a"
+          }
+        }
+      }
+    },
+    {
+      "super": {
+        "bytes": 8589934592,
+        "sha256": "3ae6b934491d3828b43904070a17bab89d56ddf0a79d599b11fd9cb701476673",
+        "zip_crc_checked_at_eof": true
+      },
+      "extents": {
+        "product": {
+          "before": {
+            "bytes": 3891687424,
+            "sha256": "f25da6d0a79f0f39c565b03bbbb679e22149577216276bc30d74b86a22770079"
+          },
+          "after": {
+            "bytes": 3891687424,
+            "sha256": "f25da6d0a79f0f39c565b03bbbb679e22149577216276bc30d74b86a22770079"
+          }
+        }
+      }
+    }
+  ],
+  "scan_roots": [
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf",
+      "status": "read"
+    },
+    {
+      "partition": "system_ext",
+      "path": "/etc/vintf",
+      "status": "read"
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf",
+      "status": "read"
+    },
+    {
+      "partition": "vendor",
+      "path": "/odm/etc/vintf",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "product",
+      "path": "/etc/vintf",
+      "status": "read"
+    }
+  ],
+  "legacy_inputs": [
+    {
+      "partition": "system",
+      "path": "/system/manifest.xml",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "system",
+      "path": "/system/compatibility_matrix.xml",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "vendor",
+      "path": "/manifest.xml",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "vendor",
+      "path": "/compatibility_matrix.xml",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "vendor",
+      "path": "/odm/etc/manifest.xml",
+      "status": "missing_or_unreadable"
+    }
+  ],
+  "apex_package_counts_only": [
+    {
+      "partition": "system",
+      "path": "/system/apex",
+      "status": "read",
+      "entry_count": 36,
+      "counts": {
+        "regular_apex_or_capex": 36,
+        "directories": 0,
+        "symlinks": 0,
+        "other": 0
+      }
+    },
+    {
+      "partition": "system_ext",
+      "path": "/apex",
+      "status": "read",
+      "entry_count": 3,
+      "counts": {
+        "regular_apex_or_capex": 3,
+        "directories": 0,
+        "symlinks": 0,
+        "other": 0
+      }
+    },
+    {
+      "partition": "vendor",
+      "path": "/apex",
+      "status": "missing_or_unreadable"
+    },
+    {
+      "partition": "product",
+      "path": "/apex",
+      "status": "read",
+      "entry_count": 1,
+      "counts": {
+        "regular_apex_or_capex": 1,
+        "directories": 0,
+        "symlinks": 0,
+        "other": 0
+      }
+    }
+  ],
+  "explicit_sepolicy_observations": [
+    {
+      "partition": "system",
+      "path": "/system/etc/vintf/compatibility_matrix.device.xml",
+      "type": "framework",
+      "level": null,
+      "target_level": null,
+      "sepolicy_versions": [
+        "31.0",
+        "32.0",
+        "33.0",
+        "34.0",
+        "202404",
+        "202504",
+        "202604"
+      ],
+      "kernel_sepolicy_versions": [
+        "30"
+      ]
+    },
+    {
+      "partition": "vendor",
+      "path": "/etc/vintf/manifest.xml",
+      "type": "device",
+      "level": null,
+      "target_level": "4",
+      "sepolicy_versions": [
+        "30.0"
+      ],
+      "kernel_sepolicy_versions": []
+    }
+  ],
+  "split_policy_static_metadata": {
+    "scope": "selected static file metadata only; policy contents are never included",
+    "vendor_mapping_version": "31.0",
+    "policy_files": [
+      {
+        "partition": "system",
+        "path": "/system/etc/selinux/plat_sepolicy.cil",
+        "status": "read",
+        "bytes": 3301671,
+        "sha256": "8be91bf28cbefad3fc4bf556f5baa6de3d027a8cd86247b9317411b056b1e6df"
+      },
+      {
+        "partition": "system",
+        "path": "/system/etc/selinux/plat_sepolicy_and_mapping.sha256",
+        "status": "read",
+        "bytes": 65,
+        "sha256": "9024741580ae907533924cad7da5f0929534e3286a0387bef1e0d9a8061fc81d"
+      },
+      {
+        "partition": "system",
+        "path": "/system/bin/secilc",
+        "status": "read",
+        "bytes": 371104,
+        "sha256": "6b042bc0f30e6a885992752ea841ac2337fc5d7c927f55984f29e0aef43a166d"
+      },
+      {
+        "partition": "system_ext",
+        "path": "/etc/selinux/system_ext_sepolicy.cil",
+        "status": "read",
+        "bytes": 1117825,
+        "sha256": "f0b5e3687b0cb29f9fa44773b29a0af3c397c923e0a22bbc6af559018303f30a"
+      },
+      {
+        "partition": "system_ext",
+        "path": "/etc/selinux/system_ext_sepolicy_and_mapping.sha256",
+        "status": "read",
+        "bytes": 65,
+        "sha256": "fd491961aa4dac76a45b731cd6b0a1ca98c1155f9bd86bbe705f0722e587a15d"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/plat_sepolicy_vers.txt",
+        "status": "read",
+        "bytes": 5,
+        "sha256": "c1be93ff1e96d84c1d4f3cffbaa3654adfe996bb2c8263733d4f6aabed72b37f"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/vendor_sepolicy.cil",
+        "status": "read",
+        "bytes": 788344,
+        "sha256": "dcac865cc11c4a7d5bd5f4017f4df23dcbdf36f2723056f104b7f3e870d527fb"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/plat_pub_versioned.cil",
+        "status": "read",
+        "bytes": 901132,
+        "sha256": "9d20d41a2b4b39063a3b611e582151a61948d644bb9e712144256c6873ce393c"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/precompiled_sepolicy",
+        "status": "read",
+        "bytes": 1011209,
+        "sha256": "b730d11791eda2fbc502663696364089050a0dee59cc3cfc2107fef73c31e4be"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/precompiled_sepolicy.plat_sepolicy_and_mapping.sha256",
+        "status": "read",
+        "bytes": 65,
+        "sha256": "557b430a88e61964704f28b297ed39d4f68c6c56edc39a50dd53be9d555fd042"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/precompiled_sepolicy.system_ext_sepolicy_and_mapping.sha256",
+        "status": "read",
+        "bytes": 65,
+        "sha256": "16c4794029226a7b3cba4bcc3523c2d11887725916bf71aafa25ba77f622ae6b"
+      },
+      {
+        "partition": "vendor",
+        "path": "/etc/selinux/precompiled_sepolicy.product_sepolicy_and_mapping.sha256",
+        "status": "read",
+        "bytes": 65,
+        "sha256": "3d554af27a6c531500a1410d7c32a140132b6825ebf4afbf7836b7090f84c42a"
+      },
+      {
+        "partition": "vendor",
+        "path": "/odm/etc/selinux/precompiled_sepolicy",
+        "status": "missing_or_unreadable"
+      },
+      {
+        "partition": "product",
+        "path": "/etc/selinux/product_sepolicy.cil",
+        "status": "read",
+        "bytes": 93161,
+        "sha256": "103ee85629eb8caaa75820420e888a19bf6617a436014bb41caec2c2243b3f42"
+      },
+      {
+        "partition": "product",
+        "path": "/etc/selinux/product_sepolicy_and_mapping.sha256",
+        "status": "read",
+        "bytes": 65,
+        "sha256": "34cbdc373ba6e7eaa46dd87b2c68a89c4e3a2514db72e80db294af20abc33a21"
+      }
+    ],
+    "mapping_directories": [
+      {
+        "partition": "system",
+        "path": "/system/etc/selinux/mapping",
+        "status": "read",
+        "numeric_mapping_files": [
+          {
+            "name": "202404.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202404.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202504.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202504.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202604.cil",
+            "type": "regular"
+          },
+          {
+            "name": "31.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "31.0.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "32.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "32.0.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "33.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "33.0.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "34.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "34.0.compat.cil",
+            "type": "regular"
+          }
+        ]
+      },
+      {
+        "partition": "system_ext",
+        "path": "/etc/selinux/mapping",
+        "status": "read",
+        "numeric_mapping_files": [
+          {
+            "name": "202404.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202404.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202504.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202504.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202604.cil",
+            "type": "regular"
+          },
+          {
+            "name": "31.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "31.0.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "32.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "32.0.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "33.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "33.0.compat.cil",
+            "type": "regular"
+          },
+          {
+            "name": "34.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "34.0.compat.cil",
+            "type": "regular"
+          }
+        ]
+      },
+      {
+        "partition": "product",
+        "path": "/etc/selinux/mapping",
+        "status": "read",
+        "numeric_mapping_files": [
+          {
+            "name": "202404.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202504.cil",
+            "type": "regular"
+          },
+          {
+            "name": "202604.cil",
+            "type": "regular"
+          },
+          {
+            "name": "31.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "32.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "33.0.cil",
+            "type": "regular"
+          },
+          {
+            "name": "34.0.cil",
+            "type": "regular"
+          }
+        ]
+      }
+    ],
+    "precompiled_digest_file_comparisons": {
+      "system": "both_read_different",
+      "system_ext": "both_read_different",
+      "product": "both_read_different"
+    },
+    "limitations": [
+      "Missing or unreadable is not proof of absence at runtime; final symlinks are not followed.",
+      "ODM and mounted runtime paths may differ; equal hash-file text does not prove a policy loads.",
+      "No SELinux policy was compiled, executed, modified, disabled, or validated on a device."
+    ]
+  },
+  "vendor_elf_and_linker_static_metadata": {
+    "system": {
+      "system_linker_paths": [
+        {
+          "path": "/system/bin/linker",
+          "status": "symlink_not_followed",
+          "target": "/apex/com.android.runtime/bin/linker"
+        },
+        {
+          "path": "/system/bin/linker64",
+          "status": "symlink_not_followed",
+          "target": "/apex/com.android.runtime/bin/linker64"
+        }
+      ],
+      "runtime_apex_candidates": {
+        "path": "/system/apex",
+        "status": "read",
+        "candidates": [
+          {
+            "name": "com.android.runtime.apex",
+            "type": "regular",
+            "bytes": 12996608
+          }
+        ]
+      },
+      "limitations": [
+        "Only vendor/bin regular files were inspected; symlinks and other directories were not followed.",
+        "Only ELF metadata and known interpreter paths were counted; no executable or APEX was run or unpacked.",
+        "An APEX package on disk does not prove activation, linker availability, namespaces, ABI or runtime compatibility.",
+        "Kernel 32-bit support, libraries, services, SELinux, AVB and actual device boot were not tested."
+      ]
+    },
+    "vendor_bin": {
+      "root": "/bin",
+      "status": "read",
+      "directory_count": 3,
+      "entries": 405,
+      "regular_files": 225,
+      "symlinks_not_followed": 178,
+      "non_elf_files": 30,
+      "malformed_or_unsupported_elf": 0,
+      "elf_categories": [
+        {
+          "class": 32,
+          "architecture": "ARM",
+          "type": "dynamic",
+          "interpreter": "/system/bin/linker",
+          "count": 11
+        },
+        {
+          "class": 32,
+          "architecture": "ARM",
+          "type": "executable",
+          "interpreter": null,
+          "count": 1
+        },
+        {
+          "class": 64,
+          "architecture": "AArch64",
+          "type": "dynamic",
+          "interpreter": "/system/bin/linker64",
+          "count": 183
+        }
+      ]
+    }
+  },
+  "snapshot_documents": 67,
+  "prior_inventory_documents": 67,
+  "prior_inventory_identities_match": true,
+  "snapshot_documents_unchanged_after_checks": true,
+  "scenarios": [
+    {
+      "name": "empty_properties",
+      "assumption": "SKU and first API not supplied",
+      "exit_code": 65,
+      "tool_result": "incompatible_for_supplied_snapshot",
+      "stdout_sha256": "5d395b017f99ca6b99e8db3364fccf251bfb3be504830514cabcb937ffe35b72",
+      "stderr_sha256": "60600365f5ef54179cdd3ae9a3729e924e0034f416486f338c25d89e3fbe02d5",
+      "missing_fcm_version_reported": "4",
+      "mismatched_sepolicy_version_reported": "30.0",
+      "diagnostic_markers": {
+        "missing_exact_target_fcm_matrix": true,
+        "device_vs_framework_matrix_incompatible": true,
+        "framework_vs_device_matrix_incompatible": false,
+        "no_device_manifest": false,
+        "no_framework_manifest": false,
+        "no_framework_matrix": false,
+        "no_device_matrix": false,
+        "failed_parsing": false,
+        "fragment_merge_error": false,
+        "apex_mentioned": true,
+        "nfc_mentioned": false,
+        "sepolicy_mentioned": true,
+        "explicit_sepolicy_version_mismatch": true
+      }
+    },
+    {
+      "name": "hypothetical_first_api_30",
+      "assumption": "first API 30 is hypothetical; SKU not supplied",
+      "exit_code": 65,
+      "tool_result": "incompatible_for_supplied_snapshot",
+      "stdout_sha256": "5d395b017f99ca6b99e8db3364fccf251bfb3be504830514cabcb937ffe35b72",
+      "stderr_sha256": "60600365f5ef54179cdd3ae9a3729e924e0034f416486f338c25d89e3fbe02d5",
+      "missing_fcm_version_reported": "4",
+      "mismatched_sepolicy_version_reported": "30.0",
+      "diagnostic_markers": {
+        "missing_exact_target_fcm_matrix": true,
+        "device_vs_framework_matrix_incompatible": true,
+        "framework_vs_device_matrix_incompatible": false,
+        "no_device_manifest": false,
+        "no_framework_manifest": false,
+        "no_framework_matrix": false,
+        "no_device_matrix": false,
+        "failed_parsing": false,
+        "fragment_merge_error": false,
+        "apex_mentioned": true,
+        "nfc_mentioned": false,
+        "sepolicy_mentioned": true,
+        "explicit_sepolicy_version_mismatch": true
+      }
+    }
+  ],
+  "isolation": {
+    "user_mount_pid_network_namespaces": true,
+    "chroot": true,
+    "root_bind_readonly": true,
+    "capabilities_dropped": true,
+    "no_new_privileges": true,
+    "candidate_zip_excluded_from_chroot": true,
+    "no_devices_or_host_proc": true
+  },
+  "limitations": [
+    "Partial metadata snapshot only: real ODM/APEX state, SKU, boot properties and runtime library implementation are unknown.",
+    "Absent or unreadable ODM inputs and absent APEX metadata were represented by empty temporary directories, not proved absent on the device.",
+    "Kernel runtime information was not supplied; checkvintf skips kernel requirements.",
+    "Host AOSP checkvintf and its in-toto digest are identified, but the official statement signature was not verified and the ROM runtime may differ.",
+    "A tool result for this snapshot is not a complete compatibility verdict, recovery test, AVB validation, or device boot proof.",
+    "No image was modified, uploaded, installed or executed; no device was accessed."
+  ]
+}
