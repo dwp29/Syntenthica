@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  checks: write
 
 jobs:
   inspect-metadata:
@@ -28,13 +29,34 @@ jobs:
       - name: Install pinned protocol buffer runtime
         run: python -m pip install --disable-pip-version-check --require-hashes -r synthetica-project/requirements-ota-metadata.txt
       - name: Read the two OTA metadata entries from the pinned third part
+        id: probe
         shell: bash
         run: |
           set -euo pipefail
-          mkdir "$RUNNER_TEMP/meta-probe"
-          gh release download 'synthetica-boot-first-20261102-02-installer-guard-draft' \
-            --repo dwp29/Syntenthica --pattern 'synthetica-boot-first-20261102-02-installer-guard.zip.003' \
-            --dir "$RUNNER_TEMP/meta-probe"
-          echo 'ebd7aaf261e3081d237a26f73b2debde35a306b4cac0dfd5fb2c95804f9b23d4  '"$RUNNER_TEMP/meta-probe/synthetica-boot-first-20261102-02-installer-guard.zip.003" | sha256sum --check --status
-          python synthetica-project/probe_ota_metadata.py \
-            "$RUNNER_TEMP/meta-probe/synthetica-boot-first-20261102-02-installer-guard.zip.003"
+          {
+            mkdir "$RUNNER_TEMP/meta-probe"
+            gh release download 'synthetica-boot-first-20261102-02-installer-guard-draft' \
+              --repo dwp29/Syntenthica --pattern 'synthetica-boot-first-20261102-02-installer-guard.zip.003' \
+              --dir "$RUNNER_TEMP/meta-probe"
+            echo 'ebd7aaf261e3081d237a26f73b2debde35a306b4cac0dfd5fb2c95804f9b23d4  '"$RUNNER_TEMP/meta-probe/synthetica-boot-first-20261102-02-installer-guard.zip.003" | sha256sum --check --status
+            python synthetica-project/probe_ota_metadata.py \
+              "$RUNNER_TEMP/meta-probe/synthetica-boot-first-20261102-02-installer-guard.zip.003"
+          } >"$RUNNER_TEMP/meta-probe.log" 2>&1
+      - name: Report bounded probe results
+        if: always()
+        env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP']) / 'meta-probe.log'
+          text = log.read_text(errors='replace')[:12000] if log.exists() else 'Probe did not start.'
+          text = re.sub(r'https?://[^\s\"\']+', '[URL redacted]', text)
+          payload = {'name': 'Synthetica OTA metadata probe', 'head_sha': os.environ['GITHUB_SHA'],
+                     'status': 'completed', 'conclusion': 'success' if os.environ['PROBE_OUTCOME'] == 'success' else 'neutral',
+                     'output': {'title': 'OTA metadata only', 'summary': text or 'No output.'}}
+          subprocess.run(['gh', 'api', '--method', 'POST', 'repos/dwp29/Syntenthica/check-runs', '--input', '-'],
+                         input=json.dumps(payload).encode(), stdout=subprocess.DEVNULL, check=True)
+          PY
