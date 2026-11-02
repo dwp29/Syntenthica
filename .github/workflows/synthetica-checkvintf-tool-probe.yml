@@ -14,6 +14,7 @@ on:
 # in an isolated network namespace. The statement's signature is not verified.
 permissions:
   contents: read
+  checks: write
 
 jobs:
   probe:
@@ -22,13 +23,18 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Fetch the pinned Android 17 build artifacts
+        id: fetch
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/checkvintf-fetch.log") 2>&1
           cd "$RUNNER_TEMP"
           base='https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest'
+          echo 'Fetching published in-toto statement'
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 180 --max-filesize 2097152 "$base/multiple.intoto.jsonl" -o android-build.intoto.jsonl
+          echo 'Fetching source manifest'
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 180 --max-filesize 2097152 "$base/manifest_16644040.xml" -o android-build-manifest.xml
+          echo 'Fetching official otatools'
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 900 --max-filesize 734003200 "$base/otatools.zip" -o android-otatools.zip
           python3 - <<'PY'
           import base64, hashlib, json, os, stat, xml.etree.ElementTree as ET, zipfile
@@ -87,14 +93,41 @@ jobs:
           readelf -d "$RUNNER_TEMP/android-otatools-minimal/bin/checkvintf" | grep -E 'NEEDED|RPATH|RUNPATH' || true
 
       - name: Probe the tool with no network and no ROM input
+        id: probe
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/checkvintf-probe.log") 2>&1
           root="$RUNNER_TEMP/android-otatools-minimal"
           unshare --user --map-root-user --mount --net --pid --fork \
             env -i PATH=/usr/bin:/bin LD_LIBRARY_PATH="$root/lib64" \
-            "$root/bin/checkvintf" --help > "$RUNNER_TEMP/checkvintf-help.txt" 2>&1 || status=$?
-          status=${status:-0}
-          echo "checkvintf --help exit: $status"
-          cat "$RUNNER_TEMP/checkvintf-help.txt"
-          if [ "$status" -ne 0 ]; then exit "$status"; fi
+            "$root/bin/checkvintf" --dump-file-list
+          echo 'Isolated --dump-file-list exited 0.'
+
+      - name: Preserve bounded tool-probe metadata, including failures
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FETCH_OUTCOME: ${{ steps.fetch.outcome }}
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          logs = []
+          for name in ('checkvintf-fetch.log', 'checkvintf-probe.log'):
+              p = root / name
+              text = p.read_text(errors='replace')[:12000] if p.exists() else '(not started)'
+              logs.append(f'{name}:\n{text}')
+          summary = ('Public official-tool probe only; no candidate, images, or device. '
+                     'The in-toto signature is not verified.\n\n' + '\n\n'.join(logs))
+          success = os.environ['FETCH_OUTCOME'] == os.environ['PROBE_OUTCOME'] == 'success'
+          payload = {'name': 'Synthetica official checkvintf probe metadata', 'head_sha': os.environ['GITHUB_SHA'],
+                     'status': 'completed', 'conclusion': 'success' if success else 'neutral',
+                     'output': {'title': 'Public tool probe (not ROM compatibility)', 'summary': summary}}
+          subprocess.run(['gh', 'api', '--method', 'POST', 'repos/dwp29/Syntenthica/check-runs', '--input', '-'],
+                         input=json.dumps(payload).encode(), stdout=subprocess.DEVNULL, check=True)
+          PY
