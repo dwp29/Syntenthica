@@ -110,7 +110,9 @@ def prepare_tool(archive_path: Path, sandbox: Path) -> dict:
         lib_hashes[name] = sha256_file(destination)
     (sandbox / 'lib64').mkdir()
     shutil.copyfile(dest_dir / 'ld-linux-x86-64.so.2', sandbox / 'lib64/ld-linux-x86-64.so.2')
-    (sandbox / 'lib64/ld-linux-x86-64.so.2').chmod(0o444)
+    # The kernel must execute the ELF interpreter; it is still on a read-only
+    # bind mount during the actual check.
+    (sandbox / 'lib64/ld-linux-x86-64.so.2').chmod(0o555)
     (sandbox / 'readonly-marker').write_bytes(b'synthetic marker\n')
     return {'build': AOSP_BUILD, 'target': AOSP_TARGET,
             'otatools_bytes': AOSP_ZIP_BYTES, 'otatools_sha256': AOSP_ZIP_SHA256,

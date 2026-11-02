@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -76,6 +77,49 @@ class ToolAndControlTests(unittest.TestCase):
             with self.assertRaises(audit.CheckAuditError):
                 audit.prepare_tool(archive, sandbox)
             self.assertEqual(list(sandbox.iterdir()), [])
+
+    @unittest.skipUnless(all((Path('/lib/x86_64-linux-gnu') / name).is_file() for name in audit.HOST_LIBS),
+                         'Host system libraries required for this synthetic layout test')
+    def test_tool_layout_marks_elf_interpreter_executable(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            archive = root / 'synthetic.zip'
+            fake = b'synthetic executable bytes, never run'
+            with zipfile.ZipFile(archive, 'w') as z:
+                z.writestr('bin/checkvintf', fake)
+            sandbox = root / 'sandbox'
+            sandbox.mkdir()
+            readelf = subprocess.CompletedProcess([], 0, stdout='\n'.join(
+                f'  0x1 (NEEDED) Shared library: [{name}]' for name in audit.HOST_LIBS), stderr='')
+            with mock.patch.object(audit, 'AOSP_ZIP_BYTES', archive.stat().st_size), \
+                    mock.patch.object(audit, 'AOSP_ZIP_SHA256', hashlib.sha256(archive.read_bytes()).hexdigest()), \
+                    mock.patch.object(audit, 'CHECKVINTF_SHA256', hashlib.sha256(fake).hexdigest()), \
+                    mock.patch.object(audit.subprocess, 'run', return_value=readelf):
+                audit.prepare_tool(archive, sandbox)
+            self.assertEqual((sandbox / 'tool/checkvintf').stat().st_mode & 0o777, 0o555)
+            self.assertEqual((sandbox / 'lib64/ld-linux-x86-64.so.2').stat().st_mode & 0o777, 0o555)
+            self.assertEqual((sandbox / 'lib/x86_64-linux-gnu/libc.so.6').stat().st_mode & 0o777, 0o444)
+
+    @unittest.skipUnless(shutil.which('unshare') and Path('/usr/bin/true').exists() and
+                         (Path('/lib/x86_64-linux-gnu') / 'ld-linux-x86-64.so.2').is_file(),
+                         'Namespace tooling and host ELF loader are required')
+    def test_isolated_root_runs_only_a_synthetic_host_command(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'tool').mkdir()
+            (root / 'lib/x86_64-linux-gnu').mkdir(parents=True)
+            (root / 'lib64').mkdir()
+            shutil.copy2('/usr/bin/true', root / 'tool/checkvintf')
+            shutil.copyfile('/lib/x86_64-linux-gnu/libc.so.6', root / 'lib/x86_64-linux-gnu/libc.so.6')
+            shutil.copyfile('/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2', root / 'lib64/ld-linux-x86-64.so.2')
+            (root / 'lib64/ld-linux-x86-64.so.2').chmod(0o555)
+            (root / 'readonly-marker').write_text('synthetic')
+            proc = subprocess.run(['unshare', '--user', '--map-root-user', '--mount', '--net', '--pid', '--fork',
+                                   sys.executable, '-I', '-S', '-c', audit._ISOLATED_LAUNCHER, str(root)],
+                                  capture_output=True, text=True, timeout=15)
+            if proc.returncode and 'Operation not permitted' in proc.stderr:
+                self.skipTest('User namespaces are disabled on this host')
+            self.assertEqual(proc.returncode, 0, proc.stderr)
 
     def test_build_args_explicitly_maps_all_and_does_not_assume_a_sku(self):
         args = audit.build_args('/snapshot', None)

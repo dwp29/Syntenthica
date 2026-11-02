@@ -12,6 +12,7 @@ on:
 # Neither release assets nor any device, partition image, AVB or firmware is
 # changed. Synthetic controls must pass before the large candidate download.
 # AOSP checkvintf tests a partial snapshot, not the actual device's runtime.
+# The read-only chroot includes an executable host ELF interpreter.
 permissions:
   contents: write
   checks: write
