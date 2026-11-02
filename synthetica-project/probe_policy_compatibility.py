@@ -4,10 +4,13 @@
 Only a hash-verified, disposable copy of candidate 02 is read; candidate 03 has
 exactly the same super.img. Extracted policy inputs live on a disposable runner
 and are read by a pinned AOSP host secilc inside a networkless, read-only
-namespace. Neverallow checks remain enabled. A one-field VINTF hypothesis is
-tried ONLY on a temporary snapshot, immediately restored, and never packaged.
-Neither the hypothesis nor successful host compilation proves device boot.
-No candidate init JSON or raw policy content is exported.
+namespace. Strict compilation keeps neverallow checks enabled. A separate,
+clearly-labelled comparison models the cited AOSP init compiler invocation:
+its -N flag skips compile-time neverallow assertions, not device enforcement.
+Only the sandbox's throwaway output is produced; it is never packaged. A
+one-field VINTF hypothesis is tried ONLY on a temporary snapshot, restored,
+and never packaged. None of these tests proves device boot. No candidate init
+JSON, raw policy content, or compiled candidate policy is exported.
 """
 from __future__ import annotations
 
@@ -114,7 +117,8 @@ def prepare_secilc(archive: Path, sandbox: Path) -> dict:
     return {**tool, 'secilc_sha256': check.sha256_file(target),
             'secilc_bytes': target.stat().st_size, 'secilc_needed': sorted(needed),
             'secilc_source': 'bin/secilc within the SHA-256 pinned otatools ZIP',
-            'neverallow_checks_disabled': False}
+            'strict_compiler_neverallow_checks_disabled': False,
+            'reference_compilation_is_diagnostic_only': True}
 
 
 def write_policy_file(directory: Path, name: str, data: bytes) -> None:
@@ -192,8 +196,8 @@ def candidate_args(rows: list[dict]) -> list[str]:
     if not required.issubset(found) or not found.issubset(set(ORDER)):
         raise PolicyProbeError('Incomplete or unexpected policy snapshot')
     # AOSP Android 17 init uses policydb version 30 and these input files.
-    # Unlike init's -N, this test intentionally keeps neverallow checks ON.
-    # -N is forbidden in every scenario; this does not change any device state.
+    # This strict gate deliberately does not use init's -N, so all
+    # neverallow assertions are checked; the separate reference run is labelled.
     inputs = ['/policy/' + name for name in ORDER if name in found]
     return [inputs[0], '-m', '-M', 'true', '-G', '-c', '30',
             *inputs[1:], '-o', '/out/policy.bin', '-f', '/out/file_contexts']
@@ -202,8 +206,15 @@ def candidate_args(rows: list[dict]) -> list[str]:
 _LAUNCHER = r'''
 import ctypes, hashlib, json, os, re, resource, signal, subprocess, sys
 root, mode, *args = sys.argv[1:]
-if mode not in ('control', 'candidate') or '-N' in args:
-    raise RuntimeError('invalid mode or disabled neverallow checks')
+strict = mode in ('control', 'candidate')
+reference_inputs = {'reference_control': '/policy/control_neverallow.cil',
+                    'reference_unknown': '/policy/control_unknown.cil',
+                    'reference_candidate': '/policy/system.cil'}
+reference = mode in reference_inputs
+if not (strict or reference) or (strict and '-N' in args) or (reference and args.count('-N') != 1):
+    raise RuntimeError('invalid mode or compiler assertion-check setting')
+if reference and (not args or args[0] != reference_inputs[mode]):
+    raise RuntimeError('reference compiler input is not the fixed snapshot')
 subprocess.run(['/usr/bin/mount', '--make-rprivate', '/'], check=True)
 subprocess.run(['/usr/bin/mount', '--bind', root, root], check=True)
 subprocess.run(['/usr/bin/mount', '-o', 'remount,bind,ro', root], check=True)
@@ -262,17 +273,30 @@ text = log.decode('utf-8', 'replace')
 resolved = re.findall(r'Failed to resolve ([A-Za-z_][A-Za-z0-9_]*) statement', text)
 missing = re.findall(r'Failed to (?:resolve|find) (?:permission|class|sid|category|sensitivity) ([A-Za-z_][A-Za-z0-9_.]*)', text)
 locations = re.findall(r'at /policy/([a-z0-9_]+\.cil):(\d+)', text)
+assertions = re.findall(r'neverallow(?:xperm|x)? check failed at /policy/([a-z0-9_]+\.cil):(\d+)', text, re.I)
+allowed_sources = {'system.cil', 'system_mapping.cil', 'system_compat.cil', 'genfs0.cil',
+                   'system_ext.cil', 'system_ext_mapping.cil', 'system_ext_compat.cil',
+                   'product.cil', 'product_mapping.cil', 'vendor_public.cil', 'vendor.cil',
+                   'odm_in_vendor.cil', 'control_neverallow.cil'}
+if any(name not in allowed_sources for name, _ in assertions):
+    raise RuntimeError('Unexpected policy location in compiler diagnostic')
+assertion_counts = {name: sum(1 for item, _ in assertions if item == name)
+                    for name in sorted({item for item, _ in assertions})}
 policy = '/out/policy.bin'
 result = {'tool_exit_code': proc.returncode, 'log_bytes': len(log),
           'log_sha256': hashlib.sha256(log).hexdigest(),
           'failed_resolve_statement_kinds': sorted(set(resolved))[:20],
           'missing_symbol_names': sorted(set(missing))[:20],
           'fixed_policy_file_locations': [{'name': n, 'line': int(i)} for n, i in locations[:20]],
+          'neverallow_failure_count': len(assertions),
+          'neverallow_failures_by_source': assertion_counts,
           'neverallow_diagnostic': 'neverallow' in text.lower(),
           'unknown_symbol_diagnostic': any(x in text.lower() for x in ('failed to resolve', 'failed to find', 'not declared')),
           'syntax_diagnostic': any(x in text.lower() for x in ('syntax error', 'bad syntax', 'invalid syntax')),
           'root_read_only': True, 'no_network': True, 'no_new_privs': True,
-          'capabilities_dropped': True, 'neverallow_checks_disabled': False}
+          'capabilities_dropped': True, 'neverallow_checks_disabled': reference,
+          'compiled_output_is_disposable_not_shipped': True}
+
 if os.path.isfile(policy):
     with open(policy, 'rb') as f:
         data = f.read(32 * 1024 * 1024 + 1)
@@ -280,15 +304,22 @@ if os.path.isfile(policy):
         raise RuntimeError('compiled temporary policy exceeds limit')
     result['compiled_policy_bytes'] = len(data)
     result['compiled_policy_sha256'] = hashlib.sha256(data).hexdigest()
-if mode == 'control':
+if mode in ('control', 'reference_control', 'reference_unknown'):
     result['synthetic_log'] = text[:6000]
 print(json.dumps(result), flush=True)
 '''
 
 
 def compile_isolated(sandbox: Path, args: list[str], mode: str) -> dict:
-    if mode not in ('control', 'candidate') or '-N' in args:
-        raise PolicyProbeError('Refusing to disable neverallow compilation checks')
+    strict = mode in ('control', 'candidate')
+    reference_inputs = {'reference_control': '/policy/control_neverallow.cil',
+                        'reference_unknown': '/policy/control_unknown.cil',
+                        'reference_candidate': '/policy/system.cil'}
+    reference = mode in reference_inputs
+    if not (strict or reference) or (strict and '-N' in args) or (reference and args.count('-N') != 1):
+        raise PolicyProbeError('Invalid mode or compiler assertion-check setting')
+    if reference and (not args or args[0] != reference_inputs[mode]):
+        raise PolicyProbeError('Reference compiler input is not the fixed snapshot')
     if not shutil.which('unshare') or not Path('/usr/bin/mount').is_file():
         raise PolicyProbeError('Namespace or mount tools are unavailable')
     command = [shutil.which('unshare'), '--user', '--map-root-user', '--mount', '--net', '--pid', '--fork',
@@ -304,14 +335,15 @@ def compile_isolated(sandbox: Path, args: list[str], mode: str) -> dict:
     if len(out) + len(err) > MAX_LOG or proc.returncode:
         # Only fixture failures can show bounded logs. Candidate diagnostics are
         # withheld, not rerouted or re-encoded.
-        diagnostic = err.decode('utf-8', 'replace')[:2000] if mode == 'control' else 'candidate diagnostic withheld'
+        diagnostic = err.decode('utf-8', 'replace')[:2000] if mode in ('control', 'reference_control', 'reference_unknown') else 'candidate diagnostic withheld'
         raise PolicyProbeError(f'Isolated compiler launcher failed ({proc.returncode}): {diagnostic}')
     try:
         result = json.loads(out)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise PolicyProbeError('Invalid isolated compiler result') from exc
-    if result.get('neverallow_checks_disabled') is not False or not result.get('root_read_only'):
-        raise PolicyProbeError('Compiler isolation or neverallow guard failed')
+    if (result.get('neverallow_checks_disabled') is not reference or not result.get('root_read_only')
+            or result.get('compiled_output_is_disposable_not_shipped') is not True):
+        raise PolicyProbeError('Compiler isolation or assertion-check guard failed')
     return result
 
 
@@ -339,6 +371,50 @@ def controls(sandbox: Path) -> list[dict]:
     return rows
 
 
+def reference_controls(sandbox: Path) -> dict:
+    """Prove the diagnostic-only -N comparison still rejects unresolved symbols.
+
+    The neverallow assertion has no representation in the binary policy. A
+    synthetic allowed rule compiled with and without a neverallow assertion
+    should produce the same binary when that assertion is skipped. This is
+    not an authorization to ignore strict failures on a real candidate.
+    """
+    def args(name: str, reference: bool) -> list[str]:
+        return ['/policy/' + name, '-m', '-M', 'true', '-G', '-c', '30',
+                *(['-N'] if reference else []), '-o', '/out/policy.bin', '-f', '/out/file_contexts']
+    good = compile_isolated(sandbox, args('control_good.cil', False), 'control')
+    skipped = compile_isolated(sandbox, args('control_neverallow.cil', True), 'reference_control')
+    unknown = compile_isolated(sandbox, args('control_unknown.cil', True), 'reference_unknown')
+    if good['tool_exit_code'] != 0 or skipped['tool_exit_code'] != 0 or unknown['tool_exit_code'] == 0:
+        raise PolicyProbeError('Reference-mode synthetic controls produced unexpected results')
+    good_hash = good.get('compiled_policy_sha256')
+    skip_hash = skipped.get('compiled_policy_sha256')
+    if not good_hash or not skip_hash:
+        raise PolicyProbeError('Reference-mode positive synthetic controls produced no policy')
+    return {'good_strict_exit_code': good['tool_exit_code'],
+            'neverallow_assertion_skipped_exit_code': skipped['tool_exit_code'],
+            'unknown_symbol_still_rejected_exit_code': unknown['tool_exit_code'],
+            'synthetic_binary_identical': good_hash == skip_hash,
+            'synthetic_strict_policy_sha256': good_hash,
+            'synthetic_reference_policy_sha256': skip_hash,
+            'candidate_and_device_policy_modified': False}
+
+
+def vintf_extended_diagnostics(text: str) -> dict:
+    """Relay numeric, specifically-recognized VNDK/SDK diagnostics only."""
+    version = re.search(r'Vndk version (\d+) is not supported\.\s*'
+                        r'Supported versions in framework manifest are:\s*\[([\d\s]*)\]', text)
+    libraries = re.search(r'Vndk libs incompatible for version (\d+)\.', text)
+    sdk = re.search(r'The following System SDK versions are required by device\s+'
+                    r'compatibility matrix but not supported by the framework manifest:\s*'
+                    r'\[([\d,\s]*)\]\.\s*Supported versions are:\s*\[([\d,\s]*)\]', text)
+    return {'unsupported_vndk_version': version.group(1) if version else None,
+            'framework_supported_vndk_versions': re.findall(r'\d+', version.group(2)) if version else None,
+            'vndk_library_list_mismatch_version': libraries.group(1) if libraries else None,
+            'missing_system_sdk_versions': re.findall(r'\d+', sdk.group(1)) if sdk else None,
+            'framework_supported_system_sdk_versions': re.findall(r'\d+', sdk.group(2)) if sdk else None}
+
+
 def hypothetical_version(xml: bytes, old: str, new: str) -> bytes:
     """Patch one temporary snapshot field; no image or archive is ever touched."""
     if not xml or len(xml) > inventory.MAX_XML_BYTES or b'<!DOCTYPE' in xml.upper() or b'<!ENTITY' in xml.upper():
@@ -358,13 +434,15 @@ def test_vintf_hypothesis(sandbox: Path) -> dict:
     if path.is_symlink() or not path.is_file():
         raise PolicyProbeError('Pinned temporary vendor manifest missing')
     original = path.read_bytes()
-    base, _ = check.run_isolated(sandbox, '/snapshot', None)
+    base, base_text = check.run_isolated(sandbox, '/snapshot', None)
+    base['additional_diagnostics'] = vintf_extended_diagnostics(base_text)
     replacement = hypothetical_version(original, '30.0', VERSION)
     path.chmod(0o644)
     try:
         path.write_bytes(replacement)
         path.chmod(0o444)
-        alternative, _ = check.run_isolated(sandbox, '/snapshot', None)
+        alternative, alternative_text = check.run_isolated(sandbox, '/snapshot', None)
+        alternative['additional_diagnostics'] = vintf_extended_diagnostics(alternative_text)
     finally:
         path.chmod(0o644)
         path.write_bytes(original)
@@ -394,6 +472,7 @@ def main() -> int:
     tool = prepare_secilc(args.otatools, sandbox)
     print('Running compiler positive, unresolved-symbol and neverallow synthetic controls', flush=True)
     synthetic = controls(sandbox)
+    reference_synthetic = reference_controls(sandbox)
     check_controls = check.run_controls(sandbox)
     print('All compiler and VINTF synthetic controls passed before candidate access', flush=True)
     snapshot = sandbox / 'snapshot'
@@ -418,7 +497,13 @@ def main() -> int:
         groups.append(group)
     check.verify_inventory(docs, seen)
     print('Compiling actual bounded policy snapshot with neverallow checks enabled', flush=True)
-    compile_result = compile_isolated(sandbox, candidate_args(policy_rows), 'candidate')
+    strict_args = candidate_args(policy_rows)
+    compile_result = compile_isolated(sandbox, strict_args, 'candidate')
+    print('Comparing against reference AOSP init flags on disposable output only', flush=True)
+    # This isolated comparison reproduces init's compile-time assertion flag;
+    # it does not alter SELinux runtime enforcement or relax the strict result.
+    reference_args = [strict_args[0], '-N', *strict_args[1:]]
+    reference_result = compile_isolated(sandbox, reference_args, 'reference_candidate')
     print('Testing a restored, temporary VINTF sepolicy-version hypothesis', flush=True)
     vintf = test_vintf_hypothesis(sandbox)
     for guest, item in seen.items():
@@ -437,14 +522,17 @@ def main() -> int:
         'candidate_before': before, 'candidate_after': after,
         'same_super_as_candidate_03_sha256': '3ae6b934491d3828b43904070a17bab89d56ddf0a79d599b11fd9cb701476673',
         'tool': tool, 'compiler_controls': synthetic, 'checkvintf_controls': check_controls,
+        'runtime_reference_controls': reference_synthetic,
         'verified_extents_and_super': groups, 'policy_inputs': policy_rows,
         'verified_vendor_mapping_version': mapping_version,
-        'compiler': compile_result, 'vintf_hypothesis': vintf,
+        'compiler': compile_result, 'runtime_reference_compiler': reference_result,
+        'vintf_hypothesis': vintf,
         'all_snapshot_inputs_unchanged_after_execution': True,
         'limitations': [
             'Host secilc is from a pinned AOSP build, not proven identical to the ROM compiler.',
             'Output policydb version 30 follows the cited AOSP init build, not an observed device kernel.',
-            'Neverallow checks are enabled, unlike the reference init runtime -N invocation.',
+            'Strict compilation keeps neverallow checks enabled; the separately labelled AOSP init comparison uses -N only on disposable host output.',
+            'Reference -N skips compiler assertions; it does not disable SELinux device enforcement, and its output is never shipped or installed.',
             'Actual ODM, SKU, genfs selection, userdebug policy, APEX and device kernel state are unknown.',
             'VINTF version change is only a counterfactual temporary snapshot, not a validated or applied fix.',
             'Neither host compile nor VINTF snapshot proves AVB, recovery acceptance, policy load, HAL ABI or boot.',

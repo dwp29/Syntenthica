@@ -9,10 +9,11 @@ on:
   workflow_dispatch:
 
 # Read-only investigation using pinned candidate 02, whose super image is also
-# unchanged in candidate 03. No device, image mutation, release upload, init
-# JSON, or disabled neverallow checks. The temporary VINTF alternative is a
-# hypothesis only; it is restored and never inserted into a ROM. The isolated
-# compiler inherits an already-open stdin rather than opening /dev inside chroot.
+# unchanged in candidate 03. No device, image mutation, release upload, or init
+# JSON. Strict compilation retains neverallow checks; a separate read-only AOSP
+# init comparison skips compile-time assertions only, with no device enforcement
+# changes. Its output remains in disposable tmpfs and is never installed. The
+# temporary VINTF alternative is restored and never inserted into a ROM.
 permissions:
   contents: write
   checks: write
@@ -103,6 +104,10 @@ jobs:
                       or summary.get('candidate_before') != summary.get('candidate_after')
                       or summary.get('all_snapshot_inputs_unchanged_after_execution') is not True
                       or summary.get('compiler', {}).get('neverallow_checks_disabled') is not False
+                      or summary.get('runtime_reference_compiler', {}).get('neverallow_checks_disabled') is not True
+                      or summary.get('runtime_reference_compiler', {}).get('compiled_output_is_disposable_not_shipped') is not True
+                      or summary.get('runtime_reference_controls', {}).get('candidate_and_device_policy_modified') is not False
+                      or summary.get('runtime_reference_controls', {}).get('unknown_symbol_still_rejected_exit_code') == 0
                       or summary.get('vintf_hypothesis', {}).get('temporary_snapshot_restored') is not True
                       or len(summary.get('compiler_controls', [])) != 3
                       or len(summary.get('checkvintf_controls', [])) != 3):

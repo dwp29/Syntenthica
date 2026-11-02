@@ -45,6 +45,51 @@ class PolicyProbeUnitTests(unittest.TestCase):
                 probe.compile_isolated(self.root, ['-N'], 'candidate')
             popen.assert_not_called()
 
+    def test_reference_mode_is_labelled_and_bound_to_fixed_inputs(self):
+        with mock.patch.object(probe.subprocess, 'Popen') as popen:
+            bad = [
+                (['/policy/system.cil'], 'reference_candidate'),
+                (['/policy/system.cil', '-N', '-N'], 'reference_candidate'),
+                (['/policy/vendor.cil', '-N'], 'reference_candidate'),
+                (['/policy/system.cil', '-N'], 'reference_control'),
+                (['/policy/control_unknown.cil', '-N'], 'reference_control'),
+                (['/policy/system.cil', '-N'], 'candidate'),
+            ]
+            for args, mode in bad:
+                with self.subTest(args=args, mode=mode), self.assertRaises(probe.PolicyProbeError):
+                    probe.compile_isolated(self.root, args, mode)
+            popen.assert_not_called()
+
+    def test_reference_controls_do_not_treat_skipped_assertions_as_strict_pass(self):
+        results = [
+            {'tool_exit_code': 0, 'compiled_policy_sha256': 'a' * 64},
+            {'tool_exit_code': 0, 'compiled_policy_sha256': 'a' * 64},
+            {'tool_exit_code': 254},
+        ]
+        with mock.patch.object(probe, 'compile_isolated', side_effect=results) as compiler:
+            result = probe.reference_controls(self.root)
+        self.assertTrue(result['synthetic_binary_identical'])
+        self.assertFalse(result['candidate_and_device_policy_modified'])
+        self.assertEqual(result['unknown_symbol_still_rejected_exit_code'], 254)
+        self.assertNotIn('-N', compiler.call_args_list[0].args[1])
+        self.assertIn('-N', compiler.call_args_list[1].args[1])
+        self.assertIn('-N', compiler.call_args_list[2].args[1])
+
+    def test_vintf_extended_diagnostics_extract_only_numeric_known_errors(self):
+        text = ('Framework manifest and device compatibility matrix are incompatible: '
+                'Vndk version 30 is not supported. Supported versions in framework manifest are: [ 31 32 ]\n'
+                'SECRET EXTRA RAW TEXT')
+        result = probe.vintf_extended_diagnostics(text)
+        self.assertEqual(result['unsupported_vndk_version'], '30')
+        self.assertEqual(result['framework_supported_vndk_versions'], ['31', '32'])
+        self.assertNotIn('SECRET', str(result))
+        sdk = ('The following System SDK versions are required by device compatibility matrix '
+               'but not supported by the framework manifest: [29, 30]. Supported versions are: [31, 32].')
+        result = probe.vintf_extended_diagnostics(sdk)
+        self.assertEqual(result['missing_system_sdk_versions'], ['29', '30'])
+        self.assertEqual(result['framework_supported_system_sdk_versions'], ['31', '32'])
+        self.assertIsNone(probe.vintf_extended_diagnostics('Vndk version 30 is fine')['unsupported_vndk_version'])
+
     def test_policy_file_write_bounded_and_no_overwrite(self):
         probe.write_policy_file(self.root, 'vendor.cil', b'policy data')
         self.assertEqual((self.root / 'vendor.cil').read_bytes(), b'policy data')
