@@ -1,6 +1,11 @@
 name: Synthetica OTA metadata inspection
 
 on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-ota-metadata-probe.yml'
   workflow_dispatch:
 
 permissions:
