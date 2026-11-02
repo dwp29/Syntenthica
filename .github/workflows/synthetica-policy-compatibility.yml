@@ -11,7 +11,8 @@ on:
 # Read-only investigation using pinned candidate 02, whose super image is also
 # unchanged in candidate 03. No device, image mutation, release upload, init
 # JSON, or disabled neverallow checks. The temporary VINTF alternative is a
-# hypothesis only; it is restored and never inserted into a ROM.
+# hypothesis only; it is restored and never inserted into a ROM. The isolated
+# compiler inherits an already-open stdin rather than opening /dev inside chroot.
 permissions:
   contents: write
   checks: write

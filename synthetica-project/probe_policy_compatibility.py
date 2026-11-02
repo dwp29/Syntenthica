@@ -243,7 +243,8 @@ if libc.capget(ctypes.byref(header), ctypes.byref(actual)) != 0 or any(
     raise RuntimeError('capabilities were not cleared')
 os.closerange(3, 4096)
 with open('/out/compiler.log', 'wb') as log:
-    proc = subprocess.run(['/tool/secilc', *args], stdin=subprocess.DEVNULL,
+    # stdin is already the caller's pre-opened /dev/null; there is no /dev in chroot.
+    proc = subprocess.run(['/tool/secilc', *args], stdin=None,
                           stdout=log, stderr=log,
                           env={'PATH': '/empty', 'LANG': 'C',
                                'LD_LIBRARY_PATH': '/lib/x86_64-linux-gnu'}, timeout=110)
