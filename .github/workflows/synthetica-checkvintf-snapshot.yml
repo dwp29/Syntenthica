@@ -15,6 +15,8 @@ on:
 # The read-only chroot includes an executable host ELF interpreter. Synthetic
 # controls explicitly specify a matching or mismatching device sepolicy version.
 # Version diagnostics contain numeric metadata only; raw tool logs stay local.
+# The additional split-policy audit exports only fixed-path metadata and
+# digest equality; it does not compile or alter any SELinux policy.
 permissions:
   contents: write
   checks: write
@@ -52,6 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_audit_checkvintf_snapshot.py' -v
+          python -m unittest discover -s tests -p 'test_audit_policy_metadata.py' -v
           python -m unittest discover -s tests -p 'test_audit_vintf_candidate.py' -v
           python -m unittest discover -s tests -p 'test_hyperos4_lp_metadata.py' -v
           python -m unittest discover -s tests -p 'test_github_guarded_report_relay.py' -v
