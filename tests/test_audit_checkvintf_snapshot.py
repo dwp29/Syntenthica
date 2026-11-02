@@ -54,6 +54,23 @@ class SnapshotPathTests(unittest.TestCase):
             with self.assertRaises(audit.CheckAuditError):
                 audit.capture_snapshot(snapshot, seen, 'vendor', '/etc/vintf/manifest.xml', data)
 
+    def test_policy_facts_are_numeric_and_do_not_claim_a_verdict(self):
+        manifest = (b'<manifest type="device" target-level="4">'
+                    b'<sepolicy><version>30.0</version></sepolicy></manifest>')
+        matrix = (b'<compatibility-matrix type="framework" level="7"><sepolicy>'
+                  b'<sepolicy-version>30.0-2</sepolicy-version><kernel-sepolicy-version>33</kernel-sepolicy-version>'
+                  b'</sepolicy></compatibility-matrix>')
+        device = audit.policy_observation(manifest, 'vendor', '/etc/vintf/manifest.xml')
+        framework = audit.policy_observation(matrix, 'system', '/system/etc/vintf/compatibility_matrix.7.xml')
+        self.assertEqual(device['sepolicy_versions'], ['30.0'])
+        self.assertEqual(device['target_level'], '4')
+        self.assertEqual(framework['sepolicy_versions'], ['30.0-2'])
+        self.assertEqual(framework['kernel_sepolicy_versions'], ['33'])
+        self.assertNotIn('compatible', framework)
+        bad = matrix.replace(b'30.0-2', b'not-a-version')
+        with self.assertRaises(audit.CheckAuditError):
+            audit.policy_observation(bad, 'system', '/system/etc/vintf/x.xml')
+
     def test_capture_rejects_bad_xml_and_symlink_parent(self):
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
             root = Path(temp)
@@ -157,13 +174,17 @@ class ToolAndControlTests(unittest.TestCase):
                  (65, b'COMPATIBLE\n', 'tool_error_or_incomplete_input')]
         for code, output, expected in cases:
             proc = mock.Mock(returncode=code)
-            proc.communicate.return_value = (output, b'Cannot find framework matrix at FCM version 4\n')
+            proc.communicate.return_value = (output, b"Cannot find framework matrix at FCM version 4\n"
+                                                     b"Sepolicy version 30.0 doesn't satisify the requirements.\n")
             with self.subTest(code=code, output=output), \
                     mock.patch.object(audit.shutil, 'which', return_value='/usr/bin/unshare'), \
                     mock.patch.object(audit.subprocess, 'Popen', return_value=proc):
                 result, raw = audit.run_isolated(Path('/tmp/synthetic-root'), '/snapshot', None)
                 self.assertEqual(result['tool_result'], expected)
                 self.assertTrue(result['diagnostic_markers']['missing_exact_target_fcm_matrix'])
+                self.assertTrue(result['diagnostic_markers']['explicit_sepolicy_version_mismatch'])
+                self.assertEqual(result['missing_fcm_version_reported'], '4')
+                self.assertEqual(result['mismatched_sepolicy_version_reported'], '30.0')
                 self.assertNotIn('Cannot find framework', str(result))
                 self.assertIn('Cannot find framework', raw)
 

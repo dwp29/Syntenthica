@@ -14,6 +14,7 @@ on:
 # AOSP checkvintf tests a partial snapshot, not the actual device's runtime.
 # The read-only chroot includes an executable host ELF interpreter. Synthetic
 # controls explicitly specify a matching or mismatching device sepolicy version.
+# Version diagnostics contain numeric metadata only; raw tool logs stay local.
 permissions:
   contents: write
   checks: write

@@ -21,6 +21,7 @@ import signal
 import stat
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -165,6 +166,29 @@ def capture_snapshot(snapshot: Path, seen: dict, partition: str, source_path: st
     dest.chmod(0o444)
     seen[guest] = {'partition': partition, 'source_path': source_path,
                    'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+
+
+def policy_observation(data: bytes, partition: str, source_path: str) -> dict | None:
+    """Record explicit numeric SELinux VINTF versions, without simulating merge rules."""
+    # The same bytes have already passed the bounded VINTF parser in capture.
+    root = ET.fromstring(data)
+    kind, xml_type = inventory._local(root.tag), root.get('type')
+    if (kind, xml_type) not in (('manifest', 'device'), ('compatibility-matrix', 'framework')):
+        return None
+    version_tag = 'version' if kind == 'manifest' else 'sepolicy-version'
+    versions, kernel_versions = [], []
+    for section in inventory._children(root, 'sepolicy'):
+        versions.extend(inventory._text(section, version_tag))
+        kernel_versions.extend(inventory._text(section, 'kernel-sepolicy-version'))
+    if not versions and not kernel_versions:
+        return None
+    if (len(versions) > 100 or len(kernel_versions) > 100 or
+            any(not re.fullmatch(r'\d+(?:\.\d+)?(?:-\d+)?', v) for v in versions) or
+            any(not re.fullmatch(r'\d+', v) for v in kernel_versions)):
+        raise CheckAuditError('Unexpected SELinux VINTF version syntax')
+    return {'partition': partition, 'path': source_path, 'type': xml_type,
+            'level': root.get('level'), 'target_level': root.get('target-level'),
+            'sepolicy_versions': versions, 'kernel_sepolicy_versions': kernel_versions}
 
 
 def scan_legacy(image: Path, partition: str, capture, rows: list[dict]) -> None:
@@ -353,8 +377,11 @@ def run_isolated(sandbox: Path, snapshot: str, first_api: int | None) -> tuple[d
     else:
         result = 'tool_error_or_incomplete_input'
     combined = out + '\n' + err
-    # Only fixed diagnostic markers are relayed; raw metadata and raw tool logs
-    # remain on the disposable runner and are never published.
+    # Only fixed diagnostic markers and numeric values are relayed; raw metadata
+    # and raw tool logs remain on the disposable runner and are never published.
+    missing_fcm = re.search(r'Cannot find framework matrix at FCM version (\d+)', combined)
+    sepolicy_mismatch = re.search(
+        r"Sepolicy version (\d+(?:\.\d+)?) doesn't satis(?:i)?fy the requirements", combined)
     diagnostic_markers = {
         'missing_exact_target_fcm_matrix': 'Cannot find framework matrix at FCM version' in combined,
         'device_vs_framework_matrix_incompatible': 'Device manifest and framework compatibility matrix are incompatible' in combined,
@@ -368,10 +395,13 @@ def run_isolated(sandbox: Path, snapshot: str, first_api: int | None) -> tuple[d
         'apex_mentioned': 'apex' in combined.lower(),
         'nfc_mentioned': 'android.hardware.nfc' in combined,
         'sepolicy_mentioned': 'sepolicy' in combined.lower(),
+        'explicit_sepolicy_version_mismatch': sepolicy_mismatch is not None,
     }
     return ({'exit_code': process.returncode, 'tool_result': result,
              'stdout_sha256': hashlib.sha256(stdout).hexdigest(),
              'stderr_sha256': hashlib.sha256(stderr).hexdigest(),
+             'missing_fcm_version_reported': missing_fcm.group(1) if missing_fcm else None,
+             'mismatched_sepolicy_version_reported': sepolicy_mismatch.group(1) if sepolicy_mismatch else None,
              'diagnostic_markers': diagnostic_markers}, combined)
 
 
@@ -410,9 +440,12 @@ def main() -> int:
     snapshot = sandbox / 'snapshot'
     for part in MAPPINGS:
         (snapshot / part).mkdir(parents=True, exist_ok=True)
-    seen, legacy, apex = {}, [], []
+    seen, legacy, apex, policies = {}, [], [], []
     def capture(partition, path, data):
         capture_snapshot(snapshot, seen, partition, path, data)
+        observation = policy_observation(data, partition, path)
+        if observation is not None:
+            policies.append(observation)
     def scan_extra(image, partition):
         scan_legacy(image, partition, capture, legacy)
         scan_apex_packages(image, partition, apex)
@@ -447,7 +480,7 @@ def main() -> int:
         'synthetic_controls': controls,
         'candidate_before': before, 'candidate_after': after,
         'groups': groups, 'scan_roots': roots, 'legacy_inputs': legacy,
-        'apex_package_counts_only': apex,
+        'apex_package_counts_only': apex, 'explicit_sepolicy_observations': policies,
         'snapshot_documents': len(seen), 'prior_inventory_documents': len(docs),
         'prior_inventory_identities_match': True, 'snapshot_documents_unchanged_after_checks': True,
         'scenarios': [
