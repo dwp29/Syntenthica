@@ -263,12 +263,14 @@ def final_notes(size: int, sha256: str) -> str:
 
 
 def finish_notes(number: int, size: int, digest: str) -> None:
-    # Read before PATCH and patch only the body; never send draft=false or change a tag.
+    # GitHub can reset a draft's tag when PATCH omits it. Reassert the exact
+    # existing tag/target along with the body; never send draft=false.
     read_release(number)
     notes = final_notes(size, digest)
     result = subprocess.run(["gh", "api", "--method", "PATCH", f"repos/{REPO}/releases/{number}",
-                             "-f", f"body={notes}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            check=False)
+                             "-f", f"body={notes}", "-f", f"tag_name={TAG}",
+                             "-f", f"target_commitish={BRANCH}"], stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, check=False)
     if result.returncode:
         raise TransferError("Cannot replace completed draft notes")
     release = read_release(number)

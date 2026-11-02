@@ -192,6 +192,18 @@ class GuardedTransferTests(unittest.TestCase):
             self.assertIn(text, notes)
         self.assertNotIn("DELTA_GZIP_BASE64=", notes)
 
+    def test_notes_patch_reasserts_tag_and_branch_without_publishing(self):
+        notes = transfer.final_notes(1234, "a" * 64)
+        completed = release(body=notes)
+        result = type("Result", (), {"returncode": 0})()
+        with mock.patch.object(transfer, "read_release", side_effect=[release(), completed]), \
+             mock.patch.object(transfer.subprocess, "run", return_value=result) as run:
+            transfer.finish_notes(999, 1234, "a" * 64)
+        args = run.call_args.args[0]
+        self.assertIn("tag_name=" + transfer.TAG, args)
+        self.assertIn("target_commitish=" + transfer.BRANCH, args)
+        self.assertFalse(any(str(arg).startswith("draft=") for arg in args))
+
 
 if __name__ == "__main__":
     unittest.main()
