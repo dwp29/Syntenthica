@@ -1,0 +1,41 @@
+name: "Synthetica boot-first — transfer verified candidate to draft"
+
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-github-transfer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: synthetica-boot-first-github-transfer
+  cancel-in-progress: false
+
+jobs:
+  transfer:
+    if: github.repository == 'dwp29/Syntenthica' && github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
+    name: "Transfer only the existing verified candidate"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out the exact transfer code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Test transfer guards with synthetic data
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_transfer_candidate.py' -v
+          python3 -m unittest discover -s tests -p 'test_github_release_transfer.py' -v
+
+      - name: Transfer, split and verify draft release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 synthetica-project/github_release_transfer.py
