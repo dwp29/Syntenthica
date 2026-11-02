@@ -1,0 +1,121 @@
+name: Synthetica split policy compatibility probe
+
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica-policy-compatibility.yml'
+  workflow_dispatch:
+
+# Read-only investigation using pinned candidate 02, whose super image is also
+# unchanged in candidate 03. No device, image mutation, release upload, init
+# JSON, or disabled neverallow checks. The temporary VINTF alternative is a
+# hypothesis only; it is restored and never inserted into a ROM.
+permissions:
+  contents: write
+  checks: write
+
+concurrency:
+  group: synthetica-policy-compatibility-probe
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out exact working branch revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up host Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.11'
+      - name: Install the pinned read-only ext4 reader
+        run: python -m pip install --disable-pip-version-check --require-hashes -r synthetica-project/requirements-boot-audit.txt
+      - name: Run targeted host regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_probe_policy_compatibility.py test_audit_policy_metadata.py \
+            test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
+            test_hyperos4_lp_metadata.py test_github_guarded_report_relay.py; do
+            python -m unittest discover -s tests -p "$test" -v
+          done
+      - name: Check disposable disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          free=$(df -PB1 "$RUNNER_TEMP" | awk 'NR==2 {print $4}')
+          if (( free < 12000000000 )); then
+            echo 'Removing optional SDKs from this disposable runner only.'
+            sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          fi
+          python - <<'PY'
+          import os, shutil
+          free = shutil.disk_usage(os.environ['RUNNER_TEMP']).free
+          print('Available runner disk bytes:', free)
+          if free < 12_000_000_000:
+              raise SystemExit('Insufficient space for the source ZIP and verified temporary extents')
+          PY
+      - name: Fetch the pinned public Android 17 host tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest/raw/otatools.zip'
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --retry 2 --max-time 900 --max-filesize 734003200 "$url" -o "$RUNNER_TEMP/ota-tools-policy.zip"
+          echo 'bc85557aa0c59a7d0b48b8175250948d67b2d0f293bd74eb8d5753ba4ad7781f  '"$RUNNER_TEMP/ota-tools-policy.zip" | sha256sum -c -
+      - name: Test verified split policy and a temporary VINTF hypothesis
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/policy-compat"
+          python -u synthetica-project/probe_policy_compatibility.py \
+            --otatools "$RUNNER_TEMP/ota-tools-policy.zip" \
+            --work "$RUNNER_TEMP/policy-compat" \
+            --report "$RUNNER_TEMP/policy-compat-result.json" 2>&1 | tee "$RUNNER_TEMP/policy-compat.log"
+      - name: Record bounded results and safe failure details
+        if: always()
+        shell: bash
+        env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          report = root / 'policy-compat-result.json'
+          ok = os.environ['PROBE_OUTCOME'] == 'success' and report.is_file()
+          if ok:
+              summary = json.loads(report.read_text())
+              if (summary.get('schema') != 'synthetica-boot-first-policy-compatibility-probe-v1'
+                      or summary.get('candidate_before') != summary.get('candidate_after')
+                      or summary.get('all_snapshot_inputs_unchanged_after_execution') is not True
+                      or summary.get('compiler', {}).get('neverallow_checks_disabled') is not False
+                      or summary.get('vintf_hypothesis', {}).get('temporary_snapshot_restored') is not True
+                      or len(summary.get('compiler_controls', [])) != 3
+                      or len(summary.get('checkvintf_controls', [])) != 3):
+                  raise SystemExit('Policy probe report did not meet integrity checks')
+          else:
+              path = root / 'policy-compat.log'
+              logs = path.read_text(errors='replace')[-9000:] if path.exists() else 'Probe did not start.'
+              logs = re.sub(r'https?://[^\s\"\']+', '[URL redacted]', logs)
+              summary = {'status': 'probe_incomplete_no_device_verdict', 'outcome': os.environ['PROBE_OUTCOME'],
+                         'bounded_safe_log': logs}
+          text = json.dumps(summary, ensure_ascii=True, separators=(',', ':'))
+          if len(text) > 45000:
+              raise SystemExit('Unexpectedly large policy probe metadata')
+          payload = {'name': 'Synthetica split policy compatibility metadata', 'head_sha': os.environ['GITHUB_SHA'],
+                     'status': 'completed', 'conclusion': 'success' if ok else 'neutral',
+                     'output': {'title': 'Policy snapshot and temporary hypothesis, not device readiness', 'summary': text}}
+          subprocess.run(['gh', 'api', '--method', 'POST', 'repos/dwp29/Syntenthica/check-runs', '--input', '-'],
+                         input=json.dumps(payload).encode(), stdout=subprocess.DEVNULL, check=True)
+          PY
