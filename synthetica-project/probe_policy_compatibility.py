@@ -33,6 +33,9 @@ import audit_guarded_zip64_draft as draft
 import audit_updater_emulation as emu
 import audit_vintf_candidate as inventory
 import audit_vndk_candidates as vndk
+import audit_vndk_apex as vndk_apex
+import audit_vendor_abi as vendor_abi
+import audit_vendor_elf_metadata as vendor_elf
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_CIL = 16 * 1024 * 1024
@@ -430,6 +433,22 @@ def hypothetical_version(xml: bytes, old: str, new: str) -> bytes:
     return ET.tostring(root, encoding='utf-8', xml_declaration=True)
 
 
+def hypothetical_framework_vndk(xml: bytes) -> bytes:
+    """Add only a VNDK-30 declaration in a disposable framework snapshot."""
+    vndk.parse_vndk_xml(xml, 'manifest', 'framework')
+    root = ET.fromstring(xml)
+    existing = [(version.text or '').strip() for version in root.findall('./vendor-ndk/version')]
+    if existing != ['34']:
+        raise PolicyProbeError('Framework VNDK versions differ from the audited input')
+    section = ET.SubElement(root, 'vendor-ndk')
+    ET.SubElement(section, 'version').text = '30'
+    candidate = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+    parsed = vndk.parse_vndk_xml(candidate, 'manifest', 'framework')
+    if [row['version'] for row in parsed['vendor_ndk']] != ['34', '30']:
+        raise PolicyProbeError('Unexpected counterfactual VNDK declaration')
+    return candidate
+
+
 def test_vintf_hypothesis(sandbox: Path) -> dict:
     path = sandbox / 'snapshot' / MANIFEST
     if path.is_symlink() or not path.is_file():
@@ -450,12 +469,37 @@ def test_vintf_hypothesis(sandbox: Path) -> dict:
         path.chmod(0o444)
     if path.read_bytes() != original:
         raise PolicyProbeError('Temporary VINTF snapshot restoration failed')
+    framework_path = sandbox / 'snapshot/system_ext/etc/vintf/manifest.xml'
+    if framework_path.is_symlink() or not framework_path.is_file():
+        raise PolicyProbeError('Pinned temporary framework manifest missing')
+    original_framework = framework_path.read_bytes()
+    replacement_framework = hypothetical_framework_vndk(original_framework)
+    try:
+        path.chmod(0o644)
+        path.write_bytes(replacement)
+        path.chmod(0o444)
+        framework_path.chmod(0o644)
+        framework_path.write_bytes(replacement_framework)
+        framework_path.chmod(0o444)
+        combined, combined_text = check.run_isolated(sandbox, '/snapshot', None)
+        combined['additional_diagnostics'] = vintf_extended_diagnostics(combined_text)
+    finally:
+        path.chmod(0o644)
+        path.write_bytes(original)
+        path.chmod(0o444)
+        framework_path.chmod(0o644)
+        framework_path.write_bytes(original_framework)
+        framework_path.chmod(0o444)
+    if path.read_bytes() != original or framework_path.read_bytes() != original_framework:
+        raise PolicyProbeError('Combined temporary VINTF snapshot restoration failed')
     return {'original': base,
             'hypothetical': alternative,
             'hypothetical_change': 'temporary VINTF sepolicy field 30.0 to vendor mapping-file version 31.0 only',
+            'combined_hypothetical': combined,
+            'combined_change': 'temporary sepolicy 31.0 plus framework declaration of VNDK 30',
             'temporary_snapshot_restored': True,
             'not_a_package_change': True,
-            'warning': 'Counterfactual test only: neither policy compilation nor a snapshot result proves this declaration is valid or boots.'}
+            'warning': 'Counterfactual tests only: neither policy compilation nor snapshot results prove either declaration is valid or boots.'}
 
 
 def main() -> int:
@@ -480,11 +524,19 @@ def main() -> int:
     for part in check.MAPPINGS:
         (snapshot / part).mkdir(parents=True, exist_ok=True)
     seen, policy_rows, mapping_version, vndk_rows = {}, [], {}, []
+    apex_result, apex_providers = {}, set()
+    collector = vendor_abi.Collector()
     def capture(part, path, data):
         check.capture_snapshot(snapshot, seen, part, path, data)
     def capture_extra(image, part):
         capture_partition(image, part, sandbox / 'policy', policy_rows, mapping_version)
         vndk_rows.append(vndk.scan_partition(image, part))
+        if part == 'system_ext':
+            observed, providers = vndk_apex.inspect_system_ext(image)
+            apex_result.update(observed)
+            apex_providers.update(providers)
+        elif part == 'vendor':
+            vendor_elf.scan_vendor(image, capture=collector.capture_vendor_file)
     downloads = args.work / 'downloads'
     downloads.mkdir()
     candidate = draft.download_existing_draft(downloads)
@@ -528,6 +580,9 @@ def main() -> int:
         'runtime_reference_controls': reference_synthetic,
         'verified_extents_and_super': groups, 'policy_inputs': policy_rows,
         'vndk_candidate_inventory': vndk_rows, 'vndk_declarations': vndk_declarations,
+        'existing_vndk30_apex': apex_result,
+        'vendor_executable_references_to_vndk30': vndk_apex.summarize_vendor_references(
+            collector, apex_providers, apex_result.get('payload', {}).get('filesystem') == 'ext4'),
         'verified_vendor_mapping_version': mapping_version,
         'compiler': compile_result, 'runtime_reference_compiler': reference_result,
         'vintf_hypothesis': vintf,
@@ -555,6 +610,7 @@ if __name__ == '__main__':
     try:
         raise SystemExit(main())
     except (PolicyProbeError, check.CheckAuditError, inventory.VintfAuditError, vndk.VndkAuditError,
+            vndk_apex.VndkApexError, vendor_abi.AbiAuditError, vendor_elf.ElfMetadataError,
             draft.DraftTestError, emu.SimulationError, OSError, ValueError,
             zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
         print(f'::error title=Policy compatibility probe stopped::{exc}', file=sys.stderr)

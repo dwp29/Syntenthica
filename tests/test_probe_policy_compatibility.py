@@ -140,16 +140,44 @@ class PolicyProbeUnitTests(unittest.TestCase):
         path.parent.mkdir(parents=True)
         original = b'<manifest type="device"><sepolicy><version>30.0</version></sepolicy></manifest>'
         path.write_bytes(original)
+        framework = self.root / 'snapshot/system_ext/etc/vintf/manifest.xml'
+        framework.parent.mkdir(parents=True)
+        original_framework = b'<manifest type="framework"><vendor-ndk><version>34</version></vendor-ndk></manifest>'
+        framework.write_bytes(original_framework)
         observed = []
         def run(*_args):
-            observed.append(ET.fromstring(path.read_bytes()).findtext('./sepolicy/version'))
+            observed.append((ET.fromstring(path.read_bytes()).findtext('./sepolicy/version'),
+                             [e.text for e in ET.fromstring(framework.read_bytes()).findall('./vendor-ndk/version')]))
             return {'tool_result': 'mock'}, ''
         with mock.patch.object(probe.check, 'run_isolated', side_effect=run):
             result = probe.test_vintf_hypothesis(self.root)
-        self.assertEqual(observed, ['30.0', '31.0'])
+        self.assertEqual(observed, [('30.0', ['34']), ('31.0', ['34']), ('31.0', ['34', '30'])])
         self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(framework.read_bytes(), original_framework)
         self.assertTrue(result['temporary_snapshot_restored'])
         self.assertTrue(result['not_a_package_change'])
+
+    def test_combined_hypothesis_restores_both_on_failure(self):
+        path = self.root / 'snapshot' / probe.MANIFEST
+        path.parent.mkdir(parents=True)
+        original = b'<manifest type="device"><sepolicy><version>30.0</version></sepolicy></manifest>'
+        path.write_bytes(original)
+        framework = self.root / 'snapshot/system_ext/etc/vintf/manifest.xml'
+        framework.parent.mkdir(parents=True)
+        original_framework = b'<manifest type="framework"><vendor-ndk><version>34</version></vendor-ndk></manifest>'
+        framework.write_bytes(original_framework)
+        with mock.patch.object(probe.check, 'run_isolated', side_effect=[({}, ''), ({}, ''), RuntimeError('failure')]):
+            with self.assertRaises(RuntimeError):
+                probe.test_vintf_hypothesis(self.root)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(framework.read_bytes(), original_framework)
+
+    def test_framework_hypothesis_rejects_mismatched_baseline(self):
+        valid = b'<manifest type="framework"><vendor-ndk><version>34</version></vendor-ndk></manifest>'
+        changed = probe.hypothetical_framework_vndk(valid)
+        self.assertEqual([x.text for x in ET.fromstring(changed).findall('./vendor-ndk/version')], ['34', '30'])
+        with self.assertRaises(probe.PolicyProbeError):
+            probe.hypothetical_framework_vndk(valid.replace(b'34', b'30'))
 
     def test_vintf_hypothesis_restores_original_even_on_failure(self):
         path = self.root / 'snapshot' / probe.MANIFEST
