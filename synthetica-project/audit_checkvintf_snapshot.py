@@ -35,6 +35,8 @@ import audit_policy_metadata as policy_metadata
 import audit_vendor_elf_metadata as elf_metadata
 import audit_runtime_apex as runtime_apex
 import audit_erofs_extract as erofs_extract
+import audit_vendor_abi as vendor_abi
+import audit_package_integrity as package_integrity
 import github_guarded_release as transfer
 import github_guarded_report_relay as relay
 import verify_preservation as guard
@@ -451,6 +453,7 @@ def main() -> int:
     seen, legacy, apex, policies = {}, [], [], []
     policy_files, mapping_dirs, private_policy_text = [], [], {}
     elf_observations = {}
+    abi = vendor_abi.Collector()
     def capture(partition, path, data):
         capture_snapshot(snapshot, seen, partition, path, data)
         observation = policy_observation(data, partition, path)
@@ -460,8 +463,9 @@ def main() -> int:
         scan_legacy(image, partition, capture, legacy)
         scan_apex_packages(image, partition, apex)
         policy_metadata.scan(image, partition, policy_files, mapping_dirs, private_policy_text)
+        abi.scan_library_roots(image, partition)
         if partition == 'vendor':
-            elf_observations['vendor_bin'] = elf_metadata.scan_vendor(image)
+            elf_observations['vendor_bin'] = elf_metadata.scan_vendor(image, capture=abi.capture_vendor_file)
         elif partition == 'system':
             elf_observations['system'] = elf_metadata.scan_system(image)
             elf_observations['runtime_apex'] = runtime_apex.inspect_system(
@@ -470,6 +474,8 @@ def main() -> int:
     download.mkdir()
     candidate = draft.download_existing_draft(download)
     before = emu.regular_identity(candidate, draft.CANDIDATE_BYTES, draft.CANDIDATE_SHA256)
+    print('Rechecking package integrity and bounded AVB/OTA metadata', flush=True)
+    package_observations = package_integrity.inspect(candidate)
     with (ROOT / 'synthetica-project/original-baseline.lock.json').open(encoding='utf-8') as stream:
         specs = inventory.part_specs(json.load(stream))
     docs, roots, groups = [], [], []
@@ -500,6 +506,8 @@ def main() -> int:
         'apex_package_counts_only': apex, 'explicit_sepolicy_observations': policies,
         'split_policy_static_metadata': policy_metadata.summarize(policy_files, mapping_dirs, private_policy_text),
         'vendor_elf_and_linker_static_metadata': elf_observations,
+        'vendor_needed_and_selected_library_headers': abi.summarize(),
+        'package_integrity_static_metadata': package_observations,
         'snapshot_documents': len(seen), 'prior_inventory_documents': len(docs),
         'prior_inventory_identities_match': True, 'snapshot_documents_unchanged_after_checks': True,
         'scenarios': [
@@ -531,7 +539,8 @@ if __name__ == '__main__':
     try:
         raise SystemExit(main())
     except (CheckAuditError, policy_metadata.PolicyMetadataError, elf_metadata.ElfMetadataError,
-            runtime_apex.ApexAuditError, erofs_extract.ErofsAuditError,
+            runtime_apex.ApexAuditError, erofs_extract.ErofsAuditError, vendor_abi.AbiAuditError,
+            package_integrity.IntegrityAuditError, package_integrity.installer.AuditError,
             inventory.VintfAuditError, lp.LPError, draft.DraftTestError,
             emu.SimulationError, relay.RelayError, transfer.TransferError, guard.AuditError,
             OSError, ValueError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:

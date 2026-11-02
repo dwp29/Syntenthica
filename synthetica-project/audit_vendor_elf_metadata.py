@@ -101,7 +101,7 @@ def _open_ext4(image: Path):
     return disk, fs
 
 
-def scan_vendor(image: Path) -> dict:
+def scan_vendor(image: Path, capture=None) -> dict:
     disk, fs = _open_ext4(image)  # keep the image handle alive during the scan
     try:
         root = fs.open(path=VENDOR_BIN)
@@ -144,6 +144,8 @@ def scan_vendor(image: Path) -> dict:
                     not_elf += 1
                 else:
                     categories[(data['class'], data['architecture'], data['type'], data['interpreter'])] += 1
+                    if capture is not None:
+                        capture(entry, int(item.size), data)
     results = [{'class': c, 'architecture': a, 'type': t, 'interpreter': interp, 'count': n}
                for (c, a, t, interp), n in sorted(categories.items(),
                    key=lambda pair: (pair[0][0], pair[0][1], pair[0][2], pair[0][3] or ''))]

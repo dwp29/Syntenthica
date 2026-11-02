@@ -21,6 +21,8 @@ on:
 # copied temporarily to inspect linker headers; no ROM code is ever executed.
 # Official EROFS fsck runs without network/caps in a read-only chroot with
 # bounded tmpfs and must pass synthetic controls before candidate access.
+# Final bounded phases inspect DT_NEEDED/lib headers and package AVB/OTA
+# metadata as data; neither claims runtime compatibility or device security.
 permissions:
   contents: write
   checks: write
@@ -62,6 +64,8 @@ jobs:
           python -m unittest discover -s tests -p 'test_audit_vendor_elf_metadata.py' -v
           python -m unittest discover -s tests -p 'test_audit_runtime_apex.py' -v
           python -m unittest discover -s tests -p 'test_audit_erofs_extract.py' -v
+          python -m unittest discover -s tests -p 'test_audit_vendor_abi.py' -v
+          python -m unittest discover -s tests -p 'test_audit_package_integrity.py' -v
           python -m unittest discover -s tests -p 'test_audit_vintf_candidate.py' -v
           python -m unittest discover -s tests -p 'test_hyperos4_lp_metadata.py' -v
           python -m unittest discover -s tests -p 'test_github_guarded_report_relay.py' -v
