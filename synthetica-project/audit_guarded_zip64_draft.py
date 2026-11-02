@@ -4,11 +4,12 @@
 The three existing, unpublished release parts are downloaded and checked; the
 assembled file lives only in RUNNER_TEMP. Nothing is uploaded to or modified in
 the draft. The actual ZIP is mounted read-only in the same fail-closed sandbox
-as audit_updater_emulation. Since the sandbox has no Android device properties,
-the unmodified real script must reject the device before any fake target write.
-Five additional scenarios use the exact script extracted from the actual ZIP,
-with only the device-property expressions replaced, synthetic image data, and
-regular-file/directory targets. There is no device, recovery, flash, or build.
+as audit_updater_emulation. The unmodified real script is run both with no
+properties and with a fake joyeuse property area plus a fake super directory;
+no real ZIP member is written. Five additional scenarios use the exact script
+extracted from the actual ZIP, with only the device-property expressions
+replaced, synthetic images, and regular-file/directory targets. There is no
+device, recovery, flash, or build.
 """
 from __future__ import annotations
 
@@ -110,6 +111,11 @@ def audit_guarded_candidate(candidate: Path, qemu: Path) -> dict:
     real = emu.run_sandbox(qemu, updater, candidate, None)
     emu.validate_real_archive(real)
     rows.append({"scenario": "actual_guarded_zip64_device_rejected", "input": "actual ZIP, mounted read-only", **real})
+    print("Running unmodified guarded ZIP/script with fake joyeuse property and super directory", flush=True)
+    real = emu.run_sandbox(qemu, updater, candidate, "super", fake_joyeuse=True)
+    emu.validate_real_guarded_super(real)
+    rows.append({"scenario": "actual_guarded_zip64_fake_device_super_open_failure",
+                 "input": "actual ZIP and script, read-only; fake property and fake directory", **real})
     payloads = emu.make_payloads()
     with tempfile.TemporaryDirectory(prefix="synthetica-real-guard-script-") as td:
         for right, failure in ((True, None), (False, None), (True, "super"),
@@ -144,7 +150,7 @@ def audit_guarded_candidate(candidate: Path, qemu: Path) -> dict:
         "scenario_count": len(rows),
         "scenarios": rows,
         "limitations": [
-            "The actual ZIP was opened by its bundled updater and stopped at device assertion; no actual ROM image was extracted from it.",
+            "The actual ZIP/script ran with absent properties and separately with a fake property area and a fake directory; no actual ROM image was extracted.",
             "The five write-behavior scenarios use the actual guarded script with property expressions replaced and small synthetic image data.",
             "QEMU is a pinned community binary in a disposable sandbox, not OrangeFox or a real phone.",
             "Outer recovery ZIP acceptance, signature policy, encryption, AVB, rollback, real partition writes and boot were not tested.",

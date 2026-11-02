@@ -89,6 +89,13 @@ class UpdaterSandboxTests(unittest.TestCase):
             with self.assertRaises(emu.SimulationError):
                 emu.write_synthetic_zip(path, script, payloads)
 
+    def test_fake_property_area_contains_only_disposable_joyeuse_value(self):
+        area = emu.fake_joyeuse_property_area()
+        self.assertEqual(len(area), 128 * 1024)
+        self.assertIn(b'ro.product.device\0', area)
+        self.assertIn(b'joyeuse\0', area)
+        self.assertNotIn(b'ro.build.product', area)
+
     def test_real_dtbo_fixture_must_match_pinned_hash_and_size(self):
         with self.assertRaises(emu.SimulationError):
             emu.make_payloads(b'not-a-real-dtbo')
@@ -130,6 +137,27 @@ class UpdaterSandboxTests(unittest.TestCase):
         with mock.patch.object(emu.shutil, 'which', return_value=None):
             with self.assertRaises(emu.SimulationError):
                 emu._exec_isolated(Path('/unused'), Path('/unused'))
+
+    def test_fake_file_size_limit_validator(self):
+        payloads = emu.make_payloads()
+        for guarded in (False, True):
+            result = simulated_result(payloads, guarded, True, None)
+            result['fake_targets']['super'] = regular(b'')
+            result['file_limit_failure_reported'] = True
+            result['exit_code'] = 1 if guarded else 0
+            result['reported_completed'] = not guarded
+            result['assert_failed'] = guarded
+            if guarded:
+                for name in ('boot', 'dtbo'):
+                    result['fake_targets'][name] = regular(emu.SENTINEL)
+            emu.validate_fake_file_limit(result, payloads, guarded)
+            result['fake_targets']['super'] = regular(emu.SENTINEL)
+            with self.assertRaises(emu.SimulationError):
+                emu.validate_fake_file_limit(result, payloads, guarded)
+
+    def test_invalid_file_size_limit_refused(self):
+        with self.assertRaises(emu.SimulationError):
+            emu._exec_isolated(Path('/unused'), Path('/unused'), file_size_limit=-1)
 
     def test_unknown_failure_target_refused(self):
         with self.assertRaises(emu.SimulationError):

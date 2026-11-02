@@ -68,7 +68,7 @@ class DraftZip64Tests(unittest.TestCase):
             with mock.patch.multiple(draft, CANDIDATE_BYTES=len(data), CANDIDATE_SHA256=sha(data)):
                 result = draft.audit_guarded_candidate(small, qemu)
             self.assertEqual(result['status'], 'all_scenarios_passed')
-            self.assertEqual(result['scenario_count'], 6)
+            self.assertEqual(result['scenario_count'], 7)
             self.assertEqual(result['candidate_before'], result['candidate_after'])
             self.assertEqual(result['actual_guarded_script_sha256'], builder.NEW_SCRIPT_SHA)
 

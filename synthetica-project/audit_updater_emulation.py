@@ -9,10 +9,12 @@ zero Linux capabilities, and no-new-privileges.  The original Android updater
 is run only inside that sandbox.  No firmware is built, no device is opened,
 and the synthetic ZIPs are not deliverables or valid ROMs.
 
-The device property is substituted with a literal *only in synthetic scripts*;
-the two real ZIP64 inputs are mounted read-only and stop at the device check.
-QEMU and the source ZIPs must be supplied explicitly and match their pinned
-hashes.  An unsupported sandbox fails closed; there is no unsafe fallback.
+Property expressions are substituted only in synthetic scripts. The two real
+ZIP64 inputs are mounted read-only: one test stops at the device check, and
+another uses a disposable fake Android property area plus directory targets to
+force opening each destination to fail. Their ZIPs and scripts are unchanged.
+QEMU and the source ZIPs must be supplied explicitly and match pinned hashes.
+An unsupported sandbox fails closed; there is no unsafe fallback.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ import os
 import shutil
 import signal
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -98,6 +101,26 @@ def synthetic_script(old_script: bytes, guarded: bool, right_device: bool) -> by
     return substitute_properties(result, right_device)
 
 
+def fake_joyeuse_property_area() -> bytes:
+    """A disposable pre-split Bionic property area containing one fake value.
+
+    The fixture follows the documented AOSP prop_area/prop_bt/prop_info layout;
+    it never reads, copies, or changes properties from a real Android device.
+    """
+    data = bytearray(128 * 1024)
+    struct.pack_into("<IIII", data, 0, 308, 0, 0x504F5250, 0xFC6ED0AB)
+    base = 128
+    for off, name, prop, children in ((0, b"", 0, 112), (112, b"ro", 0, 136),
+                                      (136, b"product", 0, 164), (164, b"device", 192, 0)):
+        struct.pack_into("<IIIII", data, base + off, len(name), prop, 0, 0, children)
+        data[base + off + 20:base + off + 20 + len(name)] = name
+    struct.pack_into("<I", data, base + 192, 7 << 24)
+    data[base + 196:base + 203] = b"joyeuse"
+    name = b"ro.product.device"
+    data[base + 288:base + 288 + len(name)] = name
+    return bytes(data)
+
+
 def make_payloads(real_dtbo: bytes | None = None) -> dict[str, bytes]:
     data = {name: (f"synthetic-{name}-regular-file-only\n".encode() * 64)
             for name in PARTITIONS}
@@ -120,8 +143,11 @@ def write_synthetic_zip(path: Path, script: bytes, payloads: dict[str, bytes]) -
 # Runs on the host Python *after* unshare, before entering the empty chroot.
 # Both mounts live only in the new mount namespace and disappear at exit.
 _ISOLATED_LAUNCHER = r'''
-import ctypes, os, resource, stat, subprocess, sys
-root, archive = sys.argv[1:]
+import ctypes, os, resource, signal, stat, subprocess, sys
+root, archive, limit = sys.argv[1:]
+limit = int(limit)
+if not 0 <= limit <= 16 * 1024 * 1024:
+    raise RuntimeError('invalid test-only file size limit')
 mountpoint = root + '/input.zip'
 subprocess.run(['/usr/bin/mount', '--bind', archive, mountpoint], check=True)
 subprocess.run(['/usr/bin/mount', '-o', 'remount,bind,ro', mountpoint], check=True)
@@ -141,6 +167,9 @@ os.chdir('/')
 if os.path.exists('/home/user/Syntenthica') or os.path.exists('/proc'):
     raise RuntimeError('chroot unexpectedly contains host paths')
 resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+if limit:
+    signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+    resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
 libc = ctypes.CDLL(None, use_errno=True)
 class CapHeader(ctypes.Structure):
     _fields_ = [('version', ctypes.c_uint32), ('pid', ctypes.c_int)]
@@ -164,13 +193,17 @@ os.execve('/qemu', ['qemu', '/update-binary', '3', '1', '/input.zip'],
 '''
 
 
-def _exec_isolated(root: Path, archive: Path, timeout: int = 45) -> subprocess.CompletedProcess:
+def _exec_isolated(root: Path, archive: Path, timeout: int = 45,
+                   file_size_limit: int = 0) -> subprocess.CompletedProcess:
     """Fail closed if user namespaces, bind mounts, or the chroot are unavailable."""
+    if type(file_size_limit) is not int or not 0 <= file_size_limit <= 16 * 1024 * 1024:
+        raise SimulationError("Invalid test-only file size limit")
     unshare = shutil.which("unshare")
     if not unshare or not Path("/usr/bin/mount").is_file():
         raise SimulationError("The required user/mount namespace tooling is unavailable")
     args = [unshare, "--user", "--map-root-user", "--mount", "--net", "--pid", "--fork",
-            sys.executable, "-I", "-S", "-c", _ISOLATED_LAUNCHER, str(root), str(archive)]
+            sys.executable, "-I", "-S", "-c", _ISOLATED_LAUNCHER,
+            str(root), str(archive), str(file_size_limit)]
     proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, start_new_session=True,
                             env={"PATH": "/usr/bin:/bin", "LANG": "C"})
@@ -202,9 +235,13 @@ def _snapshot_fake_targets(base: Path) -> dict:
     return out
 
 
-def run_sandbox(qemu: Path, updater: bytes, archive: Path, failure: str | None) -> dict:
-    if failure not in (*PARTITIONS, None):
-        raise SimulationError("Unknown synthetic failure target")
+def run_sandbox(qemu: Path, updater: bytes, archive: Path, failure: str | tuple | None,
+                file_size_limit: int = 0, fake_joyeuse: bool = False) -> dict:
+    failures = (failure,) if isinstance(failure, str) else (() if failure is None else failure)
+    if (not isinstance(failures, tuple) or any(not isinstance(name, str) for name in failures)
+            or len(failures) != len(set(failures)) or any(name not in PARTITIONS for name in failures)
+            or type(fake_joyeuse) is not bool):
+        raise SimulationError("Unknown synthetic failure target or property fixture")
     with tempfile.TemporaryDirectory(prefix="synthetica-updater-sandbox-") as td:
         root = Path(td) / "root"
         base = root / "dev/block/bootdevice/by-name"
@@ -214,18 +251,25 @@ def run_sandbox(qemu: Path, updater: bytes, archive: Path, failure: str | None) 
         (root / "update-binary").write_bytes(updater)
         (root / "update-binary").chmod(0o755)
         (root / "input.zip").touch()
+        if fake_joyeuse:
+            properties = root / "dev/__properties__"
+            properties.write_bytes(fake_joyeuse_property_area())
+            properties.chmod(0o444)
         for name in PARTITIONS:
             target = base / name
-            if name == failure:
+            if name in failures:
                 target.mkdir()
             else:
                 target.write_bytes(SENTINEL)
-        run = _exec_isolated(root, archive.absolute())
+        run = _exec_isolated(root, archive.absolute(), file_size_limit=file_size_limit)
         states = _snapshot_fake_targets(base)
         return {"exit_code": run.returncode,
                 "reported_completed": FINISHED_MESSAGE in run.stdout,
                 "device_rejected": "E3004:" in run.stdout,
                 "open_failure_reported": "can't open /dev/block/bootdevice/by-name/" in run.stdout,
+                "failed_open_targets": [p for p in PARTITIONS if
+                    "can't open /dev/block/bootdevice/by-name/" + p + " for write" in run.stdout],
+                "file_limit_failure_reported": "File too large" in run.stdout and "I/O error" in run.stdout,
                 "assert_failed": "assert failed: package_extract_file(" in run.stdout,
                 "fake_targets": states,
                 "stderr_selinux_fixture_warning": "No path given to file labeling backend" in run.stderr,
@@ -269,6 +313,37 @@ def validate_synthetic(result: dict, payloads: dict[str, bytes], guarded: bool,
         raise SimulationError("Original script did not exhibit the observed continuation")
 
 
+def validate_fake_file_limit(result: dict, payloads: dict[str, bytes], guarded: bool) -> None:
+    """The disposable super file was truncated before the induced I/O failure."""
+    state = result["fake_targets"]["super"]
+    if (not result["file_limit_failure_reported"] or state.get("type") != "regular"
+            or state.get("bytes") != 0 or state.get("sha256") != digest(b"")):
+        raise SimulationError("File-size limit did not expose the expected fake-file truncation")
+    for name in ("boot", "dtbo"):
+        if not _expected_state(name, payloads, result["fake_targets"][name], not guarded):
+            raise SimulationError("Unexpected later fake-file state after the size-limit failure")
+    if guarded:
+        if result["exit_code"] == 0 or result["reported_completed"] or not result["assert_failed"]:
+            raise SimulationError("Guarded script did not abort after the synthetic I/O failure")
+    elif result["exit_code"] != 0 or not result["reported_completed"]:
+        raise SimulationError("Original script did not continue after the synthetic I/O failure")
+
+
+def validate_real_original_directories(result: dict) -> None:
+    if (result["exit_code"] != 0 or not result["reported_completed"] or result["device_rejected"]
+            or result["failed_open_targets"] != list(PARTITIONS)
+            or not all(result["fake_targets"][p].get("type") == "directory" for p in PARTITIONS)):
+        raise SimulationError("Real original script did not continue after three fake directory failures")
+
+
+def validate_real_guarded_super(result: dict) -> None:
+    if (result["exit_code"] == 0 or result["reported_completed"] or result["device_rejected"]
+            or not result["assert_failed"] or result["failed_open_targets"] != ["super"]
+            or result["fake_targets"]["super"].get("type") != "directory"
+            or not all(result["fake_targets"][p].get("unchanged_sentinel") for p in ("boot", "dtbo"))):
+        raise SimulationError("Real guarded script did not stop at the fake super directory")
+
+
 def validate_real_archive(result: dict) -> None:
     if (result["exit_code"] == 0 or not result["device_rejected"] or result["reported_completed"]
             or not all(result["fake_targets"][p].get("unchanged_sentinel") for p in PARTITIONS)):
@@ -298,6 +373,11 @@ def run_audit(original: Path, first: Path, qemu: Path) -> dict:
         result = run_sandbox(qemu, updater, path, None)
         validate_real_archive(result)
         rows.append({"scenario": label, "input": "actual ZIP, mounted read-only", **result})
+        print(f"Real ZIP with fake joyeuse property and three directory targets: {label}", flush=True)
+        result = run_sandbox(qemu, updater, path, PARTITIONS, fake_joyeuse=True)
+        validate_real_original_directories(result)
+        rows.append({"scenario": label.replace("device_rejected", "fake_device_all_open_failures"),
+                     "input": "actual ZIP and script, read-only; fake property and three fake directories", **result})
     with tempfile.TemporaryDirectory(prefix="synthetica-synthetic-inputs-") as td:
         temp = Path(td)
         for is_guarded in (False, True):
@@ -314,6 +394,17 @@ def run_audit(original: Path, first: Path, qemu: Path) -> dict:
                 validate_synthetic(result, payloads, is_guarded, right, failure)
                 rows.append({"scenario": label, "input": "synthetic ZIP; fake property values",
                              "script_sha256": digest(script), **result})
+        larger_payloads = dict(payloads)
+        larger_payloads["super"] = b"SYNTHETICA-FAKE-SUPER-FILE-SIZE-LIMIT\n" * 50_000
+        for is_guarded in (False, True):
+            label = ("guarded" if is_guarded else "original") + "_super_file_size_limit"
+            path = temp / (label + ".zip")
+            write_synthetic_zip(path, synthetic_script(old, is_guarded, True), larger_payloads)
+            print(f"Actual updater / induced fake-file I/O limit: {label}", flush=True)
+            result = run_sandbox(qemu, updater, path, None, file_size_limit=32_768)
+            validate_fake_file_limit(result, larger_payloads, is_guarded)
+            rows.append({"scenario": label, "input": "synthetic ZIP; regular-file size limit",
+                         "file_size_limit": 32_768, **result})
         path = temp / "guarded-real-dtbo-synthetic.zip"
         write_synthetic_zip(path, synthetic_script(old, True, True), real_dtbo_payloads)
         print("Actual updater / fake regular file: original 24 MiB DTBO member", flush=True)
@@ -339,14 +430,15 @@ def run_audit(original: Path, first: Path, qemu: Path) -> dict:
                       "readonly_bind_input": True, "capabilities_dropped": True,
                       "no_new_privileges": True, "fake_targets_are_regular_files_or_directories": True,
                       "device_access": False},
-        "synthetic_scope": "Only getprop expressions are replaced with literal device values; image entries are fake except the separately identified DTBO case.",
+        "synthetic_scope": "In synthetic ZIPs only getprop expressions are replaced; image entries are fake except the separately identified DTBO case. Separate real-ZIP tests use an entirely fake Android property area and fake directory targets without modifying the ZIP or script.",
         "scenario_count": len(rows),
         "scenarios": rows,
         "limitations": [
             "QEMU emulates the bundled Android updater, not OrangeFox itself or its outer ZIP reader.",
             "The actual candidate 02 ZIP was not available locally for this test; its approved script was regenerated from the pinned first script and hash-checked.",
-            "Real input ZIPs stopped at the device assertion because Android properties were absent; no real image member was extracted from them in the emulation.",
+            "Real ZIPs stopped at the device assertion without properties, and were also run with a fake property area against directories; no real image member was extracted.",
             "The synthetic ZIP property expressions were substituted; no actual phone, physical partition, recovery, encryption, AVB, rollback, or boot was tested.",
+            "The file-size-limit scenarios use a regular file; their truncation behavior cannot be assumed for a physical block device.",
             "An assertion cannot undo already-written data or detect a failure the updater does not report.",
         ],
     }
