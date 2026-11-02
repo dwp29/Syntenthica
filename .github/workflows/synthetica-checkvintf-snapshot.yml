@@ -17,7 +17,8 @@ on:
 # Version diagnostics contain numeric metadata only; raw tool logs stay local.
 # The additional split-policy audit exports only fixed-path metadata and
 # digest equality; it does not compile or alter any SELinux policy. The vendor
-# ELF/linker inventory reads bounded headers and never runs or unpacks ROM code.
+# ELF/linker inventory reads bounded headers. A single runtime APEX payload is
+# copied temporarily to inspect linker headers; no ROM code is ever executed.
 permissions:
   contents: write
   checks: write
@@ -57,6 +58,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_audit_checkvintf_snapshot.py' -v
           python -m unittest discover -s tests -p 'test_audit_policy_metadata.py' -v
           python -m unittest discover -s tests -p 'test_audit_vendor_elf_metadata.py' -v
+          python -m unittest discover -s tests -p 'test_audit_runtime_apex.py' -v
           python -m unittest discover -s tests -p 'test_audit_vintf_candidate.py' -v
           python -m unittest discover -s tests -p 'test_hyperos4_lp_metadata.py' -v
           python -m unittest discover -s tests -p 'test_github_guarded_report_relay.py' -v

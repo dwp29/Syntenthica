@@ -216,7 +216,7 @@ def scan_system(image: Path) -> dict:
     return {'system_linker_paths': paths, 'runtime_apex_candidates': packages,
             'limitations': [
                 'Only vendor/bin regular files were inspected; symlinks and other directories were not followed.',
-                'Only ELF metadata and known interpreter paths were counted; no executable or APEX was run or unpacked.',
+                'This header/path inventory does not execute code or unpack APEX packages.',
                 'An APEX package on disk does not prove activation, linker availability, namespaces, ABI or runtime compatibility.',
                 'Kernel 32-bit support, libraries, services, SELinux, AVB and actual device boot were not tested.',
             ]}

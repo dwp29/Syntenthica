@@ -33,6 +33,7 @@ import audit_updater_emulation as emu
 import audit_vintf_candidate as inventory
 import audit_policy_metadata as policy_metadata
 import audit_vendor_elf_metadata as elf_metadata
+import audit_runtime_apex as runtime_apex
 import github_guarded_release as transfer
 import github_guarded_report_relay as relay
 import verify_preservation as guard
@@ -458,6 +459,7 @@ def main() -> int:
             elf_observations['vendor_bin'] = elf_metadata.scan_vendor(image)
         elif partition == 'system':
             elf_observations['system'] = elf_metadata.scan_system(image)
+            elf_observations['runtime_apex'] = runtime_apex.inspect_system(image)
     download = args.work / 'download'
     download.mkdir()
     candidate = draft.download_existing_draft(download)
@@ -522,7 +524,7 @@ def main() -> int:
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (CheckAuditError, policy_metadata.PolicyMetadataError, elf_metadata.ElfMetadataError,
+    except (CheckAuditError, policy_metadata.PolicyMetadataError, elf_metadata.ElfMetadataError, runtime_apex.ApexAuditError,
             inventory.VintfAuditError, lp.LPError, draft.DraftTestError,
             emu.SimulationError, relay.RelayError, transfer.TransferError, guard.AuditError,
             OSError, ValueError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
