@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,4 +30,22 @@ class GmsSignatureTests(unittest.TestCase):
     def test_unpinned_apex_rejected(self):
         with mock.patch.object(s.pre,'digest_file',return_value=(1,'0'*64)),self.assertRaises(s.GmsSignatureError):
             s.outer_signature(Path('/fake.apex'),'/bin/true')
+    def test_sandbox_has_tmpfs_mountpoint_before_avb_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work=Path(tmp)
+            def fake_avb(sandbox, avbtool):
+                self.assertTrue((sandbox/'out').is_dir())
+                self.assertFalse((sandbox/'out').is_symlink())
+                return {'tool':'avb'}
+            with mock.patch.object(s.check,'prepare_tool',return_value={'tool':'aosp'}), \
+                 mock.patch.object(s.avb,'prepare',side_effect=fake_avb):
+                sandbox,aosp,avb=s.prepare_sandbox(work,Path('/ota.zip'),Path('/avbtool'))
+            self.assertEqual(sandbox,work/'sandbox')
+            self.assertEqual(aosp,{'tool':'aosp'});self.assertEqual(avb,{'tool':'avb'})
+    def test_nonempty_scratch_rejected_before_tool_access(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work=Path(tmp);(work/'existing').write_text('leave intact')
+            with mock.patch.object(s.check,'prepare_tool') as prepare, self.assertRaises(s.GmsSignatureError):
+                s.prepare_sandbox(work,Path('/ota.zip'),Path('/avbtool'))
+            prepare.assert_not_called()
 if __name__=='__main__':unittest.main()

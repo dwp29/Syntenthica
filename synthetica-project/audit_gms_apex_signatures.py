@@ -79,10 +79,20 @@ def inspect(apex_path: Path,work: Path,sandbox: Path,apksigner: str) -> dict:
                            'No image or device was modified; no private key was requested or used.']}
 
 
-def run(work: Path,otatools: Path,avbtool: Path,apksigner: str) -> dict:
-    if not work.is_dir() or any(work.iterdir()):raise GmsSignatureError('Work directory must be empty')
+def prepare_sandbox(work: Path,otatools: Path,avbtool: Path) -> tuple[Path,dict,dict]:
+    if not work.is_dir() or work.is_symlink() or any(work.iterdir()):
+        raise GmsSignatureError('Work directory must be empty and not a symlink')
     sandbox=work/'sandbox';sandbox.mkdir();aosp=check.prepare_tool(otatools,sandbox)
-    avb_tool=avb.prepare(sandbox,avbtool);controls=avb.run_controls(sandbox,work,avbtool)
+    # check.prepare_tool creates the tool/runtime tree, not the mount point.
+    # The isolated AVB launcher mounts its bounded tmpfs here before chroot.
+    (sandbox/'out').mkdir()
+    avb_tool=avb.prepare(sandbox,avbtool)
+    return sandbox,aosp,avb_tool
+
+
+def run(work: Path,otatools: Path,avbtool: Path,apksigner: str) -> dict:
+    sandbox,aosp,avb_tool=prepare_sandbox(work,otatools,avbtool)
+    controls=avb.run_controls(sandbox,work,avbtool)
     print('Four AVB synthetic controls passed',flush=True)
     source=pre.download_candidate(work);lock=json.loads((Path(__file__).parent/'original-baseline.lock.json').read_text())
     image=work/'product.img'
