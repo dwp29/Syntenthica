@@ -29,8 +29,9 @@ class IntentProbeTests(unittest.TestCase):
         self.assertEqual(rows[0]['component'],'com.codetrio.spatialflow.ui.ExternalPlayerActivity')
         self.assertTrue(rows[0]['exported']);self.assertEqual(rows[0]['categories'],['android.intent.category.DEFAULT'])
     def test_readers_must_agree(self):
-        self.assertEqual(p.compare_readers(XML,XML),p.parse_tree(XML))
-        with self.assertRaises(p.IntentProbeError):p.compare_readers(XML,XML.replace('.ui.ExternalPlayerActivity','.MainActivity2'))
+        aapt2=XML.replace('A: android:','A: http://schemas.android.com/apk/res/android:').replace('(type 0x12)0xffffffff','true')
+        self.assertEqual(p.compare_readers(XML,aapt2),p.parse_tree(XML))
+        with self.assertRaises(p.IntentProbeError):p.compare_readers(XML,aapt2.replace('.ui.ExternalPlayerActivity','.MainActivity2'))
     def test_wrong_root_and_duplicate_attribute_rejected(self):
         with self.assertRaises(Exception):p.parse_tree(XML.replace('com.codetrio.spatialflow','com.example.other'))
         with self.assertRaises(p.IntentProbeError):p.parse_tree(XML.replace('A: android:exported(0x01010010)=(type 0x12)0xffffffff', 'A: android:exported(0x01010010)=(type 0x12)0xffffffff\n        A: android:exported(0x01010010)=(type 0x12)0x0',1))

@@ -18,7 +18,8 @@ import scan_apk_packages as scan
 ACTION='android.intent.action.MUSIC_PLAYER'
 STRING=re.compile(r'="([^"]*)"')
 ELEMENT=re.compile(r'^(\s*)E:\s+([\w-]+)(?:\s|$)')
-ATTRIBUTE=re.compile(r'^(\s*)A:\s+([\w:.-]+)(?:\(0x[0-9a-fA-F]+\))?=(.*)$')
+ATTRIBUTE=re.compile(r'^(\s*)A:\s+([^\s(=]+)(?:\(0x[0-9a-fA-F]+\))?=(.*)$')
+ANDROID_NAMESPACE='http://schemas.android.com/apk/res/android:'
 MAX_XML=4*1024*1024
 
 class IntentProbeError(RuntimeError):pass
@@ -64,10 +65,11 @@ def parse_tree(text: str) -> list[dict]:
             stack.append(node);continue
         m=ATTRIBUTE.match(line)
         if m:
-            indent=len(m.group(1).expandtabs(4))
-            if not stack or indent<=stack[-1]['indent'] or m.group(2) in stack[-1]['attrs']:
+            indent=len(m.group(1).expandtabs(4)); key=m.group(2)
+            if key.startswith(ANDROID_NAMESPACE):key='android:'+key[len(ANDROID_NAMESPACE):]
+            if not stack or indent<=stack[-1]['indent'] or key in stack[-1]['attrs']:
                 raise IntentProbeError('Ambiguous XML tree attribute')
-            stack[-1]['attrs'][m.group(2)]=m.group(3)
+            stack[-1]['attrs'][key]=m.group(3)
     manifests=[x for x in roots if x['tag']=='manifest']
     if len(manifests)!=1:raise IntentProbeError('Expected one root manifest')
     apps=[x for x in manifests[0]['children'] if x['tag']=='application']
