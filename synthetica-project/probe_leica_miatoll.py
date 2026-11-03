@@ -98,8 +98,10 @@ def apk_signature(apk: Path,apksigner: str) -> dict:
         r'^(?:Signer #[0-9]+|V[1-4] Signer(?: #[0-9]+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$',out,re.M)))
     schemes={v:(b=='true') for v,b in re.findall(r'^Verified using v([1-4]) scheme .*: (true|false)$',out,re.M)}
     if scan._tool_digest(apksigner)!=tool_hash:raise LeicaProbeError('Signature tool changed')
+    diagnostic=[line[:500] for line in out.splitlines() if 'certificate SHA-256 digest:' in line][:8] if not certs else []
     return {'verifier_exit_code':p.returncode,'signature_verified_on_host':p.returncode==0 and len(certs)==1,
             'signer_count':len(certs),'certificate_sha256':certs[0] if len(certs)==1 else None,'schemes_reported':schemes,
+            'unparsed_certificate_digest_lines':diagnostic,
             'tool_script_sha256':tool_hash,'stdout_sha256':hashlib.sha256(p.stdout).hexdigest(),
             'stderr_sha256':hashlib.sha256(p.stderr).hexdigest(),'signer_authority_or_platform_trust_verified':False}
 
