@@ -18,6 +18,7 @@ import sys
 import zipfile
 
 import audit_vintf_candidate as vintf
+import apk_signer_output as signer_output
 import verify_preservation as guard
 
 REPO = 'dwp29/Syntenthica'
@@ -183,9 +184,7 @@ def inspect_apk(apk: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
     sdk = re.search(r"^sdkVersion:'([0-9]+)'", badging, re.M)
     target = re.search(r"^targetSdkVersion:'([0-9]+)'", badging, re.M)
     native = re.search(r'^native-code: (.+)$', badging, re.M)
-    certs = sorted(set(x.lower() for x in re.findall(
-        r'^(?:Signer #[0-9]+|V[1-4] Signer(?: #[0-9]+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$',
-        signatures, re.M)))
+    certs = signer_output.parse_certificates(signatures)
     if (not package or package.group(1) != APP_PACKAGE or package.group(3) != '1.8.2'
             or not sdk or not target or int(sdk.group(1)) > 37
             or not native or "'arm64-v8a'" not in native.group(1) or len(certs) != 1):

@@ -18,10 +18,10 @@ class GmsSignatureTests(unittest.TestCase):
         return result
     def test_host_success_is_not_trust(self):
         cert='f'*64
-        out='Verified using v1 scheme (JAR signing): true\nSigner #1 certificate SHA-256 digest: '+cert+'\n'
+        out='Verified using v3 scheme (APK Signature Scheme v3): true\nV3.0 Signer: certificate SHA-256 digest: '+cert+'\n'
         r=self.call(0,out)
         self.assertTrue(r['outer_signature_verified_by_host']);self.assertFalse(r['signer_identity_or_device_trust_verified'])
-        self.assertEqual(r['certificate_sha256'],cert);self.assertEqual(r['schemes_reported'],{'1':True})
+        self.assertEqual(r['certificate_sha256'],cert);self.assertEqual(r['schemes_reported'],{'3':True})
     def test_exit_failure_or_ambiguous_cert_does_not_pass(self):
         cert='a'*64;out='Signer #1 certificate SHA-256 digest: '+cert+'\n'
         self.assertFalse(self.call(1,out)['outer_signature_verified_by_host'])

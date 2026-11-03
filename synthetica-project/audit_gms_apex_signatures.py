@@ -22,6 +22,7 @@ import audit_gmssystem_apex as gms
 import audit_runtime_apex as apex
 import audit_vintf_candidate as vintf
 import audit_vndk_apex as vndk
+import apk_signer_output as signer_output
 import preflight_spatialflow as pre
 import scan_apk_packages as scan
 import verify_preservation as guard
@@ -44,9 +45,8 @@ def outer_signature(apex_path: Path,apksigner: str) -> dict:
     except (OSError,subprocess.TimeoutExpired) as exc:raise GmsSignatureError('Outer signature verifier did not complete') from exc
     if len(proc.stdout)+len(proc.stderr)>4*1024*1024:raise GmsSignatureError('Outer signature output too large')
     out=proc.stdout.decode('utf-8','replace')
-    certs=sorted(set(x.lower() for x in re.findall(
-        r'^(?:Signer #[0-9]+|V[1-4] Signer(?: #[0-9]+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$',out,re.M)))
-    schemes={version:(value=='true') for version,value in re.findall(r'^Verified using v([1-4]) scheme .*: (true|false)$',out,re.M)}
+    certs=signer_output.parse_certificates(out)
+    schemes=signer_output.parse_schemes(out)
     # apksigner exit zero indicates cryptographic self-consistency for its SDK rules,
     # but a missing or ambiguous signer is still marked incomplete.
     return {'verifier_exit_code':proc.returncode,'outer_signature_verified_by_host':proc.returncode==0 and len(certs)==1,

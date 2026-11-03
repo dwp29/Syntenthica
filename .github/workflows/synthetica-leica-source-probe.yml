@@ -2,7 +2,7 @@ name: Synthetica Leica miatoll source probe
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
-    paths: [.github/workflows/synthetica-leica-source-probe.yml, synthetica-project/probe_leica_miatoll.py, tests/test_probe_leica_miatoll.py]
+    paths: [.github/workflows/synthetica-leica-source-probe.yml, synthetica-project/probe_leica_miatoll.py, tests/test_probe_leica_miatoll.py, synthetica-project/apk_signer_output.py, tests/test_apk_signer_output.py]
   workflow_dispatch:
 # Only inspects pinned public blobs on a throwaway runner; nothing is installed or published.
 permissions:
@@ -24,7 +24,9 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run source identity and manifest controls
-        run: python -m unittest discover -s tests -p 'test_probe_leica_miatoll.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_apk_signer_output.py' -v
+          python -m unittest discover -s tests -p 'test_probe_leica_miatoll.py' -v
       - name: Select Android host readers
         id: setup
         run: |

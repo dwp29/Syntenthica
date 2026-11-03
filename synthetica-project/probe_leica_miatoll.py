@@ -18,6 +18,7 @@ import subprocess
 import sys
 import zipfile
 import preflight_spatialflow as pre
+import apk_signer_output as signer_output
 import scan_apk_packages as scan
 import verify_preservation as guard
 
@@ -94,9 +95,8 @@ def apk_signature(apk: Path,apksigner: str) -> dict:
     except (OSError,subprocess.TimeoutExpired) as exc:raise LeicaProbeError('Signature tool did not complete') from exc
     if len(p.stdout)+len(p.stderr)>4*1024*1024:raise LeicaProbeError('Signature output exceeds bounds')
     out=p.stdout.decode('utf-8','replace')
-    certs=sorted(set(x.lower() for x in re.findall(
-        r'^(?:Signer #[0-9]+|V[1-4] Signer(?: #[0-9]+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$',out,re.M)))
-    schemes={v:(b=='true') for v,b in re.findall(r'^Verified using v([1-4]) scheme .*: (true|false)$',out,re.M)}
+    certs=signer_output.parse_certificates(out)
+    schemes=signer_output.parse_schemes(out)
     if scan._tool_digest(apksigner)!=tool_hash:raise LeicaProbeError('Signature tool changed')
     diagnostic=[line[:500] for line in out.splitlines() if 'certificate SHA-256 digest:' in line][:8] if not certs else []
     return {'verifier_exit_code':p.returncode,'signature_verified_on_host':p.returncode==0 and len(certs)==1,

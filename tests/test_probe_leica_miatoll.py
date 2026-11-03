@@ -50,6 +50,13 @@ class LeicaProbeTests(unittest.TestCase):
              mock.patch.object(p.scan,'package_from_apk',return_value=('com.example.camera','aapt_badging')), \
              mock.patch.object(p.scan,'_run_tool',side_effect=calls),self.assertRaises(p.LeicaProbeError):
             p.inspect(apk,identity,'aapt','aapt2','signer')
+    def test_new_v3_signer_format_is_recognized_without_claiming_trust(self):
+        output=('V3.0 Signer: certificate SHA-256 digest: '+'a'*64+'\n').encode()
+        with mock.patch.object(p.scan,'_tool_digest',return_value='a'*64), \
+             mock.patch.object(p.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=output,stderr=b'')):
+            r=p.apk_signature(self.root/'sample.apk','/bin/true')
+        self.assertTrue(r['signature_verified_on_host']);self.assertEqual(r['certificate_sha256'],'a'*64)
+        self.assertFalse(r['signer_authority_or_platform_trust_verified'])
     def test_unrecognized_signer_format_is_bounded_and_inconclusive(self):
         output=('Signer (minSdkVersion=28) #1 certificate SHA-256 digest: '+'f'*64+'\n').encode()
         with mock.patch.object(p.scan,'_tool_digest',return_value='a'*64), \
