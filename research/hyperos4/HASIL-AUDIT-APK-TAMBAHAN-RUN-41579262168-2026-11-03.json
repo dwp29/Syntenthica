@@ -1,0 +1,385 @@
+{
+  "schema": "synthetica-additional-apk-audit-v1",
+  "status": "READ_ONLY_ADDITIONAL_APK_AUDIT_HOLD",
+  "source_candidate03_sha256": "bd864ae0d5f5baf26e88f2b5848f15544e4843a46e6ac96636bc25c664e4f425",
+  "input_images_unchanged": true,
+  "audit": {
+    "filesystem_paths_checked": 12301,
+    "additional_apks_checked": 94,
+    "apks_in_previously_scanned_roots_skipped": 250,
+    "framework_apks_skipped": 2,
+    "matching_extra_apks": [
+      {
+        "partition": "product",
+        "path": "/overlay/AospWifiResOverlay_mainline.apk",
+        "bytes": 12638,
+        "sha256": "97943588bdc10ed66cef0fe2bcf3539a1ef92f7986b83bb9b3be268e069cef04",
+        "package": "com.google.android.wifi.resources.xiaomi",
+        "reader": "aapt_badging"
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsCnConfigOverlay.apk",
+        "bytes": 25007,
+        "sha256": "6314e4549c2bc1b86d2189de0330d9c8954222ab74316859fa09d8b326d7c5ce",
+        "package": "com.google.android.overlay.gmsconfig",
+        "reader": "aapt_badging"
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/MiuiCellBroadcastReceiverOverlay.apk",
+        "bytes": 8542,
+        "sha256": "f31ec657e9ccf756648c5f3c869ade96ee577c822e120400f64ee82b4db093f8",
+        "package": "com.google.android.cellbroadcastreceiver.overlay.miui",
+        "reader": "aapt_badging"
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/MiuiCellBroadcastServiceOverlay.apk",
+        "bytes": 8542,
+        "sha256": "4d04334db410fdf7037b7f1881196ec4dd5dbbbde035e946d737264ed7e1e4b3",
+        "package": "com.google.android.cellbroadcastservice.overlay.miui",
+        "reader": "aapt_badging"
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/UwbResCommonMainline_Sys.apk",
+        "bytes": 8542,
+        "sha256": "fe6a5f8ad4c9277dca1dd96fae9ae563b2a3b6265a6e4bc5845d38a4aadc6909",
+        "package": "com.google.android.uwb.resources.overlay.common",
+        "reader": "aapt_badging"
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/WifiResCommonMainline_Sys.apk",
+        "bytes": 12638,
+        "sha256": "272438a8b2ddd2ce326607ea5b514ee904c62eb8262ff200849fad29d3aa8c91",
+        "package": "com.google.android.wifi.resources.overlay.common",
+        "reader": "aapt_badging"
+      }
+    ],
+    "matching_gms_package_found": false,
+    "potential_spatialflow_collision_outside_roots": false,
+    "gms_related_name_matches": [
+      {
+        "partition": "system",
+        "path": "/system/usr/idc/GoogleTV-Remote.idc",
+        "inode_type": 1,
+        "bytes": 877
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/Phonesky",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/Phonesky/Phonesky.apk",
+        "inode_type": 1,
+        "bytes": 101349603
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-hdpi.apk",
+        "inode_type": 1,
+        "bytes": 77346
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-ldpi.apk",
+        "inode_type": 1,
+        "bytes": 188786
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-mdpi.apk",
+        "inode_type": 1,
+        "bytes": 73223
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-tvdpi.apk",
+        "inode_type": 1,
+        "bytes": 102143
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-xhdpi.apk",
+        "inode_type": 1,
+        "bytes": 81474
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-xxhdpi.apk",
+        "inode_type": 1,
+        "bytes": 89697
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn-xxxhdpi.apk",
+        "inode_type": 1,
+        "bytes": 89696
+      },
+      {
+        "partition": "system",
+        "path": "/system/priv-app/DocumentsUIGoogleMiuiCn/DocumentsUIGoogleMiuiCn.apk",
+        "inode_type": 1,
+        "bytes": 9940828
+      },
+      {
+        "partition": "system",
+        "path": "/system/etc/preloaded-classes",
+        "inode_type": 1,
+        "bytes": 876798
+      },
+      {
+        "partition": "system",
+        "path": "/system/etc/preloaded-classes.fsv_meta",
+        "inode_type": 1,
+        "bytes": 16384
+      },
+      {
+        "partition": "system",
+        "path": "/system/etc/sysconfig/com.google.android.mainline.patchlevel.2.xml",
+        "inode_type": 1,
+        "bytes": 943
+      },
+      {
+        "partition": "system",
+        "path": "/system/etc/sysconfig/google-hiddenapi-package-allowlist.xml",
+        "inode_type": 1,
+        "bytes": 4261
+      },
+      {
+        "partition": "system",
+        "path": "/system/etc/permissions/GoogleDocumentsUIMiuiCn_permissions.xml",
+        "inode_type": 1,
+        "bytes": 1313
+      },
+      {
+        "partition": "system",
+        "path": "/system/bin/preloads_copy.sh",
+        "inode_type": 1,
+        "bytes": 1317
+      },
+      {
+        "partition": "system_ext",
+        "path": "/priv-app/GoogleServicesFramework",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "system_ext",
+        "path": "/priv-app/GoogleServicesFramework/GoogleServicesFramework.apk",
+        "inode_type": 1,
+        "bytes": 1128492
+      },
+      {
+        "partition": "system_ext",
+        "path": "/etc/permissions/privapp-permissions-gms-cn-system-ext.xml",
+        "inode_type": 1,
+        "bytes": 1518
+      },
+      {
+        "partition": "product",
+        "path": "/priv-app/GmsCore",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/priv-app/GmsCore/m",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/priv-app/GmsCore/m/independent",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/priv-app/GmsCore/m/independent/AndroidPlatformServices.apk",
+        "inode_type": 1,
+        "bytes": 29543426
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsCnConfigOverlay.apk",
+        "inode_type": 1,
+        "bytes": 25007
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsCnSettingsOverlay.apk",
+        "inode_type": 1,
+        "bytes": 8542
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsCnSystemUIOverlay.apk",
+        "inode_type": 1,
+        "bytes": 8542
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsCnTelecommOverlay.apk",
+        "inode_type": 1,
+        "bytes": 8542
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsContactProviderOverlay.apk",
+        "inode_type": 1,
+        "bytes": 8542
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/GmsSettingProviderOverlay.apk",
+        "inode_type": 1,
+        "bytes": 8542
+      },
+      {
+        "partition": "product",
+        "path": "/overlay/NcmTetheringResCommonGMS_Sys.apk",
+        "inode_type": 1,
+        "bytes": 8542
+      },
+      {
+        "partition": "product",
+        "path": "/etc/sysconfig/allowed_apex_com.google.android.gmssystem.xml",
+        "inode_type": 1,
+        "bytes": 616
+      },
+      {
+        "partition": "product",
+        "path": "/etc/sysconfig/google.xml",
+        "inode_type": 1,
+        "bytes": 6425
+      },
+      {
+        "partition": "product",
+        "path": "/etc/security/fsverity/gms_fsverity_cert.der",
+        "inode_type": 1,
+        "bytes": 1484
+      },
+      {
+        "partition": "product",
+        "path": "/etc/permissions/cn.google.services.xml",
+        "inode_type": 1,
+        "bytes": 265
+      },
+      {
+        "partition": "product",
+        "path": "/etc/permissions/privapp-permissions-gms-cn-product.xml",
+        "inode_type": 1,
+        "bytes": 13110
+      },
+      {
+        "partition": "product",
+        "path": "/etc/permissions/split-permissions-google.xml",
+        "inode_type": 1,
+        "bytes": 288
+      },
+      {
+        "partition": "product",
+        "path": "/etc/default-permissions/default-permissions-google-cn.xml",
+        "inode_type": 1,
+        "bytes": 439
+      },
+      {
+        "partition": "product",
+        "path": "/app/GoogleExtShared",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/app/GoogleLocationHistory",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/app/GooglePrintRecommendationService",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/app/LatinImeGoogle",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/app/WebViewGoogle64",
+        "inode_type": 2,
+        "bytes": 4096
+      },
+      {
+        "partition": "product",
+        "path": "/app/WebViewGoogle64/WebViewGoogle64.apk",
+        "inode_type": 1,
+        "bytes": 263128038
+      },
+      {
+        "partition": "product",
+        "path": "/app/LatinImeGoogle/LatinImeGoogle.apk",
+        "inode_type": 1,
+        "bytes": 75580161
+      },
+      {
+        "partition": "product",
+        "path": "/app/GooglePrintRecommendationService/GooglePrintRecommendationService.apk",
+        "inode_type": 1,
+        "bytes": 201324
+      },
+      {
+        "partition": "product",
+        "path": "/app/GoogleLocationHistory/GoogleLocationHistory.apk",
+        "inode_type": 1,
+        "bytes": 2700122
+      },
+      {
+        "partition": "product",
+        "path": "/app/GoogleExtShared/GoogleExtShared.apk",
+        "inode_type": 1,
+        "bytes": 16854
+      },
+      {
+        "partition": "product",
+        "path": "/apex/com.google.android.gmssystem.prodvic.apex",
+        "inode_type": 1,
+        "bytes": 155066368
+      }
+    ],
+    "gms_related_name_count": 57,
+    "gms_related_names_truncated": true,
+    "relevant_symlinks_not_followed": [],
+    "relevant_symlink_count": 0,
+    "relevant_symlinks_truncated": false,
+    "xmltree_fallback_paths": [],
+    "tool_sha256": {
+      "aapt_sha256": "8cdf40b93e34c5aab518175e9738959f8e104a8f039eda3311f3ef6fb13ae992",
+      "aapt2_sha256": "0f1c0e560f99db510a76ebc99ad5c3e68438f62e8e8617018a716ca4a589a699"
+    },
+    "limitations": [
+      "Only allocated ext4 paths in four image copies were walked.",
+      "Previously scanned app roots, framework APKs, APEX/ZIP contents, symlink targets and device data were not inspected by this pass.",
+      "A package match is not proof that Android installs it, that it works, is licensed, or is certified."
+    ]
+  },
+  "outcome": "success",
+  "run_id": 41579262168,
+  "commit": "2dec870a1c03569cf199f3d85d248ece7c3deee4",
+  "check_run_id": 125730625206
+}
