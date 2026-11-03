@@ -70,14 +70,40 @@ def inspect(pem: bytes,check: dict,openssl: str='/usr/bin/openssl')->dict:
                 'No APK, image, release, device, user data or private key was altered or used.']}
 
 
+def inspect_inventory(cert_dir: Path,openssl: str='/usr/bin/openssl')->dict:
+    """Verify all curated public development certs against the pinned fingerprints."""
+    if cert_dir.is_symlink() or not cert_dir.is_dir():raise PublicCertificateError('Certificate directory is unsafe')
+    expected={name:sha for sha,name in signer.AOSP_PUBLIC_DEVELOPMENT_CERTIFICATES.items()}
+    if len(expected)!=len(signer.AOSP_PUBLIC_DEVELOPMENT_CERTIFICATES):raise PublicCertificateError('Duplicate development certificate name')
+    if {p.name for p in cert_dir.iterdir()}!={name+'.x509.pem' for name in expected}:
+        raise PublicCertificateError('Development certificate inventory is incomplete or has extras')
+    rows=[]
+    for name,sha in sorted(expected.items()):
+        path=cert_dir/(name+'.x509.pem')
+        if path.is_symlink() or not path.is_file() or not 0<path.stat().st_size<=4096:
+            raise PublicCertificateError('Unsafe public certificate: '+name)
+        pem=path.read_bytes()
+        try:proc=subprocess.run([openssl,'x509','-inform','PEM','-outform','DER'],input=pem,
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20,check=False,env={'PATH':'/usr/bin:/bin','LANG':'C'})
+        except (OSError,subprocess.TimeoutExpired) as exc:raise PublicCertificateError('Public certificate conversion failed') from exc
+        if proc.returncode or not 0<len(proc.stdout)<=8192 or len(proc.stderr)>8192 or hashlib.sha256(proc.stdout).hexdigest()!=sha:
+            raise PublicCertificateError('Public development certificate digest differs: '+name)
+        rows.append({'name':name,'pem_bytes':len(pem),'pem_sha256':hashlib.sha256(pem).hexdigest(),
+                     'git_blob_sha1':hashlib.sha1(f'blob {len(pem)}\0'.encode()+pem).hexdigest(),'der_sha256':sha})
+    return {'source_commit':AOSP_COMMIT,'public_certificates_verified':len(rows),'certificates':rows,
+            'exhaustive_list_of_public_keys':False,'nonmatching_certificate_proves_trust':False}
+
+
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--public-certificate',required=True,type=Path)
-    p.add_argument('--check-run',required=True,type=Path);p.add_argument('--report',required=True,type=Path);a=p.parse_args()
+    p.add_argument('--check-run',required=True,type=Path);p.add_argument('--report',required=True,type=Path)
+    p.add_argument('--certificate-directory',type=Path,help='Optional complete public development certificate inventory');a=p.parse_args()
     try:
         if a.public_certificate.is_symlink() or a.check_run.is_symlink() or a.public_certificate.stat().st_size>4096 or a.check_run.stat().st_size>200_000:
             raise PublicCertificateError('Inputs must be bounded ordinary files')
         result=inspect(a.public_certificate.read_bytes(),json.loads(a.check_run.read_text()))
         if not result['leica_matches_public_aosp_testkey']:raise PublicCertificateError('Expected testkey match not observed')
+        if a.certificate_directory is not None:result['public_development_inventory']=inspect_inventory(a.certificate_directory)
         code=0
     except (PublicCertificateError,signer.SignerOutputError,OSError,ValueError) as exc:
         result={'schema':'synthetica-aosp-public-testkey-reference-v1','status':'INCOMPLETE_HOLD','error':str(exc),'device_modified':False};code=1

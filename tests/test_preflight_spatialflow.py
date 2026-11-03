@@ -38,7 +38,15 @@ class SpatialFlowPreflightTests(unittest.TestCase):
         signature='Verified using v3 scheme test: true\nSigner #1 certificate SHA-256 digest: '+p.signer_output.AOSP_PUBLIC_TESTKEY_CERTIFICATE_SHA256+'\n'
         with mock.patch.object(p,'digest_file',return_value=(p.APP_SIZE,p.APP_SHA256)), \
              mock.patch.object(p,'command',side_effect=[badging,'manifest',signature,'']), \
-             self.assertRaisesRegex(p.PreflightError,'publicly known AOSP development testkey'):
+             self.assertRaisesRegex(p.PreflightError,'publicly known AOSP development certificate'):
+            p.inspect_apk(Path('/unused.apk'),'aapt','apksigner','zipalign')
+    def test_known_public_platform_development_certificate_is_rejected(self):
+        badging="package: name='com.codetrio.spatialflow' versionCode='10' versionName='1.8.2'\nsdkVersion:'25'\ntargetSdkVersion:'36'\nnative-code: 'arm64-v8a'\n"
+        platform_cert=next(k for k,v in p.signer_output.AOSP_PUBLIC_DEVELOPMENT_CERTIFICATES.items() if v=='platform')
+        signature='Verified using v3 scheme test: true\nSigner #1 certificate SHA-256 digest: '+platform_cert+'\n'
+        with mock.patch.object(p,'digest_file',return_value=(p.APP_SIZE,p.APP_SHA256)), \
+             mock.patch.object(p,'command',side_effect=[badging,'manifest',signature,'']), \
+             self.assertRaisesRegex(p.PreflightError,'development certificate: platform'):
             p.inspect_apk(Path('/unused.apk'),'aapt','apksigner','zipalign')
     def test_app_does_not_claim_a_signature_trust_anchor(self):
         self.assertEqual(len(p.APP_SHA256), 64)

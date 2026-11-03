@@ -194,8 +194,9 @@ def inspect_apk(apk: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
                   'native': native.group(1) if native else None, 'signer_count': len(certs),
                   'signer_lines': [x[:200] for x in signatures.splitlines() if 'certificate SHA-256' in x][:3]}
         raise PreflightError('APK identity/API/ABI/signer unexpected: ' + json.dumps(detail, separators=(',', ':')))
-    if signer_output.matches_aosp_public_testkey(certs[0]) is True:
-        raise PreflightError('APK uses the publicly known AOSP development testkey')
+    public_dev_key = signer_output.aosp_public_development_certificate_name(certs[0])
+    if public_dev_key is not None:
+        raise PreflightError('APK uses a publicly known AOSP development certificate: ' + public_dev_key)
     if not re.search(r'^Verified using v[23] scheme .*: true$', signatures, re.M):
         raise PreflightError('APK does not pass a modern Android signature scheme')
     if 'android:sharedUserId' in manifest:

@@ -30,16 +30,19 @@ jobs:
       - name: Fetch pinned public certificate and prior check metadata
         run: |
           set -euo pipefail
-          gh api -H 'Accept: application/vnd.github.raw+json' \
-            'repos/aosp-mirror/platform_build/contents/target/product/security/testkey.x509.pem?ref=3d9c9aacdb6ca0b745b3048dad88d0db4680d50e' \
-            > "$RUNNER_TEMP/aosp-public-testkey.x509.pem"
+          mkdir "$RUNNER_TEMP/public-certificates"
+          for name in testkey platform shared media networkstack bluetooth nfc sdk_sandbox cts_uicc_2021; do
+            gh api -H 'Accept: application/vnd.github.raw+json' \
+              "repos/aosp-mirror/platform_build/contents/target/product/security/$name.x509.pem?ref=3d9c9aacdb6ca0b745b3048dad88d0db4680d50e" \
+              > "$RUNNER_TEMP/public-certificates/$name.x509.pem"
+          done
           gh api 'repos/dwp29/Syntenthica/check-runs/125740850789' > "$RUNNER_TEMP/leica-check.json"
       - name: Compare public certificate fingerprints
         id: compare
         run: |
           python synthetica-project/audit_public_testkey_reference.py \
-            --public-certificate "$RUNNER_TEMP/aosp-public-testkey.x509.pem" --check-run "$RUNNER_TEMP/leica-check.json" \
-            --report "$RUNNER_TEMP/public-testkey-result.json"
+            --public-certificate "$RUNNER_TEMP/public-certificates/testkey.x509.pem" --check-run "$RUNNER_TEMP/leica-check.json" \
+            --certificate-directory "$RUNNER_TEMP/public-certificates" --report "$RUNNER_TEMP/public-testkey-result.json"
       - name: Record bounded comparison including failures
         if: always()
         env:
@@ -54,7 +57,8 @@ jobs:
           text=json.dumps(result,ensure_ascii=True,separators=(',',':'))
           if len(text)>10000: raise SystemExit('Comparison result exceeds bound')
           ok=(result.get('leica_matches_public_aosp_testkey') is True
-              and result.get('production_key_gate')=='REJECT_PUBLIC_TESTKEY' and result['outcome']=='success')
+              and result.get('production_key_gate')=='REJECT_PUBLIC_TESTKEY'
+              and result.get('public_development_inventory',{}).get('public_certificates_verified')==9 and result['outcome']=='success')
           payload={'name':'Synthetica AOSP public testkey reference','head_sha':os.environ['GITHUB_SHA'],'status':'completed',
                    'conclusion':'success' if ok else 'neutral',
                    'output':{'title':'Public testkey match; production integration rejected','summary':text}}

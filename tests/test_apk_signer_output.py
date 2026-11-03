@@ -36,6 +36,10 @@ class SignerOutputTests(unittest.TestCase):
         with self.assertRaises(p.SignerOutputError):p.parse_schemes(text+text)
     def test_public_aosp_testkey_is_flagged_without_assuming_other_trust(self):
         self.assertTrue(p.matches_aosp_public_testkey(p.AOSP_PUBLIC_TESTKEY_CERTIFICATE_SHA256.upper()))
+        self.assertEqual(p.aosp_public_development_certificate_name(p.AOSP_PUBLIC_TESTKEY_CERTIFICATE_SHA256),'testkey')
+        self.assertEqual(p.aosp_public_development_certificate_name('c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8'),'platform')
+        self.assertEqual(len(p.AOSP_PUBLIC_DEVELOPMENT_CERTIFICATES),9)
+        self.assertIsNone(p.aosp_public_development_certificate_name('b'*64))
         self.assertFalse(p.matches_aosp_public_testkey('b'*64))
         self.assertIsNone(p.matches_aosp_public_testkey(None))
         with self.assertRaises(p.SignerOutputError):p.matches_aosp_public_testkey('invalid')

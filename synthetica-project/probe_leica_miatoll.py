@@ -101,10 +101,12 @@ def apk_signature(apk: Path,apksigner: str) -> dict:
     diagnostic=signer_output.unparsed_signer_certificate_lines(out)
     certificate=certs[0] if len(certs)==1 and not diagnostic else None
     testkey=signer_output.matches_aosp_public_testkey(certificate)
+    public_dev_key=signer_output.aosp_public_development_certificate_name(certificate)
     return {'verifier_exit_code':p.returncode,'signature_verified_on_host':p.returncode==0 and len(certs)==1 and not diagnostic,
             'signer_count':len(certs),'certificate_sha256':certificate,'schemes_reported':schemes,
             'matches_aosp_public_development_testkey':testkey,
-            'production_key_gate':'REJECT_PUBLIC_TESTKEY' if testkey is True else 'NOT_ASSESSED',
+            'known_aosp_public_development_certificate_name':public_dev_key,
+            'production_key_gate':'REJECT_PUBLIC_TESTKEY' if public_dev_key is not None else 'NOT_ASSESSED',
             'unparsed_certificate_digest_lines':diagnostic,
             'tool_script_sha256':tool_hash,'stdout_sha256':hashlib.sha256(p.stdout).hexdigest(),
             'stderr_sha256':hashlib.sha256(p.stderr).hexdigest(),'signer_authority_or_platform_trust_verified':False}

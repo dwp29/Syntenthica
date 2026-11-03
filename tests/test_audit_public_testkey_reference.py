@@ -1,6 +1,7 @@
 import hashlib
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -42,6 +43,15 @@ class PublicTestkeyTests(unittest.TestCase):
         with mock.patch.object(p.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=self.der,stderr=b'')):
             r=p.inspect(self.pem,self.check)
         self.assertFalse(r['leica_matches_public_aosp_testkey']);self.assertEqual(r['production_key_gate'],'NOT_ASSESSED')
+    def test_inventory_checks_every_public_certificate_and_rejects_extras(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'example.x509.pem').write_bytes(self.pem)
+            with mock.patch.object(p.signer,'AOSP_PUBLIC_DEVELOPMENT_CERTIFICATES',{self.der_sha:'example'}), \
+                 mock.patch.object(p.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=self.der,stderr=b'')):
+                r=p.inspect_inventory(root);self.assertEqual(r['public_certificates_verified'],1)
+                self.assertFalse(r['nonmatching_certificate_proves_trust'])
+                (root/'extra').write_bytes(b'bad')
+                with self.assertRaises(p.PublicCertificateError):p.inspect_inventory(root)
     def test_invalid_der_or_openssl_failure_is_not_a_match(self):
         for proc in (SimpleNamespace(returncode=1,stdout=b'',stderr=b'bad'),SimpleNamespace(returncode=0,stdout=b'other',stderr=b'')):
             with mock.patch.object(p.subprocess,'run',return_value=proc),self.assertRaises(p.PublicCertificateError):p.inspect(self.pem,self.check)
