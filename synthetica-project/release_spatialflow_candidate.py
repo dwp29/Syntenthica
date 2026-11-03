@@ -45,8 +45,20 @@ def checked_report(report: dict, output: Path) -> tuple[int, str]:
             or report.get('super_comparison', {}).get('all_nonproduct_logical_partitions_identical') is not True
             or report.get('isolated_lpdump', {}).get('status') != 'ISOLATED_THIRD_PARTY_LPDUMP_AGREES'
             or report.get('package_collision_scan', {}).get('collision_found_in_scanned_roots') is not False
+            or report.get('package_collision_scan', {}).get('apk_manifest_zip_crc_checked') is not True
             or report.get('ota_metadata', {}).get('legacy_and_protobuf_values_equal') is not True):
         raise ReleaseError('Build report does not meet release-preservation requirements')
+    scan = report['package_collision_scan']
+    readers = scan.get('tool_sha256', {})
+    fallback = scan.get('independent_xmltree_fallback_paths')
+    if (type(scan.get('apks_checked')) is not int or not 0 < scan['apks_checked'] <= 2500
+            or not isinstance(fallback, list) or type(scan.get('independent_xmltree_fallback_count')) is not int
+            or scan['independent_xmltree_fallback_count'] != len(fallback) or len(fallback) > scan['apks_checked']
+            or not isinstance(readers, dict)
+            or not all(isinstance(readers.get(k), str) and re.fullmatch(r'[0-9a-f]{64}', readers[k])
+                       for k in ('aapt_sha256', 'aapt2_sha256'))
+            or readers['aapt_sha256'] == readers['aapt2_sha256']):
+        raise ReleaseError('Package collision scan is incomplete or its readers are not independently identified')
     info = report.get('output', {})
     size, sha = info.get('bytes'), info.get('sha256')
     if (info.get('name') != builder.OUTPUT_NAME or output.name != builder.OUTPUT_NAME

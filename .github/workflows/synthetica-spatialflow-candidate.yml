@@ -35,7 +35,8 @@ jobs:
         run: |
           set -euo pipefail
           for test in test_preflight_spatialflow.py test_feature_ext4.py test_expand_product_lp.py \
-            test_scan_apk_packages.py test_build_spatialflow_candidate.py test_build_spatialflow_grown.py \
+            test_expand_locked_spatial_layout.py test_scan_apk_packages.py \
+            test_prepare_spatialflow_music_intent.py test_build_spatialflow_candidate.py test_build_spatialflow_grown.py \
             test_release_spatialflow_candidate.py test_hyperos4_lp_metadata.py \
             test_audit_vintf_candidate.py test_build_ota_metadata_candidate.py \
             test_build_guarded_candidate.py test_audit_boot_first_installer.py; do
@@ -48,7 +49,7 @@ jobs:
           set -euo pipefail
           root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           tools=$(find "$root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          for name in aapt apksigner zipalign; do test -x "$tools/$name"; done
+          for name in aapt aapt2 apksigner zipalign; do test -x "$tools/$name"; done
           echo "tools=$tools" >> "$GITHUB_OUTPUT"
           free=$(df -PB1 "$RUNNER_TEMP" | awk 'NR==2 {print $4}')
           if (( free < 18500000000 )); then

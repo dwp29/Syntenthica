@@ -1,0 +1,144 @@
+{
+  "build_run": 41574640596,
+  "build_commit": "6d19343c95f2d4d268cae3d126c05a7363408d11",
+  "diagnostic_run": 41576200655,
+  "diagnostic_commit": "1046720fcee27cbf6389175efb07b7c817dd5834",
+  "failed_build_summary": {
+    "status": "INCOMPLETE_HOLD",
+    "outcomes": {
+      "LP_OUTCOME": "success",
+      "BUILD_OUTCOME": "failure",
+      "TRANSFER_OUTCOME": "skipped"
+    },
+    "lp_controls": {
+      "schema": "synthetica-lpdump-independent-control-v1",
+      "status": "SYNTHETIC_CONTROLS_PASSED",
+      "tool": {
+        "source": "ravindu644/android-lptools-static-x86_64",
+        "source_commit": "1e13871960cb71ceeba0c780c0878176ca665e53",
+        "git_blob_sha1": "d90449a803e1bf3df2ebb5a2a466f89bbc3f29a4",
+        "bytes": 5440440,
+        "sha256": "a7877918d01a98466d88980b2163756acd5926b602e97c2efb9e8de8a5a27a39",
+        "source_to_binary_provenance_verified": false,
+        "isolated_without_network_or_capabilities": true
+      },
+      "before_partition_sizes": {
+        "product": 8192,
+        "system": 8192
+      },
+      "after_partition_sizes": {
+        "product": 73728,
+        "system": 8192
+      },
+      "before_extent_layout": {
+        "product": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 80,
+            "device": "super"
+          }
+        ],
+        "system": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 128,
+            "device": "super"
+          }
+        ]
+      },
+      "after_extent_layout": {
+        "product": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 80,
+            "device": "super"
+          },
+          {
+            "logical_start": 16,
+            "sectors": 128,
+            "physical_start": 144,
+            "device": "super"
+          }
+        ],
+        "system": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 128,
+            "device": "super"
+          }
+        ]
+      },
+      "corrupted_geometry_rejected": true,
+      "limitations": [
+        "Third-party binary provenance is not authenticated.",
+        "Synthetic host controls do not prove device, recovery, AVB or boot compatibility."
+      ]
+    },
+    "build": {
+      "schema": "synthetica-spatialflow-rom-candidate-v1",
+      "status": "BUILD_FAILED_HOLD",
+      "error": "Could not inspect an existing APK package name: system:/system/priv-app/Shell/Shell.apk",
+      "device_modified": false
+    }
+  },
+  "shell_diagnostic": {
+    "status": "READ_ONLY_DIAGNOSTIC_COMPLETED_HOLD",
+    "apk_path": "system:/system/priv-app/Shell/Shell.apk",
+    "apk_bytes": 370060,
+    "apk_sha256": "174d195cb1c6a55021f088dbad787c173dca92273cb14520589d3439e70fa26a",
+    "archive": {
+      "entries": 144,
+      "duplicate_names": 0,
+      "manifest_bytes": 116916,
+      "manifest_sha256": "ed868fd4ec92e0ba44b08c52fcd2a0f088a84088c4f683163a326a604a3a0a0c",
+      "manifest_first_8_bytes_hex": "03000800b4c80100"
+    },
+    "tools": {
+      "aapt_badging": {
+        "exit": 1,
+        "stdout_bytes": 43184,
+        "stderr_bytes": 229,
+        "stdout_selected": "package: name='com.android.shell' versionCode='37' versionName='17' platformBuildVersionName='17' platformBuildVersionCode='37' compileSdkVersion='37' compileSdkVersionCodename='17'",
+        "stderr": "11-03 04:10:15.581  2077  2077 W ResourceType: No known package when getting value for resource number 0x0104044a\nAndroidManifest.xml:1225: error: ERROR getting 'android:label' attribute: attribute value reference does not exist\n"
+      },
+      "aapt_xmltree": {
+        "exit": 0,
+        "stdout_bytes": 113446,
+        "stderr_bytes": 0,
+        "stdout_selected": "  E: manifest (line=19)\n    A: package=\"com.android.shell\" (Raw: \"com.android.shell\")",
+        "stderr": ""
+      },
+      "aapt2_badging": {
+        "exit": 0,
+        "stdout_bytes": 45077,
+        "stderr_bytes": 0,
+        "stdout_selected": "package: name='com.android.shell' versionCode='37' versionName='17' platformBuildVersionName='17' platformBuildVersionCode='37' compileSdkVersion='37' compileSdkVersionCodename='17'",
+        "stderr": ""
+      },
+      "aapt2_xmltree": {
+        "exit": 0,
+        "stdout_bytes": 140857,
+        "stderr_bytes": 0,
+        "stdout_selected": "  E: manifest (line=19)\n    A: package=\"com.android.shell\" (Raw: \"com.android.shell\")",
+        "stderr": ""
+      },
+      "apkanalyzer_application_id": {
+        "exit": 0,
+        "stdout_bytes": 18,
+        "stderr_bytes": 0,
+        "stdout_selected": "",
+        "stderr": ""
+      }
+    },
+    "source_candidate03_sha256": "bd864ae0d5f5baf26e88f2b5848f15544e4843a46e6ac96636bc25c664e4f425",
+    "limitations": [
+      "Host tool output does not prove app/runtime validity or device safety.",
+      "No APK, image, ZIP or device was modified or published."
+    ],
+    "outcome": "success"
+  }
+}
