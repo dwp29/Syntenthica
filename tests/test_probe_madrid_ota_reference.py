@@ -125,6 +125,12 @@ class RangeAndPayloadTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(probe.ProbeError):
                 probe.parse_manifest(bad)
 
+    def test_public_partition_names_with_dot_and_hyphen_are_supported_but_paths_rejected(self):
+        parsed = probe.parse_manifest(blob(13, part('image-a.b', 1, b'a' * 32)))
+        self.assertEqual(parsed['partitions'][0]['name'], 'image-a.b')
+        with self.assertRaisesRegex(probe.ProbeError, 'character codes'):
+            probe.parse_manifest(blob(13, part('../invalid', 1, b'a' * 32)))
+
     def test_snapshot_comparison_does_not_claim_file_origin(self):
         parsed = probe.parse_manifest(blob(13, part('system', 1234, b's' * 32)))
         rows = {row['partition']: row for row in probe.compare_snapshot(parsed)}

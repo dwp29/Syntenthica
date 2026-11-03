@@ -238,8 +238,12 @@ def parse_manifest(raw: bytes) -> dict:
                         pname = bytes(fieldvalue).decode('ascii')
                     except UnicodeError as exc:
                         raise ProbeError('Non-ASCII partition name') from exc
-                    if not re.fullmatch(r'[A-Za-z0-9_]{1,80}', pname):
-                        raise ProbeError('Invalid partition name')
+                    if not 1 <= len(pname) <= 128:
+                        raise ProbeError(f'Invalid partition name length ({len(pname)})')
+                    invalid = sorted({ord(char) for char in pname
+                                      if not (char.isascii() and (char.isalnum() or char in '_.-'))})
+                    if invalid or pname in ('.', '..'):
+                        raise ProbeError(f'Invalid partition name character codes: {invalid[:8]}')
                 else:
                     part = _partition_info(fieldvalue)
         if pname is None or pname in {row['name'] for row in rows}:
