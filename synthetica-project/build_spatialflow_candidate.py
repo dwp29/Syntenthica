@@ -3,8 +3,9 @@
 
 The input is locked candidate 03, itself derived from the verified original
 port. Only /product/app/SpatialFlow/{SpatialFlow.apk} is added to a copy of
-its ext4 product filesystem. No vendor/audio/security policy, boot, DTBO,
-installer, OTA metadata or existing applications are intentionally changed.
+its ext4 product filesystem, with a 32 MiB second logical extent inside the
+existing super image. No vendor/audio/security policy, boot, DTBO, installer,
+OTA metadata or existing applications are intentionally changed.
 All source ZIP members, partition extents, modified filesystem content, output
 ZIP members and OTA offsets are checked. The recipe never touches a device and
 does not claim boot, runtime compatibility, trusted signature, or safety.
@@ -26,6 +27,8 @@ import build_guarded_candidate as guarded
 import build_ota_metadata_candidate as ota
 import compare_ext4_boot as ext4_guard
 import feature_ext4
+import expand_product_lp as lp_expand
+import probe_lpdump_tool as lpdump
 import preflight_spatialflow as pre
 import scan_apk_packages
 import verify_preservation as guard
@@ -35,6 +38,8 @@ TEXT_SHA = '9ae0bd0b1e014fe3288adebb832ed5da6a1e0f12176c54aa03957cbe754a81fe'
 PROTO_SHA = '5e653f522d0b854b314dff27bba0e77735b667bd06f0bdaacb2d9254500102c9'
 CHUNK = 4 * 1024 * 1024
 RESERVE_BYTES = 8 * 1024 * 1024
+GROWTH_BYTES = 32 * 1024 * 1024
+SOURCE_LP_SHA = '2ef44fc572691c89a81a2065a6466b9602a57c10d8d99c258a9e0b15cdc58cf5'
 
 class FeatureBuildError(RuntimeError):
     pass
@@ -171,7 +176,152 @@ def compare_supers(source: Path, output: Path, windows: dict, new_product_sha: s
             'old_and_new_super_zip_crc_checked': True, 'partitions': result}
 
 
-def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
+
+def _segments(plan: dict, new_prefix: bytes) -> list[dict]:
+    product = plan['product_original']; tail = plan['product_new_extent']
+    end = plan['metadata_reserved_end']
+    segments = [{'start': 0, 'end': end, 'kind': 'metadata', 'source_offset': 0},
+                {'start': product['start'], 'end': product['end'], 'kind': 'product', 'source_offset': 0},
+                {'start': tail['start'], 'end': tail['end'], 'kind': 'product', 'source_offset': product['bytes']}]
+    if (len(new_prefix) < end or any(a['end'] > b['start'] for a, b in zip(segments, segments[1:]))
+            or any(x['start'] < 0 or x['end'] <= x['start'] for x in segments)):
+        raise FeatureBuildError('Planned metadata and product segments overlap or are invalid')
+    return segments
+
+
+def replace_grown_super(src, dst, replacement: Path, plan: dict, new_prefix: bytes, expected_sha: str) -> dict:
+    size, sha = pre.digest_file(replacement)
+    if size != plan['product_bytes_after'] or sha != expected_sha:
+        raise FeatureBuildError('Resized product identity does not match the plan')
+    segments = _segments(plan, new_prefix)
+    old_hash, new_hash = hashlib.sha256(), hashlib.sha256()
+    count = written_product = 0
+    with replacement.open('rb') as product:
+        while data := src.read(CHUNK):
+            old_hash.update(data)
+            end = count + len(data)
+            block = bytearray(data)
+            for seg in segments:
+                lo, hi = max(count, seg['start']), min(end, seg['end'])
+                if lo >= hi: continue
+                if seg['kind'] == 'metadata':
+                    new = new_prefix[lo:hi]
+                else:
+                    product.seek(seg['source_offset'] + lo - seg['start'])
+                    new = product.read(hi-lo); written_product += len(new)
+                if len(new) != hi-lo: raise FeatureBuildError('Short metadata or product replacement')
+                block[lo-count:hi-count] = new
+            dst.write(block); new_hash.update(block); count = end
+            if count and count % (2 * 1024**3) == 0:
+                print(f'Wrote {count // 1024**3} / 8 GiB of expanded super', flush=True)
+    if (count != vintf.SUPER_BYTES or old_hash.hexdigest() != pre.SUPER_SHA256
+            or written_product != size or pre.digest_file(replacement) != (size, sha)):
+        raise FeatureBuildError('Expanded super input, product or source SHA-256 check failed')
+    return {'bytes': count, 'old_sha256': old_hash.hexdigest(), 'sha256': new_hash.hexdigest()}
+
+
+def package_grown(source: Path, output: Path, source_infos: dict, replacement: Path, plan: dict,
+                  new_prefix: bytes, replacement_sha: str) -> dict:
+    if output.exists() or output.is_symlink():
+        raise FeatureBuildError('Output path already exists')
+    result = None
+    with source.open('rb') as raw, zipfile.ZipFile(raw) as zin, \
+            zipfile.ZipFile(output, 'x', allowZip64=True, compression=zipfile.ZIP_DEFLATED, compresslevel=1) as zout:
+        zout.comment = zin.comment
+        for info in sorted(source_infos.values(), key=lambda x: x.header_offset):
+            if info.filename != 'super.img':
+                ota.add_precompressed(zout, raw, info)
+                continue
+            with zin.open(info) as src, zout.open(boot._new_zipinfo(info), 'w', force_zip64=True) as dst:
+                result = replace_grown_super(src, dst, replacement, plan, new_prefix, replacement_sha)
+    if not result or result['sha256'] == pre.SUPER_SHA256:
+        raise FeatureBuildError('Expanded super is absent or unchanged')
+    with output.open('rb') as f: os.fsync(f.fileno())
+    return result
+
+
+def _outside_identical(a: bytes, b: bytes, pos: int, segments: list[dict]) -> bool:
+    cursor = 0
+    for seg in segments:
+        lo, hi = max(0, seg['start']-pos), min(len(a), seg['end']-pos)
+        if lo >= hi: continue
+        if a[cursor:lo] != b[cursor:lo]: return False
+        cursor = max(cursor, hi)
+    return a[cursor:] == b[cursor:]
+
+
+def compare_grown_supers(source: Path, output: Path, windows: dict, plan: dict, new_prefix: bytes,
+                         new_product_sha: str, new_super_sha: str) -> tuple[dict, bytes]:
+    segments = _segments(plan, new_prefix)
+    pos = 0; old_hash, new_hash = hashlib.sha256(), hashlib.sha256()
+    hashes = {name: hashlib.sha256() for name in windows}
+    counts = {name: 0 for name in windows}; captured = bytearray()
+    tail = plan['product_new_extent']
+    with zipfile.ZipFile(source) as za, zipfile.ZipFile(output) as zb, \
+            za.open('super.img') as old, zb.open('super.img') as new:
+        while True:
+            a, b = old.read(CHUNK), new.read(CHUNK)
+            if len(a) != len(b): raise FeatureBuildError('Super stream lengths differ')
+            if not a: break
+            end = pos + len(a); old_hash.update(a); new_hash.update(b)
+            if not _outside_identical(a, b, pos, segments):
+                raise FeatureBuildError('Super bytes changed outside metadata/product extent allowances')
+            if len(captured) < len(new_prefix): captured.extend(b[:min(len(b), len(new_prefix)-len(captured))])
+            for name, window in windows.items():
+                lo, hi = max(pos, window['start']), min(end, window['end'])
+                if lo < hi:
+                    data = b[lo-pos:hi-pos]; hashes[name].update(data); counts[name] += len(data)
+            lo, hi = max(pos, tail['start']), min(end, tail['end'])
+            if lo < hi:
+                data = b[lo-pos:hi-pos]; hashes['product'].update(data); counts['product'] += len(data)
+            pos = end
+    if (pos != vintf.SUPER_BYTES or old_hash.hexdigest() != pre.SUPER_SHA256
+            or new_hash.hexdigest() != new_super_sha or bytes(captured) != new_prefix):
+        raise FeatureBuildError('Expanded super stream, metadata prefix or full hash mismatch')
+    parts = []
+    for name, window in windows.items():
+        expected_size = window['bytes'] + (tail['bytes'] if name == 'product' else 0)
+        expected_sha = new_product_sha if name == 'product' else window['sha256']
+        if counts[name] != expected_size or hashes[name].hexdigest() != expected_sha:
+            raise FeatureBuildError('Expanded logical partition readback mismatch: ' + name)
+        parts.append({'name': name, 'bytes': counts[name], 'sha256': hashes[name].hexdigest(),
+                      'unchanged_from_candidate03': name != 'product'})
+    return ({'bytes_compared': pos, 'all_bytes_outside_metadata_and_product_extents_identical': True,
+             'all_nonproduct_logical_partitions_identical': True, 'old_and_new_super_zip_crc_checked': True,
+             'partitions': parts}, bytes(captured))
+
+
+def independent_lp_check(sandbox: Path, old_prefix: bytes, new_prefix: bytes, plan: dict, windows: dict) -> dict:
+    inp = sandbox / 'input'; old = inp / 'real-before.img'; new = inp / 'real-after.img'
+    lpdump.metadata_file(old_prefix, vintf.SUPER_BYTES, old)
+    lpdump.metadata_file(new_prefix, vintf.SUPER_BYTES, new)
+    expected_old = {name: w['bytes'] for name, w in windows.items()}
+    expected_new = dict(expected_old); expected_new['product'] += plan['product_new_extent']['bytes']
+    expected_layout_old = {name: [{'logical_start': 0, 'sectors': w['bytes']//512,
+                                   'physical_start': w['start']//512, 'device': 'super'}]
+                           for name, w in windows.items()}
+    expected_layout_new = {name: [dict(row) for row in rows] for name, rows in expected_layout_old.items()}
+    expected_layout_new['product'].append({'logical_start': windows['product']['bytes']//512,
+        'sectors': plan['product_new_extent']['bytes']//512,
+        'physical_start': plan['product_new_extent']['start']//512, 'device': 'super'})
+    result = []
+    try:
+        for slot in range(plan['metadata_slots']):
+            old_sizes = lpdump.read_sizes(sandbox, old, slot); new_sizes = lpdump.read_sizes(sandbox, new, slot)
+            old_layout = lpdump.read_layout(sandbox, old, slot); new_layout = lpdump.read_layout(sandbox, new, slot)
+            if (old_sizes != expected_old or new_sizes != expected_new or old_layout != expected_layout_old
+                    or new_layout != expected_layout_new):
+                raise FeatureBuildError('Isolated lpdump disagreed with partition sizes or extents')
+            result.append({'slot': slot, 'original_sizes': old_sizes, 'expanded_sizes': new_sizes,
+                           'all_extents_match_plan': True})
+    finally:
+        old.unlink(missing_ok=True); new.unlink(missing_ok=True)
+    return {'status': 'ISOLATED_THIRD_PARTY_LPDUMP_AGREES', 'slots': result,
+            'tool_sha256': lpdump.SHA256, 'tool_source_to_binary_provenance_verified': False,
+            'limitations': ['This host read does not verify real device layout, recovery or boot.']}
+
+
+def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str, lp_sandbox: Path, lp_report: Path) -> dict:
     if not work.is_dir() or any(work.iterdir()):
         raise FeatureBuildError('Work directory must already exist and be empty')
     if output.name != OUTPUT_NAME or output.exists() or output.is_symlink() or not output.parent.is_dir():
@@ -181,6 +331,11 @@ def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str) ->
         raise FeatureBuildError('Partial output path already exists')
     lock_path = Path(__file__).with_name('original-baseline.lock.json')
     lock = json.loads(lock_path.read_text())
+    tool_result = json.loads(lp_report.read_text())
+    if (tool_result.get('status') != 'SYNTHETIC_CONTROLS_PASSED'
+            or tool_result.get('tool', {}).get('sha256') != lpdump.SHA256
+            or pre.digest_file(lp_sandbox / 'tool/lpdump') != (lpdump.SIZE, lpdump.SHA256)):
+        raise FeatureBuildError('Independent isolated lpdump synthetic controls are missing or mismatched')
     apk = pre.download_app(work)
     apk_info = pre.inspect_apk(apk, aapt, apksigner, zipalign)
     source = pre.download_candidate(work)
@@ -188,6 +343,14 @@ def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str) ->
         expected, source_infos, old_text, old_proto = source_specs(lock_path, z)
         check_source_members(z, expected, source_infos)
     ota.verify_ota(source, old_text, old_proto)
+    with zipfile.ZipFile(source) as z, z.open('super.img') as stream:
+        old_prefix = stream.read(vintf.lp.MAX_PREFIX)
+    expanded_prefix, lp_plan = lp_expand.build(old_prefix, vintf.SUPER_BYTES, GROWTH_BYTES,
+                                                expected_metadata_sha=SOURCE_LP_SHA)
+    # The 4 MiB parser prefix overlaps the start of product. Only pass the
+    # reserved metadata region; product bytes are replaced separately below.
+    new_prefix = expanded_prefix[:lp_plan['metadata_reserved_end']]
+    old_prefix = old_prefix[:lp_plan['metadata_reserved_end']]
     print('Candidate 03 members, CRCs and OTA offsets verified', flush=True)
     extents = pre.extract_extents(source, work, lock)
     partitions = {}
@@ -196,21 +359,30 @@ def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str) ->
         if pre.digest_file(path) != (window['bytes'], window['sha256']):
             raise FeatureBuildError('Extracted partition failed independent readback: ' + name)
         partitions[name] = pre.read_ext4_metrics(path)
-    validate_space(partitions['product'], pre.APP_SIZE)
+    prospective = dict(partitions['product'])
+    # Require extra overhead beyond the normal post-install reserve; the actual
+    # filesystem free space is checked again after resize and insertion.
+    prospective['free_blocks'] += (GROWTH_BYTES - 2 * 1024 * 1024) // prospective['block_size']
+    validate_space(prospective, pre.APP_SIZE)
     scan_dir = work / 'package-scan'; scan_dir.mkdir()
     collision = scan_apk_packages.scan({n: v['path'] for n, v in extents.items()}, aapt, scan_dir, pre.APP_PACKAGE)
     print('Existing APK names scanned; no collision in the checked roots', flush=True)
     product_before = extents['product']['path']
     product_after = work / 'product-after.img'
     edit_dir = work / 'edit'; edit_dir.mkdir()
-    filesystem = feature_ext4.edit(product_before, product_after, apk, edit_dir, pre.APP_SHA256)
+    filesystem = feature_ext4.edit(product_before, product_after, apk, edit_dir, pre.APP_SHA256,
+                                      grow_by=GROWTH_BYTES)
+    resized_metrics = pre.read_ext4_metrics(product_after)
+    remaining = (resized_metrics['free_blocks'] - resized_metrics['reserved_blocks']) * resized_metrics['block_size']
+    if remaining < RESERVE_BYTES:
+        raise FeatureBuildError('Modified product has less than the required free-space reserve')
     print('SpatialFlow added to product copy; filesystem preservation and fsck passed', flush=True)
     # Only disposable, independently verified copies owned by this run are removed.
     for name in ('system', 'system_ext', 'product'):
         extents[name]['path'].unlink()
     try:
-        super_result = package(source, partial, source_infos, product_after, extents['product']['window'],
-                               filesystem['after_sha256'])
+        super_result = package_grown(source, partial, source_infos, product_after, lp_plan, new_prefix,
+                                     filesystem['after_sha256'])
         print('Experimental ZIP written; verifying independent readback', flush=True)
         output_expected = {name: dict(spec) for name, spec in expected.items()}
         output_expected['super.img']['sha256'] = super_result['sha256']
@@ -222,7 +394,11 @@ def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str) ->
         specs = vintf.part_specs(lock)
         with zipfile.ZipFile(source) as z, z.open('super.img') as s:
             windows = vintf.extent_windows(s.read(vintf.lp.MAX_PREFIX), vintf.SUPER_BYTES, specs)
-        super_check = compare_supers(source, partial, windows, filesystem['after_sha256'], super_result['sha256'])
+        super_check, final_prefix = compare_grown_supers(source, partial, windows, lp_plan, new_prefix,
+                                                          filesystem['after_sha256'], super_result['sha256'])
+        lp_cross_check = independent_lp_check(lp_sandbox, old_prefix, final_prefix, lp_plan, windows)
+        if final_prefix != new_prefix:
+            raise FeatureBuildError('Final super prefix differs from the checked LP plan')
         if pre.digest_file(source) != (pre.SOURCE_SIZE, pre.SOURCE_SHA256):
             raise FeatureBuildError('Source candidate changed during build')
         if pre.digest_file(apk) != (pre.APP_SIZE, pre.APP_SHA256):
@@ -236,10 +412,13 @@ def build(work: Path, output: Path, aapt: str, apksigner: str, zipalign: str) ->
                 'source': {'name': pre.SOURCE_NAME, 'bytes': pre.SOURCE_SIZE, 'sha256': pre.SOURCE_SHA256},
                 'output': {'name': output.name, 'bytes': size, 'sha256': sha, 'signed_by_this_recipe': False},
                 'apk': apk_info, 'package_collision_scan': collision, 'input_ext4': partitions,
-                'filesystem_audit': filesystem, 'super': super_result, 'super_comparison': super_check,
+                'filesystem_audit': filesystem, 'resized_product_ext4': resized_metrics,
+                'logical_partition_growth': lp_plan, 'isolated_lpdump': lp_cross_check,
+                'super': super_result, 'super_comparison': super_check,
                 'output_members': output_members, 'all_other_compressed_members_identical': compressed_count,
                 'ota_metadata': metadata, 'other_existing_apps_preserved': True,
                 'limitations': ['SpatialFlow inclusion is not proof it installs, opens, plays audio, or supports 4GB RAM.',
+                    'Product grows by 32 MiB into a second logical extent; device mapping and the real super partition size were not tested.',
                     'This does not repair previously reported partial VINTF/SELinux policy incompatibilities.',
                     'Recovery whole-file signature and external AVB/vbmeta trust are not validated.',
                     'No device/recovery test, flashing, data wipe, or firmware/security change was performed.',
@@ -258,15 +437,19 @@ def main() -> int:
     parser.add_argument('--aapt', required=True)
     parser.add_argument('--apksigner', required=True)
     parser.add_argument('--zipalign', required=True)
+    parser.add_argument('--lpdump-sandbox', required=True, type=Path)
+    parser.add_argument('--lpdump-report', required=True, type=Path)
     args = parser.parse_args()
     try:
-        result = build(args.work, args.output, args.aapt, args.apksigner, args.zipalign)
+        result = build(args.work, args.output, args.aapt, args.apksigner, args.zipalign,
+                       args.lpdump_sandbox, args.lpdump_report)
         args.report.write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result, separators=(',', ':')))
         return 0
     except (FeatureBuildError, pre.PreflightError, vintf.VintfAuditError, guarded.GuardBuildError,
             guard.AuditError, ota.OtaBuildError, installer.AuditError, boot.BuildError,
             feature_ext4.FeatureImageError, ext4_guard.ComparisonError, scan_apk_packages.PackageScanError,
+            lp_expand.LPExpandError, lpdump.LPToolError,
             OSError, ValueError, zipfile.BadZipFile) as exc:
         result = {'schema': 'synthetica-spatialflow-rom-candidate-v1', 'status': 'BUILD_FAILED_HOLD',
                   'error': str(exc), 'device_modified': False}

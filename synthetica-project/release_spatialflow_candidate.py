@@ -41,7 +41,9 @@ def checked_report(report: dict, output: Path) -> tuple[int, str]:
             or report.get('apk', {}).get('sha256') != pre.APP_SHA256
             or report.get('filesystem_audit', {}).get('status') != 'only_nonprivileged_spatialflow_paths_added'
             or report.get('filesystem_audit', {}).get('e2fsck_read_only_exit') != 0
-            or report.get('super_comparison', {}).get('all_bytes_outside_product_identical') is not True
+            or report.get('super_comparison', {}).get('all_bytes_outside_metadata_and_product_extents_identical') is not True
+            or report.get('super_comparison', {}).get('all_nonproduct_logical_partitions_identical') is not True
+            or report.get('isolated_lpdump', {}).get('status') != 'ISOLATED_THIRD_PARTY_LPDUMP_AGREES'
             or report.get('package_collision_scan', {}).get('collision_found_in_scanned_roots') is not False
             or report.get('ota_metadata', {}).get('legacy_and_protobuf_values_equal') is not True):
         raise ReleaseError('Build report does not meet release-preservation requirements')
@@ -63,7 +65,7 @@ def create_draft(tag: str, commit: str) -> int:
     if not re.fullmatch(r'[0-9a-f]{40}', commit):
         raise ReleaseError('Missing exact build revision')
     notes = ('HOLD / JANGAN FLASH. Unggahan eksperimental belum lengkap sampai manifest ada. '
-             'Kandidat ini hanya menambahkan SpatialFlow biasa; belum memperbaiki VINTF/policy, '
+             'Kandidat ini menambahkan SpatialFlow biasa dan memperbesar product 32 MiB dalam super; belum memperbaiki VINTF/policy, '
              'belum ditandatangani, belum diuji recovery/AVB/boot, dan belum disetujui untuk flash. '
              'Raw parts bukan ZIP terpisah. Jangan dipublikasikan untuk komunitas sebelum hak distribusi dan uji terpenuhi.\n'
              f'Revisi resep: {commit}. Basis: kandidat 03 terverifikasi dari ZIP asli diza.')
