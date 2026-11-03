@@ -112,6 +112,17 @@ class PackageScanIntegrationTests(unittest.TestCase):
         self.assertEqual(r['independent_xmltree_fallback_count'],0)
         self.assertFalse(r['collision_found_in_scanned_roots'])
         self.assertEqual(hashes,{n:hashlib.sha256(p.read_bytes()).digest() for n,p in self.images.items()})
+    def test_watched_package_reports_only_static_path_and_hash(self):
+        r=s.scan(self.images,str(self.aapt),self.scratch,'com.example.target',
+                 watch_packages={'com.example.original','com.example.absent'})
+        self.assertEqual(r['watched_package_paths']['com.example.absent'],[])
+        rows=r['watched_package_paths']['com.example.original']
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['path'],'/app/original/original.apk')
+        self.assertEqual(rows[0]['sha256'],hashlib.sha256(self.payload.read_bytes()).hexdigest())
+    def test_watched_list_is_bounded(self):
+        with self.assertRaises(s.PackageScanError):
+            s.scan(self.images,str(self.aapt),self.scratch,'com.example.target',watch_packages={'bad/path'})
     def test_existing_target_package_fails_closed(self):
         with self.assertRaises(s.PackageScanError):
             s.scan(self.images,str(self.aapt),self.scratch,'com.example.original')

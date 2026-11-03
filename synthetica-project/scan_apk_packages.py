@@ -136,7 +136,8 @@ def package_from_apk(apk: Path, aapt: str, aapt2: str) -> tuple[str, str]:
     return first, 'aapt_and_aapt2_xmltree'
 
 
-def scan(images: dict[str, Path], aapt: str, scratch: Path, forbidden_package: str, *, aapt2: str | None = None) -> dict:
+def scan(images: dict[str, Path], aapt: str, scratch: Path, forbidden_package: str, *,
+         aapt2: str | None = None, watch_packages: set[str] | None = None) -> dict:
     if vintf.pytsk3 is None:
         raise PackageScanError('pytsk3 is required')
     if not scratch.is_dir() or any(scratch.iterdir()):
@@ -145,6 +146,12 @@ def scan(images: dict[str, Path], aapt: str, scratch: Path, forbidden_package: s
         raise PackageScanError('Expected system, system_ext and product images')
     if not re.fullmatch(PACKAGE_RE, forbidden_package):
         raise PackageScanError('Invalid target application package')
+    if watch_packages is None:
+        watch_packages = set()
+    if (not isinstance(watch_packages, set) or len(watch_packages) > 64
+            or any(not isinstance(name, str) or not re.fullmatch(PACKAGE_RE, name) for name in watch_packages)):
+        raise PackageScanError('Watched package set is invalid or exceeds its bound')
+    watched = {name: [] for name in sorted(watch_packages)}
     if aapt2 is None:
         aapt2 = str(Path(aapt).with_name('aapt2'))
     tool_hashes = {'aapt_sha256': _tool_digest(aapt), 'aapt2_sha256': _tool_digest(aapt2)}
@@ -210,6 +217,13 @@ def scan(images: dict[str, Path], aapt: str, scratch: Path, forbidden_package: s
                                 fallback_paths.append(partition+':'+path)
                             if package == forbidden_package:
                                 raise PackageScanError('Application package already exists: ' + partition + ':' + path)
+                            if package in watched:
+                                h = hashlib.sha256()
+                                with temporary.open('rb') as f:
+                                    while data := f.read(CHUNK):
+                                        h.update(data)
+                                watched[package].append({'partition': partition, 'path': path, 'bytes': offset,
+                                                         'sha256': h.hexdigest(), 'manifest_reader': method})
                         finally:
                             temporary.unlink(missing_ok=True)
     if not checked or not scanned_roots:
@@ -221,6 +235,7 @@ def scan(images: dict[str, Path], aapt: str, scratch: Path, forbidden_package: s
             'tool_sha256': tool_hashes, 'apk_manifest_zip_crc_checked': True,
             'independent_xmltree_fallback_count': len(fallback_paths),
             'independent_xmltree_fallback_paths': fallback_paths,
+            'watched_package_paths': watched,
             'collision_found_in_scanned_roots': False,
             'limitations': ['Only allocated regular APKs in the listed filesystem roots were scanned.',
                             'APEX payloads, symlink targets, ODM/vendor, dynamic packages and runtime were not scanned.',
