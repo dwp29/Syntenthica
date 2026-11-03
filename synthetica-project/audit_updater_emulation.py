@@ -43,6 +43,7 @@ DTBO_SIZE = 25_165_824
 PARTITIONS = ("super", "boot", "dtbo")
 SENTINEL = b"SYNTHENTICA-DISPOSABLE-REGULAR-FILE-UNTOUCHED\n"
 FINISHED_MESSAGE = "- Flashing completed. Have a good day."
+MAX_TEST_FILE_BYTES = 9 * 1024**3  # disposable regular-file targets only
 SCRIPT_PROPERTIES = (b'getprop("ro.product.device")', b'getprop("ro.build.product")')
 
 
@@ -146,7 +147,7 @@ _ISOLATED_LAUNCHER = r'''
 import ctypes, os, resource, signal, stat, subprocess, sys
 root, archive, limit = sys.argv[1:]
 limit = int(limit)
-if not 0 <= limit <= 16 * 1024 * 1024:
+if not 0 <= limit <= 9 * 1024 * 1024 * 1024:
     raise RuntimeError('invalid test-only file size limit')
 mountpoint = root + '/input.zip'
 subprocess.run(['/usr/bin/mount', '--bind', archive, mountpoint], check=True)
@@ -196,7 +197,7 @@ os.execve('/qemu', ['qemu', '/update-binary', '3', '1', '/input.zip'],
 def _exec_isolated(root: Path, archive: Path, timeout: int = 45,
                    file_size_limit: int = 0) -> subprocess.CompletedProcess:
     """Fail closed if user namespaces, bind mounts, or the chroot are unavailable."""
-    if type(file_size_limit) is not int or not 0 <= file_size_limit <= 16 * 1024 * 1024:
+    if type(file_size_limit) is not int or not 0 <= file_size_limit <= MAX_TEST_FILE_BYTES:
         raise SimulationError("Invalid test-only file size limit")
     unshare = shutil.which("unshare")
     if not unshare or not Path("/usr/bin/mount").is_file():
