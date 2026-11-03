@@ -16,6 +16,7 @@ on:
 # temporary VINTF alternative is restored and never inserted into a ROM. VNDK
 # names, declarations and the existing VNDK-30 APEX are inspected read-only;
 # AVB signatures/hashtree use the embedded key only, not a trusted device key.
+# A bounded symbol/version comparison is not an ABI or linker verdict.
 # No donor files are added or trusted. The combined VINTF counterfactual is
 # restored and is not a ROM fix or device-boot verdict.
 permissions:
@@ -45,14 +46,15 @@ jobs:
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.11'
-      - name: Install the pinned read-only ext4 reader
+      - name: Install the pinned read-only ext4 and ELF readers
         run: python -m pip install --disable-pip-version-check --require-hashes -r synthetica-project/requirements-boot-audit.txt
       - name: Run targeted host regressions
         shell: bash
         run: |
           set -euo pipefail
           for test in test_probe_policy_compatibility.py test_audit_policy_metadata.py \
-            test_audit_vndk_candidates.py test_audit_vndk_apex.py test_audit_apex_avb_verify.py test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
+            test_audit_vndk_candidates.py test_audit_vndk_apex.py test_audit_apex_avb_verify.py test_audit_vndk_symbols.py \
+            test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
             test_hyperos4_lp_metadata.py test_github_guarded_report_relay.py; do
             python -m unittest discover -s tests -p "$test" -v
           done
@@ -123,6 +125,7 @@ jobs:
                       or len(summary.get('vndk_declarations', [])) != 3
                       or summary.get('existing_vndk30_apex', {}).get('sha256') != 'bd9fd612ddf6e42431ee0ebd680bd306505bc5abc1cf5afef5b0ba09af0089b3'
                       or len(summary.get('apex_avb_synthetic_controls', [])) != 4
+                      or len(summary.get('selected_vndk30_symbol_version_observations', {}).get('selected_apex_providers', [])) != 18
                       or type(summary.get('existing_vndk30_apex', {}).get('payload', {}).get('avb_verification', {}).get('verification_exit_code')) is not int
                       or summary.get('existing_vndk30_apex', {}).get('payload', {}).get('avb_verification', {}).get('signer_identity_or_trust_verified') is not False
                       or type(summary.get('vintf_hypothesis', {}).get('combined_hypothetical', {}).get('exit_code')) is not int

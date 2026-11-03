@@ -121,11 +121,13 @@ class ApexExt4Tests(unittest.TestCase):
             subprocess.run(['/usr/sbin/mke2fs', '-q', '-F', '-t', 'ext4', '-d', str(sys_ext), str(extent)],
                            check=True, capture_output=True)
             before = hashlib.sha256(extent.read_bytes()).hexdigest()
+            observed = []
             with mock.patch.object(audit, 'EXPECTED_BYTES', package.stat().st_size), \
                     mock.patch.object(audit, 'EXPECTED_SHA256', hashlib.sha256(package.read_bytes()).hexdigest()):
                 report, providers = audit.inspect_system_ext(
                     extent, avb_verifier=lambda payload: {'input_sha256': hashlib.sha256(payload.read_bytes()).hexdigest(),
-                                                          'verification_exit_code': 0})
+                                                          'verification_exit_code': 0},
+                    provider_observer=lambda _entry, _size, bits, name: observed.append((bits, name)))
                 with self.assertRaises(audit.VndkApexError):
                     audit.inspect_system_ext(extent, avb_verifier=lambda payload: {'input_sha256': 'bad'})
             self.assertEqual(report['payload']['avb_verification']['verification_exit_code'], 0)
@@ -133,6 +135,7 @@ class ApexExt4Tests(unittest.TestCase):
             self.assertEqual(report['payload']['filesystem'], 'ext4')
             self.assertTrue(report['payload']['inner_and_outer_manifest_bytes_identical'])
             self.assertEqual(providers, {(32, 'libx.so'), (64, 'libx.so')})
+            self.assertEqual(set(observed), providers)
             self.assertEqual(before, hashlib.sha256(extent.read_bytes()).hexdigest())
 
 

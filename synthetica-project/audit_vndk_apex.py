@@ -143,7 +143,7 @@ def avb_header_observation(payload: Path, bundled_key: bytes) -> dict:
             'signature_or_hashtree_verified': False, 'signer_trusted': 'not_assessed'}
 
 
-def inspect_ext4_payload(payload: Path, outer_manifest: bytes) -> tuple[dict, set[tuple[int, str]]]:
+def inspect_ext4_payload(payload: Path, outer_manifest: bytes, provider_observer=None) -> tuple[dict, set[tuple[int, str]]]:
     disk, fs = elf._open_ext4(payload)
     inner = fs.open(path='/apex_manifest.pb')
     if inner.info.meta is None or inner.info.meta.type != inventory.pytsk3.TSK_FS_META_TYPE_REG:
@@ -191,6 +191,8 @@ def inspect_ext4_payload(payload: Path, outer_manifest: bytes) -> tuple[dict, se
                     entry, int(meta.size)) == (bits, 40 if bits == 32 else 183, 3):
                 row['matching_elf_headers'] += 1
                 providers.add((bits, name))
+                if provider_observer is not None:
+                    provider_observer(entry, int(meta.size), bits, name)
             else:
                 row['other_library_names'] += 1
         roots.append(row)
@@ -199,7 +201,7 @@ def inspect_ext4_payload(payload: Path, outer_manifest: bytes) -> tuple[dict, se
              'library_roots': roots}, providers)
 
 
-def inspect_system_ext(image: Path, avb_verifier=None) -> tuple[dict, set[tuple[int, str]]]:
+def inspect_system_ext(image: Path, avb_verifier=None, provider_observer=None) -> tuple[dict, set[tuple[int, str]]]:
     disk, fs = elf._open_ext4(image)
     try:
         entry = fs.open(path=APEX_PATH)
@@ -236,7 +238,7 @@ def inspect_system_ext(image: Path, avb_verifier=None) -> tuple[dict, set[tuple[
                 raise VndkApexError('Isolated AVB verifier input differs from extracted payload')
             result['payload']['avb_verification'] = verification
         if fmt == 'ext4':
-            observations, providers = inspect_ext4_payload(payload, manifest)
+            observations, providers = inspect_ext4_payload(payload, manifest, provider_observer)
             result['payload'].update(observations)
         else:
             providers = set()
