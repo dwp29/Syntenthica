@@ -24,6 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = ROOT / 'research/hyperos4/HASIL-POLICY-COMPAT-RUN-41485767990-2026-11-02.json'
 SNAPSHOT_SHA256 = '08a6a4ba4130344a545fd3841b7a99b2477d656a6550879df85b6af80f7a5f68'
+BUILD_REPORT = ROOT / 'research/hyperos4/HASIL-BUILD-03-RUN-41477695884-2026-11-02.json'
+BUILD_REPORT_SHA256 = '23a195d558090fb0673b9650c4a16f29d46454d2811020ff292291ca5e8a04a8'
 TARGET = 'madrid-ota_full-OS4.0.17.0.XEOCNXM-user-17.0-c38824c8fe.zip'
 URLS = tuple(f'https://{host}/OS4.0.17.0.XEOCNXM/{TARGET}'
              for host in ('cdnorg.d.miui.com', 'bigota.d.miui.com', 'hugeota.d.miui.com'))
@@ -255,6 +257,68 @@ def parse_manifest(raw: bytes) -> dict:
     return {'block_size': block_size, 'minor_version': minor_version, 'partitions': rows}
 
 
+def crosscheck_manifest_with_protobuf(raw: bytes, manual: dict) -> None:
+    """Independently decode the small inspected subset with the protobuf runtime.
+
+    Unknown fields, including operations, are retained/ignored by protobuf. This
+    cross-check does not authenticate the manifest or decode its operations.
+    """
+    try:
+        from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
+        from google.protobuf.message import DecodeError
+    except ImportError as exc:
+        raise ProbeError('Pinned protobuf runtime is unavailable') from exc
+    schema = descriptor_pb2.FileDescriptorProto()
+    schema.name, schema.package, schema.syntax = 'synthetica_update_subset.proto', 'reference', 'proto2'
+    info = schema.message_type.add()
+    info.name = 'PartitionInfo'
+    update = schema.message_type.add()
+    update.name = 'PartitionUpdate'
+    manifest = schema.message_type.add()
+    manifest.name = 'DeltaArchiveManifest'
+
+    def add(message, name, number, kind, label, *, type_name='', default=''):
+        field = message.field.add()
+        field.name, field.number, field.type, field.label = name, number, kind, label
+        if type_name:
+            field.type_name = type_name
+        if default:
+            field.default_value = default
+
+    field = descriptor_pb2.FieldDescriptorProto
+    add(info, 'size', 1, field.TYPE_UINT64, field.LABEL_OPTIONAL)
+    add(info, 'hash', 2, field.TYPE_BYTES, field.LABEL_OPTIONAL)
+    add(update, 'partition_name', 1, field.TYPE_STRING, field.LABEL_REQUIRED)
+    add(update, 'new_partition_info', 7, field.TYPE_MESSAGE, field.LABEL_OPTIONAL,
+        type_name='.reference.PartitionInfo')
+    add(manifest, 'block_size', 3, field.TYPE_UINT32, field.LABEL_OPTIONAL, default='4096')
+    add(manifest, 'minor_version', 12, field.TYPE_UINT32, field.LABEL_OPTIONAL, default='0')
+    add(manifest, 'partitions', 13, field.TYPE_MESSAGE, field.LABEL_REPEATED,
+        type_name='.reference.PartitionUpdate')
+    try:
+        pool = descriptor_pool.DescriptorPool()
+        pool.Add(schema)
+        proto_type = message_factory.MessageFactory(pool).GetPrototype(
+            pool.FindMessageTypeByName('reference.DeltaArchiveManifest'))
+        decoded = proto_type()
+        decoded.ParseFromString(raw)
+        if not decoded.IsInitialized():
+            raise ProbeError('Protobuf runtime found missing required partition names')
+        rows = []
+        for partition in decoded.partitions:
+            size, digest = None, None
+            if partition.HasField('new_partition_info'):
+                partinfo = partition.new_partition_info
+                size = partinfo.size if partinfo.HasField('size') else None
+                digest = bytes(partinfo.hash).hex() if partinfo.HasField('hash') else None
+            rows.append({'name': partition.partition_name, 'new_size': size, 'declared_new_sha256': digest})
+        independent = {'block_size': decoded.block_size, 'minor_version': decoded.minor_version, 'partitions': rows}
+        if manual != independent:
+            raise ProbeError('Independent protobuf runtime disagrees with the bounded manifest parser')
+    except (DecodeError, ValueError, TypeError, KeyError, IndexError, OverflowError) as exc:
+        raise ProbeError('Protobuf runtime could not decode the supported manifest subset') from exc
+
+
 def _read_small(z, info):
     if info.is_dir() or info.flag_bits & 1 or info.file_size > MAX_SMALL or info.compress_size > MAX_SMALL:
         raise ProbeError(f'Unsafe or oversized metadata member: {info.filename}')
@@ -338,6 +402,7 @@ def inspect_zip(stream) -> dict:
         header_manifest_sha = hashlib.sha256(header + manifest).hexdigest()
         inclusive_sha = hashlib.sha256(header + manifest + metadata_signature).hexdigest()
         parsed = parse_manifest(manifest)
+        crosscheck_manifest_with_protobuf(manifest, parsed)
         allowed_metadata = ('ota-type', 'pre-device', 'post-sdk-level', 'post-security-patch-level',
                             'post-build-incremental', 'ota-wipe')
         safe_metadata = {key: metadata[key] for key in allowed_metadata if key in metadata}
@@ -347,6 +412,7 @@ def inspect_zip(stream) -> dict:
                 'metadata_zip_crc_verified': True, 'payload_properties_zip_crc_verified': True,
                 'payload_bytes': payload.file_size, 'payload_header_version': version,
                 'manifest_bytes': manifest_size, 'manifest_sha256': hashlib.sha256(manifest).hexdigest(),
+                'independent_protobuf_subset_matches': True,
                 'metadata_signature_bytes': signature_size, 'advertised_properties': published,
                 'advertised_metadata_hash_matches_header_manifest': published['metadata_hash_sha256'] == header_manifest_sha,
                 'advertised_metadata_hash_matches_including_signature': published['metadata_hash_sha256'] == inclusive_sha,
@@ -368,9 +434,22 @@ def compare_snapshot(manifest: dict) -> list[dict]:
             if pair['before'] != pair['after'] or name in port:
                 raise ProbeError('Port snapshot extents were inconsistent')
             port[name] = pair['before']
+    build_raw = BUILD_REPORT.read_bytes()
+    if hashlib.sha256(build_raw).hexdigest() != BUILD_REPORT_SHA256:
+        raise ProbeError('Candidate 03 build report differs from its pin')
+    build = json.loads(build_raw)
+    if (build.get('output', {}).get('sha256') != 'bd864ae0d5f5baf26e88f2b5848f15544e4843a46e6ac96636bc25c664e4f425'
+            or build.get('status') != 'HOLD_NOT_FLASH_APPROVED'):
+        raise ProbeError('Pinned build report does not identify the held candidate 03')
+    for member in build['unchanged_members']:
+        if member['name'] in ('boot.img', 'dtbo.img'):
+            name = member['name'].removesuffix('.img')
+            if name in port or member.get('zip_crc_verified_at_eof') is not True:
+                raise ProbeError('Candidate image observation was duplicate or CRC-unverified')
+            port[name] = {'bytes': member['bytes'], 'sha256': member['sha256']}
     donor = {row['name']: row for row in manifest['partitions']}
     rows = []
-    for name in ('system', 'system_ext', 'product', 'vendor'):
+    for name in ('system', 'system_ext', 'product', 'vendor', 'boot', 'dtbo'):
         p, d = port[name], donor.get(name)
         if not d or d['new_size'] is None or d['declared_new_sha256'] is None:
             relation = 'not_comparable_manifest_field_absent'
@@ -380,7 +459,8 @@ def compare_snapshot(manifest: dict) -> list[dict]:
             relation = 'same_size_different_declared_hash'
         else:
             relation = 'same_size_and_declared_hash_not_independently_verified'
-        rows.append({'partition': name, 'port_snapshot_bytes': p['bytes'], 'port_snapshot_sha256': p['sha256'],
+        rows.append({'partition': name, 'port_observation_kind': 'candidate_03_zip_member' if name in ('boot', 'dtbo') else 'logical_extent',
+                     'port_snapshot_bytes': p['bytes'], 'port_snapshot_sha256': p['sha256'],
                      'reference_declared_bytes': d['new_size'] if d else None,
                      'reference_declared_sha256': d['declared_new_sha256'] if d else None,
                      'comparison': relation})

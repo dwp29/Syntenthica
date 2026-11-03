@@ -74,6 +74,7 @@ class RangeAndPayloadTests(unittest.TestCase):
         self.assertEqual(result['metadata_fields']['post-sdk-level'], '37')
         self.assertTrue(result['metadata_zip_crc_verified'])
         self.assertTrue(result['payload_properties_zip_crc_verified'])
+        self.assertTrue(result['independent_protobuf_subset_matches'])
         self.assertTrue(result['advertised_metadata_hash_matches_header_manifest'])
         self.assertTrue(result['advertised_metadata_size_matches_header_manifest'])
         self.assertFalse(result['advertised_metadata_hash_matches_including_signature'])
@@ -125,6 +126,14 @@ class RangeAndPayloadTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(probe.ProbeError):
                 probe.parse_manifest(bad)
 
+    def test_independent_protobuf_decoder_detects_disagreement(self):
+        raw = blob(13, part('system', 1, b'a' * 32))
+        manual = probe.parse_manifest(raw)
+        probe.crosscheck_manifest_with_protobuf(raw, manual)
+        manual['partitions'][0]['new_size'] = 2
+        with self.assertRaisesRegex(probe.ProbeError, 'disagrees'):
+            probe.crosscheck_manifest_with_protobuf(raw, manual)
+
     def test_public_partition_names_with_dot_and_hyphen_are_supported_but_paths_rejected(self):
         parsed = probe.parse_manifest(blob(13, part('image-a.b', 1, b'a' * 32)))
         self.assertEqual(parsed['partitions'][0]['name'], 'image-a.b')
@@ -137,6 +146,9 @@ class RangeAndPayloadTests(unittest.TestCase):
         self.assertEqual(rows['system']['comparison'], 'different_sizes_not_a_whole_partition_match')
         self.assertEqual(rows['vendor']['comparison'], 'not_comparable_manifest_field_absent')
         self.assertIsNone(rows['vendor']['reference_declared_sha256'])
+        self.assertEqual(rows['boot']['port_observation_kind'], 'candidate_03_zip_member')
+        self.assertEqual(rows['boot']['port_snapshot_bytes'], 134217728)
+        self.assertEqual(rows['dtbo']['port_snapshot_bytes'], 25165824)
 
     def test_probe_uses_only_synthetic_range_and_reports_limitations(self):
         source = MemoryRange(fixture_zip())
