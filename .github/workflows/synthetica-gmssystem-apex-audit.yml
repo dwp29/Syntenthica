@@ -2,7 +2,7 @@ name: Synthetica Google APEX audit
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
-    paths: [.github/workflows/synthetica-gmssystem-apex-audit.yml, synthetica-project/audit_gmssystem_apex.py, tests/test_audit_gmssystem_apex.py]
+    paths: [.github/workflows/synthetica-gmssystem-apex-audit.yml, synthetica-project/audit_gmssystem_apex.py, synthetica-project/audit_gms_erofs.py, tests/test_audit_gmssystem_apex.py, tests/test_audit_gms_erofs.py]
   workflow_dispatch:
 # Reads verified draft 03; no packages or ROM images are uploaded or altered.
 permissions:
@@ -29,6 +29,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_scan_apk_packages.py' -v
           python -m unittest discover -s tests -p 'test_audit_gmssystem_apex.py' -v
+          python -m unittest discover -s tests -p 'test_audit_gms_erofs.py' -v
       - name: Select readers and reserve disposable space
         id: setup
         shell: bash
@@ -42,6 +43,14 @@ jobs:
           if (( free < 15000000000 )); then sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL; fi
           python -c 'import os,shutil; assert shutil.disk_usage(os.environ["RUNNER_TEMP"]).free > 14000000000'
           mkdir "$RUNNER_TEMP/base-packages"
+      - name: Fetch pinned public Android host tools for isolated EROFS
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest/raw/otatools.zip'
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --retry 2 --max-time 900 --max-filesize 734003200 "$url" -o "$RUNNER_TEMP/aosp-otatools.zip"
+          echo 'bc85557aa0c59a7d0b48b8175250948d67b2d0f293bd74eb8d5753ba4ad7781f  '"$RUNNER_TEMP/aosp-otatools.zip" | sha256sum -c -
       - name: Inspect Google APEX payload without mounting
         id: inventory
         shell: bash
@@ -49,7 +58,8 @@ jobs:
           set -euo pipefail
           tools='${{ steps.setup.outputs.tools }}'
           python -u synthetica-project/audit_gmssystem_apex.py --work "$RUNNER_TEMP/base-packages" \
-            --report "$RUNNER_TEMP/base-packages-result.json" --aapt "$tools/aapt" --aapt2 "$tools/aapt2"
+            --report "$RUNNER_TEMP/base-packages-result.json" --aapt "$tools/aapt" --aapt2 "$tools/aapt2" \
+            --otatools "$RUNNER_TEMP/aosp-otatools.zip"
       - name: Record bounded inventory including failures
         if: always()
         env:

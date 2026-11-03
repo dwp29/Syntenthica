@@ -2,7 +2,8 @@
 """Inspect APKs inside the on-disk Google gmssystem APEX, without activation.
 
 Extracts a single APEX from a verified product image, checks its ZIP payload,
-and, if it is ext4, reads package IDs using two host manifest tools. No device
+and reads package IDs using two host manifest tools. EROFS uses a separately
+controlled isolated reader. No device
 code runs, images are not mounted or changed, and the APEX is not published.
 APEX signatures, runtime activation, permissions and Play Services behavior are
 NOT established by this inspection. Unsupported payloads remain inconclusive.
@@ -14,6 +15,7 @@ from pathlib import Path
 import sys
 import zipfile
 import audit_runtime_apex as apex
+import audit_gms_erofs as erofs
 import audit_vintf_candidate as vintf
 import preflight_spatialflow as pre
 import scan_apk_packages as scan
@@ -67,7 +69,7 @@ def inspect_ext4(payload: Path,aapt: str,aapt2: str,scratch: Path) -> dict:
             'symlinks_not_followed':links}
 
 
-def inspect_apex(package: Path,aapt: str,aapt2: str,scratch: Path) -> dict:
+def inspect_apex(package: Path,aapt: str,aapt2: str,scratch: Path,erofs_inspector=None) -> dict:
     if not scratch.is_dir() or any(scratch.iterdir()):raise GmsApexError('APEX scratch must be empty')
     before=pre.digest_file(package)
     if not 0<before[0]<=MAX_APEX:raise GmsApexError('APEX size exceeds bounds')
@@ -89,6 +91,11 @@ def inspect_apex(package: Path,aapt: str,aapt2: str,scratch: Path) -> dict:
     if fmt=='ext4':
         apks=scratch/'apks';apks.mkdir();data['payload']['contents']=inspect_ext4(payload,aapt,aapt2,apks)
         data['status']='READ_ONLY_APEX_CONTENTS_INSPECTED_HOLD'
+    elif fmt=='erofs' and erofs_inspector is not None:
+        data['payload']['contents']=erofs_inspector(payload)
+        if data['payload']['contents']['input_sha256']!=meta['sha256']:
+            raise GmsApexError('Isolated EROFS input differs from verified payload')
+        data['status']='READ_ONLY_APEX_CONTENTS_INSPECTED_HOLD'
     else:
         data['status']='INCOMPLETE_UNSUPPORTED_APEX_FILESYSTEM_HOLD'
     if pre.digest_file(payload)!=(meta['bytes'],meta['sha256']) or pre.digest_file(package)!=before:
@@ -97,8 +104,12 @@ def inspect_apex(package: Path,aapt: str,aapt2: str,scratch: Path) -> dict:
     return data
 
 
-def run(work: Path,aapt: str,aapt2: str) -> dict:
+def run(work: Path,aapt: str,aapt2: str,otatools: Path | None=None) -> dict:
     if not work.is_dir() or any(work.iterdir()):raise GmsApexError('Work directory must be empty')
+    sandbox=controls=None
+    if otatools is not None:
+        sandbox,controls=erofs.setup(otatools,work,aapt,aapt2)
+        print('Isolated EROFS and independent manifest reader controls passed',flush=True)
     source=pre.download_candidate(work)
     lock=json.loads((Path(__file__).parent/'original-baseline.lock.json').read_text());specs=vintf.part_specs(lock)
     image=work/'product.img'
@@ -113,7 +124,12 @@ def run(work: Path,aapt: str,aapt2: str) -> dict:
     if m is None or m.type!=vintf.pytsk3.TSK_FS_META_TYPE_REG:raise GmsApexError('APEX is not an ordinary file')
     package=work/'gmssystem.apex';sha=apex.copy_tsk_entry(entry,int(m.size),package,MAX_APEX)
     if pre.digest_file(package)!=(int(m.size),sha):raise GmsApexError('Extracted APEX failed readback')
-    scratch=work/'apex-scratch';scratch.mkdir();result=inspect_apex(package,aapt,aapt2,scratch)
+    scratch=work/'apex-scratch';scratch.mkdir()
+    def inspect_erofs(payload):
+        raw_result=erofs.extract_raw(sandbox,payload,control=False)
+        return erofs.decode_apks(raw_result,aapt,aapt2,work/'reader-scratch')
+    result=inspect_apex(package,aapt,aapt2,scratch,inspect_erofs if sandbox is not None else None)
+    if controls is not None:result['erofs_controls']=controls
     if pre.digest_file(image)!=expected or pre.digest_file(source)!=(pre.SOURCE_SIZE,pre.SOURCE_SHA256):
         raise GmsApexError('Source or product image changed during audit')
     result.update(schema='synthetica-gmssystem-apex-v1',source_candidate03_sha256=pre.SOURCE_SHA256,
@@ -124,10 +140,12 @@ def run(work: Path,aapt: str,aapt2: str) -> dict:
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--work',required=True,type=Path)
     p.add_argument('--report',required=True,type=Path);p.add_argument('--aapt',required=True);p.add_argument('--aapt2',required=True)
+    p.add_argument('--otatools',type=Path,help='Pinned AOSP otatools for isolated EROFS; omitted means EROFS remains incomplete')
     a=p.parse_args()
     try:
-        result=run(a.work,a.aapt,a.aapt2);code=0 if result['status']=='READ_ONLY_APEX_CONTENTS_INSPECTED_HOLD' else 1
-    except (GmsApexError,apex.ApexAuditError,scan.PackageScanError,pre.PreflightError,vintf.VintfAuditError,
+        result=run(a.work,a.aapt,a.aapt2,a.otatools);code=0 if result['status']=='READ_ONLY_APEX_CONTENTS_INSPECTED_HOLD' else 1
+    except (GmsApexError,erofs.GmsErofsError,erofs.check.CheckAuditError,erofs.erofs.ErofsAuditError,
+            apex.ApexAuditError,scan.PackageScanError,pre.PreflightError,vintf.VintfAuditError,
             guard.AuditError,OSError,ValueError,zipfile.BadZipFile,RuntimeError) as exc:
         result={'schema':'synthetica-gmssystem-apex-v1','status':'INCOMPLETE_HOLD','error':str(exc),'device_modified':False};code=1
     a.report.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,separators=(',',':')),flush=True);return code
