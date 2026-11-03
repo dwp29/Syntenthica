@@ -294,6 +294,9 @@ def run(work: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
     print('Upstream APK identity, signature, ABI, manifest and alignment inspected', flush=True)
     source = download_candidate(work)
     extents = extract_extents(source, work, lock)
+    with zipfile.ZipFile(source) as z, z.open('super.img') as s:
+        prefix = s.read(vintf.lp.MAX_PREFIX)
+        layout = vintf.lp.inspect_raw_super(prefix, vintf.SUPER_BYTES)
     partitions = {}
     for name, item in extents.items():
         image = item['path']
@@ -305,8 +308,16 @@ def run(work: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
             avb_footer = f.read(4) == b'AVBf'
         metrics = read_ext4_metrics(image)
         paths = inspect_paths(image)
+        label_data = None
+        app_root = '/system/app' if name == 'system' else '/app'
+        try:
+            stat_text = command(['/usr/sbin/debugfs', '-R', 'stat ' + app_root, str(image)])
+            label_line = next((line.strip() for line in stat_text.splitlines() if 'security.selinux' in line), None)
+            label_data = label_line
+        except PreflightError:
+            pass
         partitions[name] = {'bytes': size, 'sha256': sha, 'avb_footer_present': avb_footer,
-                            'ext4': metrics, **paths}
+                            'ext4': metrics, 'app_root_selinux_label_display': label_data, **paths}
         print(name + ' extent checked read-only', flush=True)
     if digest_file(source) != (SOURCE_SIZE, SOURCE_SHA256):
         raise PreflightError('Candidate source changed during extraction')
@@ -314,7 +325,7 @@ def run(work: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
             'status': 'READ_ONLY_PREFLIGHT_NOT_A_ROM_BUILD_HOLD',
             'source': {'name': SOURCE_NAME, 'bytes': SOURCE_SIZE, 'sha256': SOURCE_SHA256,
                        'source_and_draft_unchanged': True},
-            'application': app_result, 'partitions': partitions,
+            'application': app_result, 'partitions': partitions, 'logical_partition_metadata': layout,
             'limitations': ['Space and APK metadata do not prove the app will install, run, or coexist with existing packages.',
                             'An absent filesystem AVB footer does not establish external vbmeta or trust.',
                             'No image was edited or ROM built, signed, flashed, or tested on a device.',
