@@ -131,13 +131,19 @@ def prepare(data: bytes,*,expected_sha256: str=SOURCE_SHA256) -> tuple[bytes,dic
 
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--source',required=True,type=Path);p.add_argument('--output',required=True,type=Path);a=p.parse_args()
+    created=False
     try:
-        if a.source.is_symlink() or not a.source.is_file() or a.output.exists() or a.output.is_symlink():
-            raise QuarantineError('Use an ordinary existing source and a new output path')
+        if (a.source.is_symlink() or not a.source.is_file() or a.source.stat().st_size>MAX_SOURCE
+            or a.output.exists() or a.output.is_symlink()):
+            raise QuarantineError('Use a bounded ordinary source and a new output path')
         data=a.source.read_bytes();output,report=prepare(data)
-        with a.output.open('xb') as out:out.write(output);out.flush();os.fsync(out.fileno())
+        with a.output.open('xb') as out:
+            created=True;out.write(output);out.flush();os.fsync(out.fileno())
         if a.source.read_bytes()!=data:raise QuarantineError('Source changed during preparation')
         print(json.dumps(report,indent=2));return 0
     except (QuarantineError,OSError) as exc:
+        if created:
+            try:a.output.unlink(missing_ok=True)
+            except OSError:pass
         print('Vault quarantine not prepared: '+str(exc),file=sys.stderr);return 1
 if __name__=='__main__':sys.exit(main())

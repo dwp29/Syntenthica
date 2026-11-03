@@ -19,6 +19,14 @@ class SignerOutputTests(unittest.TestCase):
                      'V3.2 Hybrid PQC Signer: certificate SHA-256 digest: '+digest,
                      'V3.0 Signer: certificate SHA-256 digest: '+digest+'x'):
             with self.subTest(line=line):self.assertEqual(p.parse_certificates(line),[])
+    def test_mixed_known_and_unknown_signers_are_ambiguous_but_stamp_is_not(self):
+        known='V3.0 Signer: certificate SHA-256 digest: '+'a'*64+'\n'
+        unknown='Future signer #2 certificate SHA-256 digest: '+'b'*64+'\n'
+        stamp='Source Stamp Signer: certificate SHA-256 digest: '+'c'*64+'\n'
+        self.assertEqual(p.parse_certificates(known+unknown),['a'*64])
+        self.assertEqual(p.unparsed_signer_certificate_lines(known+unknown),[unknown.strip()])
+        self.assertEqual(p.unparsed_signer_certificate_lines(known+stamp),[])
+        self.assertLessEqual(len(p.unparsed_signer_certificate_lines(unknown*100)),8)
     def test_multiple_distinct_certificates_remain_visible(self):
         line=lambda x:'V3.0 Signer: certificate SHA-256 digest: '+x*64+'\n'
         self.assertEqual(p.parse_certificates(line('a')+line('b')+line('a')),['a'*64,'b'*64])

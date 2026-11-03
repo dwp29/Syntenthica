@@ -69,6 +69,8 @@ class InnerSignatureTests(unittest.TestCase):
             self.assertFalse(result['signer_identity_or_device_trust_verified'])
             tool.write_text('#!/bin/sh\nprintf "Verified using v3 scheme test: true\\nSigner #1 certificate SHA-256 digest: '+('a'*64)+'\\n"\nexit 1\n');tool.chmod(0o755)
             self.assertFalse(inner.verify_apk(apk,str(tool))['signature_verified_on_host'])
+            tool.write_text('#!/bin/sh\nprintf "Verified using v3 scheme test: true\\nSigner #1 certificate SHA-256 digest: '+('a'*64)+'\\nFuture signer #2 certificate SHA-256 digest: '+('b'*64)+'\\n"\nexit 0\n');tool.chmod(0o755)
+            self.assertFalse(inner.verify_apk(apk,str(tool))['signature_verified_on_host'])
             tool.write_text('#!/bin/sh\nprintf "Verified using v3 scheme test: true\\n"\nexit 0\n');tool.chmod(0o755)
             self.assertFalse(inner.verify_apk(apk,str(tool))['signature_verified_on_host'])
 if __name__=='__main__':unittest.main()

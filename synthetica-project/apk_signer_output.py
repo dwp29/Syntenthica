@@ -24,6 +24,25 @@ def parse_certificates(text: str) -> list[str]:
     return sorted({x.lower() for x in CERT_LINE.findall(text)})
 
 
+def unparsed_signer_certificate_lines(text: str) -> list[str]:
+    """Report unknown signer digest labels even when another label parsed.
+
+    Source-stamp digests are not APK signers. An otherwise unrecognized SHA-256
+    certificate line is ambiguous and must prevent callers from asserting a
+    single, unambiguous signer. Returned diagnostics are bounded.
+    """
+    if not isinstance(text,str) or len(text.encode('utf-8'))>MAX_OUTPUT:
+        raise SignerOutputError('Apksigner output exceeds bounds')
+    result=[]
+    for line in text.splitlines():
+        if 'certificate SHA-256 digest:' not in line or line.startswith('Source Stamp '):
+            continue
+        if not CERT_LINE.fullmatch(line):
+            result.append(line[:500])
+            if len(result)>=8:break
+    return result
+
+
 def parse_schemes(text: str) -> dict[str,bool]:
     if not isinstance(text,str) or len(text.encode('utf-8'))>MAX_OUTPUT:
         raise SignerOutputError('Apksigner output exceeds bounds')

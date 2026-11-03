@@ -185,9 +185,10 @@ def inspect_apk(apk: Path, aapt: str, apksigner: str, zipalign: str) -> dict:
     target = re.search(r"^targetSdkVersion:'([0-9]+)'", badging, re.M)
     native = re.search(r'^native-code: (.+)$', badging, re.M)
     certs = signer_output.parse_certificates(signatures)
+    ambiguous_certs = signer_output.unparsed_signer_certificate_lines(signatures)
     if (not package or package.group(1) != APP_PACKAGE or package.group(3) != '1.8.2'
             or not sdk or not target or int(sdk.group(1)) > 37
-            or not native or "'arm64-v8a'" not in native.group(1) or len(certs) != 1):
+            or not native or "'arm64-v8a'" not in native.group(1) or len(certs) != 1 or ambiguous_certs):
         detail = {'package_line': next((x[:500] for x in badging.splitlines() if x.startswith('package:')), None),
                   'sdk': sdk.group(1) if sdk else None, 'target': target.group(1) if target else None,
                   'native': native.group(1) if native else None, 'signer_count': len(certs),

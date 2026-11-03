@@ -97,7 +97,7 @@ def export_raw(sandbox: Path,image: Path,output: Path,*,path: str,size: int,sha:
             raise InnerError(f'EROFS export sandbox failed ({proc.returncode}): {safe}')
         try:result=json.loads(out)
         except (UnicodeError,ValueError) as exc:raise InnerError('Invalid isolated export result') from exc
-        if (result.get('tool_exit_code')!=0 or result.get('exported')!={'bytes':size,'sha256':sha,'path':path}
+        if (not isinstance(result,dict) or result.get('tool_exit_code')!=0 or result.get('exported')!={'bytes':size,'sha256':sha,'path':path}
             or not all(result.get(k) is True for k in ('root_read_only','no_new_privs','capabilities_dropped'))
             or pre.digest_file(output)!=(size,sha) or pre.digest_file(image)!=before):
             raise InnerError('Export or isolation verification failed')
@@ -119,10 +119,12 @@ def verify_apk(apk: Path,apksigner: str)->dict:
     except (OSError,subprocess.TimeoutExpired) as exc:raise InnerError('Signature verifier did not complete') from exc
     if len(proc.stdout)+len(proc.stderr)>signer.MAX_OUTPUT:raise InnerError('Verifier output exceeded bound')
     text=proc.stdout.decode('utf-8','replace');certs=signer.parse_certificates(text);schemes=signer.parse_schemes(text)
+    diagnostic=signer.unparsed_signer_certificate_lines(text)
     if pre.digest_file(apk)!=before:raise InnerError('APK changed during verification')
     return {'bytes':before[0],'sha256':before[1],'verifier_exit_code':proc.returncode,
-            'signature_verified_on_host':proc.returncode==0 and len(certs)==1 and any(schemes.get(x) for x in ('2','3','3.1','3.2')),
-            'certificate_sha256':certs[0] if len(certs)==1 else None,'unique_certificate_count':len(certs),'schemes_reported':schemes,
+            'signature_verified_on_host':proc.returncode==0 and len(certs)==1 and not diagnostic and any(schemes.get(x) for x in ('2','3','3.1','3.2')),
+            'certificate_sha256':certs[0] if len(certs)==1 and not diagnostic else None,'unique_certificate_count':len(certs),'schemes_reported':schemes,
+            'unparsed_signer_certificate_digest_lines':diagnostic,
             'verifier_stdout_sha256':hashlib.sha256(proc.stdout).hexdigest(),'verifier_stderr_sha256':hashlib.sha256(proc.stderr).hexdigest(),
             'tool_script_sha256':scan._tool_digest(apksigner),'signer_identity_or_device_trust_verified':False}
 

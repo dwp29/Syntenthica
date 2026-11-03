@@ -27,6 +27,7 @@ class GmsSignatureTests(unittest.TestCase):
         self.assertFalse(self.call(1,out)['outer_signature_verified_by_host'])
         self.assertFalse(self.call(0,out+'Signer #2 certificate SHA-256 digest: '+'b'*64+'\n')['outer_signature_verified_by_host'])
         self.assertFalse(self.call(0,'')['outer_signature_verified_by_host'])
+        self.assertFalse(self.call(0,out+'Future signer #2 certificate SHA-256 digest: '+'b'*64+'\n')['outer_signature_verified_by_host'])
     def test_unpinned_apex_rejected(self):
         with mock.patch.object(s.pre,'digest_file',return_value=(1,'0'*64)),self.assertRaises(s.GmsSignatureError):
             s.outer_signature(Path('/fake.apex'),'/bin/true')

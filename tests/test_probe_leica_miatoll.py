@@ -65,6 +65,13 @@ class LeicaProbeTests(unittest.TestCase):
         self.assertFalse(r['signature_verified_on_host'])
         self.assertEqual(len(r['unparsed_certificate_digest_lines']),1)
         self.assertIn('Signer (minSdkVersion=28)',r['unparsed_certificate_digest_lines'][0])
+    def test_known_plus_unknown_signer_is_not_claimed_verified(self):
+        output=('V3.0 Signer: certificate SHA-256 digest: '+'a'*64+'\nFuture signer #2 certificate SHA-256 digest: '+'b'*64+'\n').encode()
+        with mock.patch.object(p.scan,'_tool_digest',return_value='a'*64), \
+             mock.patch.object(p.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=output,stderr=b'')):
+            r=p.apk_signature(self.root/'sample.apk','/bin/true')
+        self.assertFalse(r['signature_verified_on_host']);self.assertIsNone(r['certificate_sha256'])
+        self.assertEqual(len(r['unparsed_certificate_digest_lines']),1)
     def test_ambiguous_manifest_fails_before_host_tools(self):
         apk=self.root/'sample.apk'
         with zipfile.ZipFile(apk,'w') as z:z.writestr('other',b'nothing')

@@ -47,10 +47,12 @@ def outer_signature(apex_path: Path,apksigner: str) -> dict:
     out=proc.stdout.decode('utf-8','replace')
     certs=signer_output.parse_certificates(out)
     schemes=signer_output.parse_schemes(out)
+    diagnostic=signer_output.unparsed_signer_certificate_lines(out)
     # apksigner exit zero indicates cryptographic self-consistency for its SDK rules,
     # but a missing or ambiguous signer is still marked incomplete.
-    return {'verifier_exit_code':proc.returncode,'outer_signature_verified_by_host':proc.returncode==0 and len(certs)==1,
-            'certificate_sha256':certs[0] if len(certs)==1 else None,'signer_count':len(certs),
+    return {'verifier_exit_code':proc.returncode,'outer_signature_verified_by_host':proc.returncode==0 and len(certs)==1 and not diagnostic,
+            'certificate_sha256':certs[0] if len(certs)==1 and not diagnostic else None,'signer_count':len(certs),
+            'unparsed_signer_certificate_digest_lines':diagnostic,
             'schemes_reported':schemes,'tool_stdout_sha256':hashlib.sha256(proc.stdout).hexdigest(),
             'tool_stderr_sha256':hashlib.sha256(proc.stderr).hexdigest(),'tool_script_sha256':scan._tool_digest(apksigner),
             'signer_identity_or_device_trust_verified':False}

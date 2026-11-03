@@ -1,6 +1,8 @@
 import hashlib
 import sys
 import unittest
+import tempfile
+from unittest.mock import patch as mock_patch
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'synthetica-project'))
 import prepare_axsandbox_vault_quarantine as p
@@ -37,6 +39,22 @@ class QuarantineTests(unittest.TestCase):
     def test_brace_scanner_handles_triple_strings_and_nested_comments(self):
         text='{ val a = """fake } {"""; /* { /* } */ } */ if (true) { x() } } trailing'
         self.assertEqual(text[p._method_end(text,0):], ' trailing')
+    def test_cli_removes_only_its_own_output_if_source_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source=Path(tmp)/'source.kt';source.write_bytes(b'original');output=Path(tmp)/'out.kt'
+            real_read=Path.read_bytes;reads=[]
+            def changing_read(path):
+                if path==source:
+                    reads.append(1)
+                    return b'original' if len(reads)==1 else b'changed'
+                return real_read(path)
+            with mock_patch.object(sys,'argv',['prepare','--source',str(source),'--output',str(output)]), \
+                 mock_patch.object(p,'prepare',return_value=(b'prototype',{})),mock_patch.object(Path,'read_bytes',changing_read):
+                self.assertEqual(p.main(),1)
+            self.assertFalse(output.exists());self.assertEqual(source.read_bytes(),b'original')
+            output.write_bytes(b'keep')
+            with mock_patch.object(sys,'argv',['prepare','--source',str(source),'--output',str(output)]):self.assertEqual(p.main(),1)
+            self.assertEqual(output.read_bytes(),b'keep')
     def test_source_with_surviving_known_destructive_path_fails(self):
         source=fixture()+b'\nmetadataFile.delete()\n'
         with self.assertRaises(p.QuarantineError):patch(source)
