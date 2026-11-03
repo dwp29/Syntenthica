@@ -34,6 +34,7 @@ import audit_updater_emulation as emu
 import audit_vintf_candidate as inventory
 import audit_vndk_candidates as vndk
 import audit_vndk_apex as vndk_apex
+import audit_apex_avb_verify as avb_verify
 import audit_vendor_abi as vendor_abi
 import audit_vendor_elf_metadata as vendor_elf
 
@@ -505,6 +506,7 @@ def test_vintf_hypothesis(sandbox: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--otatools', type=Path, required=True)
+    parser.add_argument('--avbtool', type=Path, required=True)
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
@@ -515,6 +517,9 @@ def main() -> int:
     sandbox = args.work / 'sandbox'
     sandbox.mkdir()
     tool = prepare_secilc(args.otatools, sandbox)
+    avb_tool = avb_verify.prepare(sandbox, args.avbtool)
+    print('Running APEX AVB positive, corruption, invalid-signature and unsigned synthetic controls', flush=True)
+    avb_controls = avb_verify.run_controls(sandbox, args.work, args.avbtool)
     print('Running compiler positive, unresolved-symbol and neverallow synthetic controls', flush=True)
     synthetic = controls(sandbox)
     reference_synthetic = reference_controls(sandbox)
@@ -532,7 +537,8 @@ def main() -> int:
         capture_partition(image, part, sandbox / 'policy', policy_rows, mapping_version)
         vndk_rows.append(vndk.scan_partition(image, part))
         if part == 'system_ext':
-            observed, providers = vndk_apex.inspect_system_ext(image)
+            observed, providers = vndk_apex.inspect_system_ext(
+                image, avb_verifier=lambda payload: avb_verify.verify_isolated(sandbox, payload))
             apex_result.update(observed)
             apex_providers.update(providers)
         elif part == 'vendor':
@@ -581,6 +587,7 @@ def main() -> int:
         'verified_extents_and_super': groups, 'policy_inputs': policy_rows,
         'vndk_candidate_inventory': vndk_rows, 'vndk_declarations': vndk_declarations,
         'existing_vndk30_apex': apex_result,
+        'apex_avb_verifier': avb_tool, 'apex_avb_synthetic_controls': avb_controls,
         'vendor_executable_references_to_vndk30': vndk_apex.summarize_vendor_references(
             collector, apex_providers, apex_result.get('payload', {}).get('filesystem') == 'ext4'),
         'verified_vendor_mapping_version': mapping_version,
@@ -593,6 +600,7 @@ def main() -> int:
             'Strict compilation keeps neverallow checks enabled; the separately labelled AOSP init comparison uses -N only on disposable host output.',
             'Reference -N skips compiler assertions; it does not disable SELinux device enforcement, and its output is never shipped or installed.',
             'Actual ODM, SKU, genfs selection, userdebug policy, APEX and device kernel state are unknown.',
+            'APEX AVB verification uses its embedded key; it does not establish signer trust, outer APK signing, device AVB or activation.',
             'On-disk VNDK files, symlinks and declarations cannot prove activation, provenance, signer trust or ABI compatibility.',
             'VINTF version change is only a counterfactual temporary snapshot, not a validated or applied fix.',
             'Neither host compile nor VINTF snapshot proves AVB, recovery acceptance, policy load, HAL ABI or boot.',
@@ -610,7 +618,7 @@ if __name__ == '__main__':
     try:
         raise SystemExit(main())
     except (PolicyProbeError, check.CheckAuditError, inventory.VintfAuditError, vndk.VndkAuditError,
-            vndk_apex.VndkApexError, vendor_abi.AbiAuditError, vendor_elf.ElfMetadataError,
+            vndk_apex.VndkApexError, avb_verify.AvbProbeError, vendor_abi.AbiAuditError, vendor_elf.ElfMetadataError,
             draft.DraftTestError, emu.SimulationError, OSError, ValueError,
             zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
         print(f'::error title=Policy compatibility probe stopped::{exc}', file=sys.stderr)

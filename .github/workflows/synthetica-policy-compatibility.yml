@@ -15,7 +15,8 @@ on:
 # changes. Its output remains in disposable tmpfs and is never installed. The
 # temporary VINTF alternative is restored and never inserted into a ROM. VNDK
 # names, declarations and the existing VNDK-30 APEX are inspected read-only;
-# no donor files are added or trusted. The combined VINTF counterfactual is
+# AVB signatures/hashtree use the embedded key only, not a trusted device key.
+# No donor files are added or trusted. The combined VINTF counterfactual is
 # restored and is not a ROM fix or device-boot verdict.
 permissions:
   contents: write
@@ -51,7 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           for test in test_probe_policy_compatibility.py test_audit_policy_metadata.py \
-            test_audit_vndk_candidates.py test_audit_vndk_apex.py test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
+            test_audit_vndk_candidates.py test_audit_vndk_apex.py test_audit_apex_avb_verify.py test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
             test_hyperos4_lp_metadata.py test_github_guarded_report_relay.py; do
             python -m unittest discover -s tests -p "$test" -v
           done
@@ -79,6 +80,12 @@ jobs:
           curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
             --retry 2 --max-time 900 --max-filesize 734003200 "$url" -o "$RUNNER_TEMP/ota-tools-policy.zip"
           echo 'bc85557aa0c59a7d0b48b8175250948d67b2d0f293bd74eb8d5753ba4ad7781f  '"$RUNNER_TEMP/ota-tools-policy.zip" | sha256sum -c -
+      - name: Fetch the pinned AOSP AVB verifier source
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api 'repos/aosp-mirror-neo/platform_external_avb/contents/avbtool.py?ref=761178607206f4cb2af79ed9eec52d8cbd814adb' --jq .content | base64 -d > "$RUNNER_TEMP/avbtool-pinned.py"
+          echo 'e5a664a38db623da00f080219bc0ee60a640a9dc4a872803616fae4938ac749b  '"$RUNNER_TEMP/avbtool-pinned.py" | sha256sum -c -
       - name: Test verified split policy and a temporary VINTF hypothesis
         id: probe
         shell: bash
@@ -87,6 +94,7 @@ jobs:
           mkdir "$RUNNER_TEMP/policy-compat"
           python -u synthetica-project/probe_policy_compatibility.py \
             --otatools "$RUNNER_TEMP/ota-tools-policy.zip" \
+            --avbtool "$RUNNER_TEMP/avbtool-pinned.py" \
             --work "$RUNNER_TEMP/policy-compat" \
             --report "$RUNNER_TEMP/policy-compat-result.json" 2>&1 | tee "$RUNNER_TEMP/policy-compat.log"
       - name: Record bounded results and safe failure details
@@ -114,6 +122,9 @@ jobs:
                       or len(summary.get('vndk_candidate_inventory', [])) != 4
                       or len(summary.get('vndk_declarations', [])) != 3
                       or summary.get('existing_vndk30_apex', {}).get('sha256') != 'bd9fd612ddf6e42431ee0ebd680bd306505bc5abc1cf5afef5b0ba09af0089b3'
+                      or len(summary.get('apex_avb_synthetic_controls', [])) != 4
+                      or type(summary.get('existing_vndk30_apex', {}).get('payload', {}).get('avb_verification', {}).get('verification_exit_code')) is not int
+                      or summary.get('existing_vndk30_apex', {}).get('payload', {}).get('avb_verification', {}).get('signer_identity_or_trust_verified') is not False
                       or type(summary.get('vintf_hypothesis', {}).get('combined_hypothetical', {}).get('exit_code')) is not int
                       or summary.get('vintf_hypothesis', {}).get('temporary_snapshot_restored') is not True
                       or len(summary.get('compiler_controls', [])) != 3

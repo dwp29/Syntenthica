@@ -199,7 +199,7 @@ def inspect_ext4_payload(payload: Path, outer_manifest: bytes) -> tuple[dict, se
              'library_roots': roots}, providers)
 
 
-def inspect_system_ext(image: Path) -> tuple[dict, set[tuple[int, str]]]:
+def inspect_system_ext(image: Path, avb_verifier=None) -> tuple[dict, set[tuple[int, str]]]:
     disk, fs = elf._open_ext4(image)
     try:
         entry = fs.open(path=APEX_PATH)
@@ -230,6 +230,11 @@ def inspect_system_ext(image: Path) -> tuple[dict, set[tuple[int, str]]]:
                   'limitations': ['No device or candidate image was modified.',
                       'A matching embedded public key is not signature, signer trust, or boot verification.',
                       'Library names and ELF headers do not prove symbol ABI or Android linker reachability.']}
+        if avb_verifier is not None:
+            verification = avb_verifier(payload)
+            if verification.get('input_sha256') != payload_info['sha256']:
+                raise VndkApexError('Isolated AVB verifier input differs from extracted payload')
+            result['payload']['avb_verification'] = verification
         if fmt == 'ext4':
             observations, providers = inspect_ext4_payload(payload, manifest)
             result['payload'].update(observations)

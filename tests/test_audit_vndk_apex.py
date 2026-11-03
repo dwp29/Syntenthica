@@ -123,7 +123,12 @@ class ApexExt4Tests(unittest.TestCase):
             before = hashlib.sha256(extent.read_bytes()).hexdigest()
             with mock.patch.object(audit, 'EXPECTED_BYTES', package.stat().st_size), \
                     mock.patch.object(audit, 'EXPECTED_SHA256', hashlib.sha256(package.read_bytes()).hexdigest()):
-                report, providers = audit.inspect_system_ext(extent)
+                report, providers = audit.inspect_system_ext(
+                    extent, avb_verifier=lambda payload: {'input_sha256': hashlib.sha256(payload.read_bytes()).hexdigest(),
+                                                          'verification_exit_code': 0})
+                with self.assertRaises(audit.VndkApexError):
+                    audit.inspect_system_ext(extent, avb_verifier=lambda payload: {'input_sha256': 'bad'})
+            self.assertEqual(report['payload']['avb_verification']['verification_exit_code'], 0)
             self.assertEqual(report['outer_manifest']['name'], 'com.android.vndk.v30')
             self.assertEqual(report['payload']['filesystem'], 'ext4')
             self.assertTrue(report['payload']['inner_and_outer_manifest_bytes_identical'])
