@@ -1,0 +1,25 @@
+{
+  "status": "INCOMPLETE_UNSIGNED_BUILD",
+  "outcomes": {
+    "STAGE_OUTCOME": "success",
+    "SDK_OUTCOME": "failure",
+    "COMPILE_OUTCOME": "skipped",
+    "VERIFY_OUTCOME": "skipped"
+  },
+  "source_stage": {
+    "status": "STAGED_FOR_UNSIGNED_HOST_BUILD_NOT_INSTALLED",
+    "source_commit": "8a40906d074ab95b2bfa32481bfae140dfdfcbed",
+    "source_manifest_sha256": "f1012fab2e47995dfe7107280fb6a91283d32f1039e83b0542d7676311c49fee",
+    "patched_manifest_sha256": "7b550c685db1106722cb9224619454910c46baa2caef1424a6db75fd7374b8c7",
+    "wrapper_original_sha256": "6b4f2bc9ae1cc63596e38d99efb78ff2d6e86b9e47e9742cac118685c1d3f55f",
+    "wrapper_patched_sha256": "0b43b00812f08753748ae2122c32268032ab33a53bd8bb705f02fdb7e4fa515b",
+    "wrapper_jar_sha256": "76805e32c009c0cf0dd5d206bddc9fb22ea42e84db904b764f3047de095493f3",
+    "gradle_distribution_sha256": "acd53f1edaf02f1a8ff99879f8a34b302661a057d9b063ae9e35b552f804d20a",
+    "music_player_to": ".MainActivity",
+    "limitations": [
+      "The build still needs Android SDK and public dependencies.",
+      "A staged manifest does not prove build success, APK signing, default selection or playback.",
+      "Replacing the release APK requires a compatible signing/update strategy."
+    ]
+  }
+}
