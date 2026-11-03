@@ -1,0 +1,25 @@
+# Pemetaan lanjutan framework, vendor dan policy — 3 November 2026
+
+**Status: BELUM SELESAI / HOLD / JANGAN FLASH.** Pemetaan ini menggunakan hasil host yang sudah ada dan source AOSP referensi yang dipin. Tidak ada XML, CIL, image atau perangkat yang diubah.
+
+## Apa yang benar-benar dibuktikan oleh uji VINTF
+
+1. Matriks vendor yang dibaca menyebut VNDK **30**, tetapi daftar `<library>`-nya **kosong**; manifest framework `system_ext` menyebut VNDK **34** dengan daftar library kosong. Identitas dan hitungan ada pada `vndk_declarations` di `HASIL-SIMBOL-TANPA-VERSI-RUN-41564623121-2026-11-03.json`. Ini bukan inventaris library runtime.
+2. [Implementasi libvintf referensi](https://github.com/aosp-mirror-neo/platform_system_libvintf/blob/df89ad736e14ac375f61d50fa543ae7cd746a140/HalManifest.cpp) memeriksa versi lalu selisih daftar library yang diminta versus disediakan. Bila daftar yang diminta kosong, tes daftar tersebut tidak dapat membuktikan bahwa library apa pun benar-benar ada atau ABI-nya cocok. Karena itu, mengubah deklarasi framework menjadi 30 atau menambah entri kosong **bukan perbaikan yang terbukti**, walaupun APEX VNDK30 dan 18 file terpilih memang terlihat pada disk.
+3. [Run 41564623121](https://github.com/dwp29/Syntenthica/actions/runs/41564623121) mengulang snapshot asli dan dua counterfactual yang dipulihkan. Asli exit **65** dengan sepolicy 30.0 ditolak; hipotesis sepolicy 31.0 saja exit **65** dan menampilkan versi VNDK 30 versus 34; hipotesis sementara gabungan sepolicy 31.0 plus deklarasi VNDK 30 exit **70 / incomplete**, dan tetap melaporkan matriks FCM **4** tidak ditemukan. Tidak ada counterfactual yang menyatakan `COMPATIBLE`.
+4. Pada [source check_vintf yang dipin](https://github.com/aosp-mirror-neo/platform_system_libvintf/blob/df89ad736e14ac375f61d50fa543ae7cd746a140/check_vintf.cpp), pemeriksaan compatibility dan deprecation dikerjakan terpisah; pemanggil mempertahankan kode error yang tercatat pertama. [checkDeprecation](https://github.com/aosp-mirror-neo/platform_system_libvintf/blob/df89ad736e14ac375f61d50fa543ae7cd746a140/VintfObject.cpp) mengembalikan `NAME_NOT_FOUND` jika tidak menemukan matriks pada FCM target. Ini menjelaskan **mengapa** FCM yang hilang dapat membuat uji tidak lengkap, dan mengapa exit 65 dapat menutupi error berikutnya. Source/binary build tersebut adalah referensi host, bukan implementasi runtime ROM yang telah dibuktikan identik; tanpa log/keadaan runtime lengkap jangan menetapkan satu penyebab boot.
+
+## Mengapa matriks lama tidak cukup
+
+Vendor menyatakan target FCM 4, sedangkan snapshot framework yang terbaca tidak memiliki matriks level 4. Pada [build rule FCM 4 AOSP lama](https://github.com/aosp-mirror-neo/platform_hardware_interfaces/blob/b0d52ce9546a9d42da12bf24a6deecb1b5fa4c79/compatibility_matrices/Android.bp), artefak dibangun dengan konfigurasi kernel Q 4.14/4.19 selain XML sumber. Menyalin XML mentah atau mengganti angka FCM tidak membuktikan HAL, kernel, SKU, ODM, policy atau ABI yang cocok dengan framework HyperOS ini. APEX dan linker aktif yang sesungguhnya juga tidak diketahui. **Tidak ada FCM donor yang dimasukkan.**
+
+Kompilasi CIL ketat sebelumnya menghasilkan exit **255** dengan 290 catatan `neverallow` pada input parsial. Perbandingan terpisah dengan flag referensi AOSP `-N` adalah diagnostik sementara, bukan kelulusan ketat, bukan policy yang dikemas, dan bukan bukti bahwa perangkat menjalankan policy itu. Tidak ada pemeriksaan yang sengaja dilemahkan sebagai perbaikan.
+
+## Urutan kerja berikutnya
+
+1. Temukan **kombinasi framework/vendor/policy yang dapat direproduksi dan ditelusuri** untuk joyeuse: manifest build/source port yang menghasilkan image, versi dan identitas HAL/vendor, pemetaan policy serta FCM/kernel yang benar. Bandingkan dengan keempat image yang sudah dikunci hash; jika sumber tidak tersedia, jangan menggantinya dengan donor acak. Lakukan perubahan image hanya bila asal dan hubungan kompatibilitas dapat dibuktikan, pada kandidat terpisah dengan rollback.
+2. Ulangi gate host pada kombinasi baru: VINTF dengan input selengkap mungkin, kompilasi policy ketat tanpa melewati assertion, ABI/library serta pemeriksaan integritas perubahan. Exit host adalah bukti terbatas, bukan boot.
+3. Validasi signature whole-file dengan public key yang trust-nya dapat dibuktikan **secara independen**, periksa ulang offset metadata pada ZIP akhir yang sudah ditandatangani, dan validasi AVB/vbmeta/rollback dengan kondisi target. Sertifikat yang hanya dibawa paket tidak membuktikan trust. Jangan mengirim private key ke chat atau repo.
+4. Setelah gate aman terlewati, uji recovery/boot dan fungsi utama pada perangkat sebagai tahap terpisah. Tidak ada perangkat yang tersedia saat ini dan tidak ada rincian persetujuan flash, wipe, format, pergantian recovery atau pelemahan pengaman. Backup dan penggunaan OrangeFox sebelumnya sudah dikonfirmasi pengguna dan tidak perlu ditanyakan ulang.
+
+Tidak ada kandidat 04 yang dibuat semata untuk menyamarkan deklarasi. Sumber, kandidat lama dan backup tetap dipertahankan.
