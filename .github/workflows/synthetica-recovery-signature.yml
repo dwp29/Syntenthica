@@ -54,10 +54,15 @@ jobs:
         run: |
           set -euo pipefail
           command -v openssl
-          python -m unittest discover -s tests -p 'test_audit_recovery_signature.py' -v
-          python -m unittest discover -s tests -p 'test_audit_signed_ota.py' -v
-          python -m unittest discover -s tests -p 'test_build_ota_metadata_candidate.py' -v
-          python -m unittest discover -s tests -p 'test_audit_boot_first_installer.py' -v
+          python - <<'PY'
+          import sys, unittest
+          patterns = ('test_audit_recovery_signature.py', 'test_audit_signed_ota.py',
+                      'test_build_ota_metadata_candidate.py', 'test_audit_boot_first_installer.py')
+          suites = [unittest.defaultTestLoader.discover('tests', pattern=p) for p in patterns]
+          result = unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(suites))
+          if result.testsRun < 55 or result.skipped or not result.wasSuccessful():
+              sys.exit('All 55 or more synthetic and regression controls must run without skips')
+          PY
       - name: Fetch and verify the pinned public Android 17 host tools
         run: |
           set -euo pipefail
@@ -98,5 +103,11 @@ jobs:
           command -v java
           test -s "$AOSP_SIGNAPK_JAR"
           test -s "$AOSP_SIGNAPK_LIB/libconscrypt_openjdk_jni.so"
-          python -m unittest discover -s tests -p 'test_aosp_signapk_recovery_interop.py' -v
-          python -m unittest discover -s tests -p 'test_aosp_signed_ota_interop.py' -v
+          python - <<'PY'
+          import sys, unittest
+          patterns = ('test_aosp_signapk_recovery_interop.py', 'test_aosp_signed_ota_interop.py')
+          suites = [unittest.defaultTestLoader.discover('tests', pattern=p) for p in patterns]
+          result = unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(suites))
+          if result.testsRun != 2 or result.skipped or not result.wasSuccessful():
+              sys.exit('Both real-SignApk synthetic interop controls must run and pass without skips')
+          PY
