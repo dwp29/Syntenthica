@@ -322,7 +322,7 @@ def main() -> int:
         args.report.write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result, separators=(',', ':')))
         return 0
-    except (PreflightError, vintf.VintfAuditError, guard.PreservationError,
+    except (PreflightError, vintf.VintfAuditError, guard.AuditError,
             OSError, ValueError, zipfile.BadZipFile) as exc:
         result = {'schema': 'synthetica-spatialflow-preflight-v1', 'status': 'FAILED_HOLD',
                   'error': str(exc), 'device_or_rom_modified': False}
