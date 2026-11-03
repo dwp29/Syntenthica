@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 # Accept both established and SDK 37 apksigner output; no APK or ROM is uploaded.
 permissions:
-  contents: read
+  contents: write # Required to read private draft releases.
   checks: write
 concurrency:
   group: synthetica-spatialflow-preflight

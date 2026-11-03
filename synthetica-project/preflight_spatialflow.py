@@ -52,8 +52,14 @@ def command(args: list[str], *, limit: int = 4 * 1024 * 1024) -> str:
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise PreflightError(f'Could not run {Path(args[0]).name}: {type(exc).__name__}') from exc
     if p.returncode:
-        # Do not echo signed asset redirect URLs, credentials, or private file contents.
-        raise PreflightError(f'{Path(args[0]).name} failed with exit {p.returncode}')
+        # GitHub may print signed asset URLs; never emit those or the token.
+        text = p.stderr.decode('utf-8', 'replace')[:1200]
+        text = re.sub(r'https?://[^\s\"\']+', '[URL redacted]', text)
+        token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+        if token:
+            text = text.replace(token, '[token redacted]')
+        operation = ' '.join(args[:3])
+        raise PreflightError(f'{operation} failed with exit {p.returncode}: {text[:500]}')
     if len(p.stdout) > limit:
         raise PreflightError(f'{Path(args[0]).name} output exceeded the bound')
     return p.stdout.decode('utf-8', 'replace')
