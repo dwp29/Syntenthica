@@ -1,0 +1,646 @@
+{
+  "schema": "synthetica-04-full-updater-host-emulation-v1",
+  "status": "HOST_FAKE_TARGETS_VERIFIED_HOLD",
+  "candidate_before": {
+    "bytes": 4748586175,
+    "sha256": "7aa84e14e1b4e30aa0a70e222c8d9550b4d533c8016aa1f002d17fe460d96df8"
+  },
+  "candidate_after": {
+    "bytes": 4748586175,
+    "sha256": "7aa84e14e1b4e30aa0a70e222c8d9550b4d533c8016aa1f002d17fe460d96df8"
+  },
+  "qemu": {
+    "bytes": 12918384,
+    "sha256": "4f55e2e88dc05dc0f619562d5795b8eb25ed2ad2547504fb4835207a6911c350"
+  },
+  "updater_sha256": "94fb81532b96bbf78f2e8d7e9d5426bf7a7d5eec6a35f208fda9209e38839d02",
+  "script_sha256": "8053b434315f4511804cd6bb6066e442e984ec0523783d36334362427d787252",
+  "tree_source_commit": "2582e3859181d32372a669f0cdaad151095b8a53",
+  "source_draft_still_unchanged": true,
+  "isolation": {
+    "user_mount_pid_network_namespaces": true,
+    "chroot": true,
+    "input_read_only": true,
+    "capabilities_dropped": true,
+    "no_new_privileges": true,
+    "targets_are_regular_files": true,
+    "device_access": false
+  },
+  "execution": {
+    "exit_code": 0,
+    "finished_message_seen": true,
+    "assert_failed": false,
+    "fake_targets": {
+      "super": {
+        "type": "regular",
+        "bytes": 8589934592,
+        "sha256": "bc7b59d0824bddb63ffa2d1a49b7f1030b3363cbfe7caa7e6fa55ad1839e5f54"
+      },
+      "boot": {
+        "type": "regular",
+        "bytes": 134217728,
+        "sha256": "57f7c113ae8d5f331fd2b84e526c5f6fa083ae385844b317514fd1e91e55234d"
+      },
+      "dtbo": {
+        "type": "regular",
+        "bytes": 25165824,
+        "sha256": "9c1cd10bce76b257529e13e3577ecb0f9a195fea95e7b628bdf81bc3daa05ff2"
+      }
+    },
+    "matches_locked_04_members": {
+      "super": true,
+      "boot": true,
+      "dtbo": true
+    },
+    "all_outputs_match_locked_04": true,
+    "stdout_tail": "progress 0.020000 10\nui_print **************************************************\n**************************************************\nui_print - Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\n- Device: Miatoll (Note 9S/9Pro/9ProMax/M2s)\nui_print - OS: Xiaomi HyperOS 4\n- OS: Xiaomi HyperOS 4\nui_print - Base: Xiaomi 18 Pro Max\n- Base: Xiaomi 18 Pro Max\nui_print - Ported by: @dizaxyz\n- Ported by: @dizaxyz\nui_print **************************************************\n**************************************************\nui_print - Patching super image unconditionally...\n- Patching super image unconditionally...\nui_print - Patching boot image unconditionally...\n- Patching boot image unconditionally...\nprogress 0.100000 10\nui_print - Patching dtbo image unconditionally...\n- Patching dtbo image unconditionally...\nui_print - Flashing completed. Have a good day.\n- Flashing completed. Have a good day.\nui_print - Join @dizasports for more ports and hotfixes!\n- Join @dizasports for more ports and hotfixes!\nui_print #antikangingaction #savethecommunity\n#antikangingaction #savethecommunity\nset_progress 1.000000\nui_print script succeeded: result was [1.000000]\n",
+    "stderr_tail": "No path given to file labeling backend\ninitialize_backend: Error getting file handle (No such file or directory)\n"
+  },
+  "system_probe": {
+    "metadata": {
+      "metadata_sha256": "a648fde5f228e6dcd9bbaea50be9662612205a938b214b53f6cc9560c85b49e6",
+      "slots": 2,
+      "product_extent_count": 2,
+      "geometry_and_slot_copies_match": true
+    },
+    "system": {
+      "bytes": 1732870144,
+      "sha256": "1a27a6d10de5bb55d2e5a0dc543af181e8227fb9970053f1880f0e86520d01f0"
+    },
+    "ext4": {
+      "blocks": 423064,
+      "reserved_blocks": 0,
+      "free_blocks": 9010,
+      "block_size": 4096,
+      "free_bytes_including_reserved": 36904960,
+      "free_inodes": 148,
+      "features": "ext_attr dir_index filetype extent sparse_super large_file huge_file uninit_bg dir_nlink extra_isize",
+      "e2fsck_read_only_exit": 0
+    },
+    "hypothetical_camera_capacity": {
+      "camera_apk_bytes": 127878632,
+      "system_usable_free_bytes": 36904960,
+      "single_tail_bytes": 30408704,
+      "optimistic_ceiling_bytes": 67313664,
+      "apk_exceeds_ceiling": true,
+      "minimum_deficit_before_overhead_or_reserve_bytes": 60564968,
+      "does_not_include_native_libraries": true,
+      "does_not_consider_reclaiming_or_repartitioning_existing_files": true,
+      "does_not_measure_physical_device_super": true
+    },
+    "camera_paths": {
+      "target_count": 88,
+      "target_total_bytes": 306800030,
+      "counts": {
+        "not_seen_at_exact_path": 88,
+        "same_bytes_by_pinned_digest": 0,
+        "different_existing_file": 0,
+        "existing_nonregular_or_unallocated": 0,
+        "existing_file_outside_read_bound": 0
+      },
+      "targets": [
+        {
+          "path": "/system/lib64/libcamera_960_mpbase.so",
+          "bytes": 66073,
+          "git_blob_sha1": "af264547b1963a3a7e1fa342fe9e53cb3354b870",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libcamera_algoup_jni.xiaomi.so",
+          "bytes": 51552,
+          "git_blob_sha1": "949bd9cba0711800ed1255ec988a0f3a43f02a23",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libcamera_jpegutil_jni.xiaomi.so",
+          "bytes": 15232,
+          "git_blob_sha1": "753a2fd265b2e296f6121debc33633a9697d6241",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libcamera_mianode_jni.xiaomi.so",
+          "bytes": 73616,
+          "git_blob_sha1": "81b344ae70c1f309a3e116b4266f20e944bb0490",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libdoc_photo.so",
+          "bytes": 10032233,
+          "git_blob_sha1": "e8250c465135f2cc564a0d4ec68fb8d88b89bbb8",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libdoc_photo_c++_shared.so",
+          "bytes": 1243593,
+          "git_blob_sha1": "6d14910c531b0ee9108a322b6415f7dc738413be",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libgallery_arcsoft_dualcam_refocus.so",
+          "bytes": 3607281,
+          "git_blob_sha1": "1744984824df82eedebdd5dcf99eb84c6da0c20d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libgallery_arcsoft_portrait_lighting.so",
+          "bytes": 15666313,
+          "git_blob_sha1": "237cd57e39b1c3013d3e3586b4aadb69405222bf",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libgallery_arcsoft_portrait_lighting_c.so",
+          "bytes": 11733441,
+          "git_blob_sha1": "296d1986b3c3504f4e325778090d741ea857ab60",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libgallery_mpbase.so",
+          "bytes": 66073,
+          "git_blob_sha1": "3490560095548b0c77d52cf76e8ee1e41ffb4ba9",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libmibokeh_gallery.so",
+          "bytes": 8013064,
+          "git_blob_sha1": "7c6443df40c5eb4893af22e9dd5424cef8c1fcd2",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libmorpho_memory_allocator.so",
+          "bytes": 14952,
+          "git_blob_sha1": "221eaaeb3cf946400149413a9c25073965c8cff0",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libmorpho_panorama_gp3.so",
+          "bytes": 2188088,
+          "git_blob_sha1": "fe5cc071ed965854099ecbec54738762ff5dac6d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/libmorpho_sensor_fusion.so",
+          "bytes": 90024,
+          "git_blob_sha1": "8bd8538d6a5fe31dbc1d7b28d1c24a512e409cfa",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/librefocus.so",
+          "bytes": 218904,
+          "git_blob_sha1": "fe5a0a38491de1ab42054bc85e1e090cd9096e50",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/lib64/librefocus_mibokeh.so",
+          "bytes": 214808,
+          "git_blob_sha1": "757fd1199651a43a8cb6fe6880d7101f8cdcbf7a",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/MiuiCamera.apk",
+          "bytes": 127878632,
+          "sha256": "54dc2f389b74a1799c6b238699fa4a8b5cca829d93f5064da3f55457900e1792",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libAIPOSE.so",
+          "bytes": 1610560,
+          "git_blob_sha1": "2b254d722a4b749d498f6a9f5b6b90d45a6b26f0",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libCameraEffectJNI.so",
+          "bytes": 47952,
+          "git_blob_sha1": "9f08e970be73c400894f56367b59bc3c8d7a03ae",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libDocumentProcess.so",
+          "bytes": 9730720,
+          "git_blob_sha1": "4b322c1029e3c4d38c9f96fe6a83d795080c8ad4",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libMiVideoSDK.so",
+          "bytes": 5866608,
+          "git_blob_sha1": "7accf2a2f679813816bfdd5bcf67cf708e8f135a",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libYuvWatermark.so",
+          "bytes": 10072,
+          "git_blob_sha1": "d1907be524dcf4dfd6bbc8962c2b441d70a66330",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libc++.so",
+          "bytes": 841856,
+          "git_blob_sha1": "e8c4807dea4a9e1008b65893bd33449c329f9569",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libc++_shared.so",
+          "bytes": 911696,
+          "git_blob_sha1": "83acd19dd15d80e1d50cf91aa28305ecae59dad7",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libcamera_memory_util_jni.so",
+          "bytes": 805112,
+          "git_blob_sha1": "1972fd027b631aee232dff522087c3fdcfc55af6",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libcamera_mi_handgesture.so",
+          "bytes": 34928,
+          "git_blob_sha1": "3bb884c4f24755b90288c4f32a5cac347e5b54bf",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libcamera_requestutil_jni.so",
+          "bytes": 2072024,
+          "git_blob_sha1": "7c9b911f2684cb03b70acf55fdd99e89fdccc930",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libcamera_video_mein_algo_jni.so",
+          "bytes": 10000,
+          "git_blob_sha1": "7e3cf931fed7fcd2022d674ce8d42038afa2d93e",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libcamera_yuv_jni.so",
+          "bytes": 18528,
+          "git_blob_sha1": "a79da4863590941a73979be57fc358a71f75dde5",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libdmabufheap.so",
+          "bytes": 87488,
+          "git_blob_sha1": "eebfb1c4fa6018c8a8a471a2104199a60bba2583",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libijkffmpeg.so",
+          "bytes": 3714040,
+          "git_blob_sha1": "0d9e546966827acc979b5d2f8899a72e18947114",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libijkplayer.so",
+          "bytes": 369080,
+          "git_blob_sha1": "abc0cfe77338b517110e0f5b624bdcdcbe2c1bef",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libijksdl.so",
+          "bytes": 485448,
+          "git_blob_sha1": "93e66d9427b7a5dc1653ce74312b7c3e4c6a21f2",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libion.so",
+          "bytes": 15176,
+          "git_blob_sha1": "cd07063366a37828390ec2d461c03c7837a1c66d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libjpeg.so",
+          "bytes": 366576,
+          "git_blob_sha1": "2c3ff47cb86f26086e7898dc2b0164687e9dce9e",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libmialgo_saliency.so",
+          "bytes": 182600,
+          "git_blob_sha1": "eeec8534e96675cf1b66441703f87635c3fa042d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libmialgo_saliency_jni.so",
+          "bytes": 67552,
+          "git_blob_sha1": "f7b76019b7088e5585b07e37f1c58a082c664893",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libmiffmpeg.so",
+          "bytes": 7063456,
+          "git_blob_sha1": "ed5bf53bd290f094c5cf0a183a4b1ba8531f2d34",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libmiocr_wrapper.so",
+          "bytes": 59360,
+          "git_blob_sha1": "8709ac507793364bd4ffdee805730384ada879cd",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libmiuiblursdk.so",
+          "bytes": 952704,
+          "git_blob_sha1": "2741c83982f2112a996dbaeb34b68c9a7b3f025f",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libmulti-wakeup-engine.so",
+          "bytes": 3508512,
+          "git_blob_sha1": "94d4a677612b8eabc1f6a418a000ae878334dabc",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/librender_engine.so",
+          "bytes": 243776,
+          "git_blob_sha1": "575669aa2ce22455bea3d66ebcf95bbb13a7f02c",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libtailor.so",
+          "bytes": 227440,
+          "git_blob_sha1": "64d66000f178ea1eed2794d1a2477560f0684fe4",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libturbojpeg.so",
+          "bytes": 469272,
+          "git_blob_sha1": "2f08f78dfee3b3309a380dd613a580c7e36ee48b",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libvideo_extra_color_converter.so",
+          "bytes": 9712,
+          "git_blob_sha1": "1d71ede080972d8cea5b93c88a3173e957f86f5b",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libvideo_extra_interpolator.so",
+          "bytes": 714376,
+          "git_blob_sha1": "849f7751c5991f82f7a91739cf8643b362f9bcab",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libxcrash.so",
+          "bytes": 84184,
+          "git_blob_sha1": "9ac7b1c47c029f763e9dd621a3e95a6fd22bf119",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libxcrash_dumper.so",
+          "bytes": 125168,
+          "git_blob_sha1": "02bed8a1b53c1b9da6d0995a18382ab1847fcc78",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiCamera/lib/arm64/libyuv.so",
+          "bytes": 419680,
+          "git_blob_sha1": "3b055746a424e6bd529a8dc61f3bebdd10d207ec",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/MiuiExtraPhoto.apk",
+          "bytes": 12562215,
+          "git_blob_sha1": "7dbd8a5daa815a83db7a9f65c081fa386af24c8f",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libMNN.so",
+          "bytes": 4136336,
+          "git_blob_sha1": "d7e939962f4247245775540bcfa9b106fa483916",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libanc_single_bokeh_refocus.so",
+          "bytes": 6472288,
+          "git_blob_sha1": "eb3d35d746dcfb59910864d27f662cfda03db1de",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libarcsoft_dualcam_refocus.so",
+          "bytes": 3583192,
+          "git_blob_sha1": "f1f81d3a646499f4c6c7bfe063eff3be35735d65",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libauto_crop_c++_shared.so",
+          "bytes": 977256,
+          "git_blob_sha1": "ba11f0272247e058b0508efb73a3dbbb6bdcfd6d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libautocrop.so",
+          "bytes": 419864,
+          "git_blob_sha1": "acd8735981eb4f240a402d95ac3de1e1065360b3",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libc++.so",
+          "bytes": 712784,
+          "git_blob_sha1": "2eccfed2fb7b64d80c6ebf2504277e2cf33f3fe5",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libc++_shared.so",
+          "bytes": 911696,
+          "git_blob_sha1": "83acd19dd15d80e1d50cf91aa28305ecae59dad7",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libcommon.so",
+          "bytes": 5832,
+          "git_blob_sha1": "33cb2508c25b0ad1eec344573ff4e41f6e95dbba",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libdmabufheap.so",
+          "bytes": 87488,
+          "git_blob_sha1": "eebfb1c4fa6018c8a8a471a2104199a60bba2583",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libdoc_photo_c++_shared.so",
+          "bytes": 1055016,
+          "git_blob_sha1": "6c1f6cb6be5be86409c4065266db633217e15f50",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libdoc_photo_process.so",
+          "bytes": 19779640,
+          "git_blob_sha1": "b8c55922776b35caf266e2586541d7a68b6b590f",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmegvii_bokeh_jni.so",
+          "bytes": 22456,
+          "git_blob_sha1": "cd5a73c74e8cdad95bdfe356ee8116da6233ed13",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmegvii_refocus_jni.so",
+          "bytes": 22360,
+          "git_blob_sha1": "e2589b09d809d54f1a2f04c412d3bd692d15a7a4",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmegvii_single_bokeh_jni.so",
+          "bytes": 22384,
+          "git_blob_sha1": "c9e4ae8f20ceb826f730fb199f795476177866a7",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmegvii_single_refocus_jni.so",
+          "bytes": 22384,
+          "git_blob_sha1": "2bd40058cc73e339a99945b73f7d207e82a2874e",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmi_portrait_jni.so",
+          "bytes": 22360,
+          "git_blob_sha1": "efb9eff24cb05335700d10a6941180647680cb44",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmialgo_ai_vision.so",
+          "bytes": 239960,
+          "git_blob_sha1": "21710e3050db76635cf144ac9bbdb0fed119e27d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmialgo_autocrop_mtk.so",
+          "bytes": 668592,
+          "git_blob_sha1": "73ff3f9bac98b8d06418b756549e2b28140ddeec",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmialgo_autocrop_qcom.so",
+          "bytes": 734512,
+          "git_blob_sha1": "bcfc26feee499e817a74117e39730c47545754a2",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmialgo_utils_extraphoto.so",
+          "bytes": 1051208,
+          "git_blob_sha1": "1533fb454292e4a4a508963d47ace7571af04fa8",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmialgo_utils_mtk.so",
+          "bytes": 133320,
+          "git_blob_sha1": "9c1107256f6c92524929202f9c00a7cebafd676d",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmicamera_dual_bokeh_jni.so",
+          "bytes": 26504,
+          "git_blob_sha1": "efe9b2ce04987b7f4e25e37d7d2388eb693c5f62",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmiphone_refocus_bokeh.so",
+          "bytes": 5326952,
+          "git_blob_sha1": "33a21f40365706e96c9f4bb23a19095dd77b03d9",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmisr.so",
+          "bytes": 3853896,
+          "git_blob_sha1": "ac715df84b47535ff51aba012a033a217fca1da4",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmisr_mtk.so",
+          "bytes": 5213744,
+          "git_blob_sha1": "1b5c24ca43bcb8f51f8ec5da85999a89541ea7fe",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmotion_photo.so",
+          "bytes": 22376,
+          "git_blob_sha1": "490ba7408a8b268a11b9ed92988d6fbe5f54dea2",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmotion_photo_c++_shared.so",
+          "bytes": 1055016,
+          "git_blob_sha1": "6c1f6cb6be5be86409c4065266db633217e15f50",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmotion_photo_mace.so",
+          "bytes": 3504680,
+          "git_blob_sha1": "97ba13c37118fd6d02ed7233ce767c3924e6c110",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmotion_photo_mtk.so",
+          "bytes": 22376,
+          "git_blob_sha1": "598ebbd0a8eb49a93ada9ec999965f6391f853e6",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libmpbase.so",
+          "bytes": 5184,
+          "git_blob_sha1": "62bfb0b0eb86cb0740b09db59308d66b08d75aaa",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/librefocus.so",
+          "bytes": 47488,
+          "git_blob_sha1": "eb6025a28526f8aabbac73f81af023393c121878",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libselection.so",
+          "bytes": 1791248,
+          "git_blob_sha1": "73247682a22d8d6ee82b26186689f616ac7088dd",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libselection_mtk.so",
+          "bytes": 1837544,
+          "git_blob_sha1": "9643922d304726e17709e0f934029ef910d27cc5",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libturbojpeg.so",
+          "bytes": 469272,
+          "git_blob_sha1": "2f08f78dfee3b3309a380dd613a580c7e36ee48b",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libwa_refocus.so",
+          "bytes": 6934496,
+          "git_blob_sha1": "50651540afabea3a8a82c2f836c136b4be9162d7",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libxcrash.so",
+          "bytes": 76088,
+          "git_blob_sha1": "3623c205356f1e0e5aa796a3c3eba3a22dddba26",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libxcrash_dumper.so",
+          "bytes": 113488,
+          "git_blob_sha1": "d108dcb40c363c47f761ebbc85e27670e4dda56f",
+          "status": "not_seen_at_exact_path"
+        },
+        {
+          "path": "/system/priv-app/MiuiExtraPhoto/lib/arm64/libyuv.so",
+          "bytes": 557000,
+          "git_blob_sha1": "fde669e788e7302318ce440a6dd6626799dfb46b",
+          "status": "not_seen_at_exact_path"
+        }
+      ],
+      "limitations": [
+        "Exact paths only: an absent path is not proof a package or library is absent elsewhere.",
+        "Replacing a different existing library can break existing applications; no path was modified.",
+        "Git blob SHA-1 is used for pinned source comparison, not publisher authentication or runtime compatibility.",
+        "System extents and metadata are from candidate 04, not measured device partitions."
+      ]
+    }
+  },
+  "limitations": [
+    "A QEMU host simulation does not test OrangeFox, real block devices, flash, boot or hardware.",
+    "The unsigned ZIP, recovery signature policy, external AVB/vbmeta, rollback and real-device partition capacity remain unverified.",
+    "A successful extraction does not prove framework/vendor/SELinux compatibility or application functionality.",
+    "No source APK, ROM image, key, release, or device was modified or published."
+  ],
+  "outcome": "success"
+}

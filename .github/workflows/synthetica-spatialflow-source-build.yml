@@ -1,0 +1,125 @@
+name: Synthetica SpatialFlow patched source build probe
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - .github/workflows/synthetica-spatialflow-source-build.yml
+      - synthetica-project/stage_spatialflow_source.py
+      - synthetica-project/check_spatialflow_source_build.py
+      - tests/test_stage_spatialflow_source.py
+      - tests/test_check_spatialflow_source_build.py
+  workflow_dispatch:
+# Public source only; build untrusted Gradle code without signing secrets.
+# Do not upload APKs, artifacts, or create releases from this probe.
+permissions:
+  contents: read
+  checks: write
+concurrency:
+  group: synthetica-spatialflow-source-build
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: MythicalSHUB/SpatialFlow
+          ref: 8a40906d074ab95b2bfa32481bfae140dfdfcbed
+          path: upstream-spatialflow
+          persist-credentials: false
+      - name: Run source staging and APK validation controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in test_prepare_spatialflow_music_intent.py test_prepare_spatialflow_preference.py \
+            test_probe_spatialflow_intent.py test_stage_spatialflow_source.py test_check_spatialflow_source_build.py; do
+            python3 -m unittest discover -s tests -p "$test" -v
+          done
+      - name: Stage the one intent change and pin Gradle checksum
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 synthetica-project/stage_spatialflow_source.py --source upstream-spatialflow \
+            --report "$RUNNER_TEMP/spatialflow-source-stage.json"
+          git -C upstream-spatialflow diff --check
+          git -C upstream-spatialflow status --short
+      - name: Ensure SDK platform for the pinned source exists
+        id: sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          sdkmanager="$root/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          if [[ ! -f "$root/platforms/android-37/android.jar" ]]; then
+            set +o pipefail
+            yes | "$sdkmanager" --licenses > /dev/null
+            set -o pipefail
+            "$sdkmanager" 'platforms;android-37'
+          fi
+          test -f "$root/platforms/android-37/android.jar"
+      - name: Compile arm64 release variant without credentials or signing keys
+        id: compile
+        shell: bash
+        working-directory: upstream-spatialflow
+        run: |
+          set -euo pipefail
+          unset GH_TOKEN GITHUB_TOKEN ANDROID_KEYSTORE_PATH ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_ALIAS_PASSWORD
+          unset COMMUNITY_GATEWAY_URL APP_HANDSHAKE_SALT SOURCE_POOL_KEY SHARE_API_URL
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --console=plain --max-workers=2 -Pandroid.injected.build.abi=arm64-v8a
+      - name: Verify generated APK routing with independent Android readers
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          tools=$(find "$root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          for name in aapt aapt2 apksigner zipalign; do test -x "$tools/$name"; done
+          mapfile -t files < <(find upstream-spatialflow/app/build/outputs/apk/release -maxdepth 1 -type f -name '*arm64-v8a*release*.apk')
+          if (( ${#files[@]} != 1 )); then echo 'Expected exactly one arm64 release APK'; exit 1; fi
+          python3 synthetica-project/check_spatialflow_source_build.py --apk "${files[0]}" \
+            --source-manifest upstream-spatialflow/app/src/main/AndroidManifest.xml \
+            --aapt "$tools/aapt" --aapt2 "$tools/aapt2" --apksigner "$tools/apksigner" --zipalign "$tools/zipalign" \
+            --report "$RUNNER_TEMP/spatialflow-source-build-result.json"
+      - name: Record metadata only, including failure or missing dependencies
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGE_OUTCOME: ${{ steps.stage.outcome }}
+          SDK_OUTCOME: ${{ steps.sdk.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          result={'status':'INCOMPLETE_UNSIGNED_BUILD',
+                  'outcomes':{x:os.environ[x] for x in ('STAGE_OUTCOME','SDK_OUTCOME','COMPILE_OUTCOME','VERIFY_OUTCOME')}}
+          for key,name in [('source_stage','spatialflow-source-stage.json'),('apk_inspection','spatialflow-source-build-result.json')]:
+              path=root/name
+              if path.is_file():result[key]=json.loads(path.read_text())
+          ok=(all(x=='success' for x in result['outcomes'].values())
+              and result.get('apk_inspection',{}).get('status')=='UNSIGNED_HOST_BUILD_ROUTE_VERIFIED_NOT_INSTALLED')
+          if ok:result['status']='UNSIGNED_SOURCE_BUILD_ROUTE_VERIFIED_HOLD'
+          text=json.dumps(result,ensure_ascii=True,separators=(',',':'))
+          if len(text)>30000:raise SystemExit('Report exceeds bounded check size')
+          payload={'name':'Synthetica SpatialFlow source build','head_sha':os.environ['GITHUB_SHA'],'status':'completed',
+                   'conclusion':'success' if ok else 'neutral',
+                   'output':{'title':'Unsigned source build only; no installation or playback test','summary':text}}
+          subprocess.run(['gh','api','--method','POST','repos/dwp29/Syntenthica/check-runs','--input','-'],
+                         input=json.dumps(payload).encode(),stdout=subprocess.DEVNULL,check=True)
+          PY
