@@ -4,7 +4,7 @@ on:
     branches: [arena/96cbd65a-syntenthica]
     paths: [.github/workflows/synthetica-spatialflow-preflight.yml]
   workflow_dispatch:
-# Errors and public APK identities are captured as bounded check metadata; no APK or ROM is uploaded.
+# Accept both established and SDK 37 apksigner output; no APK or ROM is uploaded.
 permissions:
   contents: read
   checks: write
