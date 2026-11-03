@@ -10,7 +10,7 @@ permissions:
 jobs:
   controls:
     if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
@@ -28,19 +28,17 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_expand_product_lp.py' -v
           python -m unittest discover -s tests -p 'test_feature_ext4.py' -v
-      - name: Download pinned public AOSP host tools
+      - name: Download pinned third-party lpdump Git blob
         id: fetch
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 900 --max-filesize 734003200 \
-            'https://ci.android.com/builds/submitted/16644040/aosp_cf_x86_64_only_phone-userdebug/latest/raw/otatools.zip' \
-            -o "$RUNNER_TEMP/otatools.zip"
-          echo 'bc85557aa0c59a7d0b48b8175250948d67b2d0f293bd74eb8d5753ba4ad7781f  '"$RUNNER_TEMP/otatools.zip" | sha256sum -c -
-      - name: Cross-check resized synthetic metadata with AOSP lpdump
+          gh api 'repos/ravindu644/android-lptools-static-x86_64/git/blobs/d90449a803e1bf3df2ebb5a2a466f89bbc3f29a4' --jq .content | base64 -d > "$RUNNER_TEMP/lpdump"
+          echo 'a7877918d01a98466d88980b2163756acd5926b602e97c2efb9e8de8a5a27a39  '"$RUNNER_TEMP/lpdump" | sha256sum -c -
+      - name: Cross-check synthetic metadata in a network-isolated read-only sandbox
         id: probe
         run: |
           mkdir "$RUNNER_TEMP/lpdump-probe"
-          python -u synthetica-project/probe_lpdump_tool.py --archive "$RUNNER_TEMP/otatools.zip" \
+          python -u synthetica-project/probe_lpdump_tool.py --binary "$RUNNER_TEMP/lpdump" \
             --work "$RUNNER_TEMP/lpdump-probe" --report "$RUNNER_TEMP/lpdump-result.json"
       - name: Record independent control result
         if: always()
@@ -55,7 +53,7 @@ jobs:
           ok = os.environ['PROBE_OUTCOME'] == 'success' and result.get('status') == 'SYNTHETIC_CONTROLS_PASSED'
           payload = {'name': 'Synthetica independent liblp controls', 'head_sha': os.environ['GITHUB_SHA'],
                      'status': 'completed', 'conclusion': 'success' if ok else 'neutral',
-                     'output': {'title': 'AOSP lpdump synthetic control; no device test', 'summary': json.dumps(result)}}
+                     'output': {'title': 'Isolated third-party lpdump synthetic control; not a device test', 'summary': json.dumps(result)}}
           subprocess.run(['gh','api','--method','POST','repos/dwp29/Syntenthica/check-runs','--input','-'],
                          input=json.dumps(payload).encode(), stdout=subprocess.DEVNULL, check=True)
           PY2
