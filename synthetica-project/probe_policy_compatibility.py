@@ -36,6 +36,7 @@ import audit_vndk_candidates as vndk
 import audit_vndk_apex as vndk_apex
 import audit_apex_avb_verify as avb_verify
 import audit_vndk_symbols as vndk_symbols
+import audit_unversioned_vndk_symbols as unversioned_symbols
 import audit_vendor_abi as vendor_abi
 import audit_vendor_elf_metadata as vendor_elf
 
@@ -533,9 +534,14 @@ def main() -> int:
     apex_result, apex_providers = {}, set()
     collector = vendor_abi.Collector()
     symbol_collector = vndk_symbols.Collector()
+    unversioned_collector = unversioned_symbols.Collector()
     def capture_vendor(entry, size, parsed):
         collector.capture_vendor_file(entry, size, parsed)
         symbol_collector.capture_consumer(entry, size, parsed)
+        unversioned_collector.capture_consumer(entry, size, parsed)
+    def capture_provider(entry, size, bits, library):
+        symbol_collector.capture_provider(entry, size, bits, library)
+        unversioned_collector.capture_provider(entry, size, bits, library)
     def capture(part, path, data):
         check.capture_snapshot(snapshot, seen, part, path, data)
     def capture_extra(image, part):
@@ -544,7 +550,7 @@ def main() -> int:
         if part == 'system_ext':
             observed, providers = vndk_apex.inspect_system_ext(
                 image, avb_verifier=lambda payload: avb_verify.verify_isolated(sandbox, payload),
-                provider_observer=symbol_collector.capture_provider)
+                provider_observer=capture_provider)
             apex_result.update(observed)
             apex_providers.update(providers)
         elif part == 'vendor':
@@ -597,6 +603,7 @@ def main() -> int:
         'vendor_executable_references_to_vndk30': vndk_apex.summarize_vendor_references(
             collector, apex_providers, apex_result.get('payload', {}).get('filesystem') == 'ext4'),
         'selected_vndk30_symbol_version_observations': symbol_collector.summarize(),
+        'selected_vndk30_unversioned_name_observations': unversioned_collector.summarize(),
         'verified_vendor_mapping_version': mapping_version,
         'compiler': compile_result, 'runtime_reference_compiler': reference_result,
         'vintf_hypothesis': vintf,
@@ -609,6 +616,7 @@ def main() -> int:
             'Actual ODM, SKU, genfs selection, userdebug policy, APEX and device kernel state are unknown.',
             'APEX AVB verification uses its embedded key; it does not establish signer trust, outer APK signing, device AVB or activation.',
             'Versioned symbol observations cover only selected direct vendor executable references and do not resolve Android linker behavior or ABI.',
+            'Unversioned name observations use only selected direct APEX providers; a same name is not ABI proof and a name not seen is not a missing-symbol verdict.',
             'On-disk VNDK files, symlinks and declarations cannot prove activation, provenance, signer trust or ABI compatibility.',
             'VINTF version change is only a counterfactual temporary snapshot, not a validated or applied fix.',
             'Neither host compile nor VINTF snapshot proves AVB, recovery acceptance, policy load, HAL ABI or boot.',
@@ -627,7 +635,7 @@ if __name__ == '__main__':
         raise SystemExit(main())
     except (PolicyProbeError, check.CheckAuditError, inventory.VintfAuditError, vndk.VndkAuditError,
             vndk_apex.VndkApexError, avb_verify.AvbProbeError, vndk_symbols.SymbolProbeError,
-            vendor_abi.AbiAuditError, vendor_elf.ElfMetadataError,
+            unversioned_symbols.UnversionedProbeError, vendor_abi.AbiAuditError, vendor_elf.ElfMetadataError,
             draft.DraftTestError, emu.SimulationError, OSError, ValueError,
             zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
         print(f'::error title=Policy compatibility probe stopped::{exc}', file=sys.stderr)

@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           for test in test_probe_policy_compatibility.py test_audit_policy_metadata.py \
             test_audit_vndk_candidates.py test_audit_vndk_apex.py test_audit_apex_avb_verify.py test_audit_vndk_symbols.py \
+            test_audit_unversioned_vndk_symbols.py test_audit_vendor_abi.py \
             test_audit_checkvintf_snapshot.py test_audit_vintf_candidate.py \
             test_hyperos4_lp_metadata.py test_github_guarded_report_relay.py; do
             python -m unittest discover -s tests -p "$test" -v
@@ -126,6 +127,8 @@ jobs:
                       or summary.get('existing_vndk30_apex', {}).get('sha256') != 'bd9fd612ddf6e42431ee0ebd680bd306505bc5abc1cf5afef5b0ba09af0089b3'
                       or len(summary.get('apex_avb_synthetic_controls', [])) != 4
                       or len(summary.get('selected_vndk30_symbol_version_observations', {}).get('selected_apex_providers', [])) != 18
+                      or len(summary.get('selected_vndk30_unversioned_name_observations', {}).get('selected_apex_providers', [])) != 18
+                      or type(summary.get('selected_vndk30_unversioned_name_observations', {}).get('consumer_executable_stats', {}).get('unversioned_executable_symbol_edges')) is not int
                       or type(summary.get('existing_vndk30_apex', {}).get('payload', {}).get('avb_verification', {}).get('verification_exit_code')) is not int
                       or summary.get('existing_vndk30_apex', {}).get('payload', {}).get('avb_verification', {}).get('signer_identity_or_trust_verified') is not False
                       or type(summary.get('vintf_hypothesis', {}).get('combined_hypothetical', {}).get('exit_code')) is not int
@@ -133,6 +136,19 @@ jobs:
                       or len(summary.get('compiler_controls', [])) != 3
                       or len(summary.get('checkvintf_controls', [])) != 3):
                   raise SystemExit('Policy probe report did not meet integrity checks')
+              current = summary['selected_vndk30_unversioned_name_observations']
+              stats = current['consumer_executable_stats']
+              count = lambda name: stats.get(name, 0)
+              prior = summary['selected_vndk30_symbol_version_observations']
+              before = {(p['bits'], p['library']): p for p in prior['selected_apex_providers']}
+              after = {(p['bits'], p['library']): p for p in current['selected_apex_providers']}
+              if (len(before) != 18 or len(after) != 18 or before.keys() != after.keys()
+                      or count('eligible_executables') != prior['consumer_executable_stats'].get('eligible_executables')
+                      or count('eligible_executables') != count('parsed_executables') + count('without_selected_direct_dependency') + count('malformed_oversized_or_unreadable')
+                      or count('unversioned_executable_symbol_edges') != sum(row['executable_symbol_edges'] for row in current['observations'])
+                      or any(before[key].get('sha256') != after[key].get('sha256') for key in before
+                             if 'sha256' in before[key] and 'sha256' in after[key])):
+                  raise SystemExit('Unversioned-symbol observation integrity checks failed')
           else:
               path = root / 'policy-compat.log'
               logs = path.read_text(errors='replace')[-9000:] if path.exists() else 'Probe did not start.'

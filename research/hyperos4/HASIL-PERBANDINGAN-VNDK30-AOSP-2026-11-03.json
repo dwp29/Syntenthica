@@ -191,9 +191,10 @@
   ],
   "limitations": [
     "Byte comparison only for nine selected library names and two bitnesses.",
-    "Reference blobs came from a pinned public Git commit and their Git blob SHA-1 was verified; provenance signature was not verified.",
+    "Reference blobs came from the pinned public Git commit and its root tree; their Git blob SHA-1 and size were verified, but provenance signature was not verified.",
     "Same bytes do not prove these libraries are activated, resolved, ABI-compatible, trusted or bootable.",
     "Different bytes alone do not prove incompatibility or malicious modification.",
     "No reference libraries, private keys or policy were added to the candidate; no device was touched."
-  ]
+  ],
+  "reference_root_tree_sha1": "b4003df94aa31ffc53655ff075857b3486b9ff3d"
 }
