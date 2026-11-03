@@ -2,7 +2,7 @@ name: Synthetica SpatialFlow release intent audit
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
-    paths: [.github/workflows/synthetica-spatialflow-intent-audit.yml]
+    paths: [.github/workflows/synthetica-spatialflow-intent-audit.yml, synthetica-project/probe_spatialflow_intent.py, tests/test_probe_spatialflow_intent.py]
   workflow_dispatch:
 # Reads only the SHA-locked public release APK; does not publish or edit it.
 permissions:

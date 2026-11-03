@@ -91,7 +91,9 @@ def parse_tree(text: str) -> list[dict]:
 
 def compare_readers(aapt_text: str,aapt2_text: str) -> list[dict]:
     first=parse_tree(aapt_text);second=parse_tree(aapt2_text)
-    if first!=second:raise IntentProbeError('Two independent XML readers do not agree on MUSIC_PLAYER filters')
+    if first!=second:
+        detail=json.dumps({'aapt':first,'aapt2':second},sort_keys=True,separators=(',',':'))
+        raise IntentProbeError('Two independent XML readers do not agree on MUSIC_PLAYER filters: '+detail[:2000])
     return first
 
 
