@@ -1,0 +1,75 @@
+name: Synthetica Shell APK host diagnostic
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: [.github/workflows/synthetica-shell-apk-diagnostic.yml]
+  workflow_dispatch:
+# Read-only inspection of one original system APK; no binary is uploaded.
+permissions:
+  contents: write # required to read the existing private draft
+  checks: write
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.11'
+      - name: Install the pinned ext4 reader
+        run: python -m pip install --disable-pip-version-check --require-hashes -r synthetica-project/requirements-boot-audit.txt
+      - name: Run diagnostic controls
+        run: python -m unittest discover -s tests -p 'test_probe_shell_apk.py' -v
+      - name: Locate host readers and space
+        id: setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          tools=$(find "$root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -x "$tools/aapt" && test -x "$tools/aapt2"
+          analyzer=$(find "$root/cmdline-tools" -type f -path '*/bin/apkanalyzer' -print 2>/dev/null | sort -V | tail -1 || true)
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+          echo "analyzer=$analyzer" >> "$GITHUB_OUTPUT"
+          free=$(df -PB1 "$RUNNER_TEMP" | awk 'NR==2 {print $4}')
+          if (( free < 10000000000 )); then sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL; fi
+          python -c 'import os,shutil; assert shutil.disk_usage(os.environ["RUNNER_TEMP"]).free > 9000000000'
+          mkdir "$RUNNER_TEMP/shell-probe"
+      - name: Examine the pinned APK without changing the ROM
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          extra=()
+          analyzer='${{ steps.setup.outputs.analyzer }}'
+          if [[ -n "$analyzer" && -x "$analyzer" ]]; then extra=(--apkanalyzer "$analyzer"); fi
+          tools='${{ steps.setup.outputs.tools }}'
+          python -u synthetica-project/probe_shell_apk.py --work "$RUNNER_TEMP/shell-probe" \
+            --report "$RUNNER_TEMP/shell-result.json" --aapt "$tools/aapt" --aapt2 "$tools/aapt2" "${extra[@]}"
+      - name: Record bounded diagnostic
+        if: always()
+        env:
+          PROBE_OUTCOME: ${{ steps.probe.outcome }}
+        run: |
+          python - <<'PY2'
+          import json, os, subprocess
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP'])/'shell-result.json'
+          result = json.loads(path.read_text()) if path.is_file() else {'status':'PREPARATION_FAILED_HOLD'}
+          result['outcome'] = os.environ['PROBE_OUTCOME']
+          text=json.dumps(result,ensure_ascii=True,separators=(',',':'))
+          if len(text)>30000: raise SystemExit('Diagnostic result exceeds bound')
+          ok=os.environ['PROBE_OUTCOME']=='success' and result.get('status')=='READ_ONLY_DIAGNOSTIC_COMPLETED_HOLD'
+          payload={'name':'Synthetica Shell APK diagnostic','head_sha':os.environ['GITHUB_SHA'],'status':'completed',
+                   'conclusion':'success' if ok else 'neutral',
+                   'output':{'title':'Read-only host diagnostic; no ROM build','summary':text}}
+          subprocess.run(['gh','api','--method','POST','repos/dwp29/Syntenthica/check-runs','--input','-'],
+                         input=json.dumps(payload).encode(),stdout=subprocess.DEVNULL,check=True)
+          PY2
