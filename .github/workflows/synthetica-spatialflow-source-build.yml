@@ -65,9 +65,10 @@ jobs:
             test -x "$sdkmanager" || { echo 'SDK_MANAGER_MISSING'; exit 1; }
             if [[ ! -f "$root/platforms/android-37/android.jar" ]]; then
               set +o pipefail
-              yes | "$sdkmanager" --licenses
+              yes | "$sdkmanager" --licenses > /dev/null
               set -o pipefail
-              "$sdkmanager" 'platforms;android-37'
+              # API 37 may be a preview; allow the official canary SDK channel.
+              "$sdkmanager" --channel=3 'platforms;android-37'
             fi
             test -f "$root/platforms/android-37/android.jar" || { echo 'SDK_PLATFORM_37_MISSING'; exit 1; }
           ) > "$RUNNER_TEMP/spatialflow-sdk.log" 2>&1 || {

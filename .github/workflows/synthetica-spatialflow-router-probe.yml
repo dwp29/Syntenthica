@@ -1,0 +1,158 @@
+name: Synthetica SpatialFlow router host probe
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - .github/workflows/synthetica-spatialflow-router-probe.yml
+      - synthetica-project/music-router/**
+      - synthetica-project/probe_spatialflow_router.py
+      - tests/test_music_router.py
+      - tests/test_probe_spatialflow_router.py
+  workflow_dispatch:
+# A disposable, randomly signed fixture only. No APK, private key, artifact or
+# ROM is uploaded. Never use this fixture as a production signing identity.
+permissions:
+  contents: read
+  checks: write
+concurrency:
+  group: synthetica-spatialflow-router-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    if: github.ref == 'refs/heads/arena/96cbd65a-syntenthica'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify source and run real Java logic against synthetic stubs
+        id: unit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_music_router.py' -v
+          python3 -m unittest discover -s tests -p 'test_probe_spatialflow_router.py' -v
+      - name: Ensure a standard SDK platform and build tools are present
+        id: sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+            sdkmanager="$root/cmdline-tools/latest/bin/sdkmanager"
+            test -x "$sdkmanager" || { echo SDK_MANAGER_MISSING; exit 1; }
+            if [[ ! -f "$root/platforms/android-35/android.jar" ]]; then
+              set +o pipefail
+              yes | "$sdkmanager" --licenses > /dev/null
+              set -o pipefail
+              "$sdkmanager" 'platforms;android-35'
+            fi
+            test -f "$root/platforms/android-35/android.jar" || { echo SDK_PLATFORM_35_MISSING; exit 1; }
+            tools=$(find "$root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+            for n in aapt aapt2 d8 zipalign apksigner; do test -x "$tools/$n" || { echo "MISSING_$n"; exit 1; }; done
+            echo "$tools" > "$RUNNER_TEMP/router-tool-dir"
+          ) > "$RUNNER_TEMP/router-sdk.log" 2>&1 || { tail -n 60 "$RUNNER_TEMP/router-sdk.log"; exit 1; }
+      - name: Fetch and hash only the pinned public upstream APK
+        id: download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/router-upstream"
+          PYTHONPATH=synthetica-project python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import preflight_spatialflow as pre
+          path=pre.download_app(Path(os.environ['RUNNER_TEMP'])/'router-upstream')
+          assert pre.digest_file(path)==(pre.APP_SIZE,pre.APP_SHA256)
+          print('Pinned upstream APK verified; no upstream code executed.')
+          PY
+      - name: Compile and sign a throwaway router fixture
+        id: compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset GH_TOKEN GITHUB_TOKEN
+          (
+            set -euo pipefail
+            root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+            tools=$(cat "$RUNNER_TEMP/router-tool-dir")
+            platform="$root/platforms/android-35/android.jar"
+            src="$GITHUB_WORKSPACE/synthetica-project/music-router"
+            work="$RUNNER_TEMP/router-fixture"
+            mkdir -p "$work/classes" "$work/dex"
+            key="$work/throwaway.p12"
+            trap 'rm -f "$key"' EXIT
+            "$tools/aapt" package -f -M "$src/AndroidManifest.xml" -I "$platform" -F "$work/unaligned.apk"
+            javac --release 8 -classpath "$platform" -d "$work/classes" "$src/src/org/syntenthica/musicrouter/MusicPlayerRouter.java"
+            "$tools/d8" --min-api 26 --lib "$platform" --output "$work/dex" "$work/classes/org/syntenthica/musicrouter/MusicPlayerRouter.class"
+            (cd "$work/dex" && "$tools/aapt" add "$work/unaligned.apk" classes.dex)
+            "$tools/zipalign" -f -P 4 4 "$work/unaligned.apk" "$work/aligned.apk"
+            keytool -genkeypair -noprompt -storetype PKCS12 -keystore "$key" -storepass synthetic-only \
+              -keypass synthetic-only -alias fixture -keyalg RSA -keysize 2048 -validity 2 \
+              -dname 'CN=Disposable host test only' > /dev/null 2>&1
+            "$tools/apksigner" sign --ks "$key" --ks-key-alias fixture --ks-pass pass:synthetic-only \
+              --key-pass pass:synthetic-only --out "$work/router.apk" "$work/aligned.apk"
+          ) 2>&1 | tee "$RUNNER_TEMP/router-build.log"
+      - name: Check both compiled manifests and the throwaway signature
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools=$(cat "$RUNNER_TEMP/router-tool-dir")
+          python3 synthetica-project/probe_spatialflow_router.py --throwaway-test-only \
+            --router-apk "$RUNNER_TEMP/router-fixture/router.apk" \
+            --upstream-apk "$RUNNER_TEMP/router-upstream/app-arm64-v8a-release.apk" \
+            --source synthetica-project/music-router --report "$RUNNER_TEMP/router-result.json" \
+            --aapt "$tools/aapt" --aapt2 "$tools/aapt2" --apksigner "$tools/apksigner" --zipalign "$tools/zipalign"
+      - name: Record bounded metadata only
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          SDK_OUTCOME: ${{ steps.sdk.outcome }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,os,re,subprocess
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          keys=('UNIT_OUTCOME','SDK_OUTCOME','DOWNLOAD_OUTCOME','COMPILE_OUTCOME','VERIFY_OUTCOME')
+          result={'status':'INCOMPLETE_ROUTER_PROBE','outcomes':{k:os.environ[k] for k in keys}}
+          path=root/'router-result.json'
+          if path.is_file():result['inspection']=json.loads(path.read_text())
+          for stage,filename in (('SDK_OUTCOME','router-sdk.log'),('COMPILE_OUTCOME','router-build.log')):
+              path=root/filename
+              if path.is_file() and result['outcomes'][stage]=='failure':
+                  excerpt=path.read_text(errors='replace')[-3000:]
+                  excerpt=re.sub(r'https?://[^\s]+','[URL redacted]',excerpt)
+                  token=os.environ.get('GH_TOKEN')
+                  if token:excerpt=excerpt.replace(token,'[token redacted]')
+                  result[stage.lower()+'_diagnostic_tail']=excerpt
+          ok=(all(x=='success' for x in result['outcomes'].values())
+              and result.get('inspection',{}).get('status')=='EPHEMERAL_HOST_TEST_ONLY_NOT_SHIPPABLE')
+          if ok:result['status']='HOST_ROUTER_PROBE_COMPLETE_HOLD'
+          text=json.dumps(result,ensure_ascii=True,separators=(',',':'))
+          if len(text)>30000:raise SystemExit('Report exceeds bound')
+          payload={'name':'Synthetica SpatialFlow router host probe','head_sha':os.environ['GITHUB_SHA'],'status':'completed',
+              'conclusion':'success' if ok else 'neutral',
+              'output':{'title':'Disposable router fixture only; never ship','summary':text}}
+          subprocess.run(['gh','api','--method','POST','repos/dwp29/Syntenthica/check-runs','--input','-'],
+                         input=json.dumps(payload).encode(),stdout=subprocess.DEVNULL,check=True)
+          PY
+      - name: Delete all temporary APKs and throwaway material
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/router-fixture" "$RUNNER_TEMP/router-upstream"
