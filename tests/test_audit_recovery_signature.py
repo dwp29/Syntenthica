@@ -189,6 +189,21 @@ class RecoverySignatureTests(unittest.TestCase):
         with self.assertRaisesRegex(audit.RecoverySignatureError, 'exactly one'):
             audit.audit(p, certs, sha(p.read_bytes()), self.key_pin)
 
+    def test_fifo_is_rejected_without_blocking(self):
+        fifo = self.work / 'not-a-package'
+        os.mkfifo(fifo)
+        code = (
+            'import sys; '
+            f'sys.path.insert(0, {str(ROOT / "synthetica-project")!r}); '
+            'from pathlib import Path; import audit_recovery_signature as a; '
+            f'p = Path({str(fifo)!r}); '
+            '\ntry:\n a._open_regular(p, a.MAX_PACKAGE)\n'
+            'except a.RecoverySignatureError:\n sys.exit(0)\n'
+            'sys.exit(1)\n'
+        )
+        result = subprocess.run([sys.executable, '-c', code], capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
+
     def test_candidate_change_is_detected_even_after_a_valid_signature(self):
         p = make_signed(self.work, self.key, self.cert)
         actual_verify = audit._verify_with_openssl

@@ -54,7 +54,9 @@ def _snapshot(info) -> tuple:
 
 
 def _open_regular(path: Path, limit: int):
-    flags = os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0) | getattr(os, 'O_NOFOLLOW', 0)
+    # O_NONBLOCK prevents a FIFO or other special path from hanging before fstat.
+    flags = (os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0) | getattr(os, 'O_NOFOLLOW', 0)
+             | getattr(os, 'O_NONBLOCK', 0))
     if not hasattr(os, 'O_NOFOLLOW'):
         raise RecoverySignatureError('Host cannot refuse symlink input safely')
     try:
@@ -139,13 +141,20 @@ def _direct_signature(der: bytes) -> tuple[bytes, str]:
 
 
 def _certificate(path: Path) -> tuple[bytes, bytes, str, int]:
-    if x509 is None:
-        raise RecoverySignatureError('Pinned asn1crypto parser is unavailable')
     with _open_regular(path, MAX_CERTIFICATE)[0] as stream:
         before = _snapshot(os.fstat(stream.fileno()))
         data = stream.read(MAX_CERTIFICATE + 1)
         if len(data) > MAX_CERTIFICATE or _snapshot(os.fstat(stream.fileno())) != before:
             raise RecoverySignatureError('Reference certificate changed or exceeded its limit')
+    return _certificate_data(data)
+
+
+def _certificate_data(data: bytes) -> tuple[bytes, bytes, str, int]:
+    """Parse exactly one bounded public certificate, from DER or PEM bytes."""
+    if x509 is None:
+        raise RecoverySignatureError('Pinned asn1crypto parser is unavailable')
+    if not 0 < len(data) <= MAX_CERTIFICATE:
+        raise RecoverySignatureError('Reference certificate is empty or exceeds its limit')
     try:
         stripped = data.strip()
         if pem.detect(stripped):
