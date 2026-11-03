@@ -99,8 +99,12 @@ def apk_signature(apk: Path,apksigner: str) -> dict:
     schemes=signer_output.parse_schemes(out)
     if scan._tool_digest(apksigner)!=tool_hash:raise LeicaProbeError('Signature tool changed')
     diagnostic=signer_output.unparsed_signer_certificate_lines(out)
+    certificate=certs[0] if len(certs)==1 and not diagnostic else None
+    testkey=signer_output.matches_aosp_public_testkey(certificate)
     return {'verifier_exit_code':p.returncode,'signature_verified_on_host':p.returncode==0 and len(certs)==1 and not diagnostic,
-            'signer_count':len(certs),'certificate_sha256':certs[0] if len(certs)==1 and not diagnostic else None,'schemes_reported':schemes,
+            'signer_count':len(certs),'certificate_sha256':certificate,'schemes_reported':schemes,
+            'matches_aosp_public_development_testkey':testkey,
+            'production_key_gate':'REJECT_PUBLIC_TESTKEY' if testkey is True else 'NOT_ASSESSED',
             'unparsed_certificate_digest_lines':diagnostic,
             'tool_script_sha256':tool_hash,'stdout_sha256':hashlib.sha256(p.stdout).hexdigest(),
             'stderr_sha256':hashlib.sha256(p.stderr).hexdigest(),'signer_authority_or_platform_trust_verified':False}
@@ -162,6 +166,7 @@ def run(work: Path,aapt: str,aapt2: str,apksigner: str) -> dict:
             'inspection':result,'limitations':['Git blob identity is not proof of author, copyright permission or trusted release provenance.',
                 'No APK, library, image or device was changed, installed, executed or published.',
                 'A manifest or valid signature does not prove platform-key trust, camera HAL compatibility, sensor support or functionality.',
+                'A match to the public AOSP development testkey is not an authenticated publisher and is rejected for production integration.',
                 'The source blueprint declares privileged apps and platform signing; those prerequisites were not satisfied by this probe.']}
 
 

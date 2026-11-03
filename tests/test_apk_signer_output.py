@@ -34,6 +34,11 @@ class SignerOutputTests(unittest.TestCase):
         text='Verified using v3 scheme (APK Signature Scheme v3): true\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\n'
         self.assertEqual(p.parse_schemes(text),{'3':True,'3.1':False})
         with self.assertRaises(p.SignerOutputError):p.parse_schemes(text+text)
+    def test_public_aosp_testkey_is_flagged_without_assuming_other_trust(self):
+        self.assertTrue(p.matches_aosp_public_testkey(p.AOSP_PUBLIC_TESTKEY_CERTIFICATE_SHA256.upper()))
+        self.assertFalse(p.matches_aosp_public_testkey('b'*64))
+        self.assertIsNone(p.matches_aosp_public_testkey(None))
+        with self.assertRaises(p.SignerOutputError):p.matches_aosp_public_testkey('invalid')
     def test_output_cap(self):
         with self.assertRaises(p.SignerOutputError):p.parse_certificates('a'*(p.MAX_OUTPUT+1))
 if __name__=='__main__':unittest.main()

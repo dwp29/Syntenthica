@@ -65,6 +65,14 @@ class LeicaProbeTests(unittest.TestCase):
         self.assertFalse(r['signature_verified_on_host'])
         self.assertEqual(len(r['unparsed_certificate_digest_lines']),1)
         self.assertIn('Signer (minSdkVersion=28)',r['unparsed_certificate_digest_lines'][0])
+    def test_public_testkey_is_detected_but_host_crypto_result_preserved(self):
+        cert=p.signer_output.AOSP_PUBLIC_TESTKEY_CERTIFICATE_SHA256
+        output=('V3.0 Signer: certificate SHA-256 digest: '+cert+'\n').encode()
+        with mock.patch.object(p.scan,'_tool_digest',return_value='a'*64), \
+             mock.patch.object(p.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=output,stderr=b'')):
+            r=p.apk_signature(self.root/'sample.apk','/bin/true')
+        self.assertTrue(r['signature_verified_on_host']);self.assertTrue(r['matches_aosp_public_development_testkey'])
+        self.assertEqual(r['production_key_gate'],'REJECT_PUBLIC_TESTKEY');self.assertFalse(r['signer_authority_or_platform_trust_verified'])
     def test_known_plus_unknown_signer_is_not_claimed_verified(self):
         output=('V3.0 Signer: certificate SHA-256 digest: '+'a'*64+'\nFuture signer #2 certificate SHA-256 digest: '+'b'*64+'\n').encode()
         with mock.patch.object(p.scan,'_tool_digest',return_value='a'*64), \
