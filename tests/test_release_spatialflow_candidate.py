@@ -1,4 +1,8 @@
 import sys
+import hashlib
+import json
+import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -16,6 +20,50 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(r.ReleaseError): r.create_draft(tag, '0' * 40)
     def test_release_requires_a_real_commit_digest_shape(self):
         with self.assertRaises(r.ReleaseError): r.create_draft('synthetica-feature-spatialflow-04-run-1-1', 'unknown')
+
+    def test_new_draft_is_pinned_to_exact_build_commit(self):
+        tag='synthetica-feature-spatialflow-04-run-1-1';commit='1'*40
+        def post(args,**kwargs):
+            payload=json.loads(kwargs['input'])
+            self.assertEqual(payload['target_commitish'],commit)
+            self.assertTrue(payload['draft'])
+            return subprocess.CompletedProcess(args,0,json.dumps({'id':321,'tag_name':tag,
+                'draft':True,'target_commitish':commit,'assets':[]}).encode(),b'')
+        with patch.object(r.subprocess,'run',side_effect=post):
+            self.assertEqual(r.create_draft(tag,commit),321)
+    def test_draft_checks_exact_revision_and_unpublished_status(self):
+        tag='synthetica-feature-spatialflow-04-run-1-1';commit='1'*40
+        good={'id':321,'tag_name':tag,'draft':True,'target_commitish':commit,'assets':[]}
+        with patch.object(r,'api',return_value=good):self.assertEqual(r.draft(321,tag,commit),good)
+        for change in ({'target_commitish':r.BRANCH},{'target_commitish':'2'*40},{'draft':False}):
+            with self.subTest(change=change),patch.object(r,'api',return_value={**good,**change}),self.assertRaises(r.ReleaseError):
+                r.draft(321,tag,commit)
+    def test_each_split_upload_is_bound_to_exact_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=root/'rom.zip';source.write_bytes(b'abcdefghij')
+            work=root/'transfer';work.mkdir();seen=[];commit='1'*40
+            def fake_upload(number,tag,build_commit,path,sha):
+                self.assertEqual(build_commit,commit)
+                self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),sha)
+                seen.append(path.read_bytes())
+            with patch.object(r,'PART_BYTES',4),patch.object(r,'upload',side_effect=fake_upload):
+                rows=r.split_and_upload(321,'tag',commit,source,work,10,hashlib.sha256(b'abcdefghij').hexdigest())
+            self.assertEqual(seen,[b'abcd',b'efgh',b'ij'])
+            self.assertEqual([x['bytes'] for x in rows],[4,4,2]);self.assertEqual(list(work.iterdir()),[])
+    def test_redownload_checks_part_hashes_and_commit_on_both_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work=Path(tmp);data={'rom.zip.001':b'one','rom.zip.002':b'two'};commit='1'*40
+            rows=[{'number':n,'name':name,'bytes':len(blob),'sha256':hashlib.sha256(blob).hexdigest()}
+                  for n,(name,blob) in enumerate(data.items(),1)]
+            release={'assets':[{'id':n,'name':row['name'],'size':row['bytes'],'digest':'sha256:'+row['sha256']}
+                               for n,row in enumerate(rows,1)]}
+            def download(args):
+                name=args[args.index('--pattern')+1];(work/name).write_bytes(data[name])
+            with patch.object(r,'draft',return_value=release) as draft,patch.object(r.pre,'command',side_effect=download):
+                r.redownload(321,'tag',commit,rows,work,hashlib.sha256(b'onetwo').hexdigest())
+            self.assertEqual(draft.call_count,2)
+            self.assertTrue(all(c.args==(321,'tag',commit) for c in draft.call_args_list))
+            self.assertEqual(list(work.iterdir()),[])
 
     def valid_report(self):
         return {'schema':'synthetica-spatialflow-rom-candidate-v1',

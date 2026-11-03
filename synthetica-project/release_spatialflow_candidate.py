@@ -81,7 +81,7 @@ def create_draft(tag: str, commit: str) -> int:
              'belum ditandatangani, belum diuji recovery/AVB/boot, dan belum disetujui untuk flash. '
              'Raw parts bukan ZIP terpisah. Jangan dipublikasikan untuk komunitas sebelum hak distribusi dan uji terpenuhi.\n'
              f'Revisi resep: {commit}. Basis: kandidat 03 terverifikasi dari ZIP asli diza.')
-    payload = {'tag_name': tag, 'target_commitish': BRANCH,
+    payload = {'tag_name': tag, 'target_commitish': commit,
                'name': 'Syntenthica 04 SpatialFlow — EKSPERIMENTAL / HOLD',
                'body': notes, 'draft': True, 'prerelease': True,
                'generate_release_notes': False}
@@ -95,22 +95,22 @@ def create_draft(tag: str, commit: str) -> int:
         raise ReleaseError('Draft creation returned invalid JSON') from exc
     number = release.get('id')
     if (type(number) is not int or release.get('tag_name') != tag or release.get('draft') is not True
-            or release.get('target_commitish') != BRANCH or release.get('assets') != []):
+            or release.get('target_commitish') != commit or release.get('assets') != []):
         raise ReleaseError('New release was not the expected empty unpublished draft')
     return number
 
 
-def draft(number: int, tag: str) -> dict:
+def draft(number: int, tag: str, commit: str) -> dict:
     value = api(f'repos/{pre.REPO}/releases/{number}')
     if (value.get('id') != number or value.get('tag_name') != tag
-            or value.get('draft') is not True or value.get('target_commitish') != BRANCH
+            or value.get('draft') is not True or value.get('target_commitish') != commit
             or not isinstance(value.get('assets'), list)):
         raise ReleaseError('Experimental draft changed or was published')
     return value
 
 
-def upload(number: int, tag: str, path: Path, sha: str) -> None:
-    release = draft(number, tag)
+def upload(number: int, tag: str, commit: str, path: Path, sha: str) -> None:
+    release = draft(number, tag, commit)
     if any(a.get('name') == path.name for a in release['assets']):
         raise ReleaseError('An asset with this name already exists; refusing to overwrite')
     size = path.stat().st_size
@@ -118,7 +118,7 @@ def upload(number: int, tag: str, path: Path, sha: str) -> None:
         raise ReleaseError('Upload source changed before transfer')
     pre.command(['gh', 'release', 'upload', tag, str(path), '--repo', pre.REPO])
     for attempt in range(4):
-        release = draft(number, tag)
+        release = draft(number, tag, commit)
         matches = [a for a in release['assets'] if a.get('name') == path.name]
         if len(matches) == 1:
             asset = matches[0]
@@ -130,7 +130,7 @@ def upload(number: int, tag: str, path: Path, sha: str) -> None:
     raise ReleaseError('Uploaded asset metadata did not match its SHA-256 and size')
 
 
-def split_and_upload(number: int, tag: str, output: Path, work: Path, size: int, expected: str) -> list[dict]:
+def split_and_upload(number: int, tag: str, commit: str, output: Path, work: Path, size: int, expected: str) -> list[dict]:
     rows = []
     combined = hashlib.sha256()
     total = 0
@@ -150,7 +150,7 @@ def split_and_upload(number: int, tag: str, output: Path, work: Path, size: int,
                     count += len(data); total += len(data)
                 out.flush(); os.fsync(out.fileno())
             row = {'number': index, 'name': path.name, 'bytes': count, 'sha256': h.hexdigest()}
-            upload(number, tag, path, row['sha256'])
+            upload(number, tag, commit, path, row['sha256'])
             path.unlink()
             rows.append(row)
             print(f'Uploaded and checked draft part {index}', flush=True)
@@ -162,8 +162,8 @@ def split_and_upload(number: int, tag: str, output: Path, work: Path, size: int,
     return rows
 
 
-def redownload(number: int, tag: str, rows: list[dict], work: Path, expected_sha: str) -> None:
-    before = draft(number, tag)
+def redownload(number: int, tag: str, commit: str, rows: list[dict], work: Path, expected_sha: str) -> None:
+    before = draft(number, tag, commit)
     expected_names = {row['name'] for row in rows}
     if {x.get('name') for x in before['assets']} != expected_names:
         raise ReleaseError('Unexpected or missing draft assets before independent download')
@@ -185,7 +185,7 @@ def redownload(number: int, tag: str, rows: list[dict], work: Path, expected_sha
             raise ReleaseError('Independently downloaded part failed its SHA-256')
         path.unlink()
         print(f'Independently downloaded and verified part {row["number"]}', flush=True)
-    after = draft(number, tag)
+    after = draft(number, tag, commit)
     if ({a['name']: (a['id'], a['size'], a['digest']) for a in after['assets']} != stable
             or combined.hexdigest() != expected_sha):
         raise ReleaseError('Draft assets changed or combined redownload hash did not match')
@@ -202,12 +202,12 @@ def run(report_path: Path, output: Path, work: Path, tag: str, commit: str) -> d
         raise ReleaseError('Unexpected part count')
     number = create_draft(tag, commit)
     print(f'Created separate unpublished HOLD draft {number}', flush=True)
-    rows = split_and_upload(number, tag, output, work, size, sha)
-    redownload(number, tag, rows, work, sha)
+    rows = split_and_upload(number, tag, commit, output, work, size, sha)
+    redownload(number, tag, commit, rows, work, sha)
     report_copy = work / REPORT_NAME
     report_copy.write_bytes(report_path.read_bytes())
     report_size, report_sha = pre.digest_file(report_copy)
-    upload(number, tag, report_copy, report_sha)
+    upload(number, tag, commit, report_copy, report_sha)
     manifest = {'schema': 'synthetica-spatialflow-draft-parts-v1',
                 'status': 'UNPUBLISHED_HOLD_DO_NOT_FLASH', 'release_id': number, 'tag': tag,
                 'build_commit': commit, 'file_name': output.name, 'file_bytes': size, 'file_sha256': sha,
@@ -219,8 +219,8 @@ def run(report_path: Path, output: Path, work: Path, tag: str, commit: str) -> d
     manifest_path = work / MANIFEST_NAME
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
     manifest_size, manifest_sha = pre.digest_file(manifest_path)
-    upload(number, tag, manifest_path, manifest_sha)
-    assets = draft(number, tag)['assets']
+    upload(number, tag, commit, manifest_path, manifest_sha)
+    assets = draft(number, tag, commit)['assets']
     if {a.get('name') for a in assets} != {x['name'] for x in rows} | {REPORT_NAME, MANIFEST_NAME}:
         raise ReleaseError('Final draft has unexpected or missing assets')
     if pre.digest_file(output) != (size, sha):

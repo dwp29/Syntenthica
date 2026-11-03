@@ -1,0 +1,162 @@
+{
+  "run": 41577314268,
+  "check_run": 125724872914,
+  "source_commit": "9e86feba6ad65d8aa71baaacd999c424e943a286",
+  "result": {
+    "schema": "synthetica-baseline-package-inventory-v1",
+    "status": "READ_ONLY_INVENTORY_NOT_A_DEVICE_TEST_HOLD",
+    "source_candidate03_sha256": "bd864ae0d5f5baf26e88f2b5848f15544e4843a46e6ac96636bc25c664e4f425",
+    "all_extracted_input_extents_unchanged": true,
+    "scan": {
+      "forbidden_package": "com.codetrio.spatialflow",
+      "apks_checked": 250,
+      "directories_scanned": [
+        "system:/system/app",
+        "system:/system/priv-app",
+        "system_ext:/app",
+        "system_ext:/priv-app",
+        "product:/app",
+        "product:/priv-app"
+      ],
+      "directories_missing": [
+        "system:/app",
+        "system:/priv-app"
+      ],
+      "tool_sha256": {
+        "aapt_sha256": "8cdf40b93e34c5aab518175e9738959f8e104a8f039eda3311f3ef6fb13ae992",
+        "aapt2_sha256": "0f1c0e560f99db510a76ebc99ad5c3e68438f62e8e8617018a716ca4a589a699"
+      },
+      "apk_manifest_zip_crc_checked": true,
+      "independent_xmltree_fallback_count": 1,
+      "independent_xmltree_fallback_paths": [
+        "system:/system/priv-app/Shell/Shell.apk"
+      ],
+      "watched_package_paths": {
+        "com.android.axion.sandbox": [],
+        "com.android.camera": [],
+        "com.android.camera2": [],
+        "com.android.contacts": [
+          {
+            "partition": "product",
+            "path": "/priv-app/MIUIContactsT/MIUIContactsT.apk",
+            "bytes": 19880967,
+            "sha256": "71845c7d8434f75f5302d5d686b07f07f317280cf5b4b77f22c455d5e3259c68",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.android.dialer": [],
+        "com.android.inputmethod.latin": [],
+        "com.android.mms": [
+          {
+            "partition": "product",
+            "path": "/priv-app/MiuiMms/MiuiMms.apk",
+            "bytes": 20444414,
+            "sha256": "61920079e54f973c1a5ad74e1ec8caf06f7c0afb91f864a54e3278e2e0b511cf",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.android.nfc": [
+          {
+            "partition": "product",
+            "path": "/app/XMNfcNci/XMNfcNci.apk",
+            "bytes": 9556817,
+            "sha256": "c3beaea899dc7dd3b02b00f7e061e56035cefe80493a97f6aabd5469a59f254a",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.android.phone": [
+          {
+            "partition": "system",
+            "path": "/system/priv-app/TeleService/TeleService.apk",
+            "bytes": 12126235,
+            "sha256": "b83c82481bdbbe9b31bc008642406b67444d414d632d2d157d86e2f1e8c60495",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.android.providers.media": [],
+        "com.android.settings": [
+          {
+            "partition": "system_ext",
+            "path": "/priv-app/Settings/Settings.apk",
+            "bytes": 120831307,
+            "sha256": "91f0bb559ef6e33dadc5f46353add424ab6ab4d18d6e7ff91de0db0bc47457d0",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.android.systemui": [
+          {
+            "partition": "system_ext",
+            "path": "/priv-app/MiuiSystemUI/MiuiSystemUI.apk",
+            "bytes": 52329623,
+            "sha256": "067556deaa7ad2791debcef6a13903a8f6aa76b79a29a9c3a7aea9107ec5672b",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.android.vending": [
+          {
+            "partition": "system",
+            "path": "/system/priv-app/Phonesky/Phonesky.apk",
+            "bytes": 101349603,
+            "sha256": "e1625729a36c7f0f5b042ccf739be810480b21b76ba44be8b386b3e84b8e6f9b",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.google.android.apps.messaging": [],
+        "com.google.android.contacts": [],
+        "com.google.android.dialer": [],
+        "com.google.android.gms": [],
+        "com.google.android.gsf": [
+          {
+            "partition": "system_ext",
+            "path": "/priv-app/GoogleServicesFramework/GoogleServicesFramework.apk",
+            "bytes": 1128492,
+            "sha256": "2cc66e74a393f95fba16bd5f3ee000f9c7990169dd13ea70c256e294da4b48e9",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.google.android.inputmethod.latin": [
+          {
+            "partition": "product",
+            "path": "/app/LatinImeGoogle/LatinImeGoogle.apk",
+            "bytes": 75580161,
+            "sha256": "a2fdc61b97d2223c279b1969e73f3b1e19f88b834abb69fb077aa28647e7e913",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.google.android.setupwizard": [],
+        "com.miui.camera": [],
+        "com.miui.gallery": [
+          {
+            "partition": "product",
+            "path": "/app/MIUIGallery/MIUIGallery.apk",
+            "bytes": 104658287,
+            "sha256": "2b9525a3a6f3ea4e2e03e1b332dad0f2fe42d84f708b487379b27f5671a63d85",
+            "manifest_reader": "aapt_badging"
+          }
+        ],
+        "com.miui.player": [],
+        "com.miui.securitycenter": [
+          {
+            "partition": "product",
+            "path": "/priv-app/MIUISecurityCenter/MIUISecurityCenter.apk",
+            "bytes": 66960529,
+            "sha256": "2873016d91548be9a75cd5c4a04a475d97fb9d9cfcc8b269f7fb1b8d830d36f7",
+            "manifest_reader": "aapt_badging"
+          }
+        ]
+      },
+      "collision_found_in_scanned_roots": false,
+      "limitations": [
+        "Only allocated regular APKs in the listed filesystem roots were scanned.",
+        "APEX payloads, symlink targets, ODM/vendor, dynamic packages and runtime were not scanned.",
+        "Host manifest parsing does not prove APK installation or runtime compatibility."
+      ]
+    },
+    "limitations": [
+      "APK presence in a scanned root is not proof of installation, function, certification or license.",
+      "No matches means only no match in these scanned roots; APEX, symlink targets, ODM/vendor and dynamic apps are excluded.",
+      "No source image, release, device, recovery or ROM was modified or published."
+    ],
+    "outcome": "success"
+  }
+}

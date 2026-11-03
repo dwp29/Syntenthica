@@ -1,0 +1,573 @@
+{
+  "run": 41576967077,
+  "check_run": 125727305438,
+  "source_commit": "69e1972941cba9da90a939af8029da9e03ab2de2",
+  "release_id": 432276369,
+  "release_snapshot": {
+    "assets": [
+      {
+        "digest": "sha256:93b8ead16e22911d90418c65b2cc52e2e4683244f6c92389603a4738347bc477",
+        "id": 704286815,
+        "name": "BUILD-REPORT-SPATIALFLOW-04.json",
+        "size": 13781,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:1254356192bd836dcfd1193039c2b28673114eeb62bd0ddbae53381c0c7580b7",
+        "id": 704286879,
+        "name": "MANIFEST-SPATIALFLOW-04.json",
+        "size": 1692,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:43bf226564c032384e07d6e2624b1be2113a7507a047081117e4e015cd1e2385",
+        "id": 704274886,
+        "name": "synthetica-feature-20261103-04-spatialflow.zip.001",
+        "size": 1610612736,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:30d99f3a41acf977311f66e59c721c80c207c1028ca49ddc9c241647737b747c",
+        "id": 704277071,
+        "name": "synthetica-feature-20261103-04-spatialflow.zip.002",
+        "size": 1610612736,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:6a2e6e710ce44694f3a552ea296dc9601fc5cb093f1bdfe399a3859285039c86",
+        "id": 704281287,
+        "name": "synthetica-feature-20261103-04-spatialflow.zip.003",
+        "size": 1527360703,
+        "state": "uploaded"
+      }
+    ],
+    "body": "HOLD / JANGAN FLASH. Unggahan eksperimental belum lengkap sampai manifest ada. Kandidat ini menambahkan SpatialFlow biasa dan memperbesar product 32 MiB dalam super; belum memperbaiki VINTF/policy, belum ditandatangani, belum diuji recovery/AVB/boot, dan belum disetujui untuk flash. Raw parts bukan ZIP terpisah. Jangan dipublikasikan untuk komunitas sebelum hak distribusi dan uji terpenuhi.\nRevisi resep: 69e1972941cba9da90a939af8029da9e03ab2de2. Basis: kandidat 03 terverifikasi dari ZIP asli diza.",
+    "draft": true,
+    "prerelease": true,
+    "tag_name": "synthetica-feature-spatialflow-04-run-41576967077-1",
+    "target_commitish": "69e1972941cba9da90a939af8029da9e03ab2de2"
+  },
+  "check_result": {
+    "status": "EXPERIMENTAL_DRAFT_BUILT_HOLD_DO_NOT_FLASH",
+    "outcomes": {
+      "LP_OUTCOME": "success",
+      "BUILD_OUTCOME": "success",
+      "TRANSFER_OUTCOME": "success"
+    },
+    "lp_controls": {
+      "schema": "synthetica-lpdump-independent-control-v1",
+      "status": "SYNTHETIC_CONTROLS_PASSED",
+      "tool": {
+        "source": "ravindu644/android-lptools-static-x86_64",
+        "source_commit": "1e13871960cb71ceeba0c780c0878176ca665e53",
+        "git_blob_sha1": "d90449a803e1bf3df2ebb5a2a466f89bbc3f29a4",
+        "bytes": 5440440,
+        "sha256": "a7877918d01a98466d88980b2163756acd5926b602e97c2efb9e8de8a5a27a39",
+        "source_to_binary_provenance_verified": false,
+        "isolated_without_network_or_capabilities": true
+      },
+      "before_partition_sizes": {
+        "product": 8192,
+        "system": 8192
+      },
+      "after_partition_sizes": {
+        "product": 73728,
+        "system": 8192
+      },
+      "before_extent_layout": {
+        "product": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 80,
+            "device": "super"
+          }
+        ],
+        "system": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 128,
+            "device": "super"
+          }
+        ]
+      },
+      "after_extent_layout": {
+        "product": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 80,
+            "device": "super"
+          },
+          {
+            "logical_start": 16,
+            "sectors": 128,
+            "physical_start": 144,
+            "device": "super"
+          }
+        ],
+        "system": [
+          {
+            "logical_start": 0,
+            "sectors": 16,
+            "physical_start": 128,
+            "device": "super"
+          }
+        ]
+      },
+      "corrupted_geometry_rejected": true,
+      "limitations": [
+        "Third-party binary provenance is not authenticated.",
+        "Synthetic host controls do not prove device, recovery, AVB or boot compatibility."
+      ]
+    },
+    "build": {
+      "schema": "synthetica-spatialflow-rom-candidate-v1",
+      "status": "HOST_VERIFIED_DEVICE_UNTESTED_HOLD_DO_NOT_FLASH",
+      "source": {
+        "name": "synthetica-boot-first-20261102-03-ota-metadata.zip",
+        "bytes": 4713790282,
+        "sha256": "bd864ae0d5f5baf26e88f2b5848f15544e4843a46e6ac96636bc25c664e4f425"
+      },
+      "output": {
+        "name": "synthetica-feature-20261103-04-spatialflow.zip",
+        "bytes": 4748586175,
+        "sha256": "7aa84e14e1b4e30aa0a70e222c8d9550b4d533c8016aa1f002d17fe460d96df8",
+        "signed_by_this_recipe": false
+      },
+      "apk": {
+        "name": "app-arm64-v8a-release.apk",
+        "bytes": 45521038,
+        "sha256": "a3c5349073f9819764f185022867a9d47c58347d9c34573423e6397f33f9233d",
+        "upstream_repo": "MythicalSHUB/SpatialFlow",
+        "release_tag": "v1.8.2",
+        "source_commit_claimed_by_tag": "8a40906d074ab95b2bfa32481bfae140dfdfcbed",
+        "package": "com.codetrio.spatialflow",
+        "version_code": "10",
+        "version_name": "1.8.2",
+        "min_sdk": 25,
+        "target_sdk": 36,
+        "abis": "'arm64-v8a'",
+        "signer_certificate_sha256": "b573b4f94deb595bfdc1621f5cdf2e9d8afaf34bd022078f2bbd0e4ef9d45e68",
+        "apk_signature_verified_on_host": true,
+        "apk_signer_previously_trusted": false,
+        "zipalign_4k_native_passed": true,
+        "shared_user_id_declared": false,
+        "native_library_count": 13,
+        "native_libraries_uncompressed": true,
+        "permissions_declared": [
+          "android.permission.ACCESS_FINE_LOCATION",
+          "android.permission.ACCESS_NETWORK_STATE",
+          "android.permission.ACCESS_WIFI_STATE",
+          "android.permission.BLUETOOTH",
+          "android.permission.BLUETOOTH_ADMIN",
+          "android.permission.BLUETOOTH_CONNECT",
+          "android.permission.BLUETOOTH_SCAN",
+          "android.permission.FOREGROUND_SERVICE",
+          "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+          "android.permission.INTERNET",
+          "android.permission.MODIFY_AUDIO_SETTINGS",
+          "android.permission.NEARBY_WIFI_DEVICES",
+          "android.permission.POST_NOTIFICATIONS",
+          "android.permission.READ_EXTERNAL_STORAGE",
+          "android.permission.READ_MEDIA_AUDIO",
+          "android.permission.READ_PHONE_STATE",
+          "android.permission.RECEIVE_BOOT_COMPLETED",
+          "android.permission.RECORD_AUDIO",
+          "android.permission.REQUEST_INSTALL_PACKAGES",
+          "android.permission.SYSTEM_ALERT_WINDOW",
+          "android.permission.VIBRATE",
+          "android.permission.WAKE_LOCK",
+          "android.permission.WRITE_EXTERNAL_STORAGE",
+          "com.codetrio.spatialflow.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        ]
+      },
+      "package_collision_scan": {
+        "forbidden_package": "com.codetrio.spatialflow",
+        "apks_checked": 250,
+        "directories_scanned": [
+          "system:/system/app",
+          "system:/system/priv-app",
+          "system_ext:/app",
+          "system_ext:/priv-app",
+          "product:/app",
+          "product:/priv-app"
+        ],
+        "directories_missing": [
+          "system:/app",
+          "system:/priv-app"
+        ],
+        "tool_sha256": {
+          "aapt_sha256": "8cdf40b93e34c5aab518175e9738959f8e104a8f039eda3311f3ef6fb13ae992",
+          "aapt2_sha256": "0f1c0e560f99db510a76ebc99ad5c3e68438f62e8e8617018a716ca4a589a699"
+        },
+        "apk_manifest_zip_crc_checked": true,
+        "independent_xmltree_fallback_count": 1,
+        "independent_xmltree_fallback_paths": [
+          "system:/system/priv-app/Shell/Shell.apk"
+        ],
+        "collision_found_in_scanned_roots": false,
+        "limitations": [
+          "Only allocated regular APKs in the listed filesystem roots were scanned.",
+          "APEX payloads, symlink targets, ODM/vendor, dynamic packages and runtime were not scanned.",
+          "Host manifest parsing does not prove APK installation or runtime compatibility."
+        ]
+      },
+      "input_ext4": {
+        "system": {
+          "blocks": 423064,
+          "reserved_blocks": 0,
+          "free_blocks": 9010,
+          "block_size": 4096,
+          "free_bytes_including_reserved": 36904960,
+          "free_inodes": 148,
+          "features": "ext_attr dir_index filetype extent sparse_super large_file huge_file uninit_bg dir_nlink extra_isize",
+          "e2fsck_read_only_exit": 0
+        },
+        "system_ext": {
+          "blocks": 343578,
+          "reserved_blocks": 0,
+          "free_blocks": 6357,
+          "block_size": 4096,
+          "free_bytes_including_reserved": 26038272,
+          "free_inodes": 102,
+          "features": "ext_attr dir_index filetype extent sparse_super large_file huge_file uninit_bg dir_nlink extra_isize",
+          "e2fsck_read_only_exit": 0
+        },
+        "product": {
+          "blocks": 950119,
+          "reserved_blocks": 0,
+          "free_blocks": 10553,
+          "block_size": 4096,
+          "free_bytes_including_reserved": 43225088,
+          "free_inodes": 116,
+          "features": "ext_attr dir_index filetype extent sparse_super large_file huge_file uninit_bg dir_nlink extra_isize",
+          "e2fsck_read_only_exit": 0
+        }
+      },
+      "filesystem_audit": {
+        "status": "only_nonprivileged_spatialflow_paths_added",
+        "existing_reachable_paths_checked": 2195,
+        "existing_regular_file_paths_sha256_checked": 1718,
+        "existing_inode_stats_and_displayed_xattrs_checked": 2195,
+        "directory": "/app/SpatialFlow",
+        "apk_path": "/app/SpatialFlow/SpatialFlow.apk",
+        "apk_bytes": 45521038,
+        "apk_sha256": "a3c5349073f9819764f185022867a9d47c58347d9c34573423e6397f33f9233d",
+        "uid": 0,
+        "gid": 0,
+        "directory_mode": "0755",
+        "apk_mode": "0644",
+        "selinux_label": "u:object_r:system_file:s0",
+        "limitations": [
+          "Reachable path and displayed-xattr comparison is not a comparison of unallocated space.",
+          "Neither package-manager behavior nor SELinux runtime labeling was tested."
+        ],
+        "before_bytes": 3891687424,
+        "before_sha256": "f25da6d0a79f0f39c565b03bbbb679e22149577216276bc30d74b86a22770079",
+        "after_bytes": 3925241856,
+        "after_sha256": "e8504d1b387ac0dfeca063097ba88efe9b00a6874aad89a9d6443a3cfae50aad",
+        "e2fsck_read_only_exit": 0,
+        "growth_bytes": 33554432,
+        "source_image_and_apk_unchanged": true
+      },
+      "resized_product_ext4": {
+        "blocks": 958311,
+        "reserved_blocks": 0,
+        "free_blocks": 7643,
+        "block_size": 4096,
+        "free_bytes_including_reserved": 31305728,
+        "free_inodes": 194,
+        "features": "ext_attr dir_index filetype extent sparse_super large_file huge_file uninit_bg dir_nlink extra_isize",
+        "e2fsck_read_only_exit": 0
+      },
+      "logical_partition_growth": {
+        "source_metadata_sha256": "2ef44fc572691c89a81a2065a6466b9602a57c10d8d99c258a9e0b15cdc58cf5",
+        "output_metadata_sha256": "a648fde5f228e6dcd9bbaea50be9662612205a938b214b53f6cc9560c85b49e6",
+        "metadata_slots": 2,
+        "metadata_regions": [
+          {
+            "start": 12288,
+            "end": 12904
+          },
+          {
+            "start": 143360,
+            "end": 143976
+          },
+          {
+            "start": 77824,
+            "end": 78440
+          },
+          {
+            "start": 208896,
+            "end": 209512
+          }
+        ],
+        "metadata_reserved_end": 274432,
+        "alignment_bytes": 1048576,
+        "product_original": {
+          "name": "product",
+          "start": 1048576,
+          "end": 3892736000,
+          "bytes": 3891687424,
+          "group": "qti_dynamic_partitions",
+          "attributes": 0
+        },
+        "product_new_extent": {
+          "start": 8525971456,
+          "end": 8559525888,
+          "bytes": 33554432,
+          "source_offset": 3891687424
+        },
+        "product_bytes_after": 3925241856,
+        "physical_super_bytes": 8589934592,
+        "group": "qti_dynamic_partitions",
+        "group_original_bytes": 8522121216,
+        "group_maximum_bytes": 8589934592,
+        "other_partitions": [
+          {
+            "name": "system",
+            "start": 3893362688,
+            "end": 5626232832,
+            "bytes": 1732870144,
+            "group": "qti_dynamic_partitions",
+            "attributes": 0
+          },
+          {
+            "name": "system_ext",
+            "start": 5626658816,
+            "end": 7033954304,
+            "bytes": 1407295488,
+            "group": "qti_dynamic_partitions",
+            "attributes": 0
+          },
+          {
+            "name": "vendor",
+            "start": 7034896384,
+            "end": 8525164544,
+            "bytes": 1490268160,
+            "group": "qti_dynamic_partitions",
+            "attributes": 0
+          }
+        ],
+        "limitations": [
+          "On-disk metadata is not a measurement of the real device.",
+          "Checksums and a liblp host read do not prove AVB, recovery or boot compatibility."
+        ]
+      },
+      "isolated_lpdump": {
+        "status": "ISOLATED_THIRD_PARTY_LPDUMP_AGREES",
+        "slots": [
+          {
+            "slot": 0,
+            "original_sizes": {
+              "product": 3891687424,
+              "system": 1732870144,
+              "system_ext": 1407295488,
+              "vendor": 1490268160
+            },
+            "expanded_sizes": {
+              "product": 3925241856,
+              "system": 1732870144,
+              "system_ext": 1407295488,
+              "vendor": 1490268160
+            },
+            "all_extents_match_plan": true
+          },
+          {
+            "slot": 1,
+            "original_sizes": {
+              "product": 3891687424,
+              "system": 1732870144,
+              "system_ext": 1407295488,
+              "vendor": 1490268160
+            },
+            "expanded_sizes": {
+              "product": 3925241856,
+              "system": 1732870144,
+              "system_ext": 1407295488,
+              "vendor": 1490268160
+            },
+            "all_extents_match_plan": true
+          }
+        ],
+        "tool_sha256": "a7877918d01a98466d88980b2163756acd5926b602e97c2efb9e8de8a5a27a39",
+        "tool_source_to_binary_provenance_verified": false,
+        "limitations": [
+          "This host read does not verify real device layout, recovery or boot."
+        ]
+      },
+      "super": {
+        "bytes": 8589934592,
+        "old_sha256": "3ae6b934491d3828b43904070a17bab89d56ddf0a79d599b11fd9cb701476673",
+        "sha256": "bc7b59d0824bddb63ffa2d1a49b7f1030b3363cbfe7caa7e6fa55ad1839e5f54"
+      },
+      "super_comparison": {
+        "bytes_compared": 8589934592,
+        "all_bytes_outside_metadata_and_product_extents_identical": true,
+        "all_nonproduct_logical_partitions_identical": true,
+        "old_and_new_super_zip_crc_checked": true,
+        "partitions": [
+          {
+            "name": "system",
+            "bytes": 1732870144,
+            "sha256": "1a27a6d10de5bb55d2e5a0dc543af181e8227fb9970053f1880f0e86520d01f0",
+            "unchanged_from_candidate03": true
+          },
+          {
+            "name": "system_ext",
+            "bytes": 1407295488,
+            "sha256": "7e6bba489094b01194919a5ee69e63778ac0d1bef3b16ce25d325fbf0b991f1e",
+            "unchanged_from_candidate03": true
+          },
+          {
+            "name": "vendor",
+            "bytes": 1490268160,
+            "sha256": "814f8cad2da33d842656773ab94b01f5d54d39726a650ea5bec0ed7472fa099a",
+            "unchanged_from_candidate03": true
+          },
+          {
+            "name": "product",
+            "bytes": 3925241856,
+            "sha256": "e8504d1b387ac0dfeca063097ba88efe9b00a6874aad89a9d6443a3cfae50aad",
+            "unchanged_from_candidate03": false
+          }
+        ]
+      },
+      "output_members": [
+        {
+          "name": "META-INF/com/android/metadata.pb",
+          "bytes": 326,
+          "sha256": "5e653f522d0b854b314dff27bba0e77735b667bd06f0bdaacb2d9254500102c9",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "META-INF/com/android/metadata",
+          "bytes": 412,
+          "sha256": "9ae0bd0b1e014fe3288adebb832ed5da6a1e0f12176c54aa03957cbe754a81fe",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "META-INF/com/google/android/updater-script",
+          "bytes": 1569,
+          "sha256": "8053b434315f4511804cd6bb6066e442e984ec0523783d36334362427d787252",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "super.img",
+          "bytes": 8589934592,
+          "sha256": "bc7b59d0824bddb63ffa2d1a49b7f1030b3363cbfe7caa7e6fa55ad1839e5f54",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "boot.img",
+          "bytes": 134217728,
+          "sha256": "57f7c113ae8d5f331fd2b84e526c5f6fa083ae385844b317514fd1e91e55234d",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "dtbo.img",
+          "bytes": 25165824,
+          "sha256": "9c1cd10bce76b257529e13e3577ecb0f9a195fea95e7b628bdf81bc3daa05ff2",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "META-INF/com/android/otacert",
+          "bytes": 1342,
+          "sha256": "64c28c8b05c66b58e16bc382f373a4dc0bb1ad93551de248a67b469cb8f94a88",
+          "zip_crc_verified_at_eof": true
+        },
+        {
+          "name": "META-INF/com/google/android/update-binary",
+          "bytes": 2353664,
+          "sha256": "94fb81532b96bbf78f2e8d7e9d5426bf7a7d5eec6a35f208fda9209e38839d02",
+          "zip_crc_verified_at_eof": true
+        }
+      ],
+      "all_other_compressed_members_identical": 12,
+      "ota_metadata": {
+        "property_files": [
+          {
+            "property": "ota-property-files",
+            "name": "metadata",
+            "offset": 447,
+            "bytes": 412,
+            "stored": true,
+            "direct_range_matches": true
+          },
+          {
+            "property": "ota-property-files",
+            "name": "metadata.pb",
+            "offset": 62,
+            "bytes": 326,
+            "stored": true,
+            "direct_range_matches": true
+          }
+        ],
+        "entry_count": 13,
+        "zip_comment_bytes": 0,
+        "central_directory_offset": 4748585063,
+        "legacy_and_protobuf_values_equal": true,
+        "nonproperty_fields_unchanged": true
+      },
+      "other_existing_apps_preserved": true,
+      "limitations": [
+        "SpatialFlow inclusion is not proof it installs, opens, plays audio, or supports 4GB RAM.",
+        "Product grows by 32 MiB into a second logical extent; device mapping and the real super partition size were not tested.",
+        "This does not repair previously reported partial VINTF/SELinux policy incompatibilities.",
+        "Recovery whole-file signature and external AVB/vbmeta trust are not validated.",
+        "No device/recovery test, flashing, data wipe, or firmware/security change was performed.",
+        "The APK release signature is valid but not independently authenticated against a previously trusted author key.",
+        "Private experimental build only; distribution rights for ROM and bundled dependencies remain unresolved."
+      ]
+    },
+    "transfer": {
+      "schema": "synthetica-spatialflow-draft-parts-v1",
+      "status": "UNPUBLISHED_HOLD_DO_NOT_FLASH",
+      "release_id": 432276369,
+      "tag": "synthetica-feature-spatialflow-04-run-41576967077-1",
+      "build_commit": "69e1972941cba9da90a939af8029da9e03ab2de2",
+      "file_name": "synthetica-feature-20261103-04-spatialflow.zip",
+      "file_bytes": 4748586175,
+      "file_sha256": "7aa84e14e1b4e30aa0a70e222c8d9550b4d533c8016aa1f002d17fe460d96df8",
+      "part_bytes": 1610612736,
+      "parts": [
+        {
+          "number": 1,
+          "name": "synthetica-feature-20261103-04-spatialflow.zip.001",
+          "bytes": 1610612736,
+          "sha256": "43bf226564c032384e07d6e2624b1be2113a7507a047081117e4e015cd1e2385"
+        },
+        {
+          "number": 2,
+          "name": "synthetica-feature-20261103-04-spatialflow.zip.002",
+          "bytes": 1610612736,
+          "sha256": "30d99f3a41acf977311f66e59c721c80c207c1028ca49ddc9c241647737b747c"
+        },
+        {
+          "number": 3,
+          "name": "synthetica-feature-20261103-04-spatialflow.zip.003",
+          "bytes": 1527360703,
+          "sha256": "6a2e6e710ce44694f3a552ea296dc9601fc5cb093f1bdfe399a3859285039c86"
+        }
+      ],
+      "all_parts_independently_redownloaded": true,
+      "build_report": {
+        "name": "BUILD-REPORT-SPATIALFLOW-04.json",
+        "bytes": 13781,
+        "sha256": "93b8ead16e22911d90418c65b2cc52e2e4683244f6c92389603a4738347bc477"
+      },
+      "source_candidate03_sha256": "bd864ae0d5f5baf26e88f2b5848f15544e4843a46e6ac96636bc25c664e4f425",
+      "app_sha256": "a3c5349073f9819764f185022867a9d47c58347d9c34573423e6397f33f9233d",
+      "signed_by_this_recipe": false,
+      "device_or_recovery_tested": false,
+      "warning": "Experimental private draft only. Raw parts are not individual flashable ZIPs. Do not flash.",
+      "manifest_asset": {
+        "bytes": 1692,
+        "sha256": "1254356192bd836dcfd1193039c2b28673114eeb62bd0ddbae53381c0c7580b7"
+      },
+      "draft_url": "https://github.com/dwp29/Syntenthica/releases/edit/432276369"
+    }
+  }
+}
