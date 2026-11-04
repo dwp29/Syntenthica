@@ -31,6 +31,15 @@ Kecocokan konfigurasi dan identitas Manager di biner tidak membuktikan root
 atau semua fitur berfungsi. Versi kernel berubah; kecocokan ABI, vermagic dan
 kepercayaan tanda tangan modul vendor HOS4 belum terbukti. Build dapat memakai
 sertifikat modul baru yang tidak otomatis mempercayai modul ROM atau 2.0.
+
+Pemeriksaan langsung terhadap image 2.0 publik dengan SHA-256
+`58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff`
+mendapatkan CRC `module_layout` `0x08efcbb0`. Nilai ini dibaca dari tabel
+export/CRC kernel yang direkonstruksi dari kallsyms (7.337 entri); beberapa
+CRC lain juga cocok dengan `Module.symvers` dari build historis sebagai
+pemeriksaan metode. Ini bukan hasil uji perangkat atau bukti kecocokan modul
+ROM. `Module.symvers` 3.0 tetap harus diperiksa terhadap modul yang benar.
+
 Boot fisik, AVB dan SELinux saat runtime juga belum diuji. Jangan flash sampai
 semua pemeriksaan dan rencana pemulihan yang sesuai telah disiapkan dan
 pengguna menyetujui tindakan perangkat.
