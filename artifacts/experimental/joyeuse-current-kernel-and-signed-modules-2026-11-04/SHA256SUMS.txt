@@ -1,0 +1,9 @@
+e47dd6e79bffb7b5cf5e9f4fc5e2e6ed0081bf67264569b334504fca2de6f344  ./DO-NOT-FLASH-JOYEUSE-BUILTIN-Image.gz
+d14af8606af586b7fa7e26948e54a2ca00f0c20df0ab73cd842e9704fd699f35  ./Module.symvers.txt
+d4c247eff9e6522879bfd152817045f95a1c31f1ce0aa8ab6696507182533a27  ./README-DO-NOT-FLASH.txt
+cf031da76b3a17f1812db5c6361262837d3fbe4c9c6bb86651e8bf3a27d4056d  ./STATUS.json
+70a5985ef48a2f5c279a62827bca6cf049c7a30c947797db95df6e9fac2a4017  ./generated.config.txt
+2f0c77fab03cb02f801d4664a188da7fe47a57803b73e215be64f5258844386b  ./kernel-module-public-cert.der
+8b258428f92a18c60477254a2563a813ec2350f1f5d67330865768e5e003cf24  ./signed-modules/msm_11ad_proxy.ko
+b724a4c874901a70d450b942f934d0703f8e07db57887f11e29d516a53986c5e  ./signed-modules/rmnet_perf.ko
+fbebdd580237abc253f8db0c6983ed6cbb46e5f0cf6623881c211ac69b2cb859  ./signed-modules/rmnet_shs.ko
