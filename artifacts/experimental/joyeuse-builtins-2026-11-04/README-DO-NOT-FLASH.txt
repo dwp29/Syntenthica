@@ -1,5 +1,5 @@
-DO NOT FLASH. Experimental kernel Image.gz only; no boot image or installer.
-Compiled with selected in-tree drivers built in. This does not prove vendor
-module compatibility, hardware behavior, bootability, or ROM readiness.
-No ROM, boot image, AVB settings, or SELinux policy was modified.
-Module signature enforcement and MODVERSIONS remain enabled.
+SUPERSEDED — DO NOT FLASH. Experimental kernel only, not a boot image or ROM.
+The embedded /proc/config.gz is stock_defconfig, NOT the configuration used
+to compile this image. Its embedded config is misleading. Rebuild required.
+No physical boot, vendor module ABI/signature, AVB or runtime validation.
+The original ROM has not been changed. Do not use this file on a device.

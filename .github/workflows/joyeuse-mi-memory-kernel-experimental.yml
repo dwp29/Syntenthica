@@ -6,13 +6,18 @@ on:
     paths:
       - '.github/workflows/joyeuse-mi-memory-kernel-experimental.yml'
       - 'synthetica-project/build_joyeuse_mi_memory_kernel.py'
+      - 'synthetica-project/build_joyeuse_mi_memory_probe.py'
+      - 'synthetica-project/build_joyeuse_builtin_experiment.py'
+      - 'build-kit/ci/rollercoaster/profiles/joyeuse-builtins-experimental.config'
       - 'tests/test_build_joyeuse_mi_memory_kernel.py'
+      - 'tests/test_build_joyeuse_mi_memory_probe.py'
+      - 'tests/test_build_joyeuse_builtin_experiment.py'
 
 permissions:
   contents: read
 
 concurrency:
-  group: joyeuse-mi-memory-kernel-experiment-${{ github.ref }}
+  group: joyeuse-mi-memory-kernel-ikconfig-fixed-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

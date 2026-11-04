@@ -10,13 +10,16 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import io
 import json
 import re
 import shutil
 import sys
+import zlib
 from pathlib import Path
 
 BASELINE_SHA256 = "248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b"
+KERNEL_MAKEFILE_SHA256 = "d237ad471f5ea1c1009493fa79227e3b3ba461e6eacd6fd1294567fcb9ce8913"
 PINNED_INPUTS = {
     "ci/rollercoaster/build-rollercoaster.sh": "033ea7e5789b129ac1226837a897c6d8735d8e15dc14fbb914b83dddd6c53715",
     "ci/rollercoaster/profiles/synthetica.config": "b2680e2cd32c76a2c64849a8a635d48c6a2a6df2699a7f75bde09c8efa3ec0e3",
@@ -27,13 +30,15 @@ PINNED_INPUTS = {
 REQUIRED = (
     "BRIDGE_NETFILTER", "USB_GSPCA", "LCD_CLASS_DEVICE", "QCOM_LLCC_PERFMON",
     "QCA_CLD_WLAN", "EXFAT_FS", "MODULES", "MODVERSIONS", "MODULE_SIG",
-    "MODULE_SIG_FORCE", "MODULE_SIG_ALL", "SECURITY", "SECURITY_SELINUX",
+    "MODULE_SIG_FORCE", "MODULE_SIG_ALL", "SECURITY", "SECURITY_SELINUX", "IKCONFIG", "IKCONFIG_PROC",
 )
 DISABLED = ("MODULE_FORCE_LOAD", "SECURITY_SELINUX_DISABLE")
 SECURITY_PREFIXES = (
     "SECURITY", "MODULE_SIG", "MODULE_FORCE_", "MODVERSIONS", "SECCOMP", "AUDIT",
-    "INTEGRITY", "IMA", "EVM", "DM_VERITY", "DEFAULT_SECURITY", "CMDLINE",
-    "RANDOMIZE_BASE", "HARDENED_USERCOPY", "STACKPROTECTOR", "ARM64_PAN",
+    "INTEGRITY", "IMA", "EVM", "DM_VERITY", "DM_DEFAULT_KEY", "DEFAULT_SECURITY", "CMDLINE",
+    "FS_ENCRYPTION", "F2FS_FS_ENCRYPTION", "EXT4_FS_ENCRYPTION", "RANDOMIZE_BASE",
+    "HARDENED_USERCOPY", "STACKPROTECTOR", "CC_STACKPROTECTOR", "ARM64_PAN", "ARM64_SW_TTBR0_PAN",
+    "STRICT_KERNEL_RWX", "STRICT_MODULE_RWX", "FORTIFY_SOURCE", "DEBUG_FS",
 )
 REQUIRED_SYMBOLS = (
     "br_netfilter_init", "gspca_dev_probe", "lcd_device_register", "llcc_perfmon_probe",
@@ -96,6 +101,37 @@ def verified_baseline(path: Path) -> str:
     return path.read_text()
 
 
+def fix_ikconfig(tree: Path) -> None:
+    """Make /proc/config.gz reflect the actual .config, not stock_defconfig."""
+    makefile = tree / "kernel/Makefile"
+    if digest(makefile) != KERNEL_MAKEFILE_SHA256:
+        raise ValueError("kernel/Makefile differs from the pinned source")
+    text = makefile.read_text()
+    old = "$(obj)/config_data.gz: $(KBUILD_SRC)/arch/arm64/configs/vendor/stock_defconfig FORCE"
+    new = "$(obj)/config_data.gz: $(KCONFIG_CONFIG) FORCE"
+    if text.count(old) != 1 or new in text:
+        raise ValueError("unexpected IKCONFIG Makefile rule")
+    makefile.write_text(text.replace(old, new))
+    print("IKCONFIG will embed the actual generated build configuration")
+
+
+def verify_embedded_config(raw_image: bytes, expected_config: bytes) -> None:
+    start, end = b"IKCFG_ST", b"IKCFG_ED"
+    if raw_image.count(start) != 1 or raw_image.count(end) != 1:
+        raise ValueError("kernel has missing or ambiguous embedded configuration markers")
+    a = raw_image.index(start) + len(start)
+    b = raw_image.index(end)
+    if b <= a or b - a > 4 * 1024 * 1024:
+        raise ValueError("embedded configuration has an invalid size")
+    try:
+        with gzip.GzipFile(fileobj=io.BytesIO(raw_image[a:b])) as config_gzip:
+            embedded = config_gzip.read(len(expected_config) + 1)
+    except (OSError, EOFError, zlib.error) as exc:
+        raise ValueError("embedded configuration is not valid gzip") from exc
+    if embedded != expected_config:
+        raise ValueError("embedded kernel configuration does not match the generated build configuration")
+
+
 def prepare(source: Path, destination: Path, fragment_path: Path) -> None:
     source, destination = source.resolve(), destination.resolve()
     if source == destination or source in destination.parents or destination in source.parents:
@@ -136,6 +172,13 @@ python3 "$SP_EXPERIMENT_GUARD" check-config --baseline "$SP_EXPERIMENT_BASELINE_
 
     driver = destination / "scripts/build_chronicle_base.py"
     text = driver.read_text()
+    extract_anchor = '    tree = extract(archive, WORK / "tree")\n'
+    if text.count(extract_anchor) != 1:
+        raise ValueError("unexpected kernel extraction anchor")
+    ikconfig_hook = '''    subprocess.run([sys.executable, os.environ["SP_EXPERIMENT_GUARD"],
+                    "fix-ikconfig", "--tree", str(tree)], check=True)
+'''
+    text = text.replace(extract_anchor, extract_anchor + ikconfig_hook)
     start, end_marker = "    status = {\n", '\n\nif __name__ == "__main__":'
     if text.count(start) != 1 or text.count(end_marker) != 1:
         raise ValueError("unexpected builder metadata layout")
@@ -162,6 +205,7 @@ def finish(kit: Path, out: Path, baseline_path: Path, result: Path) -> None:
     match = re.search(rb"Linux version ([^\s]+)", raw)
     if not match or match.group(1).decode("ascii") != EXPECTED_RELEASE:
         raise ValueError("compiled image release does not match experiment")
+    verify_embedded_config(raw, generated_path.read_bytes())
     if result.exists():
         raise ValueError("refusing to overwrite existing result directory")
     result.mkdir(parents=True)
@@ -182,6 +226,7 @@ def finish(kit: Path, out: Path, baseline_path: Path, result: Path) -> None:
         "image_sha256": digest(image),
         "image_bytes": image.stat().st_size,
         "config_sha256": digest(generated_path),
+        "embedded_config_matches_generated": True,
         "security_baseline_config_sha256": BASELINE_SHA256,
         "security_config_unchanged": True,
         "required_symbols_linked": list(REQUIRED_SYMBOLS),
@@ -213,6 +258,8 @@ def main() -> None:
     chk = sub.add_parser("check-config")
     chk.add_argument("--baseline", type=Path, required=True)
     chk.add_argument("--generated", type=Path, required=True)
+    fix = sub.add_parser("fix-ikconfig")
+    fix.add_argument("--tree", type=Path, required=True)
     fin = sub.add_parser("finish")
     fin.add_argument("--kit", type=Path, required=True)
     fin.add_argument("--out", type=Path, required=True)
@@ -224,6 +271,8 @@ def main() -> None:
     elif args.command == "check-config":
         changes = check_config(verified_baseline(args.baseline), args.generated.read_text())
         print(f"Security configuration preserved; {len(changes)} config differences")
+    elif args.command == "fix-ikconfig":
+        fix_ikconfig(args.tree)
     else:
         finish(args.kit, args.out, args.baseline, args.result)
 

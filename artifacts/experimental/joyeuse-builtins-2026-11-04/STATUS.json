@@ -1,5 +1,5 @@
 {
-  "status": "COMPILED_ONLY_DO_NOT_FLASH",
+  "status": "SUPERSEDED_IKCONFIG_MISMATCH_DO_NOT_FLASH",
   "device": "joyeuse / miatoll; physical device not tested",
   "release": "4.14.357-openela-Synthetica-2.0-JOYEUSE-EXPERIMENT",
   "image_sha256": "72b3ef87a2a5fc76b728bedfa570c5ad2921a73531651e5b75c050002e183518",
@@ -39,5 +39,8 @@
   "vendor_module_compatibility": "NOT_PROVEN; module signatures and CRC mismatches remain",
   "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
   "private_module_signing_key_exported": false,
-  "rom_or_boot_image_modified": false
+  "rom_or_boot_image_modified": false,
+  "embedded_config_matches_generated": false,
+  "embedded_config_sha256": "8188e2539466a3e6797e98dd704b4b5a8e6439b21c08ba8d2a82b2829a8b190d",
+  "embedded_config_issue": "Kernel embeds the unrelated stock_defconfig, not the .config actually used in this build. /proc/config.gz is misleading. A corrected build is required."
 }

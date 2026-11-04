@@ -55,10 +55,41 @@ class TestJoyeuseBuiltinExperiment(unittest.TestCase):
             mod.check_config(baseline, candidate.replace("# CONFIG_MODULE_FORCE_LOAD is not set", "CONFIG_MODULE_FORCE_LOAD=y"))
         with self.assertRaisesRegex(ValueError, "security configuration changed"):
             mod.check_config(baseline, candidate.replace("CONFIG_SECURITY_SELINUX_DEVELOP=y", "# CONFIG_SECURITY_SELINUX_DEVELOP is not set"))
+        with self.assertRaisesRegex(ValueError, "security configuration changed"):
+            mod.check_config(baseline, candidate.replace("# CONFIG_DEBUG_FS is not set", "CONFIG_DEBUG_FS=y"))
+        with self.assertRaisesRegex(ValueError, "security configuration changed"):
+            mod.check_config(baseline, candidate.replace("CONFIG_FS_ENCRYPTION=y", "# CONFIG_FS_ENCRYPTION is not set"))
 
     def test_duplicates_rejected(self):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             mod.read_config("CONFIG_TEST=y\n# CONFIG_TEST is not set\n")
+
+    def test_embedded_config_must_match_compiled_config(self):
+        actual = b'CONFIG_MODULE_SIG_FORCE=y\n'
+        raw = b'prefixIKCFG_ST' + gzip.compress(actual) + b'IKCFG_EDsuffix'
+        mod.verify_embedded_config(raw, actual)
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            mod.verify_embedded_config(raw, b'CONFIG_MODULE_SIG_FORCE=n\n')
+        with self.assertRaisesRegex(ValueError, "ambiguous"):
+            mod.verify_embedded_config(raw + b'IKCFG_ST', actual)
+        with self.assertRaisesRegex(ValueError, "valid gzip"):
+            mod.verify_embedded_config(b'IKCFG_STbadIKCFG_ED', actual)
+
+    def test_ikconfig_makefile_fix_is_pinned_and_fail_closed(self):
+        # Fixture-free: create an independently hash-pinned miniature Makefile.
+        original = '$(obj)/config_data.gz: $(KBUILD_SRC)/arch/arm64/configs/vendor/stock_defconfig FORCE\n'
+        import hashlib
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            (tree / 'kernel').mkdir()
+            makefile = tree / 'kernel/Makefile'
+            makefile.write_text(original)
+            with patch.object(mod, 'KERNEL_MAKEFILE_SHA256', hashlib.sha256(original.encode()).hexdigest()):
+                mod.fix_ikconfig(tree)
+                self.assertIn('$(obj)/config_data.gz: $(KCONFIG_CONFIG) FORCE', makefile.read_text())
+                with self.assertRaisesRegex(ValueError, 'differs'):
+                    mod.fix_ikconfig(tree)
 
     def test_prepare_is_isolated_and_never_packages(self):
         source = ROOT / "build-kit"
@@ -72,7 +103,9 @@ class TestJoyeuseBuiltinExperiment(unittest.TestCase):
             self.assertNotIn('zip -r9 "$ZIP"', builder)
             self.assertIn("DO NOT FLASH", builder)
             self.assertEqual(mod.digest(dest / "artifacts/manager/MANAGER.json"), before["artifacts/manager/MANAGER.json"])
-            self.assertNotIn('    status = {\n', (dest / "scripts/build_chronicle_base.py").read_text())
+            driver = (dest / "scripts/build_chronicle_base.py").read_text()
+            self.assertNotIn('    status = {\n', driver)
+            self.assertIn('"fix-ikconfig", "--tree", str(tree)', driver)
             self.assertIn("CONFIG_USB_GSPCA=y", (dest / "ci/rollercoaster/profiles/synthetica.config").read_text())
             with self.assertRaisesRegex(ValueError, "overwrite"):
                 mod.prepare(source, dest, FRAGMENT)
@@ -94,11 +127,13 @@ class TestJoyeuseBuiltinExperiment(unittest.TestCase):
             (out / "Module.symvers").write_text("test\n")
             with gzip.open(kit / "artifacts/Image.gz", "wb", compresslevel=1) as image:
                 image.write(("Linux version " + mod.EXPECTED_RELEASE + " test\n").encode())
+                image.write(b'IKCFG_ST' + gzip.compress(generated_config().encode()) + b'IKCFG_ED')
                 image.write(os.urandom(8 * 1024 * 1024 + 1024))
             mod.finish(kit, out, BASELINE, result)
             status = json.loads((result / "STATUS.json").read_text())
             self.assertEqual(status["status"], "COMPILED_ONLY_DO_NOT_FLASH")
             self.assertTrue(status["security_config_unchanged"])
+            self.assertTrue(status["embedded_config_matches_generated"])
             self.assertEqual(status["boot_test"], "NOT_RUN")
             self.assertTrue((result / "DO-NOT-FLASH-JOYEUSE-BUILTIN-Image.gz").is_file())
             self.assertFalse(any("signing_key" in p.name for p in result.rglob("*")))
