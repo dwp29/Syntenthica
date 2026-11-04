@@ -1,0 +1,100 @@
+name: "Save matching Joyeuse kernel and modules — DO NOT FLASH"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: ['.github/workflows/joyeuse-save-signed-modules.yml']
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  save:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: arena/96cbd65a-syntenthica
+          fetch-depth: 0
+      - name: Recover the exact completed build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run view 41793133651 --json status,conclusion,headSha \
+            --jq 'select(.status == "completed" and .conclusion == "success" and .headSha == "8bd18ebd914f57bbaf707132d148fd7e355e9fa0") | .headSha' \
+            | grep -Fx '8bd18ebd914f57bbaf707132d148fd7e355e9fa0'
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/13305246160/zip" > "$RUNNER_TEMP/matching-kernel-modules.zip"
+          echo 'd360ffc9f237fceadfcab214145a3af4b7d65e60c8aed5474484afd492a6091b  '"$RUNNER_TEMP/matching-kernel-modules.zip" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/matching-kernel-modules"
+          unzip -q "$RUNNER_TEMP/matching-kernel-modules.zip" -d "$RUNNER_TEMP/matching-kernel-modules"
+          (cd "$RUNNER_TEMP/matching-kernel-modules" && sha256sum -c SHA256SUMS.txt)
+      - name: Independently verify config, certificate, signatures and module CRCs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import gzip, importlib.util, json, os, re
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          bundle = Path(os.environ['RUNNER_TEMP']) / 'matching-kernel-modules'
+          spec = importlib.util.spec_from_file_location('signed_modules', root / 'synthetica-project/build_joyeuse_signed_modules.py')
+          mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+          image = bundle / 'DO-NOT-FLASH-JOYEUSE-BUILTIN-Image.gz'
+          config = bundle / 'generated.config.txt'
+          status = json.loads((bundle / 'STATUS.json').read_text())
+          module_status = json.loads((bundle / 'MODULE-STATUS.json').read_text())
+          assert status['status'] == module_status['status'] == 'COMPILED_ONLY_DO_NOT_FLASH'
+          assert status['boot_test'] == 'NOT_RUN' and status['security_config_unchanged'] is True
+          assert status['private_module_signing_key_exported'] is False and status['rom_or_boot_image_modified'] is False
+          assert module_status['rom_integration'] == 'NOT_DONE' and module_status['device_boot_test'] == 'NOT_RUN'
+          assert module_status['private_signing_key_exported'] is False
+          assert image.stat().st_size == status['image_bytes'] and image.stat().st_size > 8 * 1024 * 1024
+          assert mod.base.digest(image) == status['image_sha256'] and mod.base.digest(config) == status['config_sha256']
+          mod.base.check_config(mod.base.verified_baseline(root / 'artifacts/generated.config.txt'), config.read_text())
+          mod.check_module_config(config.read_text())
+          with gzip.open(image, 'rb') as f:
+              raw = f.read(128 * 1024 * 1024)
+          match = re.search(rb'Linux version ([^\s]+)', raw)
+          assert match and match.group(1).decode('ascii') == mod.base.EXPECTED_RELEASE
+          mod.base.verify_embedded_config(raw, config.read_bytes())
+          cert = (bundle / 'module-signing-certificate.der').read_bytes()
+          symvers = mod.symvers_records((bundle / 'Module.symvers.txt').read_text())
+          assert set(module_status['modules']) == set(mod.TARGETS)
+          for name in mod.TARGETS:
+              data = (bundle / 'modules' / (name + '.ko')).read_bytes()
+              checked = mod.verify_module(data, name=name, release=mod.base.EXPECTED_RELEASE,
+                                          certificate_der=cert, raw_kernel=raw, symvers=symvers)
+              assert checked == module_status['modules'][name]
+              print(name, 'verified', checked['sha256'], checked['version_records_verified'], 'CRC records')
+          assert not any('signing_key' in p.name.lower() or p.suffix == '.pem' for p in bundle.rglob('*'))
+          print('Image SHA-256:', status['image_sha256'])
+          PY
+      - name: Save only this kernel, its matching modules and public metadata
+        run: |
+          set -euo pipefail
+          dest='artifacts/experimental/joyeuse-current-kernel-and-signed-modules-2026-11-04'
+          mkdir -p "$dest/modules"
+          for file in DO-NOT-FLASH-JOYEUSE-BUILTIN-Image.gz STATUS.json MODULE-STATUS.json generated.config.txt Module.symvers.txt module-signing-certificate.der README-DO-NOT-FLASH.txt modules/rmnet_perf.ko modules/rmnet_shs.ko modules/msm_11ad_proxy.ko; do
+            src="$RUNNER_TEMP/matching-kernel-modules/$file"
+            if [ -e "$dest/$file" ] && ! cmp -s "$src" "$dest/$file"; then
+              echo "Refusing to overwrite a different result: $file" >&2
+              exit 1
+            fi
+            cp "$src" "$dest/$file"
+          done
+          (cd "$dest" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          (cd "$dest" && sha256sum -c SHA256SUMS.txt)
+          git config user.name 'synthetica-ci'
+          git config user.email 'ci@users.noreply.github.com'
+          git add -f -- "$dest"
+          if git diff --cached --quiet; then echo 'The identical result is already saved.'; exit 0; fi
+          git commit -m 'Save non-flashable Joyeuse kernel and matching modules'
+          for attempt in 1 2 3; do
+            git fetch origin arena/96cbd65a-syntenthica
+            git rebase FETCH_HEAD
+            if git push origin HEAD:refs/heads/arena/96cbd65a-syntenthica; then exit 0; fi
+          done
+          echo 'Could not fast-forward the session branch; no force push attempted.' >&2
+          exit 1
