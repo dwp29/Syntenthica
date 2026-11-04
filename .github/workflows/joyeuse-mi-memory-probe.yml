@@ -78,6 +78,17 @@ jobs:
             llvm-nm -u "$out/drivers/misc/mi-memory/mi_memory.o" > "$GITHUB_WORKSPACE/probe-logs/unresolved-objects.txt"
             echo 'COMPILED OBJECTS ONLY. No full-kernel link or runtime/device test.'
           ) 2>&1 | tee probe-logs/compiler-console.txt
+      - name: Surface compiler failure details
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('probe-logs/compiler-console.txt')
+          if p.is_file():
+              tail = '\n'.join(p.read_text(errors='replace').splitlines()[-100:])[-24000:]
+              safe = tail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Compile-only diagnostic::' + safe)
+          PY
       - name: Upload diagnostics only (no object or image)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
