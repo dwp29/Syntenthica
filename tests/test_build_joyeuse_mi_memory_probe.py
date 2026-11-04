@@ -73,6 +73,7 @@ class TestMiMemoryProbe(unittest.TestCase):
                 self.assertEqual((out / "mi_ufs_info.c").read_text().count("if (!hba || !sdev)"), 10)
                 self.assertIn("Incompatible debug statistics", (out / "mi_ufs_info.c").read_text())
                 self.assertIn("GEOMETRY_DESC_PARAM_DEV_CAP 0x04", (out / "mi_memory_sysfs.h").read_text())
+                self.assertIn("DEVICE_DESC_PARAM_PSA_TMT 0x29", (out / "mi_memory_sysfs.h").read_text())
                 self.assertIn("if (!mi_memory)", (out / "mi_memory_sysfs.c").read_text())
                 ufs = (tree / "drivers/scsi/ufs/ufshcd.c").read_text()
                 self.assertIn("sdev->lun == 2", ufs)

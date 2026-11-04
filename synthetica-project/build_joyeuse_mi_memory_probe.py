@@ -107,7 +107,16 @@ def apply_probe(tree: Path, donor: Path) -> None:
     # the target header. They are probe constants, not proof of device ABI.
     files["mi_memory_sysfs.h"] = replace_exact(files["mi_memory_sysfs.h"],
         '#include "../../scsi/ufs/ufs.h"\n',
-        '#include "../../scsi/ufs/ufs.h"\n#define DEVICE_DESC_PARAM_PRDCT_REV 0x2A\n#define GEOMETRY_DESC_PARAM_DEV_CAP 0x04\n')
+        '#include "../../scsi/ufs/ufs.h"\n'
+        '#define DEVICE_DESC_PARAM_UFS_FEAT 0x1F\n'
+        '#define DEVICE_DESC_PARAM_FFU_TMT 0x20\n'
+        '#define DEVICE_DESC_PARAM_Q_DPTH 0x21\n'
+        '#define DEVICE_DESC_PARAM_DEV_VER 0x22\n'
+        '#define DEVICE_DESC_PARAM_NUM_SEC_WPA 0x24\n'
+        '#define DEVICE_DESC_PARAM_PSA_MAX_DATA 0x25\n'
+        '#define DEVICE_DESC_PARAM_PSA_TMT 0x29\n'
+        '#define DEVICE_DESC_PARAM_PRDCT_REV 0x2A\n'
+        '#define GEOMETRY_DESC_PARAM_DEV_CAP 0x04\n')
     inter = files["mem_interface.c"]
     inter = replace_exact(inter,
         "int ufshcd_read_desc_mi(struct ufs_hba *hba, enum desc_idn desc_id,\n\t\tint desc_index, void *buf, u32 size)\n{\n\tint ret = 0;\n",
