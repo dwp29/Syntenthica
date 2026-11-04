@@ -1,5 +1,0 @@
-# Wheel used for this host audit: CPython 3.11, Linux x86_64, manylinux 2.24/2.28.
-# Other Python/platform builds need separately verified hashes and revalidation.
-pytsk3==20260715 --hash=sha256:070396831a57754f6eba99b827146a205273fba45bae1675d31be659a10d4905
-# Pure-Python host reader for selected ELF symbol/version tables; no binaries run.
-pyelftools==0.32 --hash=sha256:013df952a006db5e138b1edf6d8a68ecc50630adbd0d83a2d41e7f846163d738

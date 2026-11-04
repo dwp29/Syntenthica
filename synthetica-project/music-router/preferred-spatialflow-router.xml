@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<preferred-activities>
-    <item name="org.syntenthica.musicrouter/.MusicPlayerRouter">
-        <filter>
-            <action name="android.intent.action.MUSIC_PLAYER" />
-            <cat name="android.intent.category.DEFAULT" />
-        </filter>
-    </item>
-</preferred-activities>

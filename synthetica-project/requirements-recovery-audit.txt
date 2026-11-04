@@ -1,4 +1,0 @@
-# Only used for bounded PKCS#7 parsing in the read-only recovery-signature audit.
-# OpenSSL is supplied by the host; no private key is required by the verifier.
-asn1crypto==1.5.1 \
-    --hash=sha256:db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67
