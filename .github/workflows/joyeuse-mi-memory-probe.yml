@@ -74,7 +74,8 @@ jobs:
             grep -Fx 'CONFIG_MI_MEMORY_SYSFS=y' "$out/.config"
             cp "$out/.config" "$GITHUB_WORKSPACE/probe-logs/generated.config.txt"
             make -j4 "${mo[@]}" prepare scripts
-            make -j4 "${mo[@]}" drivers/misc/mi-memory/mi_memory.o drivers/scsi/ufs/ufshcd.o
+            make -j4 "${mo[@]}" drivers/misc/mi-memory/ drivers/scsi/ufs/ufshcd.o
+            test -s "$out/drivers/misc/mi-memory/mi_memory.o"
             llvm-nm -u "$out/drivers/misc/mi-memory/mi_memory.o" > "$GITHUB_WORKSPACE/probe-logs/unresolved-objects.txt"
             echo 'COMPILED OBJECTS ONLY. No full-kernel link or runtime/device test.'
           ) 2>&1 | tee probe-logs/compiler-console.txt
