@@ -1,0 +1,43 @@
+{
+  "status": "COMPILED_ONLY_DO_NOT_FLASH",
+  "device": "joyeuse / miatoll; physical device not tested",
+  "release": "4.14.357-openela-Synthetica-2.0-JOYEUSE-EXPERIMENT",
+  "image_sha256": "72b3ef87a2a5fc76b728bedfa570c5ad2921a73531651e5b75c050002e183518",
+  "image_bytes": 14596550,
+  "config_sha256": "732918ef50347bb8c9eb88258545c25a7a6a51d132ab8f259ae9df8aa0ca9f69",
+  "security_baseline_config_sha256": "248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b",
+  "security_config_unchanged": true,
+  "required_symbols_linked": [
+    "br_netfilter_init",
+    "gspca_dev_probe",
+    "lcd_device_register",
+    "llcc_perfmon_probe"
+  ],
+  "config_changes": {
+    "BRIDGE_NETFILTER": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "LCD_CLASS_DEVICE": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "LOCALVERSION": {
+      "baseline": "\"-Synthetica-2.0\"",
+      "experiment": "\"-Synthetica-2.0-JOYEUSE-EXPERIMENT\""
+    },
+    "QCOM_LLCC_PERFMON": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "USB_GSPCA": {
+      "baseline": "m",
+      "experiment": "y"
+    }
+  },
+  "boot_test": "NOT_RUN",
+  "vendor_module_compatibility": "NOT_PROVEN; module signatures and CRC mismatches remain",
+  "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "private_module_signing_key_exported": false,
+  "rom_or_boot_image_modified": false
+}
