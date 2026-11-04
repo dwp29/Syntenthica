@@ -1,0 +1,95 @@
+name: "Joyeuse kernel + matching signed modules — DO NOT FLASH"
+on:
+  workflow_dispatch:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/joyeuse-signed-modules.yml'
+      - 'synthetica-project/build_joyeuse_signed_modules.py'
+      - 'tests/test_build_joyeuse_signed_modules.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joyeuse-kernel-and-signed-modules-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: "Build kernel and missing network modules together"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install kernel toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18 llvm-18 \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi bc flex bison \
+            libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils \
+            python3 patch openssl zip rsync git curl binutils kmod
+          mkdir -p repair-logs
+      - name: Test source isolation, module signatures and CRC guards
+        run: |
+          python3 -m unittest discover -s tests -p 'test_build_joyeuse_builtin_experiment.py' -v
+          python3 -m unittest discover -s tests -p 'test_build_joyeuse_signed_modules.py' -v
+      - name: Prepare the single isolated build
+        run: |
+          python3 synthetica-project/build_joyeuse_signed_modules.py prepare \
+            --source "$GITHUB_WORKSPACE/build-kit" \
+            --destination "$RUNNER_TEMP/joyeuse-module-kit" \
+            --fragment "$GITHUB_WORKSPACE/build-kit/ci/rollercoaster/profiles/joyeuse-builtins-experimental.config"
+      - name: Build kernel and sign matching modules
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/llvm-18/bin:$PATH"
+          export SP_JOBS=4 SP_RELEASE_VERSION=2.0 SP_PROFILE=synthetica
+          export SP_BUILD_NAME=Synthetica SP_BUILD_KVER=2.0-JOYEUSE-EXPERIMENT
+          export SP_WORK_DIR="$RUNNER_TEMP/joyeuse-module-work"
+          export SP_EXPERIMENT_GUARD="$GITHUB_WORKSPACE/synthetica-project/build_joyeuse_builtin_experiment.py"
+          export SP_EXPERIMENT_BASELINE_CONFIG="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          cd "$RUNNER_TEMP/joyeuse-module-kit"
+          python3 scripts/build_chronicle_base.py 2>&1 | tee "$GITHUB_WORKSPACE/repair-logs/kernel-console.log"
+      - name: Verify certificate, signatures, recorded CRCs and kernel config
+        run: |
+          set -euo pipefail
+          python3 synthetica-project/build_joyeuse_signed_modules.py finish \
+            --kit "$RUNNER_TEMP/joyeuse-module-kit" \
+            --out "$RUNNER_TEMP/joyeuse-module-work/tree/out-synthetica" \
+            --baseline "$GITHUB_WORKSPACE/artifacts/generated.config.txt" \
+            --result "$GITHUB_WORKSPACE/repair-result" 2>&1 | tee repair-logs/module-verification.log
+          cp repair-logs/kernel-console.log repair-result/kernel-console.log.txt
+          (cd repair-result && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          (cd repair-result && sha256sum -c SHA256SUMS.txt)
+      - name: Upload non-flashable kernel and matching modules
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: DO-NOT-FLASH-joyeuse-kernel-signed-modules-${{ github.run_id }}
+          path: repair-result/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Surface build failure details
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for p in (Path('repair-logs/kernel-console.log'), Path('repair-logs/module-verification.log')):
+              if p.is_file():
+                  lines = p.read_text(errors='replace').splitlines()
+                  important = [line for line in lines if any(word in line.lower() for word in ('error:', 'fatal error', 'undefined reference', 'error 1', 'error 2', 'failed', 'withheld'))]
+                  text = (str(p) + '\n' + '\n'.join(important[-20:]) + '\n--- final lines ---\n' + '\n'.join(lines[-25:]))[-6000:]
+                  print('::error title=Kernel module build failure::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PY
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: joyeuse-kernel-module-build-failure-${{ github.run_id }}
+          path: repair-logs/
+          if-no-files-found: warn
+          retention-days: 14
