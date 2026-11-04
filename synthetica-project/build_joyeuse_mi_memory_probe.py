@@ -91,6 +91,23 @@ def apply_probe(tree: Path, donor: Path) -> None:
         "\tsend_ufs_hba_data(&hba, &sdev);\n\tif (!hba || !sdev)\n\t\treturn -ENODEV;\n",
         10,
     )
+    # The target keeps CONFIG_DEBUG_FS=n, so debug-only UFS structures do not
+    # exist. Do not enable debugfs or fabricate statistics to satisfy the port.
+    # These four diagnostic attributes are deliberately absent in this probe.
+    ufs_info = files["mi_ufs_info.c"]
+    ufs_info = replace_exact(ufs_info,
+        "static ssize_t tag_stats_show(struct device *dev, struct device_attribute *attr, char *buf)\n",
+        "#if 0 /* Incompatible debug statistics are excluded from this compile-only probe. */\nstatic ssize_t tag_stats_show(struct device *dev, struct device_attribute *attr, char *buf)\n")
+    ufs_info = replace_exact(ufs_info, "static DEVICE_ATTR_RW(req_stats);\n", "static DEVICE_ATTR_RW(req_stats);\n#endif /* incompatible debug statistics */\n")
+    ufs_info = replace_exact(ufs_info,
+        "\t&dev_attr_tag_stats.attr,\n\t&dev_attr_err_state.attr,\n\t&dev_attr_err_reason.attr,\n\t&dev_attr_req_stats.attr,\n",
+        "#if 0 /* Incompatible debug statistics: not provided by this probe. */\n\t&dev_attr_tag_stats.attr,\n\t&dev_attr_err_state.attr,\n\t&dev_attr_err_reason.attr,\n\t&dev_attr_req_stats.attr,\n#endif\n")
+    files["mi_ufs_info.c"] = ufs_info
+    # These UFS descriptor offsets exist in the pinned donor's ufs.h but not
+    # the target header. They are probe constants, not proof of device ABI.
+    files["mi_memory_sysfs.h"] = replace_exact(files["mi_memory_sysfs.h"],
+        '#include "../../scsi/ufs/ufs.h"\n',
+        '#include "../../scsi/ufs/ufs.h"\n#define DEVICE_DESC_PARAM_PRDCT_REV 0x2A\n#define GEOMETRY_DESC_PARAM_DEV_CAP 0x04\n')
     inter = files["mem_interface.c"]
     inter = replace_exact(inter,
         "int ufshcd_read_desc_mi(struct ufs_hba *hba, enum desc_idn desc_id,\n\t\tint desc_index, void *buf, u32 size)\n{\n\tint ret = 0;\n",
@@ -126,6 +143,7 @@ def apply_probe(tree: Path, donor: Path) -> None:
         (tree / name).write_text(text)
     print(json.dumps({"probe": "COMPILE_ONLY_DO_NOT_FLASH", "donor_repository": DONOR_REPO,
                       "donor_commit": DONOR_COMMIT, "donor_matches_joyeuse": "NOT_PROVEN",
+                      "omitted_unsupported_debug_attributes": ["tag_stats", "err_state", "err_reason", "req_stats"],
                       "warning": "UFS callback, device behavior, lifetime and sysfs safety are unverified"}, indent=2))
 
 

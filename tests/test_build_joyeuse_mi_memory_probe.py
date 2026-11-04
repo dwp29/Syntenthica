@@ -24,7 +24,13 @@ class TestMiMemoryProbe(unittest.TestCase):
             "Kconfig": 'config MI_MEMORY_SYSFS\n\ttristate "show memory info"\n\tdepends on MIHW\n',
             "Makefile": "obj-$(CONFIG_MI_MEMORY_SYSFS) += mi_memory.o\n",
             "mi_memory_sysfs.c": "\tmi_memory = kzalloc(sizeof(struct memory_info), GFP_KERNEL);\n",
-            "mi_ufs_info.c": "\tsend_ufs_hba_data(&hba, &sdev);\n" * 10,
+            "mi_memory_sysfs.h": '#include "../../scsi/ufs/ufs.h"\n',
+            "mi_ufs_info.c": (
+                "\tsend_ufs_hba_data(&hba, &sdev);\n" * 10
+                + "static ssize_t tag_stats_show(struct device *dev, struct device_attribute *attr, char *buf)\n"
+                + "static DEVICE_ATTR_RW(req_stats);\n"
+                + "\t&dev_attr_tag_stats.attr,\n\t&dev_attr_err_state.attr,\n\t&dev_attr_err_reason.attr,\n\t&dev_attr_req_stats.attr,\n"
+            ),
             "mem_interface.c": (
                 "int ufshcd_read_desc_mi(struct ufs_hba *hba, enum desc_idn desc_id,\n"
                 "\t\tint desc_index, void *buf, u32 size)\n{\n\tint ret = 0;\n}\n"
@@ -65,6 +71,8 @@ class TestMiMemoryProbe(unittest.TestCase):
                 self.assertIn('bool "Experimental', kconfig)
                 self.assertIn("SCSI_UFS_QCOM", kconfig)
                 self.assertEqual((out / "mi_ufs_info.c").read_text().count("if (!hba || !sdev)"), 10)
+                self.assertIn("Incompatible debug statistics", (out / "mi_ufs_info.c").read_text())
+                self.assertIn("GEOMETRY_DESC_PARAM_DEV_CAP 0x04", (out / "mi_memory_sysfs.h").read_text())
                 self.assertIn("if (!mi_memory)", (out / "mi_memory_sysfs.c").read_text())
                 ufs = (tree / "drivers/scsi/ufs/ufshcd.c").read_text()
                 self.assertIn("sdev->lun == 2", ufs)
