@@ -1,0 +1,35 @@
+{
+  "status": "COMPILED_ONLY_DO_NOT_FLASH",
+  "device_target": "joyeuse / miatoll, HOS4",
+  "prior_test": "User reports Synthetica 2.0 booted with HOS4; tested image hash was not independently confirmed.",
+  "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "reference_2_0_image_sha256": "58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff",
+  "reference_2_0_generated_config_sha256": "248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b",
+  "uname_release": "4.14.357-openela-Synthetica-3.0",
+  "config_changes": {
+    "LOCALVERSION": {
+      "2.0": "\"-Synthetica-2.0\"",
+      "3.0": "\"-Synthetica-3.0\""
+    }
+  },
+  "embedded_config_matches_generated": true,
+  "module_layout_crc": "0x08efcbb0",
+  "module_public_cert_embedded_in_image": true,
+  "same_public_certificate_found_in_2_0_image": false,
+  "pinned_manager_identity_strings_found": true,
+  "checks_not_proofs": [
+    "A certificate byte comparison does not establish which ROM module signers are trusted.",
+    "Matching config and linked identity strings do not prove root or runtime features.",
+    "Kernel release changed; vendor module vermagic, CRCs, and signer trust are not verified.",
+    "No 3.0 physical boot, hardware functionality, AVB, or SELinux runtime test was performed."
+  ],
+  "private_signing_key_exported": false,
+  "rom_or_device_modified": false,
+  "output_sha256": {
+    "DO-NOT-FLASH-Synthetica-3.0-Image.gz": "0fbdc5f3b0b5a68c89c18ae1e999e83f783ac22157e63888734f7e9d915b1ea7",
+    "generated.config.txt": "e2a511745409f97190540b323773153116e1810229b196f5c6f095e09bda43b0",
+    "Module.symvers.txt": "43f7a65c2d010b26345db54867f266c44e4fbf138d9656ffb017013c62ca9cb5",
+    "System.map.txt": "d4022404842f500ade29ece9431a06ac6d711296da7b84b21969fd4e919aeab4",
+    "kernel-module-public-cert.x509": "ce510c6ad76bd7f135224abc97663a434415ff0300bfca72c81409d058966823"
+  }
+}
