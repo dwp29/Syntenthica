@@ -1,0 +1,97 @@
+name: "Joyeuse kernel built-ins experiment — DO NOT FLASH"
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/joyeuse-builtin-experimental.yml'
+      - 'build-kit/ci/rollercoaster/profiles/joyeuse-builtins-experimental.config'
+      - 'synthetica-project/build_joyeuse_builtin_experiment.py'
+      - 'tests/test_build_joyeuse_builtin_experiment.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joyeuse-builtin-experiment-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  kernel:
+    name: "Compile isolated test image; no flashable package"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Install pinned-family toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 lld-18 llvm-18 \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler \
+            cpio lz4 xz-utils python3 patch openssl zip rsync git curl binutils
+          mkdir -p experiment-logs
+          {
+            clang-18 --version | head -1
+            ld.lld-18 --version
+            aarch64-linux-gnu-gcc --version | head -1
+          } | tee experiment-logs/toolchain.txt
+
+      - name: Test preparation and safety guards
+        run: python3 -m unittest discover -s tests -p 'test_build_joyeuse_builtin_experiment.py' -v
+
+      - name: Prepare disposable experiment; preserve original build files
+        run: |
+          set -euo pipefail
+          python3 synthetica-project/build_joyeuse_builtin_experiment.py prepare \
+            --source "$GITHUB_WORKSPACE/build-kit" \
+            --destination "$RUNNER_TEMP/joyeuse-experimental-kit" \
+            --fragment "$GITHUB_WORKSPACE/build-kit/ci/rollercoaster/profiles/joyeuse-builtins-experimental.config"
+
+      - name: Compile kernel with config and security gates
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/llvm-18/bin:$PATH"
+          export SP_JOBS=4 SP_RELEASE_VERSION=2.0 SP_PROFILE=synthetica
+          export SP_BUILD_NAME=Synthetica SP_BUILD_KVER=2.0-JOYEUSE-EXPERIMENT
+          export SP_WORK_DIR="$RUNNER_TEMP/joyeuse-kernel-work"
+          export SP_EXPERIMENT_GUARD="$GITHUB_WORKSPACE/synthetica-project/build_joyeuse_builtin_experiment.py"
+          export SP_EXPERIMENT_BASELINE_CONFIG="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          cd "$RUNNER_TEMP/joyeuse-experimental-kit"
+          python3 scripts/build_chronicle_base.py 2>&1 | tee "$GITHUB_WORKSPACE/experiment-logs/kernel-console.log"
+
+      - name: Verify linked drivers and collect non-flashable result
+        run: |
+          set -euo pipefail
+          python3 synthetica-project/build_joyeuse_builtin_experiment.py finish \
+            --kit "$RUNNER_TEMP/joyeuse-experimental-kit" \
+            --out "$RUNNER_TEMP/joyeuse-kernel-work/tree/out-synthetica" \
+            --baseline "$GITHUB_WORKSPACE/artifacts/generated.config.txt" \
+            --result "$GITHUB_WORKSPACE/experiment-result"
+          cp experiment-logs/kernel-console.log experiment-result/kernel-console.log.txt
+          cp experiment-logs/toolchain.txt experiment-result/toolchain.txt
+          (cd experiment-result && sha256sum -- * > SHA256SUMS.txt)
+
+      - name: Upload experimental image (NOT a ROM or installer)
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: DO-NOT-FLASH-joyeuse-builtin-experiment-${{ github.run_id }}
+          path: experiment-result/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics if build fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: joyeuse-builtin-experiment-failure-${{ github.run_id }}
+          path: experiment-logs/
+          if-no-files-found: warn
+          retention-days: 14
