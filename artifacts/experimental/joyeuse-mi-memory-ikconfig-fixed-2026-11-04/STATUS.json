@@ -1,0 +1,65 @@
+{
+  "status": "COMPILED_ONLY_DO_NOT_FLASH",
+  "device": "joyeuse / miatoll; physical device not tested",
+  "release": "4.14.357-openela-Synthetica-2.0-JOYEUSE-MIMEM-EXPERIMENT",
+  "image_sha256": "296d7519449854d6789873562384f0e0e005c5b8475af5a38a87ca3a1be0b3e1",
+  "image_bytes": 14601896,
+  "config_sha256": "c227922d1331eddc5000d4700cd16ccd63904e38983962d831ae4404919e4d0e",
+  "embedded_config_matches_generated": true,
+  "security_baseline_config_sha256": "248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b",
+  "security_config_unchanged": true,
+  "required_symbols_linked": [
+    "br_netfilter_init",
+    "gspca_dev_probe",
+    "lcd_device_register",
+    "llcc_perfmon_probe",
+    "mi_memory_sysfs_init",
+    "set_ufs_hba_data",
+    "ufs_get_string_desc",
+    "memblock_mem_size_in_gb"
+  ],
+  "config_changes": {
+    "BRIDGE_NETFILTER": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "LCD_CLASS_DEVICE": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "LOCALVERSION": {
+      "baseline": "\"-Synthetica-2.0\"",
+      "experiment": "\"-Synthetica-2.0-JOYEUSE-MIMEM-EXPERIMENT\""
+    },
+    "MI_MEMORY_SYSFS": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "QCOM_LLCC_PERFMON": {
+      "baseline": "n",
+      "experiment": "y"
+    },
+    "USB_GSPCA": {
+      "baseline": "m",
+      "experiment": "y"
+    }
+  },
+  "boot_test": "NOT_RUN",
+  "vendor_module_compatibility": "NOT_PROVEN; this is not a complete vendor module replacement",
+  "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "private_module_signing_key_exported": false,
+  "rom_or_boot_image_modified": false,
+  "mi_memory_backport": {
+    "source": "projects-nexus/nexus_kernel_xiaomi_sm8250@d26c193dcd97812a9a565ac40fe5092cc9a18fbf",
+    "different_soc_source": true,
+    "matches_joyeuse_module": "NOT_PROVEN",
+    "unsupported_debug_attributes_omitted": [
+      "tag_stats",
+      "err_state",
+      "err_reason",
+      "req_stats"
+    ],
+    "module_equivalence_or_ufs_runtime_safety": "NOT_PROVEN",
+    "device_test": "NOT_RUN"
+  }
+}
