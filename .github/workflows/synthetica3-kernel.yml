@@ -1,0 +1,85 @@
+name: "Synthetica 3.0 - kernel berbasis 2.0 (belum siap flash)"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica3-kernel.yml'
+      - 'build-kit/scripts/build_synthetica3.py'
+      - 'tests/test_synthetica3_build.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetica-3-kernel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - name: Check out the exact triggering commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Test safeguards without a device or ROM
+        run: python3 -m unittest discover -s tests -p 'test_synthetica3_build.py' -v
+
+      - name: Install the 2.0 host toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 lld-18 llvm-18 \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler \
+            cpio lz4 xz-utils python3 patch openssl zip rsync git curl binutils
+          clang-18 --version | head -1
+          ld.lld-18 --version
+          aarch64-linux-gnu-gcc --version | head -1
+
+      - name: Prepare an isolated, pinned 2.0 build kit
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica3.py prepare \
+            --source build-kit \
+            --destination "$RUNNER_TEMP/synthetica3-kit" \
+            --baseline artifacts/generated.config.txt
+
+      - name: Compile 3.0 without packaging an installer
+        env:
+          SP_JOBS: '4'
+          SP_RELEASE_VERSION: '3.0'
+          SP_PROFILE: synthetica
+          SP_BUILD_NAME: Synthetica
+          SP_BUILD_KVER: '3.0'
+          SP_EXPECT_RELEASE: 4.14.357-openela-Synthetica-3.0
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/llvm-18/bin:$PATH"
+          export SP_WORK_DIR="$RUNNER_TEMP/synthetica3-work"
+          export S3_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica3.py"
+          export S3_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          python3 "$RUNNER_TEMP/synthetica3-kit/scripts/build_chronicle_base.py"
+
+      - name: Verify image, embedded config, module metadata and public certificate
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica3.py finish \
+            --kit "$RUNNER_TEMP/synthetica3-kit" \
+            --out "$RUNNER_TEMP/synthetica3-work/tree/out-synthetica" \
+            --baseline artifacts/generated.config.txt \
+            --reference-image artifacts/Image.gz \
+            --result "$RUNNER_TEMP/synthetica3-result"
+
+      - name: Upload non-flashable image and evidence only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Synthetica-3.0-DO-NOT-FLASH-${{ github.run_id }}
+          path: ${{ runner.temp }}/synthetica3-result/
+          if-no-files-found: error
+          retention-days: 7
