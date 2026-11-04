@@ -1,0 +1,111 @@
+name: "Ambil hasil build Synthetica 3.0 (belum siap flash)"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: ['.github/workflows/synthetica3-collect.yml']
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: arena/96cbd65a-syntenthica
+          fetch-depth: 0
+      - name: Recover the exact successful 3.0 build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          gh run view 41881067516 --json status,conclusion,headSha \
+            --jq 'select(.status == "completed" and .conclusion == "success" and .headSha == "72cda42a1823226cbdd7374e3b734677e6200dd7") | .headSha' \
+            | grep -Fx '72cda42a1823226cbdd7374e3b734677e6200dd7'
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/13350213625/zip" > "$RUNNER_TEMP/synthetica3.zip"
+          echo 'f6c3509dc2cd2af716f5f8b21f10b5590f057ae21e60e383d93c574d0ac6c604  '"$RUNNER_TEMP/synthetica3.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import os, stat, zipfile
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          allowed = {'DO-NOT-FLASH-Synthetica-3.0-Image.gz', 'generated.config.txt',
+                     'Module.symvers.txt', 'System.map.txt', 'kernel-module-public-cert.x509',
+                     'STATUS.json', 'README-DO-NOT-FLASH.txt', 'SHA256SUMS.txt'}
+          with zipfile.ZipFile(root / 'synthetica3.zip') as z:
+              entries = z.infolist()
+              if len(entries) != len(allowed) or {i.filename for i in entries} != allowed:
+                  raise ValueError('unexpected artifact members')
+              if any(i.is_dir() or stat.S_ISLNK(i.external_attr >> 16) for i in entries) or z.testzip():
+                  raise ValueError('artifact has invalid members or CRC')
+              dest = root / 'synthetica3-bundle'
+              dest.mkdir()
+              for i in entries:
+                  (dest / i.filename).write_bytes(z.read(i))
+          PY
+          (cd "$RUNNER_TEMP/synthetica3-bundle" && sha256sum -c SHA256SUMS.txt)
+      - name: Recheck image, configuration and certificate
+        env:
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import gzip, importlib.util, json, os, re, subprocess
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          bundle = Path(os.environ['RUNNER_TEMP']) / 'synthetica3-bundle'
+          spec = importlib.util.spec_from_file_location('s3', root / 'build-kit/scripts/build_synthetica3.py')
+          s3 = importlib.util.module_from_spec(spec); spec.loader.exec_module(s3)
+          status = json.loads((bundle / 'STATUS.json').read_text())
+          assert status['status'] == 'COMPILED_ONLY_DO_NOT_FLASH'
+          assert status['private_signing_key_exported'] is False and status['rom_or_device_modified'] is False
+          assert status['source'] == s3.SOURCE and status['uname_release'] == s3.EXPECTED_RELEASE
+          config = (bundle / 'generated.config.txt').read_bytes()
+          changes = s3.check_config(s3.verified_baseline(root / 'artifacts/generated.config.txt'), config.decode())
+          assert changes == status['config_changes'] and status['embedded_config_matches_generated'] is True
+          image = bundle / 'DO-NOT-FLASH-Synthetica-3.0-Image.gz'
+          assert image.stat().st_size > s3.MIN_IMAGE_BYTES
+          with gzip.open(image, 'rb') as f: raw = f.read(s3.MAX_RAW_IMAGE + 1)
+          assert len(raw) <= s3.MAX_RAW_IMAGE
+          manager = json.loads((root / 'build-kit/artifacts/manager/MANAGER.json').read_text())
+          s3.verify_image(raw, config, manager)
+          for name, sha in status['output_sha256'].items():
+              assert s3.digest(bundle / name) == sha
+          cert = (bundle / 'kernel-module-public-cert.x509').read_bytes()
+          parsed = subprocess.run(['openssl', 'x509', '-inform', 'DER', '-outform', 'DER'],
+                                  input=cert, stdout=subprocess.PIPE, check=True).stdout
+          assert cert == parsed and cert in raw and status['module_public_cert_embedded_in_image'] is True
+          old_image = root / 'artifacts/Image.gz'
+          assert s3.digest(old_image) == s3.V2_IMAGE_SHA256
+          with gzip.open(old_image, 'rb') as f: old_raw = f.read(s3.MAX_RAW_IMAGE + 1)
+          assert len(old_raw) <= s3.MAX_RAW_IMAGE
+          assert (cert in old_raw) == status['same_public_certificate_found_in_2_0_image']
+          symvers = (bundle / 'Module.symvers.txt').read_text()
+          crc = re.findall(r'(?m)^(0x[0-9a-fA-F]{8})\s+module_layout\s+', symvers)
+          assert len(crc) == 1 and int(crc[0], 16) != 0 and crc[0].lower() == status['module_layout_crc']
+          print('3.0 image SHA-256:', s3.digest(image))
+          print('module_layout:', crc[0].lower())
+          print('3.0 public cert also present in 2.0 image:', cert in old_raw)
+          PY
+      - name: Save this one non-flashable build and evidence on the session branch
+        run: |
+          set -euo pipefail
+          dest='artifacts/Synthetica-3.0'
+          [ ! -e "$dest" ] || { echo 'Result already exists; refusing to overwrite' >&2; exit 1; }
+          mkdir -p "$dest"
+          cp "$RUNNER_TEMP/synthetica3-bundle/"* "$dest/"
+          (cd "$dest" && sha256sum -c SHA256SUMS.txt)
+          git config user.name 'synthetica-ci'
+          git config user.email 'ci@users.noreply.github.com'
+          git add -f -- "$dest"
+          git commit -m 'Save verified non-flashable Synthetica 3.0 build'
+          for attempt in 1 2 3; do
+            git fetch origin arena/96cbd65a-syntenthica
+            git rebase FETCH_HEAD
+            if git push origin HEAD:refs/heads/arena/96cbd65a-syntenthica; then exit 0; fi
+          done
+          echo 'Could not fast-forward the session branch; no force push attempted.' >&2
+          exit 1
