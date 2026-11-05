@@ -147,8 +147,24 @@ kemiripan struktur dan nama yang lebih dekat, **bukan** bukti CRC, source,
 perilaku atau kesetaraan dengan ROM. Source tersebut berbasis perangkat
 MediaTek/kernel 4.14.186; ia meneruskan pointer HBA dari `ufshcd_init()` melalui
 hook yang belum ada di baseline, dan menyatakan `ufshcd_read_desc_param`
-eksternal sedangkan fungsi tersebut `static` pada baseline. Urutan dan umur
-pointer tetap belum terbukti. Kandidat ini belum diport atau diuji untuk Joyeuse.
+eksternal sedangkan fungsi tersebut `static` pada baseline. Source kandidat juga
+mengakses `ufs_stats.tag_stats` dan `req_stats`, yang pada baseline berada di
+bawah `CONFIG_DEBUG_FS` yang nonaktif, serta `ufs_stats.err_state` yang tidak
+ada pada struct baseline. Urutan dan umur pointer tetap belum terbukti.
+Kandidat ini belum diport atau diuji untuk Joyeuse.
+
+Audit privat ulang menemukan 31 record versi pada `mi_memory`: delapan CRC
+cocok bundel, 18 berbeda, dan lima nama interface tidak ada di export bundel.
+Sebagai pemeriksaan terbatas, `genksyms` host dari source 2.0 yang dipin
+membandingkan deklarasi terisolasi Camellian dengan CRC import modul ROM.
+Deklarasi `memblock_mem_size_in_gb` menghasilkan CRC yang sama; deklarasi
+`ufs_get_string_desc` dan `ufs_read_desc_param`, beserta enum Camellian,
+menghasilkan CRC berbeda untuk kondisi yang diuji. Delapan kombinasi kondisi
+`UFSHPB`/`SCSI_SKHPB`, `UFSFEATURE` dan `UFSTW` diuji untuk enum descriptor;
+kontrol `get_random_u32` dan `get_random_u64` cocok dengan `Module.symvers`
+bundel. Ini bukan kompilasi source utuh atau pembuktian konfigurasi donor;
+kecocokan CRC 32-bit juga bukan bukti identitas source, ABI keseluruhan,
+kesetaraan fungsi, atau keselamatan UFS. Tidak ada modul atau image baru.
 
 ## Audit vendor offline dan privat
 
@@ -194,8 +210,10 @@ Jika tersedia, `srcversion_comparison` juga membandingkan metadata `srcversion`
 modul input dengan modul bundel yang bernama internal sama. `not_comparable`
 berarti salah satu metadata tidak tersedia; itu bukan kecocokan. Metadata dapat
 ditiru atau tidak lengkap: nilai sama tidak membuktikan source identik,
-kompatibilitas ABI, atau perilaku runtime. Audit terbaru dengan perbandingan ini
-belum dijalankan kembali terhadap modul ROM privat.
+kompatibilitas ABI, atau perilaku runtime. Saat dijalankan ulang pada 41 modul
+arsip privat yang sama, satu modul (`gspca_main`) dapat dibandingkan dan
+nilainya berbeda; 40 lainnya `not_comparable`, termasuk `mi_memory`. Hasil ini
+bukan uji perangkat; laporan dan salinan modul tetap privat dan tidak disertakan.
 
 Pemindaian source hanya menemukan kandidat Kbuild berdasarkan nama; identitas
 source harus diverifikasi terpisah dan kondisi Kbuild tidak dievaluasi
