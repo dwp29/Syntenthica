@@ -118,9 +118,12 @@ menolaknya jika sudah ada dan membuatnya dengan izin privat. **Jangan commit
 atau unggah laporan, ROM, maupun modul ROM.** Hapus salinan privat sementara
 setelah selesai jika tidak lagi diperlukan.
 
-Tool memeriksa checksum bundel, sertifikat dalam image dan tanda tangan modul
-bundel, lalu membandingkan CRC, nama simbol, tanda tangan dengan sertifikat
-build tersebut, dependensi, dan perintah `insmod`/`modprobe` literal pada
+Workflow `Synthetica 3.0 - host safety tests (no ROM)` menguji tool dan guard
+dengan fixture sintetis serta bundel build publik; ROM dan laporan privat
+tidak dikirim ke CI. Tool memeriksa checksum bundel, sertifikat dalam image dan
+tanda tangan modul bundel, lalu membandingkan CRC, nama simbol, tanda tangan
+dengan sertifikat build tersebut, dependensi, dan perintah `insmod`/`modprobe`
+literal pada
 file `.rc` yang diberikan. Parameter callback diperiksa melalui struktur ELF,
 bukan hanya teks `.modinfo`. Pemindaian source hanya menemukan kandidat
 Kbuild berdasarkan nama; identitas source harus diverifikasi terpisah dan

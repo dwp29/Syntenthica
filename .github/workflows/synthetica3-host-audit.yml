@@ -1,0 +1,37 @@
+name: "Synthetica 3.0 - host safety tests (no ROM)"
+
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica3-host-audit.yml'
+      - 'build-kit/scripts/audit_synthetica3_vendor.py'
+      - 'build-kit/scripts/build_synthetica3.py'
+      - 'build-kit/scripts/verify_synthetica3_modules.py'
+      - 'tests/test_synthetica3_*.py'
+      - 'artifacts/synthetica-3.0/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetica-3-host-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify host test prerequisites
+        run: |
+          set -euo pipefail
+          command -v python3
+          command -v gcc
+          command -v openssl
+      - name: Run synthetic and public-bundle tests only
+        run: python3 -m unittest discover -s tests -p 'test_synthetica3_*.py' -v
