@@ -139,6 +139,17 @@ memiliki tiga file parsial untuk perangkat berbeda, tanpa Makefile pada direktor
 itu; prototipe fungsi interface-nya berbeda dari donor Nexus. Source itu belum
 terbukti identik dengan modul Joyeuse/HOS4 dan bukan dasar port yang aman.
 
+Ada kandidat baca-saja lain dari
+[Camellian, commit `a31f6f3c6ad1`](https://github.com/Hadenix/android_kernel_xiaomi_camellian/tree/a31f6f3c6ad1307a7342819c09ddaa6480a5b7c0/drivers/misc/mi-memory):
+Kbuild-nya memisahkan `mem_interface.o` sebagai built-in dari modul `mi_memory`,
+dan source-nya memakai kelima nama interface yang diimpor modul arsip. Ini
+kemiripan struktur dan nama yang lebih dekat, **bukan** bukti CRC, source,
+perilaku atau kesetaraan dengan ROM. Source tersebut berbasis perangkat
+MediaTek/kernel 4.14.186; ia meneruskan pointer HBA dari `ufshcd_init()` melalui
+hook yang belum ada di baseline, dan menyatakan `ufshcd_read_desc_param`
+eksternal sedangkan fungsi tersebut `static` pada baseline. Urutan dan umur
+pointer tetap belum terbukti. Kandidat ini belum diport atau diuji untuk Joyeuse.
+
 ## Audit vendor offline dan privat
 
 `build-kit/scripts/audit_synthetica3_vendor.py` membandingkan salinan hasil
