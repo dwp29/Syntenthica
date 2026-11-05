@@ -18,6 +18,10 @@ dipakai saat pengujian itu belum terkonfirmasi secara independen.
   diedit.
 - Tidak ada profil port, bypass vermagic, perubahan ROM, instalasi, atau
   SpatialFlow dalam jalur build ini.
+- Installer 2.0 tidak dipakai untuk 3.0. Core AnyKernel dalam ZIP 2.0 dapat
+  memanggil `magiskboot dtb ... patch` ketika mendeteksi Magisk; karena itu
+  pelestarian DTB dan kebijakan AVB tidak boleh diasumsikan. Integrasi boot
+  yang aman masih harus dibuktikan tanpa mengubah ROM atau perangkat.
 
 ## Build dan batas verifikasi
 
