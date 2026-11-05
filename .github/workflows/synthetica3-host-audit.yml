@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/synthetica3-host-audit.yml'
       - 'build-kit/scripts/audit_synthetica3_vendor.py'
+      - 'build-kit/scripts/audit_synthetica3_boot.py'
       - 'build-kit/scripts/build_synthetica3.py'
       - 'build-kit/scripts/verify_synthetica3_modules.py'
       - 'tests/test_synthetica3_*.py'
@@ -26,7 +27,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out the triggering commit
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Verify host test prerequisites
         run: |
           set -euo pipefail

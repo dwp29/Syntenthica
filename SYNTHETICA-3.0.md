@@ -107,16 +107,19 @@ python3 build-kit/scripts/audit_synthetica3_vendor.py \
   --modules /tmp/audit-privat/vendor-modules \
   --init /tmp/audit-privat/vendor-init \
   --source /tmp/audit-privat/source-kernel-terverifikasi \
+  --boot /tmp/audit-privat/boot-asli.img \
+  --dtbo /tmp/audit-privat/dtbo-asli.img \
   --bundle artifacts/synthetica-3.0 \
   --output /tmp/audit-privat/laporan-baru.json
 ```
 
-`--init` dan `--source` opsional. Direktori modul harus datar dan berisi
-`modules.load`, `modules.dep`, serta file `.ko` arm64 tanpa kompresi. Output
-harus berupa file baru di luar repositori dan semua direktori input; tool
-menolaknya jika sudah ada dan membuatnya dengan izin privat. **Jangan commit
-atau unggah laporan, ROM, maupun modul ROM.** Hapus salinan privat sementara
-setelah selesai jika tidak lagi diperlukan.
+`--init`, `--source`, `--boot` dan `--dtbo` opsional. Direktori modul harus
+datar dan berisi `modules.load`, `modules.dep`, serta file `.ko` arm64 tanpa
+kompresi. Parser boot hanya mendukung header Android v2; format lain ditolak,
+bukan ditebak. Output harus berupa file baru di luar repositori dan semua
+direktori input; tool menolaknya jika sudah ada dan membuatnya dengan izin
+privat. **Jangan commit atau unggah laporan, ROM, maupun modul ROM.** Hapus
+salinan privat sementara setelah selesai jika tidak lagi diperlukan.
 
 Workflow `Synthetica 3.0 - host safety tests (no ROM)` menguji tool dan guard
 dengan fixture sintetis serta bundel build publik; ROM dan laporan privat
@@ -132,6 +135,24 @@ membuktikan kode/fungsi identik, dan urutan `modules.load` tidak dengan
 sendirinya menjelaskan bagaimana `modprobe` menyelesaikan dependensi. Skrip,
 partisi, kondisi properti, keyring, dan jalur pemuatan lain bisa saja tidak
 tercakup. Hasil tidak membuktikan modul dapat dimuat atau fitur bekerja.
+
+Jika image boot dan DTBO disediakan, tool memeriksa struktur serta hash bagian
+kernel, ramdisk, DTB dan entry DTBO tanpa membuat atau menandatangani image.
+`--candidate-boot` opsional membandingkan file v2 lain yang sudah ada dengan
+`--boot`, termasuk metadata header dan bagian non-kernel. ID SHA-1 boot lama
+bukan tanda tangan; keberadaan atau ketiadaan footer AVB di akhir file juga
+**bukan** bukti status AVB. Perbandingan byte tidak membuktikan kompatibilitas
+boot atau mengizinkan flashing.
+
+Unpacker AOSP Android 10 commit `5aa0e4241029c80617a8e98b07f7f48ab6b3a3d7`
+(selepas penyesuaian pembagian integer untuk Python 3) telah dipakai sebagai
+pembanding host untuk tiga bagian boot. Simulasi format sementara juga
+memeriksa kernel, ramdisk, DTB dan metadata header; hasilnya tidak disimpan
+sebagai produk. Satu kesalahan awal menunjukkan `mkbootimg.py` AOSP tersebut
+menerima tanggal patch `YYYY-MM` tetapi diam-diam menyimpan nol; format yang
+diparsenya adalah `YYYY-MM-DD`. Pemeriksaan header menangkap selisih ini,
+meskipun ID boot SHA-1 tetap cocok. Simulasi yang diperbaiki tidak bertanda
+tangan dan tetap **bukan** bukti AVB, kompatibilitas atau izin flash.
 
 Boot fisik, fitur runtime, AVB dan SELinux saat runtime belum diuji. Jangan
 flash sampai kompatibilitas, rencana pemulihan, dan uji yang sesuai disiapkan,

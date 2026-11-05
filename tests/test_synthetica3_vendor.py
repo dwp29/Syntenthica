@@ -5,6 +5,7 @@ No ROM, device, private module, or private report is required by these tests.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -19,6 +20,7 @@ SCRIPTS = ROOT / "build-kit/scripts"
 sys.path.insert(0, str(SCRIPTS))
 import audit_synthetica3_vendor as audit  # noqa: E402
 import verify_synthetica3_modules as verify  # noqa: E402
+from test_synthetica3_boot import boot, dtbo, fdt  # noqa: E402
 
 BUNDLE = ROOT / "artifacts/synthetica-3.0"
 MODULES = BUNDLE / "signed-modules"
@@ -220,6 +222,54 @@ on property:example=1
         self.assertEqual(len(seen), 1)
         self.assertFalse(seen[0].exists())
         self.assertTrue(destination.is_file())
+
+    def test_cli_boot_dtbo_and_candidate_end_to_end_are_read_only(self):
+        images = {
+            "reference.img": boot(),
+            "candidate.img": boot(kernel=b"different synthetic kernel"),
+            "dtbo.img": dtbo([fdt(), fdt(b"test,second\0")]),
+        }
+        for name, raw in images.items():
+            (self.root / name).write_bytes(raw)
+        destination = self.root / "boot-report.json"
+        argv = ["audit", "--modules", str(self.modules), "--init", str(self.init),
+                "--bundle", str(BUNDLE), "--boot", str(self.root / "reference.img"),
+                "--candidate-boot", str(self.root / "candidate.img"),
+                "--dtbo", str(self.root / "dtbo.img"), "--output", str(destination)]
+        with mock.patch.object(sys, "argv", argv):
+            self.assertEqual(audit.main(), 0)
+        report = json.loads(destination.read_text())
+        self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
+        self.assertEqual(report["reference_boot"]["header_version"], 2)
+        self.assertEqual(report["dtbo"]["entry_count"], 2)
+        self.assertTrue(all(report["boot_comparison"]["stable_header_fields_match"].values()))
+        self.assertTrue(all(report["boot_comparison"]["non_kernel_sections_match"].values()))
+        self.assertFalse(report["boot_comparison"]["candidate_kernel_equals_bundle_image"])
+        self.assertTrue(report["boot_comparison"]["candidate_legacy_boot_id_matches"])
+        self.assertEqual({name: (self.root / name).read_bytes() for name in images}, images)
+        self.assertEqual(list(self.root.glob(".synthetica3-audit-*")), [])
+
+    def test_cli_invalid_boot_inputs_leave_no_report(self):
+        candidate = self.root / "candidate.img"
+        candidate.write_bytes(boot())
+        destination = self.root / "no-report.json"
+        base = ["audit", "--modules", str(self.modules), "--bundle", str(BUNDLE),
+                "--output", str(destination)]
+        with mock.patch.object(sys, "argv", base + ["--candidate-boot", str(candidate)]):
+            self.assertEqual(audit.main(), 1)
+        self.assertFalse(destination.exists())
+        symlink = self.root / "boot-link.img"
+        symlink.symlink_to(candidate)
+        with mock.patch.object(sys, "argv", base + ["--boot", str(symlink)]):
+            self.assertEqual(audit.main(), 1)
+        self.assertFalse(destination.exists())
+        invalid_dtbo = self.root / "bad-dtbo.img"
+        invalid_dtbo.write_bytes(b"not a dtbo")
+        with mock.patch.object(sys, "argv", base + ["--boot", str(candidate), "--dtbo", str(invalid_dtbo)]):
+            self.assertEqual(audit.main(), 1)
+        self.assertFalse(destination.exists())
+        self.assertEqual(candidate.read_bytes(), boot())
+        self.assertEqual(list(self.root.glob(".synthetica3-audit-*")), [])
 
     def test_bundle_checksum_mismatch_is_rejected(self):
         copy = self.root / "bundle-copy"

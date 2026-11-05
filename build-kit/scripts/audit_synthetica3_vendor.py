@@ -21,6 +21,7 @@ import sys
 import tempfile
 from pathlib import Path, PurePosixPath
 
+import audit_synthetica3_boot as boot_audit
 import build_synthetica3 as build
 import verify_synthetica3_modules as verify
 
@@ -252,7 +253,8 @@ def load_bundle(bundle: Path) -> dict:
             raise ValueError("invalid System.map entry")
         map_names.add(fields[2])
     return {"release": release, "config": config, "cert": cert, "symvers": symvers,
-            "builtins": builtins, "map_names": map_names, "parameters": parameters}
+            "builtins": builtins, "map_names": map_names, "parameters": parameters,
+            "image_sha256": hashlib.sha256(image).hexdigest()}
 
 
 def read_lists(directory: Path) -> tuple[list[str], dict[str, list[str]]]:
@@ -448,7 +450,10 @@ def unresolved_cycles(dependencies: dict[str, list[str]], names: set[str]) -> li
 
 
 def audit(module_dir: Path, bundle_dir: Path, init_dir: Path | None = None,
-          source_dir: Path | None = None) -> dict:
+          source_dir: Path | None = None, boot_path: Path | None = None,
+          dtbo_path: Path | None = None, candidate_boot_path: Path | None = None) -> dict:
+    if candidate_boot_path and not boot_path:
+        raise ValueError("a reference boot image is required to compare a candidate")
     target = load_bundle(bundle_dir)
     load, dependencies = read_lists(module_dir)
     paths = sorted(module_dir.glob("*.ko"))
@@ -479,6 +484,11 @@ def audit(module_dir: Path, bundle_dir: Path, init_dir: Path | None = None,
             "same_name_in_extracted_modules_dep": any(canonical(x) == name for x in dependencies),
             "referenced_in_literal_init_commands": any(name in command["modules"] for command in commands),
         })
+    reference_boot = boot_audit.inspect_boot(boot_path) if boot_path else None
+    candidate_boot = boot_audit.inspect_boot(candidate_boot_path) if candidate_boot_path else None
+    boot_comparison = (boot_audit.compare_boot(reference_boot, candidate_boot, target["image_sha256"])
+                       if reference_boot and candidate_boot else None)
+    dtbo = boot_audit.inspect_dtbo(dtbo_path) if dtbo_path else None
     return {
         "scope": "Static host-only comparison; not a load, boot, trust-store, device, or feature test.",
         "warning": "Private ROM-derived metadata. Keep this report outside repositories and uploads.",
@@ -492,6 +502,10 @@ def audit(module_dir: Path, bundle_dir: Path, init_dir: Path | None = None,
         "dependencies_later_in_load_list": late,
         "modules_in_or_depending_on_cycles": cycles,
         "bundle_module_inventory": inventory,
+        "reference_boot": reference_boot,
+        "candidate_boot": candidate_boot,
+        "boot_comparison": boot_comparison,
+        "dtbo": dtbo,
         "init_commands": commands,
         "unparsed_init_commands": unparsed,
         "init_note": "Only literal .rc insmod/modprobe commands in the supplied tree are inspected; execution and other search directories are unknown.",
@@ -532,6 +546,9 @@ def main() -> int:
     parser.add_argument("--bundle", required=True, type=Path, help="same-build, non-flashable 3.0 bundle directory")
     parser.add_argument("--init", type=Path, help="optional private extracted vendor/etc/init tree")
     parser.add_argument("--source", type=Path, help="optional independently verified 2.0 kernel source tree")
+    parser.add_argument("--boot", type=Path, help="optional private Android boot v2 image (read-only)")
+    parser.add_argument("--dtbo", type=Path, help="optional private Android DTBO image (read-only)")
+    parser.add_argument("--candidate-boot", type=Path, help="optional existing boot v2 image to compare (read-only)")
     parser.add_argument("--output", required=True, type=Path, help="new absolute report path outside repository/inputs")
     args = parser.parse_args()
     protected = [x for x in (args.modules, args.bundle, args.init, args.source) if x is not None]
@@ -539,6 +556,11 @@ def main() -> int:
         for root in protected:
             if not root.is_dir() or root.is_symlink():
                 raise ValueError(f"input is not a nonsymlink directory: {root}")
+        for image in (args.boot, args.dtbo, args.candidate_boot):
+            if image is not None and (image.is_symlink() or not image.is_file()):
+                raise ValueError(f"input is not a nonsymlink file: {image}")
+        if args.candidate_boot and not args.boot:
+            raise ValueError("--candidate-boot requires --boot")
         destination = validate_output(args.output, protected)
         # The shared signature verifier uses tempfile. Keep its transient module
         # payloads in a private directory next to the report, even if TMPDIR is
@@ -547,7 +569,8 @@ def main() -> int:
             previous_tempdir = tempfile.tempdir
             try:
                 tempfile.tempdir = scratch
-                report = audit(args.modules, args.bundle, args.init, args.source)
+                report = audit(args.modules, args.bundle, args.init, args.source,
+                               args.boot, args.dtbo, args.candidate_boot)
             finally:
                 tempfile.tempdir = previous_tempdir
         write_private(args.output, report, protected)
