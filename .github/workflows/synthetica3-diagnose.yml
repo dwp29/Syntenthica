@@ -23,8 +23,16 @@ jobs:
             --jq 'select(.status == "completed" and .conclusion == "failure") | .headSha' | grep -Fx "$expected" \
             || { echo '::error::Could not verify the failed run identity'; exit 1; }
           if ! gh api "repos/$GITHUB_REPOSITORY/actions/jobs/127001366270/logs" > "$RUNNER_TEMP/failed-job.log" 2> "$RUNNER_TEMP/log-fetch-error"; then
-            echo '::error::Could not retrieve the job log on the runner'
-            exit 1
+            if ! gh run view 41953079538 --repo "$GITHUB_REPOSITORY" --log-failed > "$RUNNER_TEMP/failed-job.log" 2>> "$RUNNER_TEMP/log-fetch-error"; then
+              python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP']) / 'log-fetch-error').read_text(errors='replace')
+          codes = re.findall(r'HTTP [0-9]{3}|Resource not accessible by integration|Not Found|Forbidden|EOF|failed to download', text, re.I)
+          print('::error::Job log retrieval failed: ' + ', '.join(codes[:5] or ['unknown error']))
+          PY
+              exit 1
+            fi
           fi
           python3 - <<'PY'
           import os, re
