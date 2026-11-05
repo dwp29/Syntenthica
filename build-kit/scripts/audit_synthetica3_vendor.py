@@ -215,6 +215,55 @@ def verify_manifest(bundle: Path) -> None:
         raise ValueError("bundle checksum manifest is incomplete")
 
 
+def export_provider_index(symvers_text: str, bundle_names: set[str]) -> dict[str, list[dict]]:
+    """Index recorded exports; provider names are metadata, never paths to open."""
+    # Reuse the build verifier's CRC/conflict validation before interpreting rows.
+    verify.symvers_records(symvers_text)
+    index: dict[str, list[dict]] = {}
+    for line in symvers_text.splitlines():
+        fields = line.split()
+        name, origin = fields[1:3]
+        if origin == "vmlinux":
+            provider = {"kind": "vmlinux", "export_type": fields[3] if len(fields) > 3 else None}
+        else:
+            name_only = canonical(PurePosixPath(origin).name)
+            provider = {"kind": "loadable_module", "symvers_path": origin, "module_name": name_only,
+                        "name_matches_bundled_module": name_only in bundle_names,
+                        "export_type": fields[3] if len(fields) > 3 else None}
+        bucket = index.setdefault(name, [])
+        if provider not in bucket:
+            bucket.append(provider)
+    return index
+
+
+def compare_version_records(versions: dict[str, int], target: dict) -> dict:
+    """Describe record differences and target providers without asserting loadability."""
+    symvers = target["symvers"]
+    differences, loadable_only, ambiguous = [], [], []
+    for name, crc in sorted(versions.items()):
+        expected = symvers.get(name)
+        providers = target["export_providers"].get(name, [])
+        if expected != crc:
+            differences.append({"symbol": name, "module_crc": f"0x{crc:08x}",
+                                "bundle_crc": f"0x{expected:08x}" if expected is not None else None,
+                                "name_in_bundle_system_map": name in target["map_names"],
+                                "bundle_export_providers": providers})
+        else:
+            if len(providers) > 1:
+                ambiguous.append({"symbol": name, "providers": providers})
+            if providers and all(item["kind"] == "loadable_module" for item in providers):
+                loadable_only.append({"symbol": name, "providers": providers})
+    return {
+        "matched": sum(symvers.get(name) == crc for name, crc in versions.items()),
+        "different": sum(name in symvers and symvers[name] != crc for name, crc in versions.items()),
+        "absent_from_bundle": sum(name not in symvers for name in versions),
+        "unmatched_details": differences,
+        "matching_only_loadable_providers": loadable_only,
+        "matching_ambiguous_providers": ambiguous,
+        "scope": "Module.symvers and System.map name evidence only; not proof of provider loading, trust, or behavior.",
+    }
+
+
 def load_bundle(bundle: Path) -> dict:
     verify_manifest(bundle)
     status = json.loads(read_regular(bundle / "STATUS.json", MAX_TEXT))
@@ -254,6 +303,7 @@ def load_bundle(bundle: Path) -> dict:
         map_names.add(fields[2])
     return {"release": release, "config": config, "cert": cert, "symvers": symvers,
             "builtins": builtins, "map_names": map_names, "parameters": parameters,
+            "export_providers": export_provider_index(symvers_text, set(parameters)),
             "image_sha256": hashlib.sha256(image).hexdigest()}
 
 
@@ -307,11 +357,7 @@ def audit_one(path: Path, target: dict, loaded: bool) -> dict:
         "signature_result": signature_result,
         "module_layout_crc": f"0x{versions['module_layout']:08x}",
         "module_layout_matches_bundle": versions["module_layout"] == symvers["module_layout"],
-        "version_records": {
-            "matched": sum(symvers.get(name) == crc for name, crc in versions.items()),
-            "different": sum(name in symvers and symvers[name] != crc for name, crc in versions.items()),
-            "absent_from_bundle": sum(name not in symvers for name in versions),
-        },
+        "version_records": compare_version_records(versions, target),
         "defined_symbol_names": len(defined),
         "defined_names_in_target_system_map": len(defined & target["map_names"]),
         "exported_symbol_names": len(exports),

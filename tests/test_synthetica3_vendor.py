@@ -73,6 +73,50 @@ class ParameterTests(unittest.TestCase):
             audit.ModuleELF(self.data[:80])
 
 
+class VersionProviderTests(unittest.TestCase):
+    def test_provider_evidence_does_not_conflate_map_and_exports(self):
+        text = (
+            "0x00000001 module_layout vmlinux EXPORT_SYMBOL\n"
+            "0x00000002 builtin_ok vmlinux EXPORT_SYMBOL\n"
+            "0x00000003 external_ok drivers/example/demo-driver EXPORT_SYMBOL_GPL\n"
+            "0x00000004 external_missing drivers/example/unbundled EXPORT_SYMBOL\n"
+            "0x00000005 different vmlinux EXPORT_SYMBOL\n"
+            "0x00000006 ambiguous vmlinux EXPORT_SYMBOL\n"
+            "0x00000006 ambiguous drivers/example/demo-driver EXPORT_SYMBOL\n"
+        )
+        target = {"symvers": verify.symvers_records(text),
+                  "export_providers": audit.export_provider_index(text, {"demo_driver"}),
+                  "map_names": {"different", "not_exported"}}
+        versions = {"module_layout": 1, "builtin_ok": 2, "external_ok": 3,
+                    "external_missing": 4, "different": 999, "not_exported": 7,
+                    "missing": 8, "ambiguous": 6}
+        result = audit.compare_version_records(versions, target)
+        self.assertEqual((result["matched"], result["different"], result["absent_from_bundle"]), (5, 1, 2))
+        differences = {row["symbol"]: row for row in result["unmatched_details"]}
+        self.assertEqual(differences["different"]["module_crc"], "0x000003e7")
+        self.assertEqual(differences["different"]["bundle_crc"], "0x00000005")
+        self.assertEqual(differences["different"]["bundle_export_providers"][0]["kind"], "vmlinux")
+        self.assertTrue(differences["not_exported"]["name_in_bundle_system_map"])
+        self.assertIsNone(differences["not_exported"]["bundle_crc"])
+        self.assertEqual(differences["not_exported"]["bundle_export_providers"], [])
+        self.assertFalse(differences["missing"]["name_in_bundle_system_map"])
+        loadable = {row["symbol"]: row for row in result["matching_only_loadable_providers"]}
+        self.assertEqual(set(loadable), {"external_ok", "external_missing"})
+        self.assertTrue(loadable["external_ok"]["providers"][0]["name_matches_bundled_module"])
+        self.assertFalse(loadable["external_missing"]["providers"][0]["name_matches_bundled_module"])
+        ambiguous = result["matching_ambiguous_providers"]
+        self.assertEqual([row["symbol"] for row in ambiguous], ["ambiguous"])
+        self.assertEqual({p["kind"] for p in ambiguous[0]["providers"]}, {"vmlinux", "loadable_module"})
+        self.assertIn("not proof", result["scope"])
+
+    def test_conflicting_provider_crc_is_rejected(self):
+        text = ("0x1 module_layout vmlinux EXPORT_SYMBOL\n"
+                "0x2 duplicate drivers/a/a EXPORT_SYMBOL\n"
+                "0x3 duplicate drivers/b/b EXPORT_SYMBOL\n")
+        with self.assertRaisesRegex(ValueError, "conflicting"):
+            audit.export_provider_index(text, set())
+
+
 class ListAndInitTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -171,6 +215,14 @@ on property:example=1
         self.assertTrue(row["module_layout_matches_bundle"])
         self.assertEqual(row["version_records"]["different"], 0)
         self.assertEqual(row["version_records"]["absent_from_bundle"], 0)
+        self.assertEqual(row["version_records"]["unmatched_details"], [])
+        symbol = "gspca_frame_add"
+        provider = audit.compare_version_records({symbol: self.target["symvers"][symbol]}, self.target)
+        self.assertEqual(provider["matched"], 1)
+        only = provider["matching_only_loadable_providers"]
+        self.assertEqual(only[0]["symbol"], symbol)
+        self.assertEqual(only[0]["providers"][0]["module_name"], "gspca_main")
+        self.assertTrue(only[0]["providers"][0]["name_matches_bundled_module"])
 
     def test_unsigned_or_modified_signature_not_mistaken_for_verified(self):
         path = self.modules / "gspca_main.ko"
@@ -242,12 +294,47 @@ on property:example=1
         self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
         self.assertEqual(report["reference_boot"]["header_version"], 2)
         self.assertEqual(report["dtbo"]["entry_count"], 2)
+        self.assertTrue(all(row["version_records"]["unmatched_details"] == [] for row in report["modules"]))
         self.assertTrue(all(report["boot_comparison"]["stable_header_fields_match"].values()))
         self.assertTrue(all(report["boot_comparison"]["non_kernel_sections_match"].values()))
         self.assertFalse(report["boot_comparison"]["candidate_kernel_equals_bundle_image"])
         self.assertTrue(report["boot_comparison"]["candidate_legacy_boot_id_matches"])
         self.assertEqual({name: (self.root / name).read_bytes() for name in images}, images)
         self.assertEqual(list(self.root.glob(".synthetica3-audit-*")), [])
+
+    def test_cli_reports_mismatch_and_unexported_symbol_without_modifying_input(self):
+        path = self.modules / "rmnet_perf.ko"
+        raw = bytearray(path.read_bytes())
+        payload, _ = verify.split_signature(bytes(raw))
+        records = verify.elf_sections(payload)["__versions"]
+        self.assertEqual(payload.count(records), 1)
+        base = payload.index(records)
+        changed_other = False
+        for offset in range(0, len(records), 64):
+            name = records[offset + 8:offset + 64].split(b"\0", 1)[0].decode("ascii")
+            if name == "module_layout":
+                struct.pack_into("<Q", raw, base + offset, 0xDEADBEEF)
+            elif not changed_other:
+                raw[base + offset + 8:base + offset + 64] = b"synthetic_missing\0".ljust(56, b"\0")
+                changed_other = True
+        self.assertTrue(changed_other)
+        path.write_bytes(raw)
+        before = hashlib.sha256(raw).digest()
+        destination = self.root / "differences.json"
+        argv = ["audit", "--modules", str(self.modules), "--bundle", str(BUNDLE),
+                "--output", str(destination)]
+        with mock.patch.object(sys, "argv", argv):
+            self.assertEqual(audit.main(), 0)
+        report = json.loads(destination.read_text())
+        row = next(row for row in report["modules"] if row["file"] == path.name)
+        self.assertEqual(row["signature_result"], "not_verified_with_bundle_certificate")
+        details = {item["symbol"]: item for item in row["version_records"]["unmatched_details"]}
+        self.assertEqual(details["module_layout"]["module_crc"], "0xdeadbeef")
+        self.assertEqual(details["module_layout"]["bundle_export_providers"][0]["kind"], "vmlinux")
+        self.assertIsNone(details["synthetic_missing"]["bundle_crc"])
+        self.assertEqual(details["synthetic_missing"]["bundle_export_providers"], [])
+        self.assertEqual(hashlib.sha256(path.read_bytes()).digest(), before)
+        self.assertEqual(os.stat(destination).st_mode & 0o777, 0o600)
 
     def test_cli_invalid_boot_inputs_leave_no_report(self):
         candidate = self.root / "candidate.img"

@@ -91,9 +91,32 @@ dan audit ini tidak memastikan ROM yang saat ini terpasang identik dengan arsip
 tersebut. Laporan pengguna bahwa 2.0 pernah boot tetap merupakan keterangan
 pengguna, bukan pengujian fitur independen. Arsip ROM privat tidak disertakan.
 
-Enam modul dari source sendiri bukan perbaikan otomatis untuk seluruh 41 modul
-ROM. Kepercayaan tanda tangan, pengganti driver, dan integrasi ROM harus
-dibuktikan tanpa bypass.
+Audit yang sama terhadap sertifikat bundel build **terbaru** 41957764426 juga
+mendapat 0 dari 41 tanda tangan terverifikasi dan 0 dari 41 CRC `module_layout`
+yang cocok; modul bundel sendiri lolos sebagai kontrol positif. Ini bukan bukti
+keyring atau kebijakan enforcement perangkat. Enam modul dari source sendiri
+bukan perbaikan otomatis untuk seluruh 41 modul ROM.
+
+Pemetaan nama Kbuild menemukan kandidat untuk 40 dari 41 modul, tetapi nama
+bukan bukti kesetaraan. `mi_memory` belum memiliki source yang terbukti cocok:
+[donor publik Nexus, commit `d26c193dcd97`](https://github.com/projects-nexus/nexus_kernel_xiaomi_sm8250/tree/d26c193dcd97812a9a565ac40fe5092cc9a18fbf/drivers/misc/mi-memory),
+misalnya, menggabungkan `mem_interface.o` ke modul, sedangkan modul arsip
+mengimpor simbol interface itu; source 2.0 juga belum menyediakan hook setara
+yang terbukti. Source donor juga memanggil `memblock_phys_mem_size`,
+`memblock_reserved_size` dan `ufshcd_read_desc_param`: ketiga nama itu muncul
+di `System.map` bundel terbaru, tetapi tidak ada sebagai export di
+`Module.symvers`. Ini memerlukan pemeriksaan link/modpost jika source tersebut
+kelak dibangun sebagai modul; nama di `System.map` bukan export modul.
+
+Donor juga mengaitkan `set_ufs_hba_data()` pada `ufshcd_slave_configure()`
+untuk LUN 2; hook itu tidak ada pada file UFS source 2.0 yang dipin. Pada
+konfigurasi 3.0 saat ini `SCSI_UFSHCD=y`, sedangkan donor memakai guard
+`IS_ENABLED(CONFIG_MI_MEMORY_SYSFS)` yang juga aktif untuk `=m`. Menyalin hook
+tersebut secara langsung dapat menciptakan referensi dari kernel bawaan ke
+simbol yang hanya berada dalam modul. Urutan inisialisasi dan umur pointer UFS
+juga belum dibuktikan. Donor belum dikompilasi atau diport. Kecocokan ABI,
+kepercayaan penandatangan, pengganti driver, dan integrasi ROM harus dibuktikan
+tanpa bypass.
 
 ## Audit vendor offline dan privat
 
@@ -115,22 +138,29 @@ python3 build-kit/scripts/audit_synthetica3_vendor.py \
 
 `--init`, `--source`, `--boot` dan `--dtbo` opsional. Direktori modul harus
 datar dan berisi `modules.load`, `modules.dep`, serta file `.ko` arm64 tanpa
-kompresi. Parser boot hanya mendukung header Android v2; format lain ditolak,
-bukan ditebak. Output harus berupa file baru di luar repositori dan semua
-direktori input; tool menolaknya jika sudah ada dan membuatnya dengan izin
-privat. **Jangan commit atau unggah laporan, ROM, maupun modul ROM.** Hapus
-salinan privat sementara setelah selesai jika tidak lagi diperlukan.
+kompresi. Parser hanya mendukung boot header Android v2, FDT v17 dan tabel
+DTBO v0; format lain ditolak, bukan ditebak. Output harus berupa file baru di
+luar repositori dan semua direktori input; tool menolaknya jika sudah ada dan
+membuatnya dengan izin privat. **Jangan commit atau unggah laporan, ROM, maupun
+modul ROM.** Hapus salinan privat sementara setelah selesai jika tidak lagi
+diperlukan.
 
 Workflow `Synthetica 3.0 - host safety tests (no ROM)` menguji tool dan guard
 dengan fixture sintetis serta bundel build publik; ROM dan laporan privat
 tidak dikirim ke CI. Tool memeriksa checksum bundel, sertifikat dalam image dan
 tanda tangan modul bundel, lalu membandingkan CRC, nama simbol, tanda tangan
 dengan sertifikat build tersebut, dependensi, dan perintah `insmod`/`modprobe`
-literal pada
-file `.rc` yang diberikan. Parameter callback diperiksa melalui struktur ELF,
-bukan hanya teks `.modinfo`. Pemindaian source hanya menemukan kandidat
-Kbuild berdasarkan nama; identitas source harus diverifikasi terpisah dan
-kondisi Kbuild tidak dievaluasi sepenuhnya. Nama simbol yang cocok **tidak**
+literal pada file `.rc` yang diberikan. Untuk CRC yang berbeda atau export yang
+hilang, laporan privat menyebut nama dan membedakan nama yang hanya muncul di
+`System.map` dari export. Kecocokan CRC yang penyedia tercatatnya hanya modul
+atau lebih dari satu juga dicatat terpisah; nama penyedia dalam bundel tidak
+membuktikan modul itu akan dimuat atau dipercaya. Rincian ini adalah audit,
+bukan perubahan pada build atau bukti dependensi tersedia saat runtime.
+Parameter callback diperiksa melalui struktur ELF, bukan hanya teks `.modinfo`.
+Pemindaian source hanya
+menemukan kandidat Kbuild berdasarkan nama; identitas source harus diverifikasi
+terpisah dan kondisi Kbuild tidak dievaluasi sepenuhnya. Nama simbol yang cocok
+**tidak**
 membuktikan kode/fungsi identik, dan urutan `modules.load` tidak dengan
 sendirinya menjelaskan bagaimana `modprobe` menyelesaikan dependensi. Skrip,
 partisi, kondisi properti, keyring, dan jalur pemuatan lain bisa saja tidak
@@ -141,8 +171,10 @@ kernel, ramdisk, DTB dan entry DTBO tanpa membuat atau menandatangani image.
 `--candidate-boot` opsional membandingkan file v2 lain yang sudah ada dengan
 `--boot`, termasuk metadata header dan bagian non-kernel. ID SHA-1 boot lama
 bukan tanda tangan; keberadaan atau ketiadaan footer AVB di akhir file juga
-**bukan** bukti status AVB. Perbandingan byte tidak membuktikan kompatibilitas
-boot atau mengizinkan flashing.
+**bukan** bukti status AVB. Arsip yang diperiksa tidak memuat `vbmeta.img`,
+sehingga descriptor dan kepercayaan bootloader perangkat belum diketahui.
+Perbandingan byte tidak membuktikan kompatibilitas boot atau mengizinkan
+flashing.
 
 Unpacker AOSP Android 10 commit `5aa0e4241029c80617a8e98b07f7f48ab6b3a3d7`
 (selepas penyesuaian pembagian integer untuk Python 3) telah dipakai sebagai
