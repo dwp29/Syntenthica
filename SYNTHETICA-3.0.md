@@ -117,9 +117,27 @@ konfigurasi 3.0 saat ini `SCSI_UFSHCD=y`, sedangkan donor memakai guard
 `IS_ENABLED(CONFIG_MI_MEMORY_SYSFS)` yang juga aktif untuk `=m`. Menyalin hook
 tersebut secara langsung dapat menciptakan referensi dari kernel bawaan ke
 simbol yang hanya berada dalam modul. Urutan inisialisasi dan umur pointer UFS
-juga belum dibuktikan. Donor belum dikompilasi atau diport. Kecocokan ABI,
-kepercayaan penandatangan, pengganti driver, dan integrasi ROM harus dibuktikan
-tanpa bypass.
+juga belum dibuktikan. Donor tidak diport ke build 3.0 saat ini. Sebelumnya
+memang pernah ada eksperimen compile-only berbasis 2.0 dengan donor Nexus
+sebagai built-in, tetapi empat atribut debug (`tag_stats`, `err_state`,
+`err_reason`, `req_stats`) dihilangkan dan tidak ada uji perangkat. Eksperimen
+itu sudah dihapus dan tidak membuktikan kesetaraan maupun keselamatan UFS;
+jangan menghidupkannya kembali sebagai solusi. Kecocokan ABI, kepercayaan
+penandatangan, pengganti driver, dan integrasi ROM harus dibuktikan tanpa bypass.
+
+Pencarian publik tambahan terhadap 157 repository kandidat Miatoll/SM6250/
+SM7125/Joyeuse tidak menemukan `drivers/misc/mi-memory/Makefile` maupun
+`drivers/misc/mi-memory/mem_interface.c` pada default branch yang diperiksa.
+Kontrol positif untuk kedua path pada donor Nexus berhasil. Pencarian ini hanya
+memeriksa dua path dan satu branch per repository, **bukan** bukti bahwa semua
+source publik tidak ada. Tree resmi Xiaomi
+[`curtana-q-oss`](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/231fa425e8f42661f74339de63c3ad472de6077d)
+dan [`gram-q-oss`](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/c5c29fbc28f5d061dd9b50c4e96a59493598efe8)
+yang diperiksa juga tidak memiliki path `mi-memory` atau `mem_interface`.
+Source resmi [`sweet-r-oss`](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/758bb7ef50af360e728662a1ed3b3a1b977a2f13/drivers/misc/mi-memory)
+memiliki tiga file parsial untuk perangkat berbeda, tanpa Makefile pada direktori
+itu; prototipe fungsi interface-nya berbeda dari donor Nexus. Source itu belum
+terbukti identik dengan modul Joyeuse/HOS4 dan bukan dasar port yang aman.
 
 ## Audit vendor offline dan privat
 
@@ -161,9 +179,16 @@ atau lebih dari satu juga dicatat terpisah; nama penyedia dalam bundel tidak
 membuktikan modul itu akan dimuat atau dipercaya. Rincian ini adalah audit,
 bukan perubahan pada build atau bukti dependensi tersedia saat runtime.
 Parameter callback diperiksa melalui struktur ELF, bukan hanya teks `.modinfo`.
-Pemindaian source hanya
-menemukan kandidat Kbuild berdasarkan nama; identitas source harus diverifikasi
-terpisah dan kondisi Kbuild tidak dievaluasi sepenuhnya. Nama simbol yang cocok
+Jika tersedia, `srcversion_comparison` juga membandingkan metadata `srcversion`
+modul input dengan modul bundel yang bernama internal sama. `not_comparable`
+berarti salah satu metadata tidak tersedia; itu bukan kecocokan. Metadata dapat
+ditiru atau tidak lengkap: nilai sama tidak membuktikan source identik,
+kompatibilitas ABI, atau perilaku runtime. Audit terbaru dengan perbandingan ini
+belum dijalankan kembali terhadap modul ROM privat.
+
+Pemindaian source hanya menemukan kandidat Kbuild berdasarkan nama; identitas
+source harus diverifikasi terpisah dan kondisi Kbuild tidak dievaluasi
+sepenuhnya. Nama simbol yang cocok
 **tidak**
 membuktikan kode/fungsi identik, dan urutan `modules.load` tidak dengan
 sendirinya menjelaskan bagaimana `modprobe` menyelesaikan dependensi. Skrip,

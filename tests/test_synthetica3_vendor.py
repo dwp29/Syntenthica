@@ -120,6 +120,25 @@ class VersionProviderTests(unittest.TestCase):
             audit.export_provider_index(text, set())
 
 
+class SourceVersionTests(unittest.TestCase):
+    def test_optional_srcversion_is_hex_metadata_and_case_normalized(self):
+        self.assertIsNone(audit.module_srcversion(b"name=sample\0description=\xff\0"))
+        self.assertEqual(audit.module_srcversion(b"name=sample\0srcversion=7f2f8f9b848cc6f125bda0a\0"),
+                         "7F2F8F9B848CC6F125BDA0A")
+        for value in (b"srcversion=\0", b"srcversion=xyz\0", b"srcversion=\xff\0",
+                      b"srcversion=" + b"A" * 65 + b"\0",
+                      b"srcversion=ABC\0srcversion=ABC\0", b"srcversion=ABC"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                audit.module_srcversion(value)
+
+    def test_missing_version_is_not_a_match(self):
+        for first, second in ((None, None), (None, "ABC"), ("ABC", None)):
+            self.assertEqual(audit.compare_srcversion(first, second)["comparison"], "not_comparable")
+        self.assertEqual(audit.compare_srcversion("ABC", "ABC")["comparison"], "equal")
+        self.assertEqual(audit.compare_srcversion("ABC", "DEF")["comparison"], "different")
+        self.assertIn("not proof", audit.compare_srcversion("ABC", "ABC")["scope"])
+
+
 class ListAndInitTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -226,6 +245,31 @@ on property:example=1
         self.assertEqual(only[0]["symbol"], symbol)
         self.assertEqual(only[0]["providers"][0]["module_name"], "gspca_main")
         self.assertTrue(only[0]["providers"][0]["name_matches_bundled_module"])
+
+    def test_srcversion_compares_only_metadata_from_the_same_named_module(self):
+        path = self.modules / "gspca_main.ko"
+        row = audit.audit_one(path, self.target, True)
+        evidence = row["srcversion_comparison"]
+        self.assertEqual(evidence["comparison"], "equal")
+        self.assertEqual(evidence["input_srcversion"], self.target["module_srcversions"]["gspca_main"])
+        # Mutating only this field simulates a different fingerprint, not a source build.
+        before = path.read_bytes()
+        original = b"srcversion=" + evidence["input_srcversion"].encode("ascii")
+        replacement = b"srcversion=" + b"0" * len(evidence["input_srcversion"])
+        altered = before.replace(original, replacement, 1)
+        self.assertNotEqual(before, altered)
+        path.write_bytes(altered)
+        row = audit.audit_one(path, self.target, True)
+        self.assertEqual(row["srcversion_comparison"]["comparison"], "different")
+        self.assertEqual(row["signature_result"], "not_verified_with_bundle_certificate")
+        renamed = before.replace(b"name=gspca_main\0", b"name=gspca_fake\0", 1)
+        self.assertNotEqual(before, renamed)
+        path.write_bytes(renamed)
+        row = audit.audit_one(path, self.target, True)
+        self.assertEqual(row["srcversion_comparison"]["comparison"], "not_comparable")
+        self.assertIsNotNone(row["srcversion_comparison"]["input_srcversion"])
+        row = audit.audit_one(self.modules / "rmnet_perf.ko", self.target, True)
+        self.assertEqual(row["srcversion_comparison"]["comparison"], "not_comparable")
 
     def test_public_target_map_distinguishes_local_symbol_from_export(self):
         symbol = "ufshcd_read_desc_param"

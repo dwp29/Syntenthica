@@ -265,6 +265,29 @@ def compare_version_records(versions: dict[str, int], target: dict) -> dict:
     }
 
 
+def module_srcversion(modinfo: bytes) -> str | None:
+    """Read Kbuild's optional srcversion as metadata, not source verification."""
+    if not modinfo or not modinfo.endswith(b"\0"):
+        raise ValueError("invalid .modinfo for srcversion")
+    values = [item.removeprefix(b"srcversion=") for item in modinfo.split(b"\0")
+              if item.startswith(b"srcversion=")]
+    if not values:
+        return None
+    if len(values) != 1 or not re.fullmatch(rb"[0-9A-Fa-f]{1,64}", values[0]):
+        raise ValueError("invalid or duplicate module srcversion")
+    return values[0].decode("ascii").upper()
+
+
+def compare_srcversion(input_version: str | None, bundle_version: str | None) -> dict:
+    if input_version is None or bundle_version is None:
+        result = "not_comparable"
+    else:
+        result = "equal" if input_version == bundle_version else "different"
+    return {"input_srcversion": input_version, "same_name_bundle_srcversion": bundle_version,
+            "comparison": result,
+            "scope": "Unverified metadata only; equality is not proof of source identity, ABI, or runtime behavior."}
+
+
 def load_bundle(bundle: Path) -> dict:
     verify_manifest(bundle)
     status = json.loads(read_regular(bundle / "STATUS.json", MAX_TEXT))
@@ -287,10 +310,12 @@ def load_bundle(bundle: Path) -> dict:
     symvers = verify.symvers_records(symvers_text)
     evidence = verify.collect(bundle / "signed-modules", config=config, release=release,
                               certificate_der=cert, raw_kernel=raw, symvers_text=symvers_text)
-    parameters = {}
+    parameters, srcversions = {}, {}
     for name, (data, _) in evidence.items():
         payload, _ = verify.split_signature(data)
-        parameters[name] = ModuleELF(payload).registered_parameters()
+        module = ModuleELF(payload)
+        parameters[name] = module.registered_parameters()
+        srcversions[canonical(name)] = module_srcversion(module.sections[".modinfo"])
     builtins = set()
     for line in symvers_text.splitlines():
         fields = line.split()
@@ -305,6 +330,7 @@ def load_bundle(bundle: Path) -> dict:
         map_types.setdefault(fields[2], set()).add(fields[1])
     return {"release": release, "config": config, "cert": cert, "symvers": symvers,
             "builtins": builtins, "map_names": map_names, "map_types": map_types, "parameters": parameters,
+            "module_srcversions": srcversions,
             "export_providers": export_provider_index(symvers_text, set(parameters)),
             "image_sha256": hashlib.sha256(image).hexdigest()}
 
@@ -354,6 +380,9 @@ def audit_one(path: Path, target: dict, loaded: bool) -> dict:
         "sha256": hashlib.sha256(data).hexdigest(),
         "listed_in_modules_load": loaded,
         "internal_name": info["name"],
+        "srcversion_comparison": compare_srcversion(
+            module_srcversion(elf.sections[".modinfo"]),
+            target["module_srcversions"].get(canonical(info["name"]))),
         "modinfo_dependencies": [x for x in info.get("depends", "").split(",") if x],
         "vermagic": info["vermagic"],
         "signature_result": signature_result,
