@@ -120,6 +120,8 @@ class PrepareTests(unittest.TestCase):
             text = builder.read_text()
             self.assertIn('check-config --baseline "$S3_BASELINE"', text)
             self.assertIn("foreign vermagic bypass found", text)
+            self.assertIn('make -j"$JOBS" "${MO[@]}" modules\n', text)
+            self.assertIn('INSTALL_MOD_PATH="$OUT/synthetica3-modules" modules_install', text)
             self.assertNotIn("# --- kemas AnyKernel3 ", text)
             subprocess.run(["bash", "-n", str(builder)], check=True)
             ast.parse(driver.read_text())
@@ -205,8 +207,13 @@ class FinishTests(unittest.TestCase):
     def write_image(self, raw):
         (self.kit / "artifacts/Image.gz").write_bytes(gzip.compress(raw))
 
-    def finish(self):
-        with mock.patch.object(s3, "MIN_IMAGE_BYTES", 0):
+    def finish(self, *, collector_error=None):
+        names = ("tcp_bic", "tcp_westwood", "tcp_htcp", "gspca_main", "rmnet_perf", "rmnet_shs")
+        # The actual CRC/signature verifier is exercised using real synthetic
+        # signed ELF modules in test_synthetica3_modules.py.
+        modules = {name: (b"synthetic " + name.encode(), {"name": name}) for name in names}
+        with mock.patch.object(s3, "MIN_IMAGE_BYTES", 0), \
+             mock.patch.object(s3, "collect_module_evidence", return_value=modules, side_effect=collector_error):
             s3.finish(self.kit, self.out, BASELINE_PATH, ROOT / "artifacts/Image.gz", self.result)
 
     def test_finish_produces_only_reviewable_nonflashable_files(self):
@@ -217,12 +224,19 @@ class FinishTests(unittest.TestCase):
         self.assertTrue(status["embedded_config_matches_generated"])
         self.assertFalse(status["same_public_certificate_found_in_2_0_image"])
         self.assertFalse(status["private_signing_key_exported"])
-        self.assertEqual(len(list(self.result.iterdir())), 8)
-        self.assertFalse(any(p.suffix in {".pem", ".key", ".zip"} for p in self.result.iterdir()))
+        self.assertEqual(len(status["matching_source_modules"]["modules"]), 6)
+        self.assertEqual(len(list((self.result / "signed-modules").glob("*.ko"))), 6)
+        self.assertEqual(len(list(self.result.iterdir())), 9)
+        self.assertFalse(any(p.suffix in {".pem", ".key", ".zip"} for p in self.result.rglob("*")))
         subprocess.run(["sha256sum", "-c", "SHA256SUMS.txt"], cwd=self.result,
                        check=True, stdout=subprocess.DEVNULL)
         with self.assertRaisesRegex(ValueError, "overwrite"):
             self.finish()
+
+    def test_module_verification_failure_does_not_produce_output(self):
+        with self.assertRaisesRegex(ValueError, "bad module"):
+            self.finish(collector_error=ValueError("bad module"))
+        self.assertFalse(self.result.exists())
 
     def test_mismatched_public_cert_fails_before_output(self):
         self.write_image(self.raw.replace(self.cert, b"not-the-certificate"))

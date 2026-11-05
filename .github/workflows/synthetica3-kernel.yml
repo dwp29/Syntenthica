@@ -8,7 +8,9 @@ on:
     paths:
       - '.github/workflows/synthetica3-kernel.yml'
       - 'build-kit/scripts/build_synthetica3.py'
+      - 'build-kit/scripts/verify_synthetica3_modules.py'
       - 'tests/test_synthetica3_build.py'
+      - 'tests/test_synthetica3_modules.py'
 
 permissions:
   contents: read
@@ -25,21 +27,21 @@ jobs:
       - name: Check out the exact triggering commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Test safeguards without a device or ROM
-        run: python3 -m unittest discover -s tests -p 'test_synthetica3_build.py' -v
-
       - name: Install the 2.0 host toolchain
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y \
             clang-18 lld-18 llvm-18 \
-            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            gcc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
             bc flex bison libssl-dev libelf-dev device-tree-compiler \
-            cpio lz4 xz-utils python3 patch openssl zip rsync git curl binutils
+            cpio lz4 xz-utils python3 patch openssl zip rsync git curl binutils kmod
           clang-18 --version | head -1
           ld.lld-18 --version
           aarch64-linux-gnu-gcc --version | head -1
+
+      - name: Test safeguards without a device or ROM
+        run: python3 -m unittest discover -s tests -p 'test_synthetica3_*.py' -v
 
       - name: Prepare an isolated, pinned 2.0 build kit
         run: |
@@ -49,7 +51,7 @@ jobs:
             --destination "$RUNNER_TEMP/synthetica3-kit" \
             --baseline artifacts/generated.config.txt
 
-      - name: Compile 3.0 without packaging an installer
+      - name: Compile kernel and sign 2.0-selected modules without an installer
         env:
           SP_JOBS: '4'
           SP_RELEASE_VERSION: '3.0'
@@ -66,7 +68,7 @@ jobs:
           export S3_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
           python3 "$RUNNER_TEMP/synthetica3-kit/scripts/build_chronicle_base.py"
 
-      - name: Verify image, embedded config, module metadata and public certificate
+      - name: Verify image, embedded config, module CRCs and signatures
         run: |
           set -euo pipefail
           python3 build-kit/scripts/build_synthetica3.py finish \

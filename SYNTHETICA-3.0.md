@@ -22,32 +22,53 @@ dipakai saat pengujian itu belum terkonfirmasi secara independen.
 ## Build dan batas verifikasi
 
 Workflow `Synthetica 3.0 - kernel berbasis 2.0 (belum siap flash)` menjalankan
-unit test, membangun image dari source publik yang dipin, dan hanya mengunggah
-image bertanda **DO-NOT-FLASH** beserta konfigurasi, `Module.symvers`,
-`System.map`, sertifikat modul **publik** dan status. Kunci privat tidak
-termasuk. Workflow tidak membuat ZIP installer atau mengubah perangkat.
+unit test dan membangun image dari source publik yang dipin. Workflow telah
+diperbarui untuk membangun serta menandatangani dalam build yang sama enam
+modul yang sudah dipilih `=m` pada konfigurasi 2.0: `tcp_bic`, `tcp_westwood`,
+`tcp_htcp`, `gspca_main`, `rmnet_perf`, dan `rmnet_shs`. Tidak ada perubahan
+opsi Kconfig untuk menambah modul itu.
 
-Kecocokan konfigurasi dan identitas Manager di biner tidak membuktikan root
-atau semua fitur berfungsi. Versi kernel berubah; kecocokan ABI, vermagic dan
-kepercayaan tanda tangan modul vendor HOS4 belum terbukti. Build dapat memakai
-sertifikat modul baru yang tidak otomatis mempercayai modul ROM atau 2.0.
+Sebelum mengunggah hasil baru, pemeriksaan statis mensyaratkan ELF arm64,
+nama dan vermagic tepat, dependensi terbundel, seluruh CRC `__versions`
+sesuai `Module.symvers`, serta tanda tangan PKCS#7 yang diverifikasi terhadap
+sertifikat publik yang tertanam dalam image build yang sama. Kunci privat
+tidak diekspor. Uji sintetis juga memeriksa perubahan isi, CRC salah,
+sertifikat salah dan modul hilang. Pemeriksaan ini tidak memuat modul pada
+perangkat. Modul dari satu build **tidak boleh dipasangkan** dengan image
+build lain yang menggunakan sertifikat berbeda.
+
+Workflow tidak membuat ZIP installer, mengubah ROM, atau mengubah perangkat.
+Kecocokan konfigurasi, identitas Manager dan enam modul build sendiri tidak
+membuktikan root, seluruh fitur, atau kompatibilitas modul vendor HOS4.
 
 Build pertama telah selesai dan diverifikasi pada [Actions 41881067516](https://github.com/dwp29/Syntenthica/actions/runs/41881067516).
-Hasil dan buktinya ada di `artifacts/synthetica-3.0/`; image SHA-256
+Hasilnya saat ini ada di `artifacts/synthetica-3.0/`; image SHA-256
 `0fbdc5f3b0b5a68c89c18ae1e999e83f783ac22157e63888734f7e9d915b1ea7` adalah
 **image mentah yang belum teruji, bukan installer dan tidak boleh di-flash**.
+Build pertama ini belum menyertakan enam modul; workflow yang diperbarui
+harus menghasilkan dan memverifikasi image dan modul baru bersama-sama.
 
 Pemeriksaan langsung terhadap image 2.0 dengan SHA-256
 `58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff`
 mendapatkan CRC `module_layout` `0x08efcbb0` dari tabel export/CRC yang
-direkonstruksi melalui kallsyms (7.337 entri). `Module.symvers` build 3.0
-menunjukkan nilai yang sama. Pada audit sebelumnya, 41 modul vendor yang
-diperiksa tercatat membutuhkan `0x6968ee15`; modul-modul itu tidak cocok pada
-pemeriksaan CRC ini. Salinan backup yang dipakai saat audit tersebut belum dapat
-dikonfirmasi lagi, sehingga hasil itu tidak membuktikan keadaan modul yang kini
-ada di perangkat. Sertifikat publik build 3.0 juga **tidak identik** dengan
-sertifikat yang ditemukan di image 2.0; kepercayaan tanda tangan modul ROM
-masih harus diuji dan tidak boleh dibypass.
+direkonstruksi melalui kallsyms (7.337 entri). `Module.symvers` build pertama
+3.0 menunjukkan nilai yang sama.
+
+Audit baca-saja terhadap arsip ROM `H0S4diza.zip` dengan SHA-256
+`454580f463e7f6ac922546075a2a033c6dc2fac3275e450573635a1ca7b0ec63`
+memeriksa 41 modul yang tercantum dalam `modules.load` vendor. Seluruhnya
+memiliki CRC `module_layout` `0x6968ee15`, berbeda dari image 2.0 dan build
+pertama 3.0; tanda tangan tidak satu pun terverifikasi menggunakan masing-masing
+sertifikat publik spesifik kedua build tersebut. Ini membuktikan ketidakcocokan
+statis dengan kombinasi yang diperiksa, bukan bahwa seluruh modul pasti
+berjalan atau wajib dipakai pada perangkat. Keyring perangkat tidak diperiksa,
+dan audit ini tidak memastikan ROM yang saat ini terpasang identik dengan arsip
+tersebut. Laporan pengguna bahwa 2.0 pernah boot tetap merupakan keterangan
+pengguna, bukan pengujian fitur independen. Arsip ROM privat tidak disertakan.
+
+Enam modul dari source sendiri bukan perbaikan otomatis untuk seluruh 41 modul
+ROM. Kepercayaan tanda tangan, pengganti driver, dan integrasi ROM harus
+dibuktikan tanpa bypass.
 
 Boot fisik, fitur runtime, AVB dan SELinux saat runtime belum diuji. Jangan
 flash sampai kompatibilitas, rencana pemulihan, dan uji yang sesuai disiapkan,

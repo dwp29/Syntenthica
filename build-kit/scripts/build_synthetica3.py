@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import importlib.util
 import io
 import json
 import re
@@ -193,7 +194,18 @@ fi
 python3 "$S3_HELPER" check-config --baseline "$S3_BASELINE" --generated "$OUT/.config"
 '''
     text = text.replace(anchor, anchor + guard)
-    text = text[:text.index(marker)] + '\necho "Image only: no installer or flashable package"\nexit 0\n'
+    image_build = 'make -j"$JOBS" "${MO[@]}" Image.gz\n'
+    if text.count(image_build) != 1:
+        raise ValueError("unexpected kernel Image.gz build command")
+    # Build the six modules already selected in the 2.0 config. modules_install
+    # signs them with this same disposable build's auto-generated kernel key.
+    # The private key and the staging tree are never copied into the result.
+    module_build = '''echo "--- Build and sign the modules selected by the 2.0 config ---"
+make -j"$JOBS" "${MO[@]}" modules
+make "${MO[@]}" INSTALL_MOD_PATH="$OUT/synthetica3-modules" modules_install
+'''
+    text = text.replace(image_build, image_build + module_build)
+    text = text[:text.index(marker)] + '\necho "Image and matching modules only: no installer or flashable package"\nexit 0\n'
     builder.write_text(text, encoding="utf-8")
 
     driver = destination / "scripts/build_chronicle_base.py"
@@ -221,6 +233,19 @@ python3 "$S3_HELPER" check-config --baseline "$S3_BASELINE" --generated "$OUT/.c
     text = text[:text.index(status_start)] + '    say("Image compiled; 3.0 verification still required")\n' + text[text.index(main_start):]
     driver.write_text(text, encoding="utf-8")
     print(f"Prepared isolated 2.0-based 3.0 build kit: {destination}")
+
+
+def collect_module_evidence(out: Path, config: bytes, raw: bytes, certificate: bytes,
+                            symvers_text: str) -> dict[str, tuple[bytes, dict[str, object]]]:
+    helper = Path(__file__).resolve().with_name("verify_synthetica3_modules.py")
+    spec = importlib.util.spec_from_file_location("verify_synthetica3_modules", helper)
+    if spec is None or spec.loader is None:
+        raise ValueError("module verifier could not be loaded")
+    verifier = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verifier)
+    stage = out / "synthetica3-modules/lib/modules" / EXPECTED_RELEASE / "kernel"
+    return verifier.collect(stage, config=read_config(config.decode("utf-8")), release=EXPECTED_RELEASE,
+                            certificate_der=certificate, raw_kernel=raw, symvers_text=symvers_text)
 
 
 def finish(kit: Path, out: Path, baseline: Path, reference_image: Path, result: Path) -> None:
@@ -270,6 +295,7 @@ def finish(kit: Path, out: Path, baseline: Path, reference_image: Path, result: 
     if len(old_raw) > MAX_RAW_IMAGE:
         raise ValueError("reference 2.0 image exceeds safety limit")
     cert_also_in_v2 = parsed in old_raw
+    modules = collect_module_evidence(out, cfg, raw, parsed, symvers.read_text(encoding="utf-8"))
     if result.exists() or result.is_symlink():
         raise ValueError("refusing to overwrite an existing result directory")
     result.mkdir(parents=True)
@@ -282,6 +308,10 @@ def finish(kit: Path, out: Path, baseline: Path, reference_image: Path, result: 
     }
     for name, path in files.items():
         shutil.copyfile(path, result / name)
+    (result / "signed-modules").mkdir()
+    for name, (data, _checked) in modules.items():
+        (result / "signed-modules" / (name + ".ko")).write_bytes(data)
+    output_names = [*files, *("signed-modules/" + name + ".ko" for name in modules)]
     status = {
         "status": "COMPILED_ONLY_DO_NOT_FLASH",
         "device_target": "joyeuse / miatoll, HOS4",
@@ -296,7 +326,15 @@ def finish(kit: Path, out: Path, baseline: Path, reference_image: Path, result: 
         "module_public_cert_embedded_in_image": True,
         "same_public_certificate_found_in_2_0_image": cert_also_in_v2,
         "pinned_manager_identity_strings_found": True,
+        "matching_source_modules": {
+            "scope": "Six modules already selected in the 2.0 config; built and signed with this kernel.",
+            "modules": [checked for _data, checked in modules.values()],
+            "signature_and_version_records_verified": True,
+            "runtime_load": "NOT_TESTED",
+            "rom_integration": "NOT_DONE",
+        },
         "checks_not_proofs": [
+            "Six source-built modules do not establish compatibility for the ROM's other modules.",
             "A certificate byte comparison does not establish which ROM module signers are trusted.",
             "Matching config and linked identity strings do not prove root or runtime features.",
             "Kernel release changed; vendor module vermagic, CRCs, and signer trust are not verified.",
@@ -304,17 +342,18 @@ def finish(kit: Path, out: Path, baseline: Path, reference_image: Path, result: 
         ],
         "private_signing_key_exported": False,
         "rom_or_device_modified": False,
-        "output_sha256": {name: digest(result / name) for name in files},
+        "output_sha256": {name: digest(result / name) for name in output_names},
     }
     (result / "STATUS.json").write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
     (result / "README-DO-NOT-FLASH.txt").write_text(
         "DO NOT FLASH. This is an untested kernel image, not an installer or boot image.\n"
         "The 2.0 config is retained except LOCALVERSION and IKCONFIG metadata is fixed.\n"
-        "Vendor-module ABI/signatures, physical boot, and runtime features are unverified.\n"
+        "Six 2.0-selected modules are built and signed with this exact kernel.\n"
+        "ROM module ABI/signatures, integration, boot, and runtime features are unverified.\n"
         "Module signature enforcement and MODVERSIONS remain enabled; no bypass is applied.\n",
         encoding="utf-8",
     )
-    names = sorted([*files, "STATUS.json", "README-DO-NOT-FLASH.txt"])
+    names = sorted([*output_names, "STATUS.json", "README-DO-NOT-FLASH.txt"])
     (result / "SHA256SUMS.txt").write_text(
         "".join(f"{digest(result / name)}  {name}\n" for name in names), encoding="utf-8")
     print(json.dumps(status, indent=2))
