@@ -86,7 +86,8 @@ class VersionProviderTests(unittest.TestCase):
         )
         target = {"symvers": verify.symvers_records(text),
                   "export_providers": audit.export_provider_index(text, {"demo_driver"}),
-                  "map_names": {"different", "not_exported"}}
+                  "map_names": {"different", "not_exported"},
+                  "map_types": {"different": {"T"}, "not_exported": {"t", "T"}}}
         versions = {"module_layout": 1, "builtin_ok": 2, "external_ok": 3,
                     "external_missing": 4, "different": 999, "not_exported": 7,
                     "missing": 8, "ambiguous": 6}
@@ -97,9 +98,11 @@ class VersionProviderTests(unittest.TestCase):
         self.assertEqual(differences["different"]["bundle_crc"], "0x00000005")
         self.assertEqual(differences["different"]["bundle_export_providers"][0]["kind"], "vmlinux")
         self.assertTrue(differences["not_exported"]["name_in_bundle_system_map"])
+        self.assertEqual(differences["not_exported"]["bundle_system_map_types"], ["T", "t"])
         self.assertIsNone(differences["not_exported"]["bundle_crc"])
         self.assertEqual(differences["not_exported"]["bundle_export_providers"], [])
         self.assertFalse(differences["missing"]["name_in_bundle_system_map"])
+        self.assertEqual(differences["missing"]["bundle_system_map_types"], [])
         loadable = {row["symbol"]: row for row in result["matching_only_loadable_providers"]}
         self.assertEqual(set(loadable), {"external_ok", "external_missing"})
         self.assertTrue(loadable["external_ok"]["providers"][0]["name_matches_bundled_module"])
@@ -223,6 +226,15 @@ on property:example=1
         self.assertEqual(only[0]["symbol"], symbol)
         self.assertEqual(only[0]["providers"][0]["module_name"], "gspca_main")
         self.assertTrue(only[0]["providers"][0]["name_matches_bundled_module"])
+
+    def test_public_target_map_distinguishes_local_symbol_from_export(self):
+        symbol = "ufshcd_read_desc_param"
+        self.assertIn("t", self.target["map_types"][symbol])
+        self.assertNotIn(symbol, self.target["symvers"])
+        evidence = audit.compare_version_records({symbol: 1}, self.target)["unmatched_details"][0]
+        self.assertTrue(evidence["name_in_bundle_system_map"])
+        self.assertIn("t", evidence["bundle_system_map_types"])
+        self.assertEqual(evidence["bundle_export_providers"], [])
 
     def test_unsigned_or_modified_signature_not_mistaken_for_verified(self):
         path = self.modules / "gspca_main.ko"

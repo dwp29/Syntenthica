@@ -105,8 +105,11 @@ mengimpor simbol interface itu; source 2.0 juga belum menyediakan hook setara
 yang terbukti. Source donor juga memanggil `memblock_phys_mem_size`,
 `memblock_reserved_size` dan `ufshcd_read_desc_param`: ketiga nama itu muncul
 di `System.map` bundel terbaru, tetapi tidak ada sebagai export di
-`Module.symvers`. Ini memerlukan pemeriksaan link/modpost jika source tersebut
-kelak dibangun sebagai modul; nama di `System.map` bukan export modul.
+`Module.symvers`. Pada source 2.0 yang dipin, `ufshcd_read_desc_param` bahkan
+berdeklarasi `static`, konsisten dengan tipe lokal `t` di `System.map`; donor
+menyatakan fungsi itu eksternal. Ini memerlukan pemeriksaan link/modpost jika
+source tersebut kelak dibangun sebagai modul; nama di `System.map` bukan export
+modul.
 
 Donor juga mengaitkan `set_ufs_hba_data()` pada `ufshcd_slave_configure()`
 untuk LUN 2; hook itu tidak ada pada file UFS source 2.0 yang dipin. Pada
@@ -151,8 +154,9 @@ tidak dikirim ke CI. Tool memeriksa checksum bundel, sertifikat dalam image dan
 tanda tangan modul bundel, lalu membandingkan CRC, nama simbol, tanda tangan
 dengan sertifikat build tersebut, dependensi, dan perintah `insmod`/`modprobe`
 literal pada file `.rc` yang diberikan. Untuk CRC yang berbeda atau export yang
-hilang, laporan privat menyebut nama dan membedakan nama yang hanya muncul di
-`System.map` dari export. Kecocokan CRC yang penyedia tercatatnya hanya modul
+hilang, laporan privat menyebut nama serta tipe di `System.map` dan membedakan
+nama yang hanya muncul di sana dari export. Tipe simbol bukan bukti export atau
+kecocokan ABI. Kecocokan CRC yang penyedia tercatatnya hanya modul
 atau lebih dari satu juga dicatat terpisah; nama penyedia dalam bundel tidak
 membuktikan modul itu akan dimuat atau dipercaya. Rincian ini adalah audit,
 bukan perubahan pada build atau bukti dependensi tersedia saat runtime.

@@ -247,6 +247,7 @@ def compare_version_records(versions: dict[str, int], target: dict) -> dict:
             differences.append({"symbol": name, "module_crc": f"0x{crc:08x}",
                                 "bundle_crc": f"0x{expected:08x}" if expected is not None else None,
                                 "name_in_bundle_system_map": name in target["map_names"],
+                                "bundle_system_map_types": sorted(target["map_types"].get(name, set())),
                                 "bundle_export_providers": providers})
         else:
             if len(providers) > 1:
@@ -295,14 +296,15 @@ def load_bundle(bundle: Path) -> dict:
         fields = line.split()
         if len(fields) >= 3 and fields[2] == "vmlinux":
             builtins.add(fields[1])
-    map_names = set()
+    map_names, map_types = set(), {}
     for line in read_regular(bundle / "System.map.txt", MAX_TEXT).decode("ascii").splitlines():
         fields = line.split()
         if len(fields) != 3 or not re.fullmatch(r"[0-9a-fA-F]+", fields[0]) or len(fields[1]) != 1:
             raise ValueError("invalid System.map entry")
         map_names.add(fields[2])
+        map_types.setdefault(fields[2], set()).add(fields[1])
     return {"release": release, "config": config, "cert": cert, "symvers": symvers,
-            "builtins": builtins, "map_names": map_names, "parameters": parameters,
+            "builtins": builtins, "map_names": map_names, "map_types": map_types, "parameters": parameters,
             "export_providers": export_provider_index(symvers_text, set(parameters)),
             "image_sha256": hashlib.sha256(image).hexdigest()}
 
