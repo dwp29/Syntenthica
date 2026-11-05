@@ -5,6 +5,16 @@ kompatibilitas modul dan perilaku perangkat harus diuji terpisah. Pengguna
 menyatakan Synthetica 2.0 pernah boot bersama HOS4 di Joyeuse; hash kernel yang
 dipakai saat pengujian itu belum terkonfirmasi secara independen.
 
+**Koreksi dokumen lama:** sebuah dokumentasi di arsip mencampurkan nama
+Joyeuse dengan POCO F3/Snapdragon 870. Referensi device tree publik menyebut
+[Joyeuse sebagai Redmi Note 9 Pro/SM7125](https://github.com/ryzspace/android_device_xiaomi_joyeuse/blob/35c6ad5a217723bbbb06a44d6fb8cc0cd6c67df3/README.md),
+sedangkan [Alioth memakai pohon SM8250](https://github.com/xiaomi-sm8250-devs/android_device_xiaomi_alioth/blob/76d3885fb818e0ee229545d5186dc236733afc75/device.mk).
+Identitas perangkat pengguna belum diperiksa secara independen; jangan memakai
+dokumen lama sebagai dasar flash. Klaim dokumen itu bahwa `super.img` bukan
+format LP dan vendor tidak dapat dibaca sebagai ext4 juga tidak sesuai dengan
+audit lokal: checksum metadata LP valid dan filesystem vendor dapat dibaca
+sebagai ext4. Hal ini tidak membuktikan identitas perangkat atau boot aman.
+
 ## Basis dan perubahan
 
 - Source, resep, profil, identitas Manager dan konfigurasi build 2.0 tetap
