@@ -86,14 +86,16 @@ def module_info(section: bytes) -> dict[str, str]:
         raise ValueError("invalid .modinfo")
     entries: dict[str, str] = {}
     for row in section.split(b"\0"):
-        if not row:
-            continue
-        try:
-            text = row.decode("ascii")
-        except UnicodeDecodeError as exc:
-            raise ValueError("non-ASCII .modinfo") from exc
-        name, sep, value = text.partition("=")
-        if sep and name in ("name", "vermagic", "depends"):
+        # Descriptive fields such as author may legitimately contain non-ASCII
+        # bytes. The signed payload still covers them; only the identity and
+        # dependency fields used for compatibility must decode as ASCII.
+        key, sep, raw_value = row.partition(b"=")
+        if sep and key in (b"name", b"vermagic", b"depends"):
+            name = key.decode("ascii")
+            try:
+                value = raw_value.decode("ascii")
+            except UnicodeDecodeError as exc:
+                raise ValueError(f"non-ASCII required .modinfo field: {name}") from exc
             if name in entries:
                 raise ValueError(f"duplicate .modinfo field: {name}")
             entries[name] = value
@@ -216,14 +218,22 @@ def collect(stage: Path, *, config: dict[str, str], release: str, certificate_de
         raise ValueError("missing or unexpected module set in staging directory")
     symvers = symvers_records(symvers_text)
     modules: dict[str, tuple[bytes, dict[str, object]]] = {}
+    errors: list[str] = []
     for name in MODULE_CONFIG:
         path = paths[name]
         if path.stat().st_size > MAX_MODULE:
-            raise ValueError(f"module too large: {name}")
+            errors.append(f"{name}: module too large")
+            continue
         data = path.read_bytes()
-        checked = verify_module(data, name=name, release=release, certificate_der=certificate_der,
-                                raw_kernel=raw_kernel, symvers=symvers)
+        try:
+            checked = verify_module(data, name=name, release=release, certificate_der=certificate_der,
+                                    raw_kernel=raw_kernel, symvers=symvers)
+        except ValueError as exc:
+            errors.append(f"{name}: {exc}")
+            continue
         modules[name] = (data, checked)
+    if errors:
+        raise ValueError("module verification failed: " + "; ".join(errors))
     visiting: set[str] = set()
     visited: set[str] = set()
 

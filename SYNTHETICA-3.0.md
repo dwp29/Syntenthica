@@ -46,13 +46,24 @@ Hasilnya saat ini ada di `artifacts/synthetica-3.0/`; image SHA-256
 `0fbdc5f3b0b5a68c89c18ae1e999e83f783ac22157e63888734f7e9d915b1ea7` adalah
 **image mentah yang belum teruji, bukan installer dan tidak boleh di-flash**.
 Build pertama ini belum menyertakan enam modul; workflow yang diperbarui
-harus menghasilkan dan memverifikasi image dan modul baru bersama-sama.
+harus menghasilkan dan memverifikasi image dan modul baru bersama-sama. Run
+lanjutan [41953079538](https://github.com/dwp29/Syntenthica/actions/runs/41953079538)
+berhasil mengompilasi kernel dan modul tetapi gagal pada pemeriksaan akhir:
+parser semula menolak teks non-ASCII pada metadata deskriptif modul. Tidak ada
+hasil run itu yang diunggah. Parser telah diperbaiki dan diuji dengan metadata
+non-ASCII, sementara identitas, CRC dan tanda tangan tetap diperiksa ketat.
 
 Pemeriksaan langsung terhadap image 2.0 dengan SHA-256
 `58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff`
 mendapatkan CRC `module_layout` `0x08efcbb0` dari tabel export/CRC yang
-direkonstruksi melalui kallsyms (7.337 entri). `Module.symvers` build pertama
-3.0 menunjukkan nilai yang sama.
+direkonstruksi melalui kallsyms. `Module.symvers` build pertama 3.0 menunjukkan
+nilai yang sama. Pemeriksaan lanjutan membandingkan seluruh 12.227 export
+bawaan 2.0 (7.337 biasa dan 4.890 GPL) dengan `Module.symvers` build pertama
+3.0: tidak ada nama export yang hilang atau CRC yang berbeda. Ekstraksi nama
+dan jenis simbol menggunakan `vmlinux-to-elf` 1.4.0 juga menghasilkan 136.727
+entri 2.0 yang semuanya ada pada `System.map` 3.0 pertama; System.map memiliki
+18 entri metadata/absolut tambahan. Ini bukti statis kesamaan nama dan CRC,
+bukan bukti kesamaan kode, kepercayaan penandatangan, boot atau semua fitur.
 
 Audit baca-saja terhadap arsip ROM `H0S4diza.zip` dengan SHA-256
 `454580f463e7f6ac922546075a2a033c6dc2fac3275e450573635a1ca7b0ec63`

@@ -62,7 +62,7 @@ class SignedModuleTests(unittest.TestCase):
     @classmethod
     def make_module(cls, name="rmnet_perf", release=RELEASE, layout=LAYOUT_CRC,
                     extra_crc=0x12345678, depends="", symbol="fake_symbol", signer="signer",
-                    flags="SMP preempt mod_unload modversions aarch64"):
+                    flags="SMP preempt mod_unload modversions aarch64", author=b"original"):
         cls.counter += 1
         base = cls.directory / ("fixture-" + str(cls.counter))
         source, obj, payload, signature = (base.with_suffix(ext) for ext in (".s", ".o", ".bin", ".p7s"))
@@ -80,6 +80,9 @@ class SignedModuleTests(unittest.TestCase):
         subprocess.run(["gcc", "-c", str(source), "-o", str(obj)], check=True, stdout=subprocess.DEVNULL)
         data = bytearray(obj.read_bytes())
         data[18:20] = struct.pack("<H", 183)  # Parser fixture only, NOT executable AArch64 code.
+        if len(author) != len(b"original"):
+            raise ValueError("fixture author replacement must preserve section offsets")
+        data = data.replace(b"author=original", b"author=" + author, 1)
         payload.write_bytes(data)
         subprocess.run([
             "openssl", "cms", "-sign", "-binary", "-in", str(payload),
@@ -131,6 +134,14 @@ class SignedModuleTests(unittest.TestCase):
         result = build.collect_module_evidence(out, config, b"x" + self.cert + b"y", self.cert, SYMVERS)
         self.assertEqual(set(result), set(verifier.MODULE_CONFIG))
         self.assertTrue(all(row[1]["signature_verified_with_embedded_certificate"] for row in result.values()))
+
+    def test_non_ascii_descriptive_metadata_allowed_but_identity_is_strict(self):
+        signed = self.make_module(author=b"J\xc3\xb6rg XY")
+        self.assertEqual(self.check(signed)["name"], "rmnet_perf")
+        with self.assertRaisesRegex(ValueError, "non-ASCII required.*name"):
+            verifier.module_info(b"name=rmnet_\xff\0vermagic=valid\0")
+        with self.assertRaisesRegex(ValueError, "duplicate.*name"):
+            verifier.module_info(b"name=one\0name=two\0vermagic=valid\0")
 
     def test_changed_payload_signature_and_wrong_certificate_are_rejected(self):
         data = self.modules["rmnet_perf"]
@@ -195,6 +206,15 @@ class SignedModuleTests(unittest.TestCase):
         (self.stage / "unknown.ko").write_bytes(original)
         with self.assertRaisesRegex(ValueError, "module set"):
             self.collect()
+
+    def test_all_failed_modules_are_reported_without_exporting_results(self):
+        for name in ("tcp_bic", "rmnet_perf"):
+            path = self.stage / (name + ".ko")
+            path.write_bytes(path.read_bytes().replace(b"author=original", b"author=tampered", 1))
+        with self.assertRaises(ValueError) as caught:
+            self.collect()
+        self.assertIn("tcp_bic: module signature", str(caught.exception))
+        self.assertIn("rmnet_perf: module signature", str(caught.exception))
 
     def test_cyclic_loadable_dependencies_are_rejected(self):
         (self.stage / "rmnet_shs.ko").write_bytes(self.make_module(name="rmnet_shs", depends="rmnet_perf"))
