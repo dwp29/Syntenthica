@@ -78,10 +78,11 @@ Audit baca-saja terhadap arsip ROM `H0S4diza.zip` dengan SHA-256
 memeriksa 41 modul yang tercantum dalam `modules.load` vendor. Seluruhnya
 memiliki CRC `module_layout` `0x6968ee15`, berbeda dari image 2.0 serta build
 pertama dan terbaru 3.0. Tanda tangan tidak satu pun terverifikasi menggunakan
-masing-masing sertifikat publik spesifik image 2.0 dan build **pertama** 3.0;
-sertifikat build terbaru belum diuji terhadap 41 modul itu. Ini membuktikan
-ketidakcocokan statis dengan kombinasi yang diperiksa, bukan bahwa seluruh modul pasti
-berjalan atau wajib dipakai pada perangkat. Keyring perangkat tidak diperiksa,
+masing-masing sertifikat publik spesifik image 2.0 dan build **pertama** 3.0.
+Karena setiap build dapat memakai sertifikat berbeda, hasil itu tidak boleh
+digeneralisasi ke image lain. Ini membuktikan ketidakcocokan statis dengan
+kombinasi yang diperiksa, bukan bahwa seluruh modul pasti berjalan atau wajib
+dipakai pada perangkat. Keyring perangkat tidak diperiksa,
 dan audit ini tidak memastikan ROM yang saat ini terpasang identik dengan arsip
 tersebut. Laporan pengguna bahwa 2.0 pernah boot tetap merupakan keterangan
 pengguna, bukan pengujian fitur independen. Arsip ROM privat tidak disertakan.
@@ -89,6 +90,41 @@ pengguna, bukan pengujian fitur independen. Arsip ROM privat tidak disertakan.
 Enam modul dari source sendiri bukan perbaikan otomatis untuk seluruh 41 modul
 ROM. Kepercayaan tanda tangan, pengganti driver, dan integrasi ROM harus
 dibuktikan tanpa bypass.
+
+## Audit vendor offline dan privat
+
+`build-kit/scripts/audit_synthetica3_vendor.py` membandingkan salinan hasil
+setiap build dengan **salinan ekstraksi lokal** direktori modul vendor. Tool
+ini hanya membaca input, tidak memerlukan perangkat atau mount, dan tidak
+memuat modul. Contoh (gunakan direktori privat yang sudah ada):
+
+```sh
+python3 build-kit/scripts/audit_synthetica3_vendor.py \
+  --modules /tmp/audit-privat/vendor-modules \
+  --init /tmp/audit-privat/vendor-init \
+  --source /tmp/audit-privat/source-kernel-terverifikasi \
+  --bundle artifacts/synthetica-3.0 \
+  --output /tmp/audit-privat/laporan-baru.json
+```
+
+`--init` dan `--source` opsional. Direktori modul harus datar dan berisi
+`modules.load`, `modules.dep`, serta file `.ko` arm64 tanpa kompresi. Output
+harus berupa file baru di luar repositori dan semua direktori input; tool
+menolaknya jika sudah ada dan membuatnya dengan izin privat. **Jangan commit
+atau unggah laporan, ROM, maupun modul ROM.** Hapus salinan privat sementara
+setelah selesai jika tidak lagi diperlukan.
+
+Tool memeriksa checksum bundel, sertifikat dalam image dan tanda tangan modul
+bundel, lalu membandingkan CRC, nama simbol, tanda tangan dengan sertifikat
+build tersebut, dependensi, dan perintah `insmod`/`modprobe` literal pada
+file `.rc` yang diberikan. Parameter callback diperiksa melalui struktur ELF,
+bukan hanya teks `.modinfo`. Pemindaian source hanya menemukan kandidat
+Kbuild berdasarkan nama; identitas source harus diverifikasi terpisah dan
+kondisi Kbuild tidak dievaluasi sepenuhnya. Nama simbol yang cocok **tidak**
+membuktikan kode/fungsi identik, dan urutan `modules.load` tidak dengan
+sendirinya menjelaskan bagaimana `modprobe` menyelesaikan dependensi. Skrip,
+partisi, kondisi properti, keyring, dan jalur pemuatan lain bisa saja tidak
+tercakup. Hasil tidak membuktikan modul dapat dimuat atau fitur bekerja.
 
 Boot fisik, fitur runtime, AVB dan SELinux saat runtime belum diuji. Jangan
 flash sampai kompatibilitas, rencana pemulihan, dan uji yang sesuai disiapkan,
