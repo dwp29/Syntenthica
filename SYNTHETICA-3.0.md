@@ -41,37 +41,46 @@ Workflow tidak membuat ZIP installer, mengubah ROM, atau mengubah perangkat.
 Kecocokan konfigurasi, identitas Manager dan enam modul build sendiri tidak
 membuktikan root, seluruh fitur, atau kompatibilitas modul vendor HOS4.
 
-Build pertama telah selesai dan diverifikasi pada [Actions 41881067516](https://github.com/dwp29/Syntenthica/actions/runs/41881067516).
-Hasilnya saat ini ada di `artifacts/synthetica-3.0/`; image SHA-256
-`0fbdc5f3b0b5a68c89c18ae1e999e83f783ac22157e63888734f7e9d915b1ea7` adalah
-**image mentah yang belum teruji, bukan installer dan tidak boleh di-flash**.
-Build pertama ini belum menyertakan enam modul; workflow yang diperbarui
-harus menghasilkan dan memverifikasi image dan modul baru bersama-sama. Run
-lanjutan [41953079538](https://github.com/dwp29/Syntenthica/actions/runs/41953079538)
-berhasil mengompilasi kernel dan modul tetapi gagal pada pemeriksaan akhir:
-parser semula menolak teks non-ASCII pada metadata deskriptif modul. Tidak ada
-hasil run itu yang diunggah. Parser telah diperbaiki dan diuji dengan metadata
-non-ASCII, sementara identitas, CRC dan tanda tangan tetap diperiksa ketat.
+Build kernel dan keenam modul berhasil pada [Actions 41957764426](https://github.com/dwp29/Syntenthica/actions/runs/41957764426).
+Satu bundel hasil build yang sama ada di `artifacts/synthetica-3.0/`; image
+SHA-256 `60ca6baee91ef0b41f6898ebaaf2ea776f3ff3d626ce4f29c32df69ec902159b`
+adalah **image mentah yang belum teruji, bukan installer dan tidak boleh
+di-flash**. Tanda tangan dan seluruh CRC versi enam modul diperiksa kembali
+terhadap image, sertifikat publik dan `Module.symvers` bundel itu; seluruh
+`SHA256SUMS.txt` juga diperiksa ulang secara lokal. Kunci privat tidak ada.
+
+Pada [run pengumpulan 41958942643](https://github.com/dwp29/Syntenthica/actions/runs/41958942643),
+pengambilan dan verifikasi independen berhasil, tetapi langkah penyimpanan
+akhir dilaporkan gagal meskipun commit hasil `b9215a1` sudah muncul di branch.
+Isi commit tersebut kemudian diverifikasi kembali secara lokal; kegagalan
+run pengumpulan tidak dianggap sebagai run sukses.
+
+Build pertama [41881067516](https://github.com/dwp29/Syntenthica/actions/runs/41881067516)
+tidak menyertakan modul. Run lanjutan [41953079538](https://github.com/dwp29/Syntenthica/actions/runs/41953079538)
+mengompilasi kernel dan modul tetapi tidak mengunggah hasil karena parser
+semula menolak teks non-ASCII pada metadata deskriptif. Parser diperbaiki dan
+diuji sebelum build terakhir; identitas, CRC dan tanda tangan tetap ketat.
 
 Pemeriksaan langsung terhadap image 2.0 dengan SHA-256
 `58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff`
 mendapatkan CRC `module_layout` `0x08efcbb0` dari tabel export/CRC yang
-direkonstruksi melalui kallsyms. `Module.symvers` build pertama 3.0 menunjukkan
+direkonstruksi melalui kallsyms. `Module.symvers` build terbaru 3.0 menunjukkan
 nilai yang sama. Pemeriksaan lanjutan membandingkan seluruh 12.227 export
-bawaan 2.0 (7.337 biasa dan 4.890 GPL) dengan `Module.symvers` build pertama
+bawaan 2.0 (7.337 biasa dan 4.890 GPL) dengan export `vmlinux` build terbaru
 3.0: tidak ada nama export yang hilang atau CRC yang berbeda. Ekstraksi nama
 dan jenis simbol menggunakan `vmlinux-to-elf` 1.4.0 juga menghasilkan 136.727
-entri 2.0 yang semuanya ada pada `System.map` 3.0 pertama; System.map memiliki
+entri 2.0 yang semuanya ada pada `System.map` 3.0 terbaru; System.map memiliki
 18 entri metadata/absolut tambahan. Ini bukti statis kesamaan nama dan CRC,
 bukan bukti kesamaan kode, kepercayaan penandatangan, boot atau semua fitur.
 
 Audit baca-saja terhadap arsip ROM `H0S4diza.zip` dengan SHA-256
 `454580f463e7f6ac922546075a2a033c6dc2fac3275e450573635a1ca7b0ec63`
 memeriksa 41 modul yang tercantum dalam `modules.load` vendor. Seluruhnya
-memiliki CRC `module_layout` `0x6968ee15`, berbeda dari image 2.0 dan build
-pertama 3.0; tanda tangan tidak satu pun terverifikasi menggunakan masing-masing
-sertifikat publik spesifik kedua build tersebut. Ini membuktikan ketidakcocokan
-statis dengan kombinasi yang diperiksa, bukan bahwa seluruh modul pasti
+memiliki CRC `module_layout` `0x6968ee15`, berbeda dari image 2.0 serta build
+pertama dan terbaru 3.0. Tanda tangan tidak satu pun terverifikasi menggunakan
+masing-masing sertifikat publik spesifik image 2.0 dan build **pertama** 3.0;
+sertifikat build terbaru belum diuji terhadap 41 modul itu. Ini membuktikan
+ketidakcocokan statis dengan kombinasi yang diperiksa, bukan bahwa seluruh modul pasti
 berjalan atau wajib dipakai pada perangkat. Keyring perangkat tidak diperiksa,
 dan audit ini tidak memastikan ROM yang saat ini terpasang identik dengan arsip
 tersebut. Laporan pengguna bahwa 2.0 pernah boot tetap merupakan keterangan
