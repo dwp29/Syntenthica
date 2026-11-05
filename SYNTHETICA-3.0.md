@@ -160,9 +160,20 @@ membandingkan deklarasi terisolasi Camellian dengan CRC import modul ROM.
 Deklarasi `memblock_mem_size_in_gb` menghasilkan CRC yang sama; deklarasi
 `ufs_get_string_desc` dan `ufs_read_desc_param`, beserta enum Camellian,
 menghasilkan CRC berbeda untuk kondisi yang diuji. Delapan kombinasi kondisi
-`UFSHPB`/`SCSI_SKHPB`, `UFSFEATURE` dan `UFSTW` diuji untuk enum descriptor;
-kontrol `get_random_u32` dan `get_random_u64` cocok dengan `Module.symvers`
-bundel. Ini bukan kompilasi source utuh atau pembuktian konfigurasi donor;
+efektif (`UFSHPB` atau `SCSI_SKHPB`), `UFSFEATURE` dan `UFSTW` diuji untuk
+enum descriptor; kontrol `get_random_u32` dan `get_random_u64` cocok dengan `Module.symvers`
+bundel. Mengganti enum Camellian dengan enum dari source 2.0 yang dipin
+menghasilkan CRC yang sama untuk `ufs_read_desc_param`, tetapi tetap berbeda
+untuk `ufs_get_string_desc`. Prototipe yang digunakan diasumsikan seperti
+Camellian; implementasi source ROM sebenarnya tidak diketahui.
+
+Pencarian tambahan memeriksa `drivers/scsi/ufs/ufs.h` pada default branch 232
+repository kandidat. Sebanyak 190 mengandung enum descriptor yang dapat
+diperiksa (enam teks enum unik); 42 path mengembalikan 404. Dengan prototipe
+`ufs_get_string_desc` yang diasumsikan tadi dan kondisi enum yang dapat diuji,
+tidak ada CRC yang cocok. Ini hanya sampel satu path/branch, bukan pencarian
+seluruh source publik. Semua pengujian `genksyms` ini memakai deklarasi
+terisolasi, bukan kompilasi source utuh atau pembuktian konfigurasi donor;
 kecocokan CRC 32-bit juga bukan bukti identitas source, ABI keseluruhan,
 kesetaraan fungsi, atau keselamatan UFS. Tidak ada modul atau image baru.
 
