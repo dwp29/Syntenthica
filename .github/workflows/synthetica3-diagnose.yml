@@ -6,43 +6,39 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 jobs:
   diagnose:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: arena/96cbd65a-syntenthica
-          fetch-depth: 0
-      - name: Extract only the refusal from the exact failed run
+      - name: Read only the failed verification message
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           expected='64884c30eefe2d8c7c0d64077367fc09bcf95f8d'
-          gh run view 41953079538 --json status,conclusion,headSha \
-            --jq 'select(.status == "completed" and .conclusion == "failure") | .headSha' | grep -Fx "$expected"
-          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/127001366270/logs" > "$RUNNER_TEMP/failed-job.log"
+          gh run view 41953079538 --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha \
+            --jq 'select(.status == "completed" and .conclusion == "failure") | .headSha' | grep -Fx "$expected" \
+            || { echo '::error::Could not verify the failed run identity'; exit 1; }
+          if ! gh api "repos/$GITHUB_REPOSITORY/actions/jobs/127001366270/logs" > "$RUNNER_TEMP/failed-job.log" 2> "$RUNNER_TEMP/log-fetch-error"; then
+            echo '::error::Could not retrieve the job log on the runner'
+            exit 1
+          fi
           python3 - <<'PY'
-          import os
+          import os, re
           from pathlib import Path
           log = (Path(os.environ['RUNNER_TEMP']) / 'failed-job.log').read_text(errors='replace')
-          marker = 'Synthetica 3.0 build refused:'
-          lines = [line.split(marker, 1)[1].strip() for line in log.splitlines() if marker in line]
-          if len(lines) != 1 or len(lines[0]) > 400 or any(ord(ch) < 32 for ch in lines[0]):
-              raise ValueError('refusal missing or ambiguous; not saving raw logs')
-          out = Path('artifacts/synthetica-3.0-build-refusal.txt')
-          out.write_text('run 41953079538; verification refusal: ' + lines[0] + '\n')
-          print(out.read_text())
+          lines = []
+          for row in log.splitlines():
+              m = re.search(r'(Synthetica 3\.0 build refused: .+|(?:ValueError|TypeError|KeyError|AttributeError|IndexError|FileNotFoundError|ImportError|RuntimeError): .+)', row)
+              if m:
+                  lines.append(m.group(1))
+          if not lines:
+              print('::error::No recognized exception in failed verification log')
+              raise SystemExit(1)
+          for text in lines[-5:]:
+              text = text[:350].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Verification diagnostic::' + text)
           PY
-      - name: Record the short diagnostic on the session branch
-        run: |
-          set -euo pipefail
-          git config user.name 'synthetica-ci'
-          git config user.email 'ci@users.noreply.github.com'
-          git add artifacts/synthetica-3.0-build-refusal.txt
-          git commit -m 'Record Synthetica 3.0 verification refusal'
-          git push origin HEAD:refs/heads/arena/96cbd65a-syntenthica
