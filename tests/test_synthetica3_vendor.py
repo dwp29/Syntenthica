@@ -133,10 +133,24 @@ class SourceVersionTests(unittest.TestCase):
 
     def test_missing_version_is_not_a_match(self):
         for first, second in ((None, None), (None, "ABC"), ("ABC", None)):
-            self.assertEqual(audit.compare_srcversion(first, second)["comparison"], "not_comparable")
-        self.assertEqual(audit.compare_srcversion("ABC", "ABC")["comparison"], "equal")
-        self.assertEqual(audit.compare_srcversion("ABC", "DEF")["comparison"], "different")
-        self.assertIn("not proof", audit.compare_srcversion("ABC", "ABC")["scope"])
+            result = audit.compare_srcversion(first, second, bundle_module_present=True)
+            self.assertEqual(result["comparison"], "not_comparable")
+            self.assertTrue(result["not_comparable_reasons"])
+        self.assertEqual(audit.compare_srcversion("ABC", "ABC", bundle_module_present=True)["comparison"], "equal")
+        self.assertEqual(audit.compare_srcversion("ABC", "DEF", bundle_module_present=True)["comparison"], "different")
+        self.assertIn("not proof", audit.compare_srcversion("ABC", "ABC", bundle_module_present=True)["scope"])
+
+    def test_absent_bundle_module_is_distinct_from_missing_metadata(self):
+        result = audit.compare_srcversion("ABC", None, bundle_module_present=False)
+        self.assertFalse(result["same_name_bundle_module_present"])
+        self.assertEqual(result["not_comparable_reasons"], ["same_name_bundle_module_absent"])
+        result = audit.compare_srcversion(None, None, bundle_module_present=True)
+        self.assertTrue(result["same_name_bundle_module_present"])
+        self.assertEqual(result["not_comparable_reasons"], ["input_srcversion_missing", "bundle_srcversion_missing"])
+        result = audit.compare_srcversion(None, None, bundle_module_present=False)
+        self.assertEqual(result["not_comparable_reasons"], ["input_srcversion_missing", "same_name_bundle_module_absent"])
+        with self.assertRaisesRegex(ValueError, "without a same-name"):
+            audit.compare_srcversion("ABC", "ABC", bundle_module_present=False)
 
 
 class ListAndInitTests(unittest.TestCase):
@@ -251,6 +265,8 @@ on property:example=1
         row = audit.audit_one(path, self.target, True)
         evidence = row["srcversion_comparison"]
         self.assertEqual(evidence["comparison"], "equal")
+        self.assertTrue(evidence["same_name_bundle_module_present"])
+        self.assertEqual(evidence["not_comparable_reasons"], [])
         self.assertEqual(evidence["input_srcversion"], self.target["module_srcversions"]["gspca_main"])
         # Mutating only this field simulates a different fingerprint, not a source build.
         before = path.read_bytes()
@@ -266,10 +282,14 @@ on property:example=1
         self.assertNotEqual(before, renamed)
         path.write_bytes(renamed)
         row = audit.audit_one(path, self.target, True)
-        self.assertEqual(row["srcversion_comparison"]["comparison"], "not_comparable")
-        self.assertIsNotNone(row["srcversion_comparison"]["input_srcversion"])
+        evidence = row["srcversion_comparison"]
+        self.assertEqual(evidence["comparison"], "not_comparable")
+        self.assertIsNotNone(evidence["input_srcversion"])
+        self.assertEqual(evidence["not_comparable_reasons"], ["same_name_bundle_module_absent"])
         row = audit.audit_one(self.modules / "rmnet_perf.ko", self.target, True)
-        self.assertEqual(row["srcversion_comparison"]["comparison"], "not_comparable")
+        evidence = row["srcversion_comparison"]
+        self.assertEqual(evidence["comparison"], "not_comparable")
+        self.assertEqual(evidence["not_comparable_reasons"], ["input_srcversion_missing", "bundle_srcversion_missing"])
 
     def test_public_target_map_distinguishes_local_symbol_from_export(self):
         symbol = "ufshcd_read_desc_param"

@@ -219,12 +219,15 @@ bukan perubahan pada build atau bukti dependensi tersedia saat runtime.
 Parameter callback diperiksa melalui struktur ELF, bukan hanya teks `.modinfo`.
 Jika tersedia, `srcversion_comparison` juga membandingkan metadata `srcversion`
 modul input dengan modul bundel yang bernama internal sama. `not_comparable`
-berarti salah satu metadata tidak tersedia; itu bukan kecocokan. Metadata dapat
-ditiru atau tidak lengkap: nilai sama tidak membuktikan source identik,
-kompatibilitas ABI, atau perilaku runtime. Saat dijalankan ulang pada 41 modul
-arsip privat yang sama, satu modul (`gspca_main`) dapat dibandingkan dan
-nilainya berbeda; 40 lainnya `not_comparable`, termasuk `mi_memory`. Hasil ini
-bukan uji perangkat; laporan dan salinan modul tetap privat dan tidak disertakan.
+bukan kecocokan: `not_comparable_reasons` membedakan modul senama yang tidak ada
+dari metadata `srcversion` yang tidak tersedia pada input atau bundel. Metadata
+dapat ditiru atau tidak lengkap: nilai sama tidak membuktikan source identik,
+kompatibilitas ABI, atau perilaku runtime. Versi audit sebelumnya dijalankan
+ulang pada 41 modul arsip privat yang sama: satu modul (`gspca_main`) dapat
+dibandingkan dan nilainya berbeda; 40 lainnya `not_comparable`, termasuk
+`mi_memory`. Rincian alasan yang baru ditambahkan belum dijalankan ulang pada
+ROM privat. Hasil ini bukan uji perangkat; laporan dan salinan modul tetap
+privat dan tidak disertakan.
 
 Pemindaian source hanya menemukan kandidat Kbuild berdasarkan nama; identitas
 source harus diverifikasi terpisah dan kondisi Kbuild tidak dievaluasi

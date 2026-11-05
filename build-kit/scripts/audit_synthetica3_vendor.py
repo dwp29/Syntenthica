@@ -278,13 +278,21 @@ def module_srcversion(modinfo: bytes) -> str | None:
     return values[0].decode("ascii").upper()
 
 
-def compare_srcversion(input_version: str | None, bundle_version: str | None) -> dict:
-    if input_version is None or bundle_version is None:
-        result = "not_comparable"
-    else:
-        result = "equal" if input_version == bundle_version else "different"
+def compare_srcversion(input_version: str | None, bundle_version: str | None,
+                       *, bundle_module_present: bool) -> dict:
+    if not bundle_module_present and bundle_version is not None:
+        raise ValueError("srcversion without a same-name bundle module")
+    reasons = []
+    if input_version is None:
+        reasons.append("input_srcversion_missing")
+    if not bundle_module_present:
+        reasons.append("same_name_bundle_module_absent")
+    elif bundle_version is None:
+        reasons.append("bundle_srcversion_missing")
+    result = "not_comparable" if reasons else ("equal" if input_version == bundle_version else "different")
     return {"input_srcversion": input_version, "same_name_bundle_srcversion": bundle_version,
-            "comparison": result,
+            "same_name_bundle_module_present": bundle_module_present,
+            "comparison": result, "not_comparable_reasons": reasons,
             "scope": "Unverified metadata only; equality is not proof of source identity, ABI, or runtime behavior."}
 
 
@@ -375,14 +383,16 @@ def audit_one(path: Path, target: dict, loaded: bool) -> dict:
     versions = verify.version_records(elf.sections["__versions"])
     defined, exports = elf.defined_and_exported()
     symvers = target["symvers"]
+    input_name = canonical(info["name"])
+    target_srcversions = target["module_srcversions"]
     return {
         "file": path.name,
         "sha256": hashlib.sha256(data).hexdigest(),
         "listed_in_modules_load": loaded,
         "internal_name": info["name"],
         "srcversion_comparison": compare_srcversion(
-            module_srcversion(elf.sections[".modinfo"]),
-            target["module_srcversions"].get(canonical(info["name"]))),
+            module_srcversion(elf.sections[".modinfo"]), target_srcversions.get(input_name),
+            bundle_module_present=input_name in target_srcversions),
         "modinfo_dependencies": [x for x in info.get("depends", "").split(",") if x],
         "vermagic": info["vermagic"],
         "signature_result": signature_result,
