@@ -32,8 +32,10 @@ menemukan bagian kernel dan DTB kedua boot identik, tetapi **ramdisk berbeda**.
 Jangan menganggap kedua image identik atau memilih image boot cadangan hanya
 berdasarkan nama. Pencarian di vendor hasil ekstraksi dan ramdisk boot tidak
 menemukan `.ko` untuk dibandingkan; ekstraksi vendor melaporkan sebagian kegagalan
-perubahan ownership, dan partisi lain belum diperiksa. Jadi belum boleh menarik
-kesimpulan bahwa ROM tidak menggunakan modul. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
+perubahan ownership, dan partisi lain belum diperiksa. Upaya lanjutan
+`42263147839` terhenti karena halaman Gofile tidak memuat berkas; bukan bukti
+bahwa ROM atau modul hilang. Jadi belum boleh menarik kesimpulan bahwa ROM tidak
+menggunakan modul. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
 `boot.img` memiliki header Android v2, page 4096, ramdisk LZ4 legacy dan bagian
 DTB terpisah; `dtbo.img` memiliki empat entry. Kedua image memiliki footer AVB;
 header `vbmeta.img` tercatat memiliki flags `0x3`. Ini hanya struktur berkas,
@@ -98,6 +100,8 @@ image off: `b6a1756de6696ae6fafc4598768efb9126d1b9087b276ecb1d8bb9aeb1523c8b`.
 Tidak ada bukti boot, pairing Manager, suhu, baterai atau kompatibilitas modul
 perangkat. Semua artefak tetap `DO-NOT-FLASH` dan memiliki retensi 7 hari;
 LLVM 18-on lulus guard di CI asal dan belum diaudit terpisah seperti Neutron.
+Pada host, 125 unit test lolos dengan fixture source untuk rangkaian patch;
+itu tetap bukan simulasi runtime kernel.
 
 ### Bukti build sebelumnya — MGLRU default off
 
@@ -159,7 +163,8 @@ berlaku untuk artifact LLVM 18 sebelumnya.
   dengan perubahan target, [perbaikan batas bucket](https://github.com/torvalds/linux/commit/6d2f8909a5fabb73fe2a63918117943986c39b6c)
   dan perbaikan upstream lanjutan yang dirujuk per commit di manifest.
   Seri donor mencakup karya Patrick Bellasi, penulis upstream lainnya dan pemelihara donor; riwayat mereka tetap dirujuk di manifest.
-- `build-kit/ci/synthetica2-experimental/patches/` berisi diff source GPL yang dapat diperiksa. `features.config` memuat fitur bersama, sedangkan `mglru-on.config` dan `mglru-off.config` memilih default untuk masing-masing varian. Ketiganya dipin. Tidak ada source tree besar atau toolchain binary yang dikomit.
+- `build-kit/ci/synthetica2-experimental/patches/` berisi diff source GPL yang dapat diperiksa. `features.config` memuat fitur bersama, sedangkan `mglru-on.config` dan `mglru-off.config` memilih default untuk masing-masing varian. Ketiganya dipin. Tidak ada source tree besar atau toolchain binary yang dikomit. Metadata ROM di `SOURCES.json` adalah snapshot saat build; verifikasi arsip yang dilakukan sesudahnya dicatat di atas.
+- `build-kit/scripts/extract_synthetica2_block_ota.py` hanya memproses full block OTA dengan operasi `new` yang terverifikasi dan menulis vendor/boot ke direktori baru di luar repo. `audit_synthetica2_rom_modules.py` membandingkan modul yang diekstrak dengan evidence build tanpa memodifikasi atau memuatnya; laporan rinci bersifat privat. Format delta/unknown dan bukti build yang tidak cocok ditolak, bukan dilewati.
 - Workflow `.github/workflows/synthetica2-experimental.yml` membangun Neutron/MGLRU-on, LLVM 18/MGLRU-on, dan kontrol Neutron/MGLRU-off secara terpisah. Ia memeriksa bahwa kedua konfigurasi Neutron hanya berbeda pada default MGLRU; ini **bukan** benchmark maupun uji perangkat. Arsip source dan Neutron diverifikasi sebelum dipakai. Builder disalin ke direktori sementara, diubah hanya dalam salinan itu, dan dihentikan sebelum bagian AnyKernel/installer.
 - **Batas penting kontrol A/B:** karena kedua job Neutron membuat key signing sementara sendiri, sertifikat modul publik yang tertanam **berbeda**. Perbandingan konfigurasi/toolchain tidak berarti seluruh kondisi runtime identik; kemungkinan modul yang dapat dipercaya juga bisa berbeda. Jangan gunakan pasangan ini sebagai benchmark MGLRU yang valid sebelum trust/module ABI diselesaikan dan kondisi kunci disamakan. Menyalakan/mematikan MGLRU pada image yang sama setelah validasi merupakan alternatif yang menjaga sertifikat tetap sama, tetapi efek transisi dan reboot juga harus diperhitungkan.
 - KernelSU-Next dan identitas Manager lama dipertahankan: paket `net.ember.labs`, sertifikat DER 1381 byte, SHA-256 `fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140`. Identitas yang tertaut bukan bukti pairing atau root berhasil.
@@ -182,6 +187,12 @@ konfigurasi 2.0 diperiksa terhadap CRC dan sertifikat dari build yang sama,
 bukan diuji dimuat ke perangkat dan bukan validasi modul vendor ROM.
 
 ## Gerbang sebelum pengujian perangkat
+
+Data read-only yang diperlukan dari perangkat saat ini: `adb shell uname -r`,
+`adb shell getprop ro.product.device`, `adb shell getprop ro.build.fingerprint`,
+dan `adb shell cat /proc/modules` bila dapat dibaca. Ini membantu identifikasi
+build dan modul yang benar-benar aktif, tetapi tidak sendirinya membuktikan ABI,
+keyring, atau isi backup boot. Jangan kirim nomor seri, akun, atau kunci privat.
 
 1. Kedua build harus lolos kompilasi dan verifikasi konfigurasi/IKCONFIG; catat error tiap compiler secara terpisah.
 2. Verifikasi perangkat/ROM, AVB, metode pemulihan, dan kompatibilitas seluruh modul vendor: vermagic, CRC `MODVERSIONS`, dan signer yang benar. Audit terdahulu menemukan ketidakcocokan modul vendor; jangan menonaktifkan pemeriksaan untuk memaksanya.

@@ -1,0 +1,29 @@
+name: "Synthetica 2.0 experiment - host-only audit tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica2-host-audit.yml'
+      - 'build-kit/scripts/audit_synthetica2_rom_modules.py'
+      - 'build-kit/scripts/extract_synthetica2_block_ota.py'
+      - 'tests/test_synthetica2_rom_modules.py'
+      - 'tests/test_synthetica2_block_ota.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-audit-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Test synthetic block-OTA extraction and public module fixtures
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica2_block_ota.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica2_rom_modules.py' -v
