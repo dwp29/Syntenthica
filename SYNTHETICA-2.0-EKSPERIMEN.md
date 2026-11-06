@@ -22,8 +22,18 @@ dicatat dalam `SOURCES.json`. Gofile menampilkan nama arsip yang sama. Metadata
 Ketiga image referensi publik `boot.img`, `dtbo.img`, dan `vbmeta.img` sudah
 didownload dan cocok dengan hash yang dipublikasikan. Arsip ROM berukuran
 `2.925.420.062` byte juga diunduh dan cocok dengan SHA-256 publik pada run
-`42260746566`; pemeriksaan modul belum selesai karena format isi arsip tidak
-sesuai asumsi awal tentang `payload.bin`. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
+`42260746566`. Isi arsip adalah block OTA (`*.new.dat.br`), bukan `payload.bin`;
+run `42261865876` merekonstruksi `vendor.img` dan `boot.img` secara read-only.
+`boot.img` **di dalam ZIP** berhash
+`1d3f3b36b087bd7f36941ac4784287421d9f25d573c4f19b19e93cf0797da389`,
+berbeda dari hash boot terpisah yang diterbitkan server; banner kernel di boot
+ZIP adalah `4.14.357-SuperPotato+2`. [Audit `42262455808`](https://github.com/dwp29/Syntenthica/actions/runs/42262455808)
+menemukan bagian kernel dan DTB kedua boot identik, tetapi **ramdisk berbeda**.
+Jangan menganggap kedua image identik atau memilih image boot cadangan hanya
+berdasarkan nama. Pencarian di vendor hasil ekstraksi dan ramdisk boot tidak
+menemukan `.ko` untuk dibandingkan; ekstraksi vendor melaporkan sebagian kegagalan
+perubahan ownership, dan partisi lain belum diperiksa. Jadi belum boleh menarik
+kesimpulan bahwa ROM tidak menggunakan modul. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
 `boot.img` memiliki header Android v2, page 4096, ramdisk LZ4 legacy dan bagian
 DTB terpisah; `dtbo.img` memiliki empat entry. Kedua image memiliki footer AVB;
 header `vbmeta.img` tercatat memiliki flags `0x3`. Ini hanya struktur berkas,

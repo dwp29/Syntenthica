@@ -63,20 +63,21 @@ jobs:
             }
             if(names.length!==count)throw Error('ZIP central entry count mismatch');
             const select=names.filter(x=>/payload|vendor|dtbo|boot\.img|vbmeta|super|\.transfer\.list|\.new\.dat|\.patch\.dat|\.ko$/i.test(x.name));
-            const vendor=names.find(x=>x.name==='vendor.transfer.list');
-            let transfer=null;
-            if(vendor){
-              const h=await range(url,vendor.localOffset,vendor.localOffset+29,cookies);
+            const transfer={};
+            for (const part of ['vendor','system','system_ext']) {
+              const file=names.find(x=>x.name===part+'.transfer.list');
+              if(!file)continue;
+              const h=await range(url,file.localOffset,file.localOffset+29,cookies);
               if(h.readUInt32LE(0)!==0x04034b50)throw Error('invalid local file header');
-              const start=vendor.localOffset+30+h.readUInt16LE(26)+h.readUInt16LE(28);
-              const encoded=await range(url,start,start+vendor.compressed-1,cookies);
-              const decoded=vendor.method===8?zlib.inflateRawSync(encoded):encoded;
-              if(decoded.length!==vendor.uncompressed)throw Error('transfer list length mismatch');
+              const start=file.localOffset+30+h.readUInt16LE(26)+h.readUInt16LE(28);
+              const encoded=await range(url,start,start+file.compressed-1,cookies);
+              const decoded=file.method===8?zlib.inflateRawSync(encoded):encoded;
+              if(decoded.length!==file.uncompressed)throw Error('transfer list length mismatch');
               const lines=decoded.toString('utf8').trim().split(/\r?\n/), commands={};
               for(const line of lines.slice(4)){const cmd=line.split(' ')[0];commands[cmd]=(commands[cmd]||0)+1;}
-              transfer={header:lines.slice(0,4),command_counts:commands,first_commands:lines.slice(4,7)};
+              transfer[part]={header:lines.slice(0,4),command_counts:commands,first_commands:lines.slice(4,6)};
             }
-            const summary={entries:names.length,central_directory_bytes:length,vendor_transfer:transfer,selected:select.slice(0,100),first_entries:names.slice(0,35)};
+            const summary={entries:names.length,central_directory_bytes:length,transfer,selected:select.slice(0,100),first_entries:names.slice(0,35)};
             const text=JSON.stringify(summary,null,2);
             for(let j=0;j<Math.min(text.length,18000);j+=2200)console.log(`::notice title=ZIP index ${1+j/2200}::`+text.slice(j,j+2200).replace(/%/g,'%25').replace(/\n/g,'%0A'));
           })().catch(e=>{console.log('::error title=ZIP index unavailable::'+e.message.replace(/%/g,'%25').replace(/\n/g,'%0A'));process.exit(1)});
