@@ -15,7 +15,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run local module-auditor tests
-        run: python3 -m unittest discover -s tests -p 'test_synthetica2_rom_modules.py' -q
+        run: python3 -m unittest discover -s tests -p 'test_synthetica2_*.py' -q
       - name: Download compile-only Neutron MGLRU-on evidence
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y erofs-utils lz4 e2fsprogs
+          sudo apt-get install -y erofs-utils lz4 e2fsprogs brotli
       - name: Download and verify public ROM archive in temporary storage
         timeout-minutes: 25
         run: |
@@ -87,54 +87,29 @@ jobs:
           PY
             exit "$rc"
           fi
-      - name: Identify and selectively extract verified payload partitions
+      - name: Reconstruct only the verified block OTA vendor and boot images
         timeout-minutes: 20
         run: |
           set -euo pipefail
           exec 2>"$RUNNER_TEMP/partition-error.log"
-          trap 'rc=$?; cat "$RUNNER_TEMP/partition-error.log"; python3 -c "import os,pathlib; t=(pathlib.Path(os.environ[\"RUNNER_TEMP\"])/\"partition-error.log\").read_text(errors=\"replace\")[-2000:]; print(\"::error title=Partition inspection failed::\"+t.replace(\"%\",\"%25\").replace(chr(10),\"%0A\"))"; exit "$rc"' ERR
-          curl --fail --location --retry 2 --max-time 120 -o "$RUNNER_TEMP/dumper.tar.gz" \
-            'https://github.com/ssut/payload-dumper-go/releases/download/2.1.0/payload-dumper-go_2.1.0_linux_amd64.tar.gz'
-          echo 'bbbb53a71955c69272afdef7bc7e83a1bb1770f453d0c21dcaf61a3ba0463c11  '"$RUNNER_TEMP/dumper.tar.gz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/dumper.tar.gz" -C "$RUNNER_TEMP" payload-dumper-go
-          export TMPDIR="$RUNNER_TEMP"
+          trap 'rc=$?; cat "$RUNNER_TEMP/partition-error.log"; python3 -c "import os,pathlib; t=(pathlib.Path(os.environ[\"RUNNER_TEMP\"])/\"partition-error.log\").read_text(errors=\"replace\")[-2000:]; print(\"::error title=Block OTA inspection failed::\"+t.replace(\"%\",\"%25\").replace(chr(10),\"%0A\"))"; exit "$rc"' ERR
+          python3 build-kit/scripts/extract_synthetica2_block_ota.py \
+            --archive "$RUNNER_TEMP/lunaris.zip" \
+            --out "$RUNNER_TEMP/rom-images" \
+            --sha256 37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7 \
+            --bytes 2925420062 > "$RUNNER_TEMP/ota-extraction-summary.json"
           python3 - <<'PY'
-          import json, os, zipfile
+          import json,os,zipfile
           from pathlib import Path
           temp=Path(os.environ['RUNNER_TEMP'])
           with zipfile.ZipFile(temp/'lunaris.zip') as z:
-              entries=z.infolist()
-              payload=[x for x in entries if x.filename == 'payload.bin']
-              if len(entries)>10000 or len(payload)!=1: raise ValueError('unexpected OTA archive layout')
-              x=payload[0]
-              if x.file_size>4_000_000_000: raise ValueError('payload exceeds inspection limit')
-              (temp/'zip-metadata.json').write_text(json.dumps({'entry_count':len(entries),
-                  'payload_bytes':x.file_size, 'payload_compression':x.compress_type},indent=2)+'\n')
+              names=sorted(x.filename for x in z.infolist())
+          (temp/'zip-metadata.json').write_text(json.dumps({'entry_count':len(names),'format':'full block OTA'},indent=2)+'\n')
+          (temp/'partition-metadata.json').write_text(json.dumps({
+              'partition_sources':sorted({n.split('.')[0] for n in names if n.endswith('.transfer.list')}),
+              'selected':['vendor','boot'],
+              'scope':'Only vendor and boot were extracted; system, product and system_ext are not inspected'},indent=2)+'\n')
           PY
-          "$RUNNER_TEMP/payload-dumper-go" -l -m "$RUNNER_TEMP/lunaris.zip" > "$RUNNER_TEMP/partitions.txt"
-          python3 - <<'PY'
-          import json,os,shutil
-          from pathlib import Path
-          temp=Path(os.environ['RUNNER_TEMP']); records={}
-          for line in (temp/'partitions.txt').read_text().splitlines():
-              name,sep,size=line.partition(':')
-              if not sep or not name.replace('_','').isalnum() or not size.isdecimal(): raise ValueError('invalid partition listing')
-              if name in records: raise ValueError('duplicate partition')
-              records[name]=int(size)*1024
-          chosen=[name for name in ('boot','vendor','vendor_dlkm','odm','system_dlkm') if name in records]
-          if not any(name in chosen for name in ('vendor','vendor_dlkm','odm','system_dlkm')):
-              raise ValueError('payload contains no selected vendor/module partitions')
-          total=sum(records[name] for name in chosen)
-          if total>6_000_000_000 or shutil.disk_usage(temp).free<total+1_500_000_000:
-              raise ValueError('partition extraction exceeds temporary storage bound')
-          (temp/'selected.txt').write_text(','.join(chosen))
-          (temp/'partition-metadata.json').write_text(json.dumps({'all_names':sorted(records),
-              'selected_bytes':{name:records[name] for name in chosen},
-              'scope':'Only selected payload partitions; system and unselected locations not inspected'},indent=2)+'\n')
-          PY
-          mkdir "$RUNNER_TEMP/rom-images"
-          "$RUNNER_TEMP/payload-dumper-go" -q -c 2 -p "$(cat "$RUNNER_TEMP/selected.txt")" \
-            -o "$RUNNER_TEMP/rom-images" "$RUNNER_TEMP/lunaris.zip"
       - name: Extract only module directories and inspect the boot ramdisk
         timeout-minutes: 15
         run: |
@@ -230,7 +205,7 @@ jobs:
           out={'kind':'PUBLIC_ROM_STATIC_AUDIT_NOT_DEVICE_TEST',
                'archive_sha256':'37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7',
                'archive_hash_matches_published':True, 'zip':load('zip-metadata.json'),
-               'partitions':load('partition-metadata.json'), 'extraction':load('extraction-metadata.json'),
+               'partitions':load('partition-metadata.json'), 'ota_images':load('ota-extraction-summary.json'), 'extraction':load('extraction-metadata.json'),
                'neutron_on':load('summary-on.json'), 'neutron_off':load('summary-off.json'),
                'scope':'Only these ROM archive partitions/files and the exported build certificates were inspected; installed device and active trust store are unknown.'}
           (t/'aggregate-rom-audit.json').write_text(json.dumps(out,indent=2)+'\n')
