@@ -30,7 +30,7 @@ jobs:
           fi
           echo '::notice title=Run identity::Verified initial failed build'
           for job in 127958803333 127958803348; do
-            if ! gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$job/logs" > "$RUNNER_TEMP/$job.log" 2> "$RUNNER_TEMP/$job.error"; then
+            if ! gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/jobs/$job/logs" > "$RUNNER_TEMP/$job.log" 2> "$RUNNER_TEMP/$job.error"; then
               JOB="$job" python3 - <<'PY'
           import os, re
           from pathlib import Path
