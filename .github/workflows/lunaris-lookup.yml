@@ -1,119 +1,248 @@
-name: Inspect user-provided Lunaris reference images (temporary)
+name: Audit user-provided Lunaris ROM modules (temporary)
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
     paths: [.github/workflows/lunaris-lookup.yml]
 permissions:
   contents: read
+  actions: read
 jobs:
-  reference-images:
+  rom-modules:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Download only the published public reference images and verify checksums
+      - name: Run local module-auditor tests
+        run: python3 -m unittest discover -s tests -p 'test_synthetica2_rom_modules.py' -q
+      - name: Download compile-only Neutron MGLRU-on evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: Synthetica-2.0-neutron-MGLRU-on-DO-NOT-FLASH-42258512643
+          path: ${{ runner.temp }}/candidate-on
+          run-id: 42258512643
+          github-token: ${{ github.token }}
+      - name: Download compile-only Neutron MGLRU-off evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: Synthetica-2.0-neutron-MGLRU-off-DO-NOT-FLASH-42258512643
+          path: ${{ runner.temp }}/candidate-off
+          run-id: 42258512643
+          github-token: ${{ github.token }}
+      - name: Install read-only image inspection tools
+        timeout-minutes: 15
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y erofs-utils lz4 e2fsprogs
+      - name: Download and verify public ROM archive in temporary storage
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          df -h "$RUNNER_TEMP"
+          available=$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')
+          if [ "$available" -lt 8000000 ]; then echo 'Insufficient temporary storage; refusing ROM download'; exit 1; fi
           npm install --prefix "$RUNNER_TEMP/browser" --no-audit --no-fund playwright-core@1.57.0
           export CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
           set +e
-          node 2>"$RUNNER_TEMP/reference-node-error.log" <<'JS'
+          node 2>"$RUNNER_TEMP/rom-download-error.log" <<'JS'
           const { chromium } = require(process.env.RUNNER_TEMP + '/browser/node_modules/playwright-core');
-          const fs = require('fs');
-          const crypto = require('crypto');
-          const path = require('path');
-          const images = [
-            ['e7kIkBT9','boot.img',134217728,'ed5b0fb6722fc0782058e5c244200307a460a8ba406cc06a82f024958c045720'],
-            ['Ez6gwq3e','dtbo.img',8388608,'a3f3ea20889cdd8bf035da1a96b73ef99753f8e1ecd67e4fae846ca072792991'],
-            ['yj1C9b7I','vbmeta.img',65536,'29906aa8bdf3c0c1abdd37e1c5559b509d2a72ffa719c26dabffc825cab9a831'],
-          ];
+          const fs = require('fs'), crypto = require('crypto'), path = require('path');
           async function digest(file) {
             return new Promise((resolve, reject) => {
-              const h = crypto.createHash('sha256'), stream = fs.createReadStream(file);
-              stream.on('data', x => h.update(x)); stream.on('error', reject); stream.on('end', () => resolve(h.digest('hex')));
+              const h=crypto.createHash('sha256'), stream=fs.createReadStream(file);
+              stream.on('data', x=>h.update(x)); stream.on('error', reject); stream.on('end', ()=>resolve(h.digest('hex')));
             });
           }
           (async () => {
-            const browser = await chromium.launch({executablePath: process.env.CHROME, headless: true, args: ['--no-sandbox']});
-            const context = await browser.newContext({acceptDownloads: true});
+            const browser = await chromium.launch({executablePath: process.env.CHROME, headless:true, args:['--no-sandbox']});
+            const context = await browser.newContext({acceptDownloads:true});
             const page = await context.newPage();
-            for (const [id, name, size, sha] of images) {
-              await page.goto('https://gofile.io/d/' + id, {waitUntil: 'domcontentloaded', timeout: 60000});
-              await page.getByRole('button', {name:'Download', exact:true}).waitFor({timeout:60000});
-              const [download] = await Promise.all([
-                page.waitForEvent('download', {timeout:90000}),
-                page.getByRole('button', {name:'Download', exact:true}).click()
-              ]);
-              if (download.suggestedFilename() !== name) { await download.cancel(); throw Error('unexpected reference filename'); }
-              const file = path.join(process.env.RUNNER_TEMP, name);
-              await download.saveAs(file);
-              if (fs.statSync(file).size !== size || await digest(file) !== sha) throw Error('reference image size or digest mismatch: ' + name);
-              console.log('Verified published SHA-256 and size for ' + name);
+            await page.goto('https://gofile.io/d/W0WXctW4', {waitUntil:'domcontentloaded', timeout:60000});
+            await page.getByRole('button',{name:'Download', exact:true}).waitFor({timeout:60000});
+            const [download] = await Promise.all([
+              page.waitForEvent('download',{timeout:90000}), page.getByRole('button',{name:'Download',exact:true}).click()
+            ]);
+            if (download.suggestedFilename() !== 'Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip') {
+              await download.cancel(); throw Error('unexpected ROM archive name');
             }
+            const file=path.join(process.env.RUNNER_TEMP,'lunaris.zip');
+            await download.saveAs(file);
             await browser.close();
-          })().catch(e => { console.error(e.message); process.exit(1); });
+            if (fs.statSync(file).size !== 2925420062 || await digest(file) !== '37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7')
+              throw Error('ROM archive size or published SHA-256 mismatch');
+            console.log('ROM archive bytes match the public release SHA-256; installed device identity is still unknown.');
+          })().catch(e=>{console.error(e.message);process.exit(1);});
           JS
           rc=$?
           set -e
           if [ "$rc" -ne 0 ]; then
-            cat "$RUNNER_TEMP/reference-node-error.log"
+            cat "$RUNNER_TEMP/rom-download-error.log"
             python3 - <<'PY'
           import os
           from pathlib import Path
-          text = (Path(os.environ['RUNNER_TEMP']) / 'reference-node-error.log').read_text(errors='replace')[-2000:]
-          print('::error title=Reference download failed::' + text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          text=(Path(os.environ['RUNNER_TEMP'])/'rom-download-error.log').read_text(errors='replace')[-1800:]
+          print('::error title=ROM download failed::'+text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
           PY
             exit "$rc"
           fi
-      - name: Inspect existing images read-only; do not flash or repackage
+      - name: Identify and selectively extract verified payload partitions
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          exec 2>"$RUNNER_TEMP/partition-error.log"
+          trap 'rc=$?; cat "$RUNNER_TEMP/partition-error.log"; python3 -c "import os,pathlib; t=(pathlib.Path(os.environ[\"RUNNER_TEMP\"])/\"partition-error.log\").read_text(errors=\"replace\")[-2000:]; print(\"::error title=Partition inspection failed::\"+t.replace(\"%\",\"%25\").replace(chr(10),\"%0A\"))"; exit "$rc"' ERR
+          curl --fail --location --retry 2 --max-time 120 -o "$RUNNER_TEMP/dumper.tar.gz" \
+            'https://github.com/ssut/payload-dumper-go/releases/download/2.1.0/payload-dumper-go_2.1.0_linux_amd64.tar.gz'
+          echo 'bbbb53a71955c69272afdef7bc7e83a1bb1770f453d0c21dcaf61a3ba0463c11  '"$RUNNER_TEMP/dumper.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/dumper.tar.gz" -C "$RUNNER_TEMP" payload-dumper-go
+          export TMPDIR="$RUNNER_TEMP"
+          python3 - <<'PY'
+          import json, os, zipfile
+          from pathlib import Path
+          temp=Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(temp/'lunaris.zip') as z:
+              entries=z.infolist()
+              payload=[x for x in entries if x.filename == 'payload.bin']
+              if len(entries)>10000 or len(payload)!=1: raise ValueError('unexpected OTA archive layout')
+              x=payload[0]
+              if x.file_size>4_000_000_000: raise ValueError('payload exceeds inspection limit')
+              (temp/'zip-metadata.json').write_text(json.dumps({'entry_count':len(entries),
+                  'payload_bytes':x.file_size, 'payload_compression':x.compress_type},indent=2)+'\n')
+          PY
+          "$RUNNER_TEMP/payload-dumper-go" -l -m "$RUNNER_TEMP/lunaris.zip" > "$RUNNER_TEMP/partitions.txt"
+          python3 - <<'PY'
+          import json,os,shutil
+          from pathlib import Path
+          temp=Path(os.environ['RUNNER_TEMP']); records={}
+          for line in (temp/'partitions.txt').read_text().splitlines():
+              name,sep,size=line.partition(':')
+              if not sep or not name.replace('_','').isalnum() or not size.isdecimal(): raise ValueError('invalid partition listing')
+              if name in records: raise ValueError('duplicate partition')
+              records[name]=int(size)*1024
+          chosen=[name for name in ('boot','vendor','vendor_dlkm','odm','system_dlkm') if name in records]
+          if not any(name in chosen for name in ('vendor','vendor_dlkm','odm','system_dlkm')):
+              raise ValueError('payload contains no selected vendor/module partitions')
+          total=sum(records[name] for name in chosen)
+          if total>6_000_000_000 or shutil.disk_usage(temp).free<total+1_500_000_000:
+              raise ValueError('partition extraction exceeds temporary storage bound')
+          (temp/'selected.txt').write_text(','.join(chosen))
+          (temp/'partition-metadata.json').write_text(json.dumps({'all_names':sorted(records),
+              'selected_bytes':{name:records[name] for name in chosen},
+              'scope':'Only selected payload partitions; system and unselected locations not inspected'},indent=2)+'\n')
+          PY
+          mkdir "$RUNNER_TEMP/rom-images"
+          "$RUNNER_TEMP/payload-dumper-go" -q -c 2 -p "$(cat "$RUNNER_TEMP/selected.txt")" \
+            -o "$RUNNER_TEMP/rom-images" "$RUNNER_TEMP/lunaris.zip"
+      - name: Extract only module directories and inspect the boot ramdisk
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import importlib.util, json, os, re, struct, zlib
+          import importlib.util,json,os,re,resource,stat,subprocess
           from pathlib import Path
-          root = Path(os.environ['GITHUB_WORKSPACE'])
-          temp = Path(os.environ['RUNNER_TEMP'])
-          spec = importlib.util.spec_from_file_location('boot_audit', root / 'build-kit/scripts/audit_synthetica3_boot.py')
-          audit = importlib.util.module_from_spec(spec); spec.loader.exec_module(audit)
-          boot, dtbo = audit.inspect_boot(temp / 'boot.img'), audit.inspect_dtbo(temp / 'dtbo.img')
-          with (temp / 'boot.img').open('rb') as f:
-              f.seek(boot['sections']['kernel']['offset']); kernel = f.read(boot['sections']['kernel']['bytes'])
-          version = None
-          trailing_bytes = None
-          if kernel[:2] == b'\x1f\x8b':
-              decompress = zlib.decompressobj(16 + zlib.MAX_WBITS)
-              raw = decompress.decompress(kernel, 256 * 1024 * 1024 + 1)
-              if len(raw) > 256 * 1024 * 1024 or not decompress.eof: raise ValueError('reference kernel gzip exceeds bounds')
-              match = re.search(rb'Linux version [^\x00\n]{1,200}', raw)
-              version = match.group(0).decode('ascii', 'replace') if match else None
-              trailing_bytes = len(decompress.unused_data)
-          data = (temp / 'vbmeta.img').read_bytes()
-          if data[:4] != b'AVB0' or len(data) != 65536: raise ValueError('unexpected vbmeta image')
-          vbmeta = {'sha256': '29906aa8bdf3c0c1abdd37e1c5559b509d2a72ffa719c26dabffc825cab9a831',
-                    'algorithm_id': struct.unpack_from('>I', data, 28)[0],
-                    'flags': struct.unpack_from('>I', data, 120)[0],
-                    'scope': 'Header only; no signature, trust, or bootloader verification'}
-          result = {'reference_rom': 'Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303',
-                    'published_image_hashes_match_downloads': True,
-                    'boot': boot, 'kernel_version_banner': version, 'kernel_gzip_trailing_bytes': trailing_bytes,
-                    'dtbo': dtbo, 'vbmeta_header': vbmeta,
-                    'scope': 'Read-only published image audit; installed-device identity, ROM modules, runtime and trust remain unverified'}
-          (temp / 'rom-reference-audit.json').write_text(json.dumps(result, indent=2) + '\n')
-          summary = {'boot_sha256': boot['file_sha256'], 'boot_header_version': boot['header_version'],
-                     'boot_page_size': boot['page_size'], 'boot_kernel_bytes': boot['sections']['kernel']['bytes'],
-                     'boot_ramdisk_format': boot['ramdisk_format_guess'], 'boot_dtb_bytes': boot['sections']['dtb']['bytes'],
-                     'boot_avb_footer': boot['avb']['footer_at_end'], 'kernel_version_banner': version,
-                     'kernel_gzip_trailing_bytes': trailing_bytes, 'dtbo_sha256': dtbo['file_sha256'],
-                     'dtbo_entries': dtbo['entry_count'], 'dtbo_avb_footer': dtbo['avb']['footer_at_end'],
-                     'vbmeta_header': vbmeta, 'scope': result['scope']}
-          print('::notice title=ROM reference image audit::' + json.dumps(summary).replace('%','%25').replace('\n','%0A'))
+          temp=Path(os.environ['RUNNER_TEMP']); root=Path(os.environ['GITHUB_WORKSPACE'])
+          spec=importlib.util.spec_from_file_location('boot_audit',root/'build-kit/scripts/audit_synthetica3_boot.py')
+          audit=importlib.util.module_from_spec(spec); spec.loader.exec_module(audit)
+          modules=temp/'rom-modules'; modules.mkdir()
+          details={'filesystems':{},'module_directory_attempts':[], 'boot':None,
+                   'scope':'Only selected partitions and boot ramdisk; load lists, installed-device identity and runtime are not established'}
+          for image in sorted((temp/'rom-images').glob('*.img')):
+              if image.name=='boot.img':
+                  try:
+                      info=audit.inspect_boot(image)
+                      boot={'sha256':info['file_sha256'],'header_version':info['header_version'],
+                            'ramdisk_format':info['ramdisk_format_guess'],'dtb_bytes':info['sections']['dtb']['bytes'],
+                            'published_boot_hash_matches':info['file_sha256']=='ed5b0fb6722fc0782058e5c244200307a460a8ba406cc06a82f024958c045720'}
+                      with image.open('rb') as f:
+                          f.seek(info['sections']['kernel']['offset']); kernel=f.read(info['sections']['kernel']['bytes'])
+                          f.seek(info['sections']['ramdisk']['offset']); compressed=f.read(info['sections']['ramdisk']['bytes'])
+                      match=re.search(rb'Linux version ([^\s\0]+)',kernel)
+                      boot['plain_kernel_release']=match.group(1).decode('ascii','replace') if match else None
+                      boot['kernel_prefix_hex']=kernel[:8].hex()
+                      if info['ramdisk_format_guess']=='lz4_legacy':
+                          packed=temp/'boot-ramdisk.lz4'; unpacked=temp/'boot-ramdisk.cpio'; packed.write_bytes(compressed)
+                          def limit_file(): resource.setrlimit(resource.RLIMIT_FSIZE,(256*1024*1024,256*1024*1024))
+                          with unpacked.open('wb') as out:
+                              r=subprocess.run(['lz4','-d','-c',str(packed)],stdout=out,stderr=subprocess.PIPE,preexec_fn=limit_file)
+                          if r.returncode: raise ValueError('boot ramdisk LZ4 extraction failed')
+                          data=unpacked.read_bytes(); pos=0; found=0; entries=0; destination=modules/'boot-ramdisk'; destination.mkdir()
+                          while pos+110<=len(data):
+                              header=data[pos:pos+110]
+                              if header[:6] not in (b'070701',b'070702'): raise ValueError('unsupported or malformed boot cpio')
+                              fields=[int(header[6+8*i:14+8*i],16) for i in range(13)]
+                              mode,size,namesize=fields[1],fields[6],fields[11]
+                              if not 1<=namesize<=4096 or size>32*1024*1024: raise ValueError('cpio entry exceeds limit')
+                              start=pos+110; namebytes=data[start:start+namesize]
+                              if len(namebytes)!=namesize or namebytes[-1:]!=b'\0': raise ValueError('malformed cpio name')
+                              name=namebytes[:-1].decode('utf-8','replace'); content=(start+namesize+3)&~3; end=content+size
+                              if end>len(data): raise ValueError('cpio entry exceeds file bounds')
+                              pos=(end+3)&~3; entries+=1
+                              if entries>100000: raise ValueError('too many cpio entries')
+                              if name=='TRAILER!!!': break
+                              if stat.S_ISREG(mode) and re.search(r'\.ko(?:\.(?:gz|xz|zst))?$',name):
+                                  basename=re.sub(r'[^A-Za-z0-9_.+-]','_',Path(name).name)
+                                  (destination/f'{found:04d}-{basename}').write_bytes(data[content:end]); found+=1
+                          else: raise ValueError('boot cpio trailer not found')
+                          boot['ramdisk_entries']=entries; boot['ramdisk_module_files']=found
+                      details['boot']=boot
+                  except (ValueError,OSError,subprocess.SubprocessError) as exc:
+                      details['boot']={'inspection_error':str(exc)}
+                  continue
+              with image.open('rb') as f:
+                  f.seek(1024); sb=f.read(64)
+              fs='erofs' if sb[:4]==bytes.fromhex('e2e1f5e0') else 'ext4' if sb[56:58]==bytes.fromhex('53ef') else 'unknown'
+              details['filesystems'][image.stem]=fs
+              for number,source in enumerate(('/lib/modules','/vendor/lib/modules','/system/lib/modules')):
+                  dest=modules/(image.stem+'-'+str(number)); dest.mkdir()
+                  if fs=='ext4': command=['debugfs','-R',f'rdump {source} {dest}',str(image)]
+                  elif fs=='erofs': command=['fsck.erofs','--extract='+str(dest),'--path='+source,str(image)]
+                  else: continue
+                  result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+                  files=sum(1 for p in dest.rglob('*') if p.is_file() and not p.is_symlink())
+                  details['module_directory_attempts'].append({'partition':image.stem,'path':source,'filesystem':fs,
+                      'exit_code':result.returncode,'regular_files_extracted':files,
+                      'diagnostic':result.stderr[-350:] if result.returncode else None})
+          (temp/'extraction-metadata.json').write_text(json.dumps(details,indent=2)+'\n')
           PY
-      - name: Upload structural audit only (no ROM images)
+      - name: Compare extracted modules with both Neutron variants
+        run: |
+          set -euo pipefail
+          exec 2>"$RUNNER_TEMP/module-audit-error.log"
+          trap 'rc=$?; cat "$RUNNER_TEMP/module-audit-error.log"; python3 -c "import os,pathlib; t=(pathlib.Path(os.environ[\"RUNNER_TEMP\"])/\"module-audit-error.log\").read_text(errors=\"replace\")[-2000:]; print(\"::error title=Module comparison failed::\"+t.replace(\"%\",\"%25\").replace(chr(10),\"%0A\"))"; exit "$rc"' ERR
+          for mode in on off; do
+            if find "$RUNNER_TEMP/rom-modules" -type f -name '*.ko' -print -quit | grep -q .; then
+              python3 build-kit/scripts/audit_synthetica2_rom_modules.py \
+                --modules "$RUNNER_TEMP/rom-modules" \
+                --candidate "$RUNNER_TEMP/candidate-$mode" \
+                --baseline artifacts/generated.config.txt \
+                --report "$RUNNER_TEMP/private-$mode.json" > "$RUNNER_TEMP/summary-$mode.json"
+            else
+              printf '%s\n' '{"summary":{"comparison":"NOT RUN: no uncompressed modules extracted"}}' > "$RUNNER_TEMP/summary-$mode.json"
+            fi
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP'])
+          load=lambda name: json.loads((t/name).read_text())
+          out={'kind':'PUBLIC_ROM_STATIC_AUDIT_NOT_DEVICE_TEST',
+               'archive_sha256':'37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7',
+               'archive_hash_matches_published':True, 'zip':load('zip-metadata.json'),
+               'partitions':load('partition-metadata.json'), 'extraction':load('extraction-metadata.json'),
+               'neutron_on':load('summary-on.json'), 'neutron_off':load('summary-off.json'),
+               'scope':'Only these ROM archive partitions/files and the exported build certificates were inspected; installed device and active trust store are unknown.'}
+          (t/'aggregate-rom-audit.json').write_text(json.dumps(out,indent=2)+'\n')
+          summary={'archive_hash_matches_published':True,'boot':out['extraction']['boot'],
+                   'filesystems':out['extraction']['filesystems'],'neutron_on':out['neutron_on']['summary'],
+                   'neutron_off':out['neutron_off']['summary'],'scope':out['scope']}
+          print('::notice title=ROM module audit summary::'+json.dumps(summary).replace('%','%25').replace('\n','%0A'))
+          PY
+      - name: Upload aggregate evidence only, not ROM files or detailed module metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Lunaris-3.13-public-reference-images-audit-${{ github.run_id }}
-          path: ${{ runner.temp }}/rom-reference-audit.json
+          name: Lunaris-3.13-aggregate-module-audit-${{ github.run_id }}
+          path: ${{ runner.temp }}/aggregate-rom-audit.json
           if-no-files-found: error
           retention-days: 7
