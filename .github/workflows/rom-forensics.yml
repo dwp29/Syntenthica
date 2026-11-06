@@ -125,11 +125,15 @@ jobs:
           PY
           mkdir "$RUNNER_TEMP/vendor-full"
           debugfs -R "rdump / $RUNNER_TEMP/vendor-full" "$RUNNER_TEMP/vendor.img" 2>"$RUNNER_TEMP/debugfs.log"
+          for directory in / /lib /lib/modules /vendor_dlkm /vendor_dlkm/lib /vendor_dlkm/lib/modules; do
+            echo "DIRECTORY $directory" >> "$RUNNER_TEMP/debugfs-listings.txt"
+            debugfs -R "ls -p $directory" "$RUNNER_TEMP/vendor.img" >> "$RUNNER_TEMP/debugfs-listings.txt" 2>&1 || true
+          done
           python3 - <<'PY'
           import json,os,re,shutil
           from pathlib import Path
           t=Path(os.environ['RUNNER_TEMP']);src=t/'vendor-full';dest=t/'rom-modules';dest.mkdir()
-          total=0; found=[]; compressed=[]; lists=[]; rc_refs=[]
+          total=0; found=[]; compressed=[]; lists=[]; rc_refs=[]; rc_commands=[]
           for root,dirs,files in os.walk(src,followlinks=False):
               dirs[:]=[x for x in dirs if not (Path(root)/x).is_symlink()]
               for name in files:
@@ -145,10 +149,13 @@ jobs:
                       lists.append({'path':rel,'nonempty_lines':sum(bool(x.strip()) for x in p.read_text(errors='replace').splitlines())})
                   if name.endswith('.rc') and p.stat().st_size<=1024*1024:
                       for line in p.read_text(errors='replace').splitlines():
-                          if re.search(r'\b(?:insmod|modprobe)\b',line):rc_refs.append(rel);break
+                          if re.search(r'\b(?:insmod|modprobe)\b',line):
+                              rc_refs.append(rel); rc_commands.append({'file':rel,'line':line.strip()[:300]})
           meta={'vendor_regular_files_scanned':total,'uncompressed_ko_count':len(found),
                 'compressed_ko_count':len(compressed),'modules_load_files':lists[:30],
-                'init_rc_files_mentioning_insmod_or_modprobe':len(rc_refs),
+                'init_rc_files_mentioning_insmod_or_modprobe':len(set(rc_refs)),
+                'init_module_commands':rc_commands[:25],
+                'debugfs_listings':(t/'debugfs-listings.txt').read_text(errors='replace')[-6000:],
                 'debugfs_log_tail':(t/'debugfs.log').read_text(errors='replace')[-1000:],
                 'scope':'Extracted vendor filesystem only; symlinks, other partitions and actual runtime were not established'}
           (t/'vendor-scan.json').write_text(json.dumps(meta,indent=2)+'\n')
@@ -190,7 +197,7 @@ jobs:
                   'scope':'Static public-image comparison only; installed device identity, trust and runtime are unknown.'}
           (t/'rom-forensics.json').write_text(json.dumps(report,indent=2)+'\n')
           text=json.dumps(report)
-          for i,off in enumerate(range(0,min(len(text),6000),2000),1):
+          for i,off in enumerate(range(0,min(len(text),12000),2000),1):
               print(f'::notice title=ROM forensics {i}::'+text[off:off+2000].replace('%','%25').replace('\n','%0A'))
           PY
       - name: Upload aggregate evidence only
