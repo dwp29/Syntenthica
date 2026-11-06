@@ -4,7 +4,7 @@
 dilaporkan pengguna adalah Joyeuse dengan Lunaris AOSP GMS 3.13 Android 16;
 [tautan ROM yang diberikan](https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051)
 menampilkan metadata `Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip`
-(bukan build resmi 3.12 yang tercantum di direktori lama). Pengunduhan dan
+(bukan build resmi 3.12 yang tercantum di direktori lama). Arsip ROM dan
 identitas build yang terpasang belum diverifikasi. Baseline 2.0, APK Manager,
 dan resep yang digunakan 3.0 tidak diganti. BakaSU tidak dipasang. Hasil build
 yang berhasil sekalipun hanya bukti kompilasi, bukan bukti aman untuk perangkat
@@ -18,8 +18,17 @@ API Artifact Explorer untuk build yang diberikan mencantumkan arsip Community
 Server juga mencantumkan `boot.img`, `dtbo.img`, `recovery.img`, `vbmeta.img`
 dan `super_empty.img` terpisah; hash yang diterbitkan untuk boot, DTBO dan vbmeta
 dicatat dalam `SOURCES.json`. Gofile menampilkan nama arsip yang sama. Metadata
-ini belum membuktikan bahwa byte yang diunduh cocok, bahwa ROM tersebut benar
-terpasang di Joyeuse, atau bahwa modul di dalamnya cocok/tepercaya oleh kernel.
+Ketiga image referensi publik `boot.img`, `dtbo.img`, dan `vbmeta.img` sudah
+didownload sekali dan cocok dengan hash yang dipublikasikan; arsip ROM belum
+diperiksa. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
+`boot.img` memiliki header Android v2, page 4096, ramdisk LZ4 legacy dan bagian
+DTB terpisah; `dtbo.img` memiliki empat entry. Kedua image memiliki footer AVB;
+header `vbmeta.img` tercatat memiliki flags `0x3`. Ini hanya struktur berkas,
+bukan verifikasi signature atau status bootloader/perangkat. Semua komponen boot
+perlu dipertahankan dan divalidasi saat merancang installer; jangan mengubah atau
+menonaktifkan verifikasi untuk memaksa boot. Hasil ini belum membuktikan bahwa
+ROM tersebut benar terpasang di Joyeuse, atau bahwa modul di dalamnya cocok dan
+tepercaya oleh kernel.
 
 ## Cakupan dan default
 
@@ -149,5 +158,22 @@ bukan diuji dimuat ke perangkat dan bukan validasi modul vendor ROM.
 2. Verifikasi perangkat/ROM, AVB, metode pemulihan, dan kompatibilitas seluruh modul vendor: vermagic, CRC `MODVERSIONS`, dan signer yang benar. Audit terdahulu menemukan ketidakcocokan modul vendor; jangan menonaktifkan pemeriksaan untuk memaksanya.
 3. Setelah ada kandidat yang layak diuji, ukur boot, pengenalan Manager/root, kamera, jaringan, sleep/wake, idle sambil mengisi daya, tekanan RAM dan stabilitas lama.
 4. Setelah gerbang di atas terpenuhi, uji varian MGLRU-on dan kontrol MGLRU-off dengan toolchain serta beban yang sama. Catat status MGLRU aktual karena userspace bisa mengubahnya; ukur tekanan RAM, respons, suspend/idle sambil charging, suhu dan baterai. Perubahan clamp non-netral perlu pengujian terpisah.
+
+Jika nanti pengujian perangkat sudah aman untuk dilakukan, data awal yang bisa
+dibaca tanpa mengubah setelan meliputi:
+
+```sh
+adb shell getprop ro.product.device
+adb shell getprop ro.build.fingerprint
+adb shell uname -a
+adb shell 'cat /sys/kernel/mm/lru_gen/enabled 2>/dev/null || echo unavailable'
+adb shell 'cat /proc/pressure/memory 2>/dev/null || echo unavailable'
+```
+
+Backport ini melaporkan `1`/`0` pada file `lru_gen/enabled`; file yang tidak
+tersedia bukan bukti bahwa MGLRU mati. Bandingkan A/B setelah perangkat stabil,
+dengan brightness, jaringan, aplikasi, suhu lingkungan, dan beban yang sama;
+ulangi pengukuran agar perubahan acak tidak disangka manfaat. Jangan meninggalkan
+uji suspend/charging tanpa pengawasan pada build yang belum tervalidasi.
 
 Tidak ada flash, pengubahan perangkat, atau jaminan bebas regresi dalam eksperimen ini.
