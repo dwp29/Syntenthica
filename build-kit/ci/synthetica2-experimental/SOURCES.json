@@ -1,0 +1,192 @@
+{
+  "kind": "SYNTHETICA_2_0_EXPERIMENTAL_SOURCE_PINS_NOT_FLASHABLE",
+  "base": {
+    "repository": "Saamitk/kernel_xiaomi_sm6250-switchoff",
+    "commit": "c1e6f795b557b7bf92220c91f05a42b456de7a74",
+    "archive_sha256": "a68c9e306a3e14de92a258b185531a2562e3631f616a74b7882fc2667ac10ec0"
+  },
+  "mglru": {
+    "repository": "NothingTransition/CustomKernel1",
+    "commits": [
+      "133620cdd409cc872f03ede532a0e37591359f5d",
+      "f05af94fd873c891df3d872e93eb1ffbe65d17b0",
+      "1c14bd9355177a8aa1469ae2dc2f6a12aa16df5f",
+      "d5c8c3d5b708f415214019b3f2c1001cbcbdffcd",
+      "69623219ec5bfecad94ddaf335c5d613d570fffb",
+      "ccac41424d924976dc9b5f4a041f7247fabfbd56"
+    ],
+    "patch": "patches/0001-mglru-4.14.patch",
+    "sha256": "6c77c69bef438211859903ded71b35245d14f5cd7282fb5db605103d30d449e2",
+    "excluded": [
+      "RELEASE_NOTES.md",
+      "arch/arm64/configs/vendor/xiaomi/miatoll_defconfig"
+    ]
+  },
+  "uclamp": {
+    "repository": "iput-object/kernel_xiaomi_sm6250",
+    "comparison_base": "1cea11c0e0ea3e6a97d3c438f4630ed1e1eb1f0c",
+    "comparison_end": "7b29cbd9de7e4427f546b2715729985ee64d2271",
+    "commit_series": [
+      {
+        "commit": "6bf2726e492ea99c6f7d585cef30f1043137fcfe",
+        "subject": "UPSTREAM: sched/uclamp: Add CPU's clamp buckets refcounting"
+      },
+      {
+        "commit": "7bd83f98f20c4baee1dfd6d9a7a010f0a5756b34",
+        "subject": "UPSTREAM: sched/uclamp: Add bucket local max tracking"
+      },
+      {
+        "commit": "808447edbc5a7cfa6d4a6cffd7a87df70a3868e1",
+        "subject": "UPSTREAM: sched/uclamp: Enforce last task's UCLAMP_MAX"
+      },
+      {
+        "commit": "c2c101657cec39d9ce46c93ac313257598a1b440",
+        "subject": "UPSTREAM: sched/uclamp: Add system default clamps"
+      },
+      {
+        "commit": "5cdaa3abf1a2711f4403ca5f061a6cd89c13171e",
+        "subject": "UPSTREAM: sched/uclamp: Extend sched_setattr() to support utilization clamping"
+      },
+      {
+        "commit": "1a392af4024d28e0950ef3e27ca5f72d1d2d2aa4",
+        "subject": "UPSTREAM: sched/uclamp: Reset uclamp values on RESET_ON_FORK"
+      },
+      {
+        "commit": "aa51f270243fabf478757a5a134fb8d363374eed",
+        "subject": "UPSTREAM: sched/uclamp: Set default clamps for RT tasks"
+      },
+      {
+        "commit": "baab96faf0100fcaa572b0af399761c1e199c497",
+        "subject": "BACKPORT: sched/cpufreq, sched/uclamp: Add clamps for FAIR and RT tasks"
+      },
+      {
+        "commit": "47dec2f49fefa7547867491ec70ce32c605f3f6a",
+        "subject": "UPSTREAM: sched/uclamp: Add uclamp_util_with()"
+      },
+      {
+        "commit": "98bced1d5b459f4b0dc8c7c8efedab654038c254",
+        "subject": "UPSTREAM: cgroup: add cgroup_parse_float()"
+      },
+      {
+        "commit": "74fa5caa53533aade642283eb6b41f2ca0b50c09",
+        "subject": "UPSTREAM: sched/uclamp: Extend CPU's cgroup controller"
+      },
+      {
+        "commit": "65f7b4429f5ce9e018699b91595ab2ff27d8ca17",
+        "subject": "UPSTREAM: sched/uclamp: Propagate parent clamps"
+      },
+      {
+        "commit": "5bc5e9b487e34fc754577a0a7c1dd3a3ec9ba35f",
+        "subject": "UPSTREAM: sched/uclamp: Propagate system defaults to the root group"
+      },
+      {
+        "commit": "7859d67ac7a8e9b407a0e625ad2ff643d340bd4c",
+        "subject": "UPSTREAM: sched/uclamp: Use TG's clamps to restrict TASK's clamps"
+      },
+      {
+        "commit": "9b62abb8c71faf67986a5077cc5d656e0a1b8572",
+        "subject": "UPSTREAM: sched/uclamp: Update CPU's refcount on TG's clamp changes"
+      },
+      {
+        "commit": "d5ea41177f8c0e8b28940d6a5774209244391a39",
+        "subject": "UPSTREAM: sched/uclamp: Always use 'enum uclamp_id' for clamp_id values"
+      },
+      {
+        "commit": "d96f0055261150296394f4cc80feb61e6126f3aa",
+        "subject": "UPSTREAM: sched/core: Fix uclamp ABI bug, clean up and robustify sched_read_attr() ABI logic and code"
+      },
+      {
+        "commit": "5853e5d4e390687d735c70918442413174ea4e0e",
+        "subject": "UPSTREAM: sched/core: Fix compilation error when cgroup not selected"
+      },
+      {
+        "commit": "6ba35b0fcb3da468882b5b0059c02b73b25d485a",
+        "subject": "sched/uclamp: Reject negative values in cpu_uclamp_write()"
+      },
+      {
+        "commit": "7994f9b0c36d0e541431d8883a8a239eff188934",
+        "subject": "sched/core: Fix size of rq::uclamp initialization"
+      },
+      {
+        "commit": "40ea190abc802e50fa45c75efeb0233562650d9a",
+        "subject": "sched/core: Fix reset-on-fork from RT with uclamp"
+      },
+      {
+        "commit": "bcae06f2558050c862ec2993f13119874201571a",
+        "subject": "BACKPORT: sched/uclamp: Remove uclamp_util()"
+      },
+      {
+        "commit": "80be05b4fba61fb1d57c93891cb2e0c83ef43960",
+        "subject": "UPSTREAM: sched/uclamp: Make uclamp util helpers use and return UL values"
+      },
+      {
+        "commit": "7a95fff8bc27345af7085157b2c45038acdb670a",
+        "subject": "UPSTREAM: sched/uclamp: Fix initialization of struct uclamp_rq"
+      },
+      {
+        "commit": "59501a52b6565753376aec0aeb2b5e06d790a1e9",
+        "subject": "BACKPORT: sched/uclamp: Protect uclamp fast path code with static key"
+      },
+      {
+        "commit": "0714bbe3345ea1584c94639a497d32c5d393a7d8",
+        "subject": "UPSTREAM: sched/uclamp: Fix a deadlock when enabling uclamp static key"
+      },
+      {
+        "commit": "1d17e4a80ac4ccf6e8132da20d52dd0fba88876e",
+        "subject": "BACKPORT: sched/uclamp: Add a new sysctl to control RT default boost value"
+      },
+      {
+        "commit": "c5c7bba9c4a42cd00838d9f43a2f56c53516345f",
+        "subject": "ANDROID: sched/core: Add a latency-sensitive flag to uclamp"
+      },
+      {
+        "commit": "208883700ca67159a8b753ade41827e641de48fd",
+        "subject": "ANDROID: sched: Introduce uclamp latency and boost wrapper"
+      },
+      {
+        "commit": "0afc2cdecb27462c6388ad211f39cd80eaf3d77e",
+        "subject": "sched/cpufreq_schedutil: Reflect uclamp changes"
+      },
+      {
+        "commit": "f7bbdd4adf63ce8558e0fd80777f3c67857f6e26",
+        "subject": "__update: size cass task placement by the task's uclamp range"
+      },
+      {
+        "commit": "46b821d1464549577ffb57c12fe01431834c9357",
+        "subject": "__mod: default rt tasks to no uclamp boost"
+      },
+      {
+        "commit": "7eb11794cb27cc96635edf3ed1a6dd10fe13ea20",
+        "subject": "__update: enable uclamp with its cgroup controls"
+      },
+      {
+        "commit": "6e64bbe37428aefb9ff6963930296685d28f5df1",
+        "subject": "UPSTREAM: sched/core: Allow sched_setattr() to use the current policy"
+      },
+      {
+        "commit": "7b29cbd9de7e4427f546b2715729985ee64d2271",
+        "subject": "__fix: let sched_setattr accept the uclamp flags"
+      }
+    ],
+    "excluded": [
+      "arch/arm64/configs/vendor/xiaomi/miatoll_defconfig",
+      "kernel/sched/cass.c"
+    ],
+    "adaptations": [
+      "restore sched_post_fork after task publication in the 2.0 fork path",
+      "add the upstream Uclamp bucket index bounds fix 6d2f8909a5fabb73fe2a63918117943986c39b6c"
+    ],
+    "patch": "patches/0002-uclamp-walt-stune.patch",
+    "sha256": "44004efb1dcb451962fca536a596fc0f112827ab8b256efbfde5d6120dac42a7"
+  },
+  "feature_config_sha256": "4a6097a894e92790c347d8016b520b5c9923bb4dd5e33acf97ea3bd0159358ff",
+  "neutron": {
+    "tag": "06092026",
+    "catalogue_commit": "4bd827900870b688fbf19c202f6625a13b04fa92",
+    "llvm_commit": "f42c87ba2c70219b1f4ad1f031a5b6a1ea6603fb",
+    "archive": "neutron-clang-06092026.tar.zst",
+    "url": "https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst",
+    "bytes": 77768187,
+    "sha256": "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
+  }
+}

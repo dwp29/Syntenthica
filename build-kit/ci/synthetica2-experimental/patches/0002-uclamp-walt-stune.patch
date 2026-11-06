@@ -1,0 +1,1986 @@
+diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+--- a/include/linux/cgroup.h
++++ b/include/linux/cgroup.h
+@@ -129,6 +129,8 @@
+ 
+ int cgroup_init_early(void);
+ int cgroup_init(void);
++
++int cgroup_parse_float(const char *input, unsigned dec_shift, s64 *v);
+ 
+ /*
+  * Iteration helpers and macros.
+diff --git a/include/linux/log2.h b/include/linux/log2.h
+--- a/include/linux/log2.h
++++ b/include/linux/log2.h
+@@ -220,4 +220,38 @@
+ 		ilog2((n) - 1) + 1) :		\
+ 	__order_base_2(n)			\
+ )
++
++static inline __attribute__((const))
++int __bits_per(unsigned long n)
++{
++	if (n < 2)
++		return 1;
++	if (is_power_of_2(n))
++		return order_base_2(n) + 1;
++	return order_base_2(n);
++}
++
++/**
++ * bits_per - calculate the number of bits required for the argument
++ * @n: parameter
++ *
++ * This is constant-capable and can be used for compile time
++ * initializations, e.g bitfields.
++ *
++ * The first few values calculated by this routine:
++ * bf(0) = 1
++ * bf(1) = 1
++ * bf(2) = 2
++ * bf(3) = 2
++ * bf(4) = 3
++ * ... and so on.
++ */
++#define bits_per(n)				\
++(						\
++	__builtin_constant_p(n) ? (		\
++		((n) == 0 || (n) == 1)		\
++			? 1 : ilog2(n) + 1	\
++	) :					\
++	__bits_per(n)				\
++)
+ #endif /* _LINUX_LOG2_H */
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -335,6 +335,18 @@
+ 	int sched_priority;
+ };
+ 
++/*
++ * Utilization clamp constraints.
++ * @UCLAMP_MIN:	Minimum utilization
++ * @UCLAMP_MAX:	Maximum utilization
++ * @UCLAMP_CNT:	Utilization clamp constraints count
++ */
++enum uclamp_id {
++	UCLAMP_MIN = 0,
++	UCLAMP_MAX,
++	UCLAMP_CNT
++};
++
+ struct sched_info {
+ #ifdef CONFIG_SCHED_INFO
+ 	/* Cumulative counters: */
+@@ -365,6 +377,10 @@
+  */
+ # define SCHED_FIXEDPOINT_SHIFT		10
+ # define SCHED_FIXEDPOINT_SCALE		(1L << SCHED_FIXEDPOINT_SHIFT)
++
++/* Increase resolution of cpu_capacity calculations */
++# define SCHED_CAPACITY_SHIFT		SCHED_FIXEDPOINT_SHIFT
++# define SCHED_CAPACITY_SCALE		(1L << SCHED_CAPACITY_SHIFT)
+ 
+ struct load_weight {
+ 	unsigned long			weight;
+@@ -712,6 +728,41 @@
+ 	struct hrtimer inactive_timer;
+ };
+ 
++#ifdef CONFIG_UCLAMP_TASK
++/* Number of utilization clamp buckets (shorter alias) */
++#define UCLAMP_BUCKETS CONFIG_UCLAMP_BUCKETS_COUNT
++
++/*
++ * Utilization clamp for a scheduling entity
++ * @value:		clamp value "assigned" to a se
++ * @bucket_id:		bucket index corresponding to the "assigned" value
++ * @active:		the se is currently refcounted in a rq's bucket
++ * @user_defined:	the requested clamp value comes from user-space
++ *
++ * The bucket_id is the index of the clamp bucket matching the clamp value
++ * which is pre-computed and stored to avoid expensive integer divisions from
++ * the fast path.
++ *
++ * The active bit is set whenever a task has got an "effective" value assigned,
++ * which can be different from the clamp value "requested" from user-space.
++ * This allows to know a task is refcounted in the rq's bucket corresponding
++ * to the "effective" bucket_id.
++ *
++ * The user_defined bit is set whenever a task has got a task-specific clamp
++ * value requested from userspace, i.e. the system defaults apply to this task
++ * just as a restriction. This allows to relax default clamps when a less
++ * restrictive task-specific value has been requested, thus allowing to
++ * implement a "nice" semantic. For example, a task running with a 20%
++ * default boost can still drop its own boosting to 0%.
++ */
++struct uclamp_se {
++	unsigned int value		: bits_per(SCHED_CAPACITY_SCALE);
++	unsigned int bucket_id		: bits_per(UCLAMP_BUCKETS);
++	unsigned int active		: 1;
++	unsigned int user_defined	: 1;
++};
++#endif /* CONFIG_UCLAMP_TASK */
++
+ union rcu_special {
+ 	struct {
+ 		u8			blocked;
+@@ -805,6 +856,19 @@
+ 	struct task_group		*sched_task_group;
+ #endif
+ 	struct sched_dl_entity		dl;
++
++#ifdef CONFIG_UCLAMP_TASK
++	/*
++	 * Clamp values requested for a scheduling entity.
++	 * Must be updated with task_rq_lock() held.
++	 */
++	struct uclamp_se		uclamp_req[UCLAMP_CNT];
++	/*
++	 * Effective clamp values used for a scheduling entity.
++	 * Must be updated with task_rq_lock() held.
++	 */
++	struct uclamp_se		uclamp[UCLAMP_CNT];
++#endif
+ 
+ #ifdef CONFIG_PREEMPT_NOTIFIERS
+ 	/* List of struct preempt_notifier: */
+diff --git a/include/linux/sched/sysctl.h b/include/linux/sched/sysctl.h
+--- a/include/linux/sched/sysctl.h
++++ b/include/linux/sched/sysctl.h
+@@ -94,6 +94,12 @@
+ extern unsigned int sysctl_sched_rt_period;
+ extern int sysctl_sched_rt_runtime;
+ 
++#ifdef CONFIG_UCLAMP_TASK
++extern unsigned int sysctl_sched_uclamp_util_min;
++extern unsigned int sysctl_sched_uclamp_util_max;
++extern unsigned int sysctl_sched_uclamp_util_min_rt_default;
++#endif
++
+ #ifdef CONFIG_CFS_BANDWIDTH
+ extern unsigned int sysctl_sched_cfs_bandwidth_slice;
+ #endif
+@@ -109,6 +115,10 @@
+ 		size_t *lenp, loff_t *ppos);
+ int sched_rt_handler(struct ctl_table *table, int write, void *buffer,
+ 		size_t *lenp, loff_t *ppos);
++#ifdef CONFIG_UCLAMP_TASK
++int sysctl_sched_uclamp_handler(struct ctl_table *table, int write,
++		void *buffer, size_t *lenp, loff_t *ppos);
++#endif
+ int sched_updown_migrate_handler(struct ctl_table *table, int write, void *buffer,
+                 size_t *lenp, loff_t *ppos);
+ int sysctl_numa_balancing(struct ctl_table *table, int write, void *buffer,
+diff --git a/include/linux/sched/task.h b/include/linux/sched/task.h
+--- a/include/linux/sched/task.h
++++ b/include/linux/sched/task.h
+@@ -33,6 +33,7 @@
+ extern void init_idle(struct task_struct *idle, int cpu);
+ 
+ extern int sched_fork(unsigned long clone_flags, struct task_struct *p);
++extern void sched_post_fork(struct task_struct *p);
+ extern void sched_dead(struct task_struct *p);
+ 
+ void __noreturn do_task_dead(void);
+diff --git a/include/uapi/linux/sched.h b/include/uapi/linux/sched.h
+--- a/include/uapi/linux/sched.h
++++ b/include/uapi/linux/sched.h
+@@ -50,5 +50,22 @@
+  */
+ #define SCHED_FLAG_RESET_ON_FORK	0x01
+ #define SCHED_FLAG_RECLAIM		0x02
++#define SCHED_FLAG_KEEP_POLICY		0x08
++#define SCHED_FLAG_KEEP_PARAMS		0x10
++#define SCHED_FLAG_UTIL_CLAMP_MIN	0x20
++#define SCHED_FLAG_UTIL_CLAMP_MAX	0x40
++
++#define SCHED_FLAG_KEEP_ALL	(SCHED_FLAG_KEEP_POLICY | \
++				 SCHED_FLAG_KEEP_PARAMS)
++
++#define SCHED_FLAG_UTIL_CLAMP	(SCHED_FLAG_UTIL_CLAMP_MIN | \
++				 SCHED_FLAG_UTIL_CLAMP_MAX)
++
++/* 0x04 is SCHED_FLAG_DL_OVERRUN upstream, which this kernel doesn't have */
++#define SCHED_FLAG_ALL	(SCHED_FLAG_RESET_ON_FORK	| \
++			 SCHED_FLAG_RECLAIM		| \
++			 SCHED_FLAG_KEEP_ALL		| \
++			 SCHED_FLAG_UTIL_CLAMP)
++
+ 
+ #endif /* _UAPI_LINUX_SCHED_H */
+diff --git a/include/uapi/linux/sched/types.h b/include/uapi/linux/sched/types.h
+--- a/include/uapi/linux/sched/types.h
++++ b/include/uapi/linux/sched/types.h
+@@ -5,6 +5,7 @@
+ #include <linux/types.h>
+ 
+ #define SCHED_ATTR_SIZE_VER0	48	/* sizeof first published struct */
++#define SCHED_ATTR_SIZE_VER1	56	/* add: util_{min,max} */
+ 
+ /*
+  * Extended scheduling parameters data structure.
+@@ -17,8 +18,33 @@
+  * the tasks may be useful for a wide variety of application fields, e.g.,
+  * multimedia, streaming, automation and control, and many others.
+  *
+- * This variant (sched_attr) is meant at describing a so-called
+- * sporadic time-constrained task. In such model a task is specified by:
++ * This variant (sched_attr) allows to define additional attributes to
++ * improve the scheduler knowledge about task requirements.
++ *
++ * Scheduling Class Attributes
++ * ===========================
++ *
++ * A subset of sched_attr attributes specifies the
++ * scheduling policy and relative POSIX attributes:
++ *
++ *  @size		size of the structure, for fwd/bwd compat.
++ *
++ *  @sched_policy	task's scheduling policy
++ *  @sched_nice		task's nice value      (SCHED_NORMAL/BATCH)
++ *  @sched_priority	task's static priority (SCHED_FIFO/RR)
++ *
++ * Certain more advanced scheduling features can be controlled by a
++ * predefined set of flags via the attribute:
++ *
++ *  @sched_flags	for customizing the scheduler behaviour
++ *
++ * Sporadic Time-Constrained Task Attributes
++ * =========================================
++ *
++ * A subset of sched_attr attributes allows to describe a so-called
++ * sporadic time-constrained task.
++ *
++ * In such a model a task is specified by:
+  *  - the activation period or minimum instance inter-arrival time;
+  *  - the maximum (or average, depending on the actual scheduling
+  *    discipline) computation time of all instances, a.k.a. runtime;
+@@ -30,14 +56,8 @@
+  * than the runtime and must be completed by time instant t equal to
+  * the instance activation time + the deadline.
+  *
+- * This is reflected by the actual fields of the sched_attr structure:
++ * This is reflected by the following fields of the sched_attr structure:
+  *
+- *  @size		size of the structure, for fwd/bwd compat.
+- *
+- *  @sched_policy	task's scheduling policy
+- *  @sched_flags	for customizing the scheduler behaviour
+- *  @sched_nice		task's nice value      (SCHED_NORMAL/BATCH)
+- *  @sched_priority	task's static priority (SCHED_FIFO/RR)
+  *  @sched_deadline	representative of the task's deadline
+  *  @sched_runtime	representative of the task's runtime
+  *  @sched_period	representative of the task's period
+@@ -49,6 +69,29 @@
+  * As of now, the SCHED_DEADLINE policy (sched_dl scheduling class) is the
+  * only user of this new interface. More information about the algorithm
+  * available in the scheduling class file or in Documentation/.
++ *
++ * Task Utilization Attributes
++ * ===========================
++ *
++ * A subset of sched_attr attributes allows to specify the utilization
++ * expected for a task. These attributes allow to inform the scheduler about
++ * the utilization boundaries within which it should schedule the task. These
++ * boundaries are valuable hints to support scheduler decisions on both task
++ * placement and frequency selection.
++ *
++ *  @sched_util_min	represents the minimum utilization
++ *  @sched_util_max	represents the maximum utilization
++ *
++ * Utilization is a value in the range [0..SCHED_CAPACITY_SCALE]. It
++ * represents the percentage of CPU time used by a task when running at the
++ * maximum frequency on the highest capacity CPU of the system. For example, a
++ * 20% utilization task is a task running for 2ms every 10ms at maximum
++ * frequency.
++ *
++ * A task with a min utilization value bigger than 0 is more likely scheduled
++ * on a CPU with a capacity big enough to fit the specified value.
++ * A task with a max utilization value smaller than 1024 is more likely
++ * scheduled on a CPU with no more capacity than the specified value.
+  */
+ struct sched_attr {
+ 	__u32 size;
+@@ -66,6 +109,11 @@
+ 	__u64 sched_runtime;
+ 	__u64 sched_deadline;
+ 	__u64 sched_period;
++
++	/* Utilization hints */
++	__u32 sched_util_min;
++	__u32 sched_util_max;
++
+ };
+ 
+ #endif /* _UAPI_LINUX_SCHED_TYPES_H */
+diff --git a/init/Kconfig b/init/Kconfig
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -686,6 +686,59 @@
+ 
+ endmenu # FAIR Scheduler tunables"
+ 
++menu "Scheduler features"
++
++config UCLAMP_TASK
++	bool "Enable utilization clamping for RT/FAIR tasks"
++	depends on CPU_FREQ_GOV_SCHEDUTIL
++	help
++	  This feature enables the scheduler to track the clamped utilization
++	  of each CPU based on RUNNABLE tasks scheduled on that CPU.
++
++	  With this option, the user can specify the min and max CPU
++	  utilization allowed for RUNNABLE tasks. The max utilization defines
++	  the maximum frequency a task should use while the min utilization
++	  defines the minimum frequency it should use.
++
++	  Both min and max utilization clamp values are hints to the scheduler,
++	  aiming at improving its frequency selection policy, but they do not
++	  enforce or grant any specific bandwidth for tasks.
++
++	  If in doubt, say N.
++
++config UCLAMP_BUCKETS_COUNT
++	int "Number of supported utilization clamp buckets"
++	range 5 20
++	default 5
++	depends on UCLAMP_TASK
++	help
++	  Defines the number of clamp buckets to use. The range of each bucket
++	  will be SCHED_CAPACITY_SCALE/UCLAMP_BUCKETS_COUNT. The higher the
++	  number of clamp buckets the finer their granularity and the higher
++	  the precision of clamping aggregation and tracking at run-time.
++
++	  For example, with the minimum configuration value we will have 5
++	  clamp buckets tracking 20% utilization each. A 25% boosted tasks will
++	  be refcounted in the [20..39]% bucket and will set the bucket clamp
++	  effective value to 25%.
++	  If a second 30% boosted task should be co-scheduled on the same CPU,
++	  that task will be refcounted in the same bucket of the first task and
++	  it will boost the bucket clamp effective value to 30%.
++	  The clamp effective value of a bucket is reset to its nominal value
++	  (20% in the example above) when there are no more tasks refcounted in
++	  that bucket.
++
++	  An additional boost/capping margin can be added to some tasks. In the
++	  example above the 25% task will be boosted to 30% until it exits the
++	  CPU. If that should be considered not acceptable on certain systems,
++	  it's always possible to reduce the margin by increasing the number of
++	  clamp buckets to trade off used memory for run-time tracking
++	  precision.
++
++	  If in doubt, use the default value.
++
++endmenu
++
+ #
+ # For architectures that want to enable the support for NUMA-affine scheduler
+ # balancing logic:
+@@ -854,6 +907,28 @@
+ 	  See Documentation/scheduler/sched-rt-group.txt for more information.
+ 
+ endif #CGROUP_SCHED
++
++config UCLAMP_TASK_GROUP
++	bool "Utilization clamping per group of tasks"
++	depends on CGROUP_SCHED
++	depends on UCLAMP_TASK
++	default n
++	help
++	  This feature enables the scheduler to track the clamped utilization
++	  of each CPU based on RUNNABLE tasks currently scheduled on that CPU.
++
++	  When this option is enabled, the user can specify a min and max
++	  CPU bandwidth which is allowed for each single task in a group.
++	  The max bandwidth allows to clamp the maximum frequency a task
++	  can use, while the min bandwidth allows to define a minimum
++	  frequency a task will always use.
++
++	  When task group based utilization clamping is enabled, an eventually
++	  specified task-specific clamp value is constrained by the cgroup
++	  specified clamp value. Both minimum and maximum task clamping cannot
++	  be bigger than the corresponding clamping defined at task group level.
++
++	  If in doubt, say N.
+ 
+ config CGROUP_PIDS
+ 	bool "PIDs controller"
+diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+--- a/kernel/cgroup/cgroup.c
++++ b/kernel/cgroup/cgroup.c
+@@ -6352,4 +6352,47 @@
+ 	return sysfs_create_group(kernel_kobj, &cgroup_sysfs_attr_group);
+ }
+ subsys_initcall(cgroup_sysfs_init);
++
++static u64 power_of_ten(int power)
++{
++	u64 v = 1;
++	while (power--)
++		v *= 10;
++	return v;
++}
++
++/**
++ * cgroup_parse_float - parse a floating number
++ * @input: input string
++ * @dec_shift: number of decimal digits to shift
++ * @v: output
++ *
++ * Parse a decimal floating point number in @input and store the result in
++ * @v with decimal point right shifted @dec_shift times.  For example, if
++ * @input is "12.3456" and @dec_shift is 3, *@v will be set to 12345.
++ * Returns 0 on success, -errno otherwise.
++ *
++ * There's nothing cgroup specific about this function except that it's
++ * currently the only user.
++ */
++int cgroup_parse_float(const char *input, unsigned dec_shift, s64 *v)
++{
++	s64 whole, frac = 0;
++	int fstart = 0, fend = 0, flen;
++
++	if (!sscanf(input, "%lld.%n%lld%n", &whole, &fstart, &frac, &fend))
++		return -EINVAL;
++	if (frac < 0)
++		return -EINVAL;
++
++	flen = fend > fstart ? fend - fstart : 0;
++	if (flen < dec_shift)
++		frac *= power_of_ten(dec_shift - flen);
++	else
++		frac = DIV_ROUND_CLOSEST_ULL(frac, power_of_ten(flen - dec_shift));
++
++	*v = whole * power_of_ten(dec_shift) + frac;
++	return 0;
++}
++
+ #endif /* CONFIG_SYSFS */
+diff --git a/kernel/fork.c b/kernel/fork.c
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -2132,6 +2132,7 @@
+ 	write_unlock_irq(&tasklist_lock);
+ 
+ 	proc_fork_connector(p);
++	sched_post_fork(p);
+ 	cgroup_post_fork(p);
+ 	cgroup_threadgroup_change_end(current);
+ 	perf_event_fork(p);
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -769,6 +769,708 @@
+ 	load->inv_weight = sched_prio_to_wmult[prio];
+ }
+ 
++#ifdef CONFIG_UCLAMP_TASK
++/*
++ * Serializes updates of utilization clamp values
++ *
++ * The (slow-path) user-space triggers utilization clamp value updates which
++ * can require updates on (fast-path) scheduler's data structures used to
++ * support enqueue/dequeue operations.
++ * While the per-CPU rq lock protects fast-path update operations, user-space
++ * requests are serialized using a mutex to reduce the risk of conflicting
++ * updates or API abuses.
++ */
++static DEFINE_MUTEX(uclamp_mutex);
++
++/* Max allowed minimum utilization */
++unsigned int sysctl_sched_uclamp_util_min = SCHED_CAPACITY_SCALE;
++
++/* Max allowed maximum utilization */
++unsigned int sysctl_sched_uclamp_util_max = SCHED_CAPACITY_SCALE;
++
++/*
++ * By default RT tasks run at the maximum performance point/capacity of the
++ * system. Uclamp enforces this by always setting UCLAMP_MIN of RT tasks to
++ * SCHED_CAPACITY_SCALE.
++ *
++ * This knob allows admins to change the default behavior when uclamp is being
++ * used. In battery powered devices, particularly, running at the maximum
++ * capacity and frequency will increase energy consumption and shorten the
++ * battery life.
++ *
++ * This knob only affects RT tasks that their uclamp_se->user_defined == false.
++ *
++ * This knob will not override the system default sched_util_clamp_min defined
++ * above.
++ */
++/*
++ * LazyExec: RT tasks (audio, SurfaceFlinger, input) would otherwise ask for
++ * the max frequency every time they run, and this vendor's init never lowers
++ * it (Pixels write 0 from their rc). Default to no RT boost; userspace can
++ * still raise it through /proc/sys/kernel/sched_util_clamp_min_rt_default.
++ */
++unsigned int sysctl_sched_uclamp_util_min_rt_default;
++
++/* All clamps are required to be less or equal than these values */
++static struct uclamp_se uclamp_default[UCLAMP_CNT];
++
++/*
++ * This static key is used to reduce the uclamp overhead in the fast path. It
++ * primarily disables the call to uclamp_rq_{inc, dec}() in
++ * enqueue/dequeue_task().
++ *
++ * This allows users to continue to enable uclamp in their kernel config with
++ * minimum uclamp overhead in the fast path.
++ *
++ * As soon as userspace modifies any of the uclamp knobs, the static key is
++ * enabled, since we have an actual users that make use of uclamp
++ * functionality.
++ *
++ * The knobs that would enable this static key are:
++ *
++ *   * A task modifying its uclamp value with sched_setattr().
++ *   * An admin modifying the sysctl_sched_uclamp_{min, max} via procfs.
++ *   * An admin modifying the cgroup cpu.uclamp.{min, max}
++ */
++DEFINE_STATIC_KEY_FALSE(sched_uclamp_used);
++
++/* Integer rounded range for each bucket */
++#define UCLAMP_BUCKET_DELTA DIV_ROUND_CLOSEST(SCHED_CAPACITY_SCALE, UCLAMP_BUCKETS)
++
++#define for_each_clamp_id(clamp_id) \
++	for ((clamp_id) = 0; (clamp_id) < UCLAMP_CNT; (clamp_id)++)
++
++static inline unsigned int uclamp_bucket_id(unsigned int clamp_value)
++{
++	/* Prevent out-of-bounds access with configurations such as 20 buckets. */
++	return min_t(unsigned int, clamp_value / UCLAMP_BUCKET_DELTA,
++		     UCLAMP_BUCKETS - 1);
++}
++
++static inline unsigned int uclamp_bucket_base_value(unsigned int clamp_value)
++{
++	return UCLAMP_BUCKET_DELTA * uclamp_bucket_id(clamp_value);
++}
++
++static inline enum uclamp_id uclamp_none(enum uclamp_id clamp_id)
++{
++	if (clamp_id == UCLAMP_MIN)
++		return 0;
++	return SCHED_CAPACITY_SCALE;
++}
++
++static inline void uclamp_se_set(struct uclamp_se *uc_se,
++				 unsigned int value, bool user_defined)
++{
++	uc_se->value = value;
++	uc_se->bucket_id = uclamp_bucket_id(value);
++	uc_se->user_defined = user_defined;
++}
++
++static inline unsigned int
++uclamp_idle_value(struct rq *rq, enum uclamp_id clamp_id,
++		  unsigned int clamp_value)
++{
++	/*
++	 * Avoid blocked utilization pushing up the frequency when we go
++	 * idle (which drops the max-clamp) by retaining the last known
++	 * max-clamp.
++	 */
++	if (clamp_id == UCLAMP_MAX) {
++		rq->uclamp_flags |= UCLAMP_FLAG_IDLE;
++		return clamp_value;
++	}
++
++	return uclamp_none(UCLAMP_MIN);
++}
++
++static inline void uclamp_idle_reset(struct rq *rq, enum uclamp_id clamp_id,
++				     unsigned int clamp_value)
++{
++	/* Reset max-clamp retention only on idle exit */
++	if (!(rq->uclamp_flags & UCLAMP_FLAG_IDLE))
++		return;
++
++	WRITE_ONCE(rq->uclamp[clamp_id].value, clamp_value);
++}
++
++static inline
++enum uclamp_id uclamp_rq_max_value(struct rq *rq, enum uclamp_id clamp_id,
++				   unsigned int clamp_value)
++{
++	struct uclamp_bucket *bucket = rq->uclamp[clamp_id].bucket;
++	int bucket_id = UCLAMP_BUCKETS - 1;
++
++	/*
++	 * Since both min and max clamps are max aggregated, find the
++	 * top most bucket with tasks in.
++	 */
++	for ( ; bucket_id >= 0; bucket_id--) {
++		if (!bucket[bucket_id].tasks)
++			continue;
++		return bucket[bucket_id].value;
++	}
++
++	/* No tasks -- default clamp values */
++	return uclamp_idle_value(rq, clamp_id, clamp_value);
++}
++
++static void __uclamp_update_util_min_rt_default(struct task_struct *p)
++{
++	unsigned int default_util_min;
++	struct uclamp_se *uc_se;
++
++	lockdep_assert_held(&p->pi_lock);
++
++	uc_se = &p->uclamp_req[UCLAMP_MIN];
++
++	/* Only sync if user didn't override the default */
++	if (uc_se->user_defined)
++		return;
++
++	default_util_min = sysctl_sched_uclamp_util_min_rt_default;
++	uclamp_se_set(uc_se, default_util_min, false);
++}
++
++static void uclamp_update_util_min_rt_default(struct task_struct *p)
++{
++	struct rq_flags rf;
++	struct rq *rq;
++
++	if (!rt_task(p))
++		return;
++
++	/* Protect updates to p->uclamp_* */
++	rq = task_rq_lock(p, &rf);
++	__uclamp_update_util_min_rt_default(p);
++	task_rq_unlock(rq, p, &rf);
++}
++
++static void uclamp_sync_util_min_rt_default(void)
++{
++	struct task_struct *g, *p;
++
++	/*
++	 * copy_process()			sysctl_uclamp
++	 *					  uclamp_min_rt = X;
++	 *   write_lock(&tasklist_lock)		  read_lock(&tasklist_lock)
++	 *   // link thread			  smp_mb__after_spinlock()
++	 *   write_unlock(&tasklist_lock)	  read_unlock(&tasklist_lock);
++	 *   sched_post_fork()			  for_each_process_thread()
++	 *     __uclamp_sync_rt()		    __uclamp_sync_rt()
++	 *
++	 * Ensures that either sched_post_fork() will observe the new
++	 * uclamp_min_rt or for_each_process_thread() will observe the new
++	 * task.
++	 */
++	read_lock(&tasklist_lock);
++	smp_mb__after_spinlock();
++	read_unlock(&tasklist_lock);
++
++	rcu_read_lock();
++	for_each_process_thread(g, p)
++		uclamp_update_util_min_rt_default(p);
++	rcu_read_unlock();
++}
++
++static inline struct uclamp_se
++uclamp_tg_restrict(struct task_struct *p, enum uclamp_id clamp_id)
++{
++	struct uclamp_se uc_req = p->uclamp_req[clamp_id];
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++	struct uclamp_se uc_max;
++
++	/*
++	 * Tasks in autogroups or root task group will be
++	 * restricted by system defaults.
++	 */
++	if (task_group_is_autogroup(task_group(p)))
++		return uc_req;
++	if (task_group(p) == &root_task_group)
++		return uc_req;
++
++	uc_max = task_group(p)->uclamp[clamp_id];
++	if (uc_req.value > uc_max.value || !uc_req.user_defined)
++		return uc_max;
++#endif
++
++	return uc_req;
++}
++
++/*
++ * The effective clamp bucket index of a task depends on, by increasing
++ * priority:
++ * - the task specific clamp value, when explicitly requested from userspace
++ * - the task group effective clamp value, for tasks not either in the root
++ *   group or in an autogroup
++ * - the system default clamp value, defined by the sysadmin
++ */
++static inline struct uclamp_se
++uclamp_eff_get(struct task_struct *p, enum uclamp_id clamp_id)
++{
++	struct uclamp_se uc_req = uclamp_tg_restrict(p, clamp_id);
++	struct uclamp_se uc_max = uclamp_default[clamp_id];
++
++	/* System default restrictions always apply */
++	if (unlikely(uc_req.value > uc_max.value))
++		return uc_max;
++
++	return uc_req;
++}
++
++unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id)
++{
++	struct uclamp_se uc_eff;
++
++	/* Task currently refcounted: use back-annotated (effective) value */
++	if (p->uclamp[clamp_id].active)
++		return (unsigned long)p->uclamp[clamp_id].value;
++
++	uc_eff = uclamp_eff_get(p, clamp_id);
++
++	return (unsigned long)uc_eff.value;
++}
++
++/*
++ * When a task is enqueued on a rq, the clamp bucket currently defined by the
++ * task's uclamp::bucket_id is refcounted on that rq. This also immediately
++ * updates the rq's clamp value if required.
++ *
++ * Tasks can have a task-specific value requested from user-space, track
++ * within each bucket the maximum value for tasks refcounted in it.
++ * This "local max aggregation" allows to track the exact "requested" value
++ * for each bucket when all its RUNNABLE tasks require the same clamp.
++ */
++static inline void uclamp_rq_inc_id(struct rq *rq, struct task_struct *p,
++				    enum uclamp_id clamp_id)
++{
++	struct uclamp_rq *uc_rq = &rq->uclamp[clamp_id];
++	struct uclamp_se *uc_se = &p->uclamp[clamp_id];
++	struct uclamp_bucket *bucket;
++
++	lockdep_assert_held(&rq->lock);
++
++	/* Update task effective clamp */
++	p->uclamp[clamp_id] = uclamp_eff_get(p, clamp_id);
++
++	bucket = &uc_rq->bucket[uc_se->bucket_id];
++	bucket->tasks++;
++	uc_se->active = true;
++
++	uclamp_idle_reset(rq, clamp_id, uc_se->value);
++
++	/*
++	 * Local max aggregation: rq buckets always track the max
++	 * "requested" clamp value of its RUNNABLE tasks.
++	 */
++	if (bucket->tasks == 1 || uc_se->value > bucket->value)
++		bucket->value = uc_se->value;
++
++	if (uc_se->value > READ_ONCE(uc_rq->value))
++		WRITE_ONCE(uc_rq->value, uc_se->value);
++}
++
++/*
++ * When a task is dequeued from a rq, the clamp bucket refcounted by the task
++ * is released. If this is the last task reference counting the rq's max
++ * active clamp value, then the rq's clamp value is updated.
++ *
++ * Both refcounted tasks and rq's cached clamp values are expected to be
++ * always valid. If it's detected they are not, as defensive programming,
++ * enforce the expected state and warn.
++ */
++static inline void uclamp_rq_dec_id(struct rq *rq, struct task_struct *p,
++				    enum uclamp_id clamp_id)
++{
++	struct uclamp_rq *uc_rq = &rq->uclamp[clamp_id];
++	struct uclamp_se *uc_se = &p->uclamp[clamp_id];
++	struct uclamp_bucket *bucket;
++	unsigned int bkt_clamp;
++	unsigned int rq_clamp;
++
++	lockdep_assert_held(&rq->lock);
++
++	/*
++	 * If sched_uclamp_used was enabled after task @p was enqueued,
++	 * we could end up with unbalanced call to uclamp_rq_dec_id().
++	 *
++	 * In this case the uc_se->active flag should be false since no uclamp
++	 * accounting was performed at enqueue time and we can just return
++	 * here.
++	 *
++	 * Need to be careful of the following enqeueue/dequeue ordering
++	 * problem too
++	 *
++	 *	enqueue(taskA)
++	 *	// sched_uclamp_used gets enabled
++	 *	enqueue(taskB)
++	 *	dequeue(taskA)
++	 *	// Must not decrement bukcet->tasks here
++	 *	dequeue(taskB)
++	 *
++	 * where we could end up with stale data in uc_se and
++	 * bucket[uc_se->bucket_id].
++	 *
++	 * The following check here eliminates the possibility of such race.
++	 */
++	if (unlikely(!uc_se->active))
++		return;
++
++	bucket = &uc_rq->bucket[uc_se->bucket_id];
++
++	SCHED_WARN_ON(!bucket->tasks);
++	if (likely(bucket->tasks))
++		bucket->tasks--;
++
++	uc_se->active = false;
++
++	/*
++	 * Keep "local max aggregation" simple and accept to (possibly)
++	 * overboost some RUNNABLE tasks in the same bucket.
++	 * The rq clamp bucket value is reset to its base value whenever
++	 * there are no more RUNNABLE tasks refcounting it.
++	 */
++	if (likely(bucket->tasks))
++		return;
++
++	rq_clamp = READ_ONCE(uc_rq->value);
++	/*
++	 * Defensive programming: this should never happen. If it happens,
++	 * e.g. due to future modification, warn and fixup the expected value.
++	 */
++	SCHED_WARN_ON(bucket->value > rq_clamp);
++	if (bucket->value >= rq_clamp) {
++		bkt_clamp = uclamp_rq_max_value(rq, clamp_id, uc_se->value);
++		WRITE_ONCE(uc_rq->value, bkt_clamp);
++	}
++}
++
++static inline void uclamp_rq_inc(struct rq *rq, struct task_struct *p)
++{
++	enum uclamp_id clamp_id;
++
++	/*
++	 * Avoid any overhead until uclamp is actually used by the userspace.
++	 *
++	 * The condition is constructed such that a NOP is generated when
++	 * sched_uclamp_used is disabled.
++	 */
++	if (!static_branch_unlikely(&sched_uclamp_used))
++		return;
++
++	if (unlikely(!p->sched_class->uclamp_enabled))
++		return;
++
++	for_each_clamp_id(clamp_id)
++		uclamp_rq_inc_id(rq, p, clamp_id);
++
++	/* Reset clamp idle holding when there is one RUNNABLE task */
++	if (rq->uclamp_flags & UCLAMP_FLAG_IDLE)
++		rq->uclamp_flags &= ~UCLAMP_FLAG_IDLE;
++}
++
++static inline void uclamp_rq_dec(struct rq *rq, struct task_struct *p)
++{
++	enum uclamp_id clamp_id;
++
++	/*
++	 * Avoid any overhead until uclamp is actually used by the userspace.
++	 *
++	 * The condition is constructed such that a NOP is generated when
++	 * sched_uclamp_used is disabled.
++	 */
++	if (!static_branch_unlikely(&sched_uclamp_used))
++		return;
++
++	if (unlikely(!p->sched_class->uclamp_enabled))
++		return;
++
++	for_each_clamp_id(clamp_id)
++		uclamp_rq_dec_id(rq, p, clamp_id);
++}
++
++static inline void
++uclamp_update_active(struct task_struct *p, enum uclamp_id clamp_id)
++{
++	struct rq_flags rf;
++	struct rq *rq;
++
++	/*
++	 * Lock the task and the rq where the task is (or was) queued.
++	 *
++	 * We might lock the (previous) rq of a !RUNNABLE task, but that's the
++	 * price to pay to safely serialize util_{min,max} updates with
++	 * enqueues, dequeues and migration operations.
++	 * This is the same locking schema used by __set_cpus_allowed_ptr().
++	 */
++	rq = task_rq_lock(p, &rf);
++
++	/*
++	 * Setting the clamp bucket is serialized by task_rq_lock().
++	 * If the task is not yet RUNNABLE and its task_struct is not
++	 * affecting a valid clamp bucket, the next time it's enqueued,
++	 * it will already see the updated clamp bucket value.
++	 */
++	if (!p->uclamp[clamp_id].active) {
++		uclamp_rq_dec_id(rq, p, clamp_id);
++		uclamp_rq_inc_id(rq, p, clamp_id);
++	}
++
++	task_rq_unlock(rq, p, &rf);
++}
++
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++static inline void
++uclamp_update_active_tasks(struct cgroup_subsys_state *css,
++			   unsigned int clamps)
++{
++	enum uclamp_id clamp_id;
++	struct css_task_iter it;
++	struct task_struct *p;
++
++	css_task_iter_start(css, 0, &it);
++	while ((p = css_task_iter_next(&it))) {
++		for_each_clamp_id(clamp_id) {
++			if ((0x1 << clamp_id) & clamps)
++				uclamp_update_active(p, clamp_id);
++		}
++	}
++	css_task_iter_end(&it);
++}
++
++static void cpu_util_update_eff(struct cgroup_subsys_state *css);
++static void uclamp_update_root_tg(void)
++{
++	struct task_group *tg = &root_task_group;
++
++	uclamp_se_set(&tg->uclamp_req[UCLAMP_MIN],
++		      sysctl_sched_uclamp_util_min, false);
++	uclamp_se_set(&tg->uclamp_req[UCLAMP_MAX],
++		      sysctl_sched_uclamp_util_max, false);
++
++	rcu_read_lock();
++	cpu_util_update_eff(&root_task_group.css);
++	rcu_read_unlock();
++}
++#else
++static void uclamp_update_root_tg(void) { }
++#endif
++
++int sysctl_sched_uclamp_handler(struct ctl_table *table, int write,
++				void *buffer, size_t *lenp, loff_t *ppos)
++{
++	bool update_root_tg = false;
++	int old_min, old_max, old_min_rt;
++	int result;
++
++	mutex_lock(&uclamp_mutex);
++	old_min = sysctl_sched_uclamp_util_min;
++	old_max = sysctl_sched_uclamp_util_max;
++	old_min_rt = sysctl_sched_uclamp_util_min_rt_default;
++
++	result = proc_dointvec(table, write, buffer, lenp, ppos);
++	if (result)
++		goto undo;
++	if (!write)
++		goto done;
++
++	if (sysctl_sched_uclamp_util_min > sysctl_sched_uclamp_util_max ||
++	    sysctl_sched_uclamp_util_max > SCHED_CAPACITY_SCALE	||
++	    sysctl_sched_uclamp_util_min_rt_default > SCHED_CAPACITY_SCALE) {
++
++		result = -EINVAL;
++		goto undo;
++	}
++
++	if (old_min != sysctl_sched_uclamp_util_min) {
++		uclamp_se_set(&uclamp_default[UCLAMP_MIN],
++			      sysctl_sched_uclamp_util_min, false);
++		update_root_tg = true;
++	}
++	if (old_max != sysctl_sched_uclamp_util_max) {
++		uclamp_se_set(&uclamp_default[UCLAMP_MAX],
++			      sysctl_sched_uclamp_util_max, false);
++		update_root_tg = true;
++	}
++
++	if (update_root_tg) {
++		static_branch_enable(&sched_uclamp_used);
++		uclamp_update_root_tg();
++	}
++
++	if (old_min_rt != sysctl_sched_uclamp_util_min_rt_default) {
++		static_branch_enable(&sched_uclamp_used);
++		uclamp_sync_util_min_rt_default();
++	}
++
++	/*
++	 * We update all RUNNABLE tasks only when task groups are in use.
++	 * Otherwise, keep it simple and do just a lazy update at each next
++	 * task enqueue time.
++	 */
++
++	goto done;
++
++undo:
++	sysctl_sched_uclamp_util_min = old_min;
++	sysctl_sched_uclamp_util_max = old_max;
++	sysctl_sched_uclamp_util_min_rt_default = old_min_rt;
++done:
++	mutex_unlock(&uclamp_mutex);
++
++	return result;
++}
++
++static int uclamp_validate(struct task_struct *p,
++			   const struct sched_attr *attr)
++{
++	unsigned int lower_bound = p->uclamp_req[UCLAMP_MIN].value;
++	unsigned int upper_bound = p->uclamp_req[UCLAMP_MAX].value;
++
++	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MIN)
++		lower_bound = attr->sched_util_min;
++	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MAX)
++		upper_bound = attr->sched_util_max;
++
++	if (lower_bound > upper_bound)
++		return -EINVAL;
++	if (upper_bound > SCHED_CAPACITY_SCALE)
++		return -EINVAL;
++
++	/*
++	 * We have valid uclamp attributes; make sure uclamp is enabled.
++	 *
++	 * We need to do that here, because enabling static branches is a
++	 * blocking operation which obviously cannot be done while holding
++	 * scheduler locks.
++	 */
++	static_branch_enable(&sched_uclamp_used);
++
++	return 0;
++}
++
++static void __setscheduler_uclamp(struct task_struct *p,
++				  const struct sched_attr *attr)
++{
++	enum uclamp_id clamp_id;
++
++	/*
++	 * On scheduling class change, reset to default clamps for tasks
++	 * without a task-specific value.
++	 */
++	for_each_clamp_id(clamp_id) {
++		struct uclamp_se *uc_se = &p->uclamp_req[clamp_id];
++
++		/* Keep using defined clamps across class changes */
++		if (uc_se->user_defined)
++			continue;
++
++		/*
++		 * RT by default have a 100% boost value that could be modified
++		 * at runtime.
++		 */
++		if (unlikely(rt_task(p) && clamp_id == UCLAMP_MIN))
++			__uclamp_update_util_min_rt_default(p);
++		else
++			uclamp_se_set(uc_se, uclamp_none(clamp_id), false);
++
++	}
++
++	if (likely(!(attr->sched_flags & SCHED_FLAG_UTIL_CLAMP)))
++		return;
++
++	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MIN) {
++		uclamp_se_set(&p->uclamp_req[UCLAMP_MIN],
++			      attr->sched_util_min, true);
++	}
++
++	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP_MAX) {
++		uclamp_se_set(&p->uclamp_req[UCLAMP_MAX],
++			      attr->sched_util_max, true);
++	}
++}
++
++static void uclamp_fork(struct task_struct *p)
++{
++	enum uclamp_id clamp_id;
++
++	/*
++	 * We don't need to hold task_rq_lock() when updating p->uclamp_* here
++	 * as the task is still at its early fork stages.
++	 */
++	for_each_clamp_id(clamp_id)
++		p->uclamp[clamp_id].active = false;
++
++	if (likely(!p->sched_reset_on_fork))
++		return;
++
++	for_each_clamp_id(clamp_id) {
++		uclamp_se_set(&p->uclamp_req[clamp_id],
++			      uclamp_none(clamp_id), false);
++	}
++}
++
++static void uclamp_post_fork(struct task_struct *p)
++{
++	uclamp_update_util_min_rt_default(p);
++}
++
++static void __init init_uclamp_rq(struct rq *rq)
++{
++	enum uclamp_id clamp_id;
++	struct uclamp_rq *uc_rq = rq->uclamp;
++
++	for_each_clamp_id(clamp_id) {
++		uc_rq[clamp_id] = (struct uclamp_rq) {
++			.value = uclamp_none(clamp_id)
++		};
++	}
++
++	rq->uclamp_flags = 0;
++}
++
++static void __init init_uclamp(void)
++{
++	struct uclamp_se uc_max = {};
++	enum uclamp_id clamp_id;
++	int cpu;
++
++	mutex_init(&uclamp_mutex);
++
++	for_each_possible_cpu(cpu)
++		init_uclamp_rq(cpu_rq(cpu));
++
++	for_each_clamp_id(clamp_id) {
++		uclamp_se_set(&init_task.uclamp_req[clamp_id],
++			      uclamp_none(clamp_id), false);
++	}
++
++	/* System defaults allow max clamp values for both indexes */
++	uclamp_se_set(&uc_max, uclamp_none(UCLAMP_MAX), false);
++	for_each_clamp_id(clamp_id) {
++		uclamp_default[clamp_id] = uc_max;
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++		root_task_group.uclamp_req[clamp_id] = uc_max;
++		root_task_group.uclamp[clamp_id] = uc_max;
++#endif
++	}
++}
++
++#else /* CONFIG_UCLAMP_TASK */
++static inline void uclamp_rq_inc(struct rq *rq, struct task_struct *p) { }
++static inline void uclamp_rq_dec(struct rq *rq, struct task_struct *p) { }
++static inline int uclamp_validate(struct task_struct *p,
++				  const struct sched_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++static void __setscheduler_uclamp(struct task_struct *p,
++				  const struct sched_attr *attr) { }
++static inline void uclamp_fork(struct task_struct *p) { }
++static inline void uclamp_post_fork(struct task_struct *p) { }
++static inline void init_uclamp(void) { }
++#endif /* CONFIG_UCLAMP_TASK */
++
+ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
+ {
+ 	if (!(flags & ENQUEUE_NOCLOCK))
+@@ -779,6 +1481,7 @@
+ 		psi_enqueue(p, flags & ENQUEUE_WAKEUP);
+ 	}
+ 
++	uclamp_rq_inc(rq, p);
+ 	p->sched_class->enqueue_task(rq, p, flags);
+ 	walt_update_last_enqueue(p);
+ 	trace_sched_enq_deq_task(p, 1, cpumask_bits(&p->cpus_allowed)[0]);
+@@ -794,6 +1497,7 @@
+ 		psi_dequeue(p, flags & DEQUEUE_SLEEP);
+ 	}
+ 
++	uclamp_rq_dec(rq, p);
+ 	p->sched_class->dequeue_task(rq, p, flags);
+ #ifdef CONFIG_SCHED_WALT
+ 	if (p == rq->ed_task)
+@@ -2493,6 +3197,8 @@
+ 	 */
+ 	p->prio = current->normal_prio;
+ 
++	uclamp_fork(p);
++
+ 	/*
+ 	 * Revert to default priority/policy on fork if requested.
+ 	 */
+@@ -2557,6 +3263,12 @@
+ 
+ 	put_cpu();
+ 	return 0;
++}
++
++/* Called after publication under tasklist_lock to synchronize RT defaults. */
++void sched_post_fork(struct task_struct *p)
++{
++	uclamp_post_fork(p);
+ }
+ 
+ unsigned long to_ratio(u64 period, u64 runtime)
+@@ -4182,6 +4894,13 @@
+ static void __setscheduler(struct rq *rq, struct task_struct *p,
+ 			   const struct sched_attr *attr, bool keep_boost)
+ {
++	/*
++	 * If params can't change scheduling class changes aren't allowed
++	 * either.
++	 */
++	if (attr->sched_flags & SCHED_FLAG_KEEP_PARAMS)
++		return;
++
+ 	__setscheduler_params(p, attr);
+ 
+ 	/*
+@@ -4244,8 +4963,7 @@
+ 			return -EINVAL;
+ 	}
+ 
+-	if (attr->sched_flags &
+-		~(SCHED_FLAG_RESET_ON_FORK | SCHED_FLAG_RECLAIM))
++	if (attr->sched_flags & ~SCHED_FLAG_ALL)
+ 		return -EINVAL;
+ 
+ 	/*
+@@ -4317,6 +5035,13 @@
+ 			return retval;
+ 	}
+ 
++	/* Update task specific "requested" clamps */
++	if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP) {
++		retval = uclamp_validate(p, attr);
++		if (retval)
++			return retval;
++	}
++
+ 	/*
+ 	 * Make sure no PI-waiters arrive (or leave) while we are
+ 	 * changing the priority of the task:
+@@ -4345,6 +5070,8 @@
+ 		if (rt_policy(policy) && attr->sched_priority != p->rt_priority)
+ 			goto change;
+ 		if (dl_policy(policy) && dl_param_changed(p, attr))
++			goto change;
++		if (attr->sched_flags & SCHED_FLAG_UTIL_CLAMP)
+ 			goto change;
+ 
+ 		p->sched_reset_on_fork = reset_on_fork;
+@@ -4425,7 +5152,9 @@
+ 		put_prev_task(rq, p);
+ 
+ 	prev_class = p->sched_class;
++
+ 	__setscheduler(rq, p, attr, pi);
++	__setscheduler_uclamp(p, attr);
+ 
+ 	if (queued) {
+ 		/*
+@@ -4648,6 +5377,10 @@
+ 	if (ret)
+ 		return -EFAULT;
+ 
++	if ((attr->sched_flags & SCHED_FLAG_UTIL_CLAMP) &&
++	    size < SCHED_ATTR_SIZE_VER1)
++		return -EINVAL;
++
+ 	/*
+ 	 * XXX: Do we want to be lenient like existing syscalls; or do we want
+ 	 * to be strict and return an error on out-of-bounds values?
+@@ -4711,13 +5444,20 @@
+ 
+ 	if ((int)attr.sched_policy < 0)
+ 		return -EINVAL;
++	if (attr.sched_flags & SCHED_FLAG_KEEP_POLICY)
++		attr.sched_policy = SETPARAM_POLICY;
+ 
+ 	rcu_read_lock();
+ 	retval = -ESRCH;
+ 	p = find_process_by_pid(pid);
+-	if (p != NULL)
++	if (likely(p))
++		get_task_struct(p);
++	rcu_read_unlock();
++
++	if (likely(p)) {
+ 		retval = sched_setattr(p, &attr);
+-	rcu_read_unlock();
++		put_task_struct(p);
++	}
+ 
+ 	return retval;
+ }
+@@ -4793,37 +5533,40 @@
+ 	return retval;
+ }
+ 
+-static int sched_read_attr(struct sched_attr __user *uattr,
+-			   struct sched_attr *attr,
+-			   unsigned int usize)
+-{
+-	int ret;
++/*
++ * Copy the kernel size attribute structure (which might be larger
++ * than what user-space knows about) to user-space.
++ *
++ * Note that all cases are valid: user-space buffer can be larger or
++ * smaller than the kernel-space buffer. The usual case is that both
++ * have the same size.
++ */
++static int
++sched_attr_copy_to_user(struct sched_attr __user *uattr,
++			struct sched_attr *kattr,
++			unsigned int usize)
++{
++	unsigned int ksize = sizeof(*kattr);
+ 
+ 	if (!access_ok(VERIFY_WRITE, uattr, usize))
+ 		return -EFAULT;
+ 
+ 	/*
+-	 * If we're handed a smaller struct than we know of,
+-	 * ensure all the unknown bits are 0 - i.e. old
+-	 * user-space does not get uncomplete information.
+-	 */
+-	if (usize < sizeof(*attr)) {
+-		unsigned char *addr;
+-		unsigned char *end;
+-
+-		addr = (void *)attr + usize;
+-		end  = (void *)attr + sizeof(*attr);
+-
+-		for (; addr < end; addr++) {
+-			if (*addr)
+-				return -EFBIG;
+-		}
+-
+-		attr->size = usize;
+-	}
+-
+-	ret = copy_to_user(uattr, attr, attr->size);
+-	if (ret)
++	 * sched_getattr() ABI forwards and backwards compatibility:
++	 *
++	 * If usize == ksize then we just copy everything to user-space and all is good.
++	 *
++	 * If usize < ksize then we only copy as much as user-space has space for,
++	 * this keeps ABI compatibility as well. We skip the rest.
++	 *
++	 * If usize > ksize then user-space is using a newer version of the ABI,
++	 * which part the kernel doesn't know about. Just ignore it - tooling can
++	 * detect the kernel's knowledge of attributes from the attr->size value
++	 * which is set to ksize in this case.
++	 */
++	kattr->size = min(usize, ksize);
++
++	if (copy_to_user(uattr, kattr, kattr->size))
+ 		return -EFAULT;
+ 
+ 	return 0;
+@@ -4833,20 +5576,18 @@
+  * sys_sched_getattr - similar to sched_getparam, but with sched_attr
+  * @pid: the pid in question.
+  * @uattr: structure containing the extended parameters.
+- * @size: sizeof(attr) for fwd/bwd comp.
++ * @usize: sizeof(attr) that user-space knows about, for forwards and backwards compatibility.
+  * @flags: for future extension.
+  */
+ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
+-		unsigned int, size, unsigned int, flags)
+-{
+-	struct sched_attr attr = {
+-		.size = sizeof(struct sched_attr),
+-	};
++		unsigned int, usize, unsigned int, flags)
++{
++	struct sched_attr kattr = { };
+ 	struct task_struct *p;
+ 	int retval;
+ 
+-	if (!uattr || pid < 0 || size > PAGE_SIZE ||
+-	    size < SCHED_ATTR_SIZE_VER0 || flags)
++	if (!uattr || pid < 0 || usize > PAGE_SIZE ||
++	    usize < SCHED_ATTR_SIZE_VER0 || flags)
+ 		return -EINVAL;
+ 
+ 	rcu_read_lock();
+@@ -4859,20 +5600,29 @@
+ 	if (retval)
+ 		goto out_unlock;
+ 
+-	attr.sched_policy = p->policy;
++	kattr.sched_policy = p->policy;
+ 	if (p->sched_reset_on_fork)
+-		attr.sched_flags |= SCHED_FLAG_RESET_ON_FORK;
++		kattr.sched_flags |= SCHED_FLAG_RESET_ON_FORK;
+ 	if (task_has_dl_policy(p))
+-		__getparam_dl(p, &attr);
++		__getparam_dl(p, &kattr);
+ 	else if (task_has_rt_policy(p))
+-		attr.sched_priority = p->rt_priority;
++		kattr.sched_priority = p->rt_priority;
+ 	else
+-		attr.sched_nice = task_nice(p);
++		kattr.sched_nice = task_nice(p);
++
++#ifdef CONFIG_UCLAMP_TASK
++	/*
++	 * This could race with another potential updater, but this is fine
++	 * because it'll correctly read the old or the new value. We don't need
++	 * to guarantee who wins the race as long as it doesn't return garbage.
++	 */
++	kattr.sched_util_min = p->uclamp_req[UCLAMP_MIN].value;
++	kattr.sched_util_max = p->uclamp_req[UCLAMP_MAX].value;
++#endif
+ 
+ 	rcu_read_unlock();
+ 
+-	retval = sched_read_attr(uattr, &attr, size);
+-	return retval;
++	return sched_attr_copy_to_user(uattr, &kattr, usize);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+@@ -6623,6 +7373,8 @@
+ 
+ 	psi_init();
+ 
++	init_uclamp();
++
+ 	scheduler_running = 1;
+ }
+ 
+@@ -6823,6 +7575,20 @@
+ /* task_group_lock serializes the addition/removal of task groups */
+ static DEFINE_SPINLOCK(task_group_lock);
+ 
++static inline void alloc_uclamp_sched_group(struct task_group *tg,
++					    struct task_group *parent)
++{
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++	enum uclamp_id clamp_id;
++
++	for_each_clamp_id(clamp_id) {
++		uclamp_se_set(&tg->uclamp_req[clamp_id],
++			      uclamp_none(clamp_id), false);
++		tg->uclamp[clamp_id] = parent->uclamp[clamp_id];
++	}
++#endif
++}
++
+ static void sched_free_group(struct task_group *tg)
+ {
+ 	free_fair_sched_group(tg);
+@@ -6845,6 +7611,8 @@
+ 
+ 	if (!alloc_rt_sched_group(tg, parent))
+ 		goto err;
++
++	alloc_uclamp_sched_group(tg, parent);
+ 
+ 	return tg;
+ 
+@@ -7208,6 +7976,201 @@
+ 	cgroup_taskset_for_each(task, css, tset)
+ 		sched_move_task(task);
+ }
++
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++static void cpu_util_update_eff(struct cgroup_subsys_state *css)
++{
++	struct cgroup_subsys_state *top_css = css;
++	struct uclamp_se *uc_parent = NULL;
++	struct uclamp_se *uc_se = NULL;
++	unsigned int eff[UCLAMP_CNT];
++	enum uclamp_id clamp_id;
++	unsigned int clamps;
++
++	css_for_each_descendant_pre(css, top_css) {
++		uc_parent = css_tg(css)->parent
++			? css_tg(css)->parent->uclamp : NULL;
++
++		for_each_clamp_id(clamp_id) {
++			/* Assume effective clamps matches requested clamps */
++			eff[clamp_id] = css_tg(css)->uclamp_req[clamp_id].value;
++			/* Cap effective clamps with parent's effective clamps */
++			if (uc_parent &&
++			    eff[clamp_id] > uc_parent[clamp_id].value) {
++				eff[clamp_id] = uc_parent[clamp_id].value;
++			}
++		}
++		/* Ensure protection is always capped by limit */
++		eff[UCLAMP_MIN] = min(eff[UCLAMP_MIN], eff[UCLAMP_MAX]);
++
++		/* Propagate most restrictive effective clamps */
++		clamps = 0x0;
++		uc_se = css_tg(css)->uclamp;
++		for_each_clamp_id(clamp_id) {
++			if (eff[clamp_id] == uc_se[clamp_id].value)
++				continue;
++			uc_se[clamp_id].value = eff[clamp_id];
++			uc_se[clamp_id].bucket_id = uclamp_bucket_id(eff[clamp_id]);
++			clamps |= (0x1 << clamp_id);
++		}
++		if (!clamps) {
++			css = css_rightmost_descendant(css);
++			continue;
++		}
++
++		/* Immediately update descendants RUNNABLE tasks */
++		uclamp_update_active_tasks(css, clamps);
++	}
++}
++
++/*
++ * Integer 10^N with a given N exponent by casting to integer the literal "1eN"
++ * C expression. Since there is no way to convert a macro argument (N) into a
++ * character constant, use two levels of macros.
++ */
++#define _POW10(exp) ((unsigned int)1e##exp)
++#define POW10(exp) _POW10(exp)
++
++struct uclamp_request {
++#define UCLAMP_PERCENT_SHIFT	2
++#define UCLAMP_PERCENT_SCALE	(100 * POW10(UCLAMP_PERCENT_SHIFT))
++	s64 percent;
++	u64 util;
++	int ret;
++};
++
++static inline struct uclamp_request
++capacity_from_percent(char *buf)
++{
++	struct uclamp_request req = {
++		.percent = UCLAMP_PERCENT_SCALE,
++		.util = SCHED_CAPACITY_SCALE,
++		.ret = 0,
++	};
++
++	buf = strim(buf);
++	if (strcmp(buf, "max")) {
++		req.ret = cgroup_parse_float(buf, UCLAMP_PERCENT_SHIFT,
++					     &req.percent);
++		if (req.ret)
++			return req;
++		if ((u64)req.percent > UCLAMP_PERCENT_SCALE) {
++			req.ret = -ERANGE;
++			return req;
++		}
++
++		req.util = req.percent << SCHED_CAPACITY_SHIFT;
++		req.util = DIV_ROUND_CLOSEST_ULL(req.util, UCLAMP_PERCENT_SCALE);
++	}
++
++	return req;
++}
++
++static ssize_t cpu_uclamp_write(struct kernfs_open_file *of, char *buf,
++				size_t nbytes, loff_t off,
++				enum uclamp_id clamp_id)
++{
++	struct uclamp_request req;
++	struct task_group *tg;
++
++	req = capacity_from_percent(buf);
++	if (req.ret)
++		return req.ret;
++
++	static_branch_enable(&sched_uclamp_used);
++
++	mutex_lock(&uclamp_mutex);
++	rcu_read_lock();
++
++	tg = css_tg(of_css(of));
++	if (tg->uclamp_req[clamp_id].value != req.util)
++		uclamp_se_set(&tg->uclamp_req[clamp_id], req.util, false);
++
++	/*
++	 * Because of not recoverable conversion rounding we keep track of the
++	 * exact requested value
++	 */
++	tg->uclamp_pct[clamp_id] = req.percent;
++
++	/* Update effective clamps to track the most restrictive value */
++	cpu_util_update_eff(of_css(of));
++
++	rcu_read_unlock();
++	mutex_unlock(&uclamp_mutex);
++
++	return nbytes;
++}
++
++static ssize_t cpu_uclamp_min_write(struct kernfs_open_file *of,
++				    char *buf, size_t nbytes,
++				    loff_t off)
++{
++	return cpu_uclamp_write(of, buf, nbytes, off, UCLAMP_MIN);
++}
++
++static ssize_t cpu_uclamp_max_write(struct kernfs_open_file *of,
++				    char *buf, size_t nbytes,
++				    loff_t off)
++{
++	return cpu_uclamp_write(of, buf, nbytes, off, UCLAMP_MAX);
++}
++
++static inline void cpu_uclamp_print(struct seq_file *sf,
++				    enum uclamp_id clamp_id)
++{
++	struct task_group *tg;
++	u64 util_clamp;
++	u64 percent;
++	u32 rem;
++
++	rcu_read_lock();
++	tg = css_tg(seq_css(sf));
++	util_clamp = tg->uclamp_req[clamp_id].value;
++	rcu_read_unlock();
++
++	if (util_clamp == SCHED_CAPACITY_SCALE) {
++		seq_puts(sf, "max\n");
++		return;
++	}
++
++	percent = tg->uclamp_pct[clamp_id];
++	percent = div_u64_rem(percent, POW10(UCLAMP_PERCENT_SHIFT), &rem);
++	seq_printf(sf, "%llu.%0*u\n", percent, UCLAMP_PERCENT_SHIFT, rem);
++}
++
++static int cpu_uclamp_min_show(struct seq_file *sf, void *v)
++{
++	cpu_uclamp_print(sf, UCLAMP_MIN);
++	return 0;
++}
++
++static int cpu_uclamp_max_show(struct seq_file *sf, void *v)
++{
++	cpu_uclamp_print(sf, UCLAMP_MAX);
++	return 0;
++}
++
++static int cpu_uclamp_ls_write_u64(struct cgroup_subsys_state *css,
++				   struct cftype *cftype, u64 ls)
++{
++	struct task_group *tg;
++
++	if (ls > 1)
++		return -EINVAL;
++	tg = css_tg(css);
++	tg->latency_sensitive = (unsigned int) ls;
++
++	return 0;
++}
++
++static u64 cpu_uclamp_ls_read_u64(struct cgroup_subsys_state *css,
++				  struct cftype *cft)
++{
++	struct task_group *tg = css_tg(css);
++
++	return (u64) tg->latency_sensitive;
++}
++#endif /* CONFIG_UCLAMP_TASK_GROUP */
+ 
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+ static int cpu_shares_write_u64(struct cgroup_subsys_state *css,
+@@ -7539,6 +8502,26 @@
+ 		.write_u64 = cpu_rt_period_write_uint,
+ 	},
+ #endif
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++	{
++		.name = "uclamp.min",
++		.flags = CFTYPE_NOT_ON_ROOT,
++		.seq_show = cpu_uclamp_min_show,
++		.write = cpu_uclamp_min_write,
++	},
++	{
++		.name = "uclamp.max",
++		.flags = CFTYPE_NOT_ON_ROOT,
++		.seq_show = cpu_uclamp_max_show,
++		.write = cpu_uclamp_max_write,
++	},
++	{
++		.name = "uclamp.latency_sensitive",
++		.flags = CFTYPE_NOT_ON_ROOT,
++		.read_u64 = cpu_uclamp_ls_read_u64,
++		.write_u64 = cpu_uclamp_ls_write_u64,
++	},
++#endif
+ 	{ }	/* Terminate */
+ };
+ 
+diff --git a/kernel/sched/cpufreq_schedutil.c b/kernel/sched/cpufreq_schedutil.c
+--- a/kernel/sched/cpufreq_schedutil.c
++++ b/kernel/sched/cpufreq_schedutil.c
+@@ -308,6 +308,7 @@
+ 	*max = cfs_max;
+ 
+ 	*util = boosted_cpu_util(cpu, &loadcpu->walt_load);
++	*util = uclamp_util_with(rq, *util, NULL);
+ }
+ 
+ static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -12729,6 +12729,10 @@
+ #ifdef CONFIG_SCHED_WALT
+ 	.fixup_walt_sched_stats	= walt_fixup_sched_stats_fair,
+ #endif
++
++#ifdef CONFIG_UCLAMP_TASK
++	.uclamp_enabled		= 1,
++#endif
+ };
+ 
+ #ifdef CONFIG_SCHED_DEBUG
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -2631,6 +2631,10 @@
+ #ifdef CONFIG_SCHED_WALT
+ 	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
+ #endif
++
++#ifdef CONFIG_UCLAMP_TASK
++	.uclamp_enabled		= 1,
++#endif
+ };
+ 
+ #ifdef CONFIG_RT_GROUP_SCHED
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -406,6 +406,18 @@
+ #endif
+ 
+ 	struct cfs_bandwidth cfs_bandwidth;
++
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++	/* The two decimal precision [%] value requested from user-space */
++	unsigned int		uclamp_pct[UCLAMP_CNT];
++	/* Clamp values requested for a task group */
++	struct uclamp_se	uclamp_req[UCLAMP_CNT];
++	/* Effective clamp values used for a task group */
++	struct uclamp_se	uclamp[UCLAMP_CNT];
++	/* Latency-sensitive flag used for a task group */
++	unsigned int		latency_sensitive;
++#endif
++
+ };
+ 
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+@@ -770,6 +782,50 @@
+ #endif
+ #endif /* CONFIG_SMP */
+ 
++#ifdef CONFIG_UCLAMP_TASK
++/*
++ * struct uclamp_bucket - Utilization clamp bucket
++ * @value: utilization clamp value for tasks on this clamp bucket
++ * @tasks: number of RUNNABLE tasks on this clamp bucket
++ *
++ * Keep track of how many tasks are RUNNABLE for a given utilization
++ * clamp value.
++ */
++struct uclamp_bucket {
++	unsigned long value : bits_per(SCHED_CAPACITY_SCALE);
++	unsigned long tasks : BITS_PER_LONG - bits_per(SCHED_CAPACITY_SCALE);
++};
++
++/*
++ * struct uclamp_rq - rq's utilization clamp
++ * @value: currently active clamp values for a rq
++ * @bucket: utilization clamp buckets affecting a rq
++ *
++ * Keep track of RUNNABLE tasks on a rq to aggregate their clamp values.
++ * A clamp value is affecting a rq when there is at least one task RUNNABLE
++ * (or actually running) with that value.
++ *
++ * There are up to UCLAMP_CNT possible different clamp values, currently there
++ * are only two: minimum utilization and maximum utilization.
++ *
++ * All utilization clamping values are MAX aggregated, since:
++ * - for util_min: we want to run the CPU at least at the max of the minimum
++ *   utilization required by its currently RUNNABLE tasks.
++ * - for util_max: we want to allow the CPU to run up to the max of the
++ *   maximum utilization allowed by its currently RUNNABLE tasks.
++ *
++ * Since on each system we expect only a limited number of different
++ * utilization clamp values (UCLAMP_BUCKETS), use a simple array to track
++ * the metrics required to compute all the per-rq utilization clamp values.
++ */
++struct uclamp_rq {
++	unsigned int value;
++	struct uclamp_bucket bucket[UCLAMP_BUCKETS];
++};
++
++DECLARE_STATIC_KEY_FALSE(sched_uclamp_used);
++#endif /* CONFIG_UCLAMP_TASK */
++
+ /*
+  * This is the main, per-CPU runqueue data structure.
+  *
+@@ -807,6 +863,12 @@
+ 	unsigned long nr_load_updates;
+ 	u64 nr_switches;
+ 
++#ifdef CONFIG_UCLAMP_TASK
++	/* Utilization clamp values based on CPU's RUNNABLE tasks */
++	struct uclamp_rq	uclamp[UCLAMP_CNT] ____cacheline_aligned;
++	unsigned int		uclamp_flags;
++#define UCLAMP_FLAG_IDLE 0x01
++#endif
+ 	struct cfs_rq cfs;
+ 	struct rt_rq rt;
+ 	struct dl_rq dl;
+@@ -1662,6 +1724,10 @@
+ struct sched_class {
+ 	const struct sched_class *next;
+ 
++#ifdef CONFIG_UCLAMP_TASK
++	int uclamp_enabled;
++#endif
++
+ 	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int flags);
+ 	void (*dequeue_task) (struct rq *rq, struct task_struct *p, int flags);
+ 	void (*yield_task) (struct rq *rq);
+@@ -2531,6 +2597,104 @@
+ #else
+ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
+ #endif /* CONFIG_CPU_FREQ */
++
++#ifdef CONFIG_UCLAMP_TASK
++unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
++
++/**
++ * uclamp_rq_util_with - clamp @util with @rq and @p effective uclamp values.
++ * @rq:		The rq to clamp against. Must not be NULL.
++ * @util:	The util value to clamp.
++ * @p:		The task to clamp against. Can be NULL if you want to clamp
++ *		against @rq only.
++ *
++ * Clamps the passed @util to the max(@rq, @p) effective uclamp values.
++ *
++ * If sched_uclamp_used static key is disabled, then just return the util
++ * without any clamping since uclamp aggregation at the rq level in the fast
++ * path is disabled, rendering this operation a NOP.
++ *
++ * Use uclamp_eff_value() if you don't care about uclamp values at rq level. It
++ * will return the correct effective uclamp value of the task even if the
++ * static key is disabled.
++ */
++static __always_inline
++unsigned long uclamp_util_with(struct rq *rq, unsigned long util,
++			       struct task_struct *p)
++{
++	unsigned long min_util;
++	unsigned long max_util;
++
++	if (!static_branch_likely(&sched_uclamp_used))
++		return util;
++
++	min_util = READ_ONCE(rq->uclamp[UCLAMP_MIN].value);
++	max_util = READ_ONCE(rq->uclamp[UCLAMP_MAX].value);
++
++	if (p) {
++		min_util = max(min_util, uclamp_eff_value(p, UCLAMP_MIN));
++		max_util = max(max_util, uclamp_eff_value(p, UCLAMP_MAX));
++	}
++
++	/*
++	 * Since CPU's {min,max}_util clamps are MAX aggregated considering
++	 * RUNNABLE tasks with _different_ clamps, we can end up with an
++	 * inversion. Fix it now when the clamps are applied.
++	 */
++	if (unlikely(min_util >= max_util))
++		return min_util;
++
++	return clamp(util, min_util, max_util);
++}
++
++/*
++ * When uclamp is compiled in, the aggregation at rq level is 'turned off'
++ * by default in the fast path and only gets turned on once userspace performs
++ * an operation that requires it.
++ *
++ * Returns true if userspace opted-in to use uclamp and aggregation at rq level
++ * hence is active.
++ */
++static inline bool uclamp_is_used(void)
++{
++	return static_branch_likely(&sched_uclamp_used);
++}
++
++static inline bool uclamp_boosted(struct task_struct *p)
++{
++	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
++}
++#else /* CONFIG_UCLAMP_TASK */
++static inline unsigned long uclamp_util_with(struct rq *rq, unsigned long util,
++					     struct task_struct *p)
++{
++	return util;
++}
++
++static inline bool uclamp_is_used(void)
++{
++	return false;
++}
++#endif /* CONFIG_UCLAMP_TASK */
++
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++static inline bool uclamp_latency_sensitive(struct task_struct *p)
++{
++	struct cgroup_subsys_state *css = task_css(p, cpu_cgrp_id);
++	struct task_group *tg;
++
++	if (!css)
++		return false;
++	tg = container_of(css, struct task_group, css);
++
++	return tg->latency_sensitive;
++}
++#else
++static inline bool uclamp_latency_sensitive(struct task_struct *p)
++{
++	return false;
++}
++#endif /* CONFIG_UCLAMP_TASK_GROUP */
+ 
+ #ifdef CONFIG_SCHED_WALT
+ 
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -665,6 +665,29 @@
+ 		.mode		= 0644,
+ 		.proc_handler	= sched_rr_handler,
+ 	},
++#ifdef CONFIG_UCLAMP_TASK
++	{
++		.procname	= "sched_util_clamp_min",
++		.data		= &sysctl_sched_uclamp_util_min,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= sysctl_sched_uclamp_handler,
++	},
++	{
++		.procname	= "sched_util_clamp_max",
++		.data		= &sysctl_sched_uclamp_util_max,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= sysctl_sched_uclamp_handler,
++	},
++	{
++		.procname	= "sched_util_clamp_min_rt_default",
++		.data		= &sysctl_sched_uclamp_util_min_rt_default,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= sysctl_sched_uclamp_handler,
++	},
++#endif
+ #ifdef CONFIG_SCHED_AUTOGROUP
+ 	{
+ 		.procname	= "sched_autogroup_enabled",

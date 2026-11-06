@@ -1,0 +1,128 @@
+name: "Synthetica 2.0 experiment — compile evidence, DO NOT FLASH"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica2-experimental.yml'
+      - 'build-kit/ci/synthetica2-experimental/**'
+      - 'build-kit/scripts/build_synthetica2_experimental.py'
+      - 'tests/test_synthetica2_experimental.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetica2-experimental-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang18, neutron]
+    steps:
+      - name: Check out triggering commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install host tools and baseline LLVM 18
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-18 lld-18 llvm-18 \
+            gcc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler \
+            cpio lz4 xz-utils zstd python3 patch openssl zip rsync git curl binutils kmod
+          clang-18 --version
+          ld.lld-18 --version
+
+      - name: Download and verify pinned Neutron release
+        if: matrix.compiler == 'neutron'
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
+          curl --fail --location --retry 3 \
+            --output "$archive" \
+            https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
+          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
+          test "$(stat -c %s "$archive")" = 77768187
+          mkdir "$RUNNER_TEMP/neutron"
+          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
+          test -x "$RUNNER_TEMP/neutron/bin/clang"
+          test -x "$RUNNER_TEMP/neutron/bin/ld.lld"
+          # Do not pipe through head: a glibc/exec error must fail this step.
+          "$RUNNER_TEMP/neutron/bin/clang" --version
+          "$RUNNER_TEMP/neutron/bin/ld.lld" --version
+          echo "S2X_TOOLCHAIN_BIN=$RUNNER_TEMP/neutron/bin" >> "$GITHUB_ENV"
+
+      - name: Select baseline LLVM 18
+        if: matrix.compiler == 'clang18'
+        run: echo 'S2X_TOOLCHAIN_BIN=/usr/lib/llvm-18/bin' >> "$GITHUB_ENV"
+
+      - name: Run host safeguards
+        run: python3 -m unittest discover -s tests -p 'test_synthetica2_experimental.py' -v
+
+      - name: Prepare isolated 2.0 kit
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica2_experimental.py prepare \
+            --source build-kit \
+            --destination "$RUNNER_TEMP/s2x-kit" \
+            --baseline artifacts/generated.config.txt
+
+      - name: Compile kernel and same-build modules without any installer
+        env:
+          SP_JOBS: '4'
+          SP_RELEASE_VERSION: '2.0-exp'
+          SP_PROFILE: synthetica
+          SP_BUILD_NAME: Synthetica
+          SP_BUILD_KVER: '2.0-exp'
+          SP_EXPECT_RELEASE: 4.14.357-openela-Synthetica-2.0-exp
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          export SP_WORK_DIR="$RUNNER_TEMP/s2x-work"
+          export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica2_experimental.py"
+          export S2X_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          python3 "$RUNNER_TEMP/s2x-kit/scripts/build_chronicle_base.py"
+
+      - name: Verify image, config, manager identity and same-build modules
+        env:
+          COMPILER_KIND: ${{ matrix.compiler }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "$COMPILER_KIND" = neutron ]; then
+            extra+=(--neutron-archive "$RUNNER_TEMP/neutron-clang-06092026.tar.zst")
+          fi
+          python3 build-kit/scripts/build_synthetica2_experimental.py finish \
+            --kit "$RUNNER_TEMP/s2x-kit" \
+            --out "$RUNNER_TEMP/s2x-work/tree/out-synthetica" \
+            --baseline artifacts/generated.config.txt \
+            --result "$RUNNER_TEMP/s2x-result" \
+            --compiler "$COMPILER_KIND" --toolchain-bin "$S2X_TOOLCHAIN_BIN" "${extra[@]}"
+
+      - name: Upload compile-only evidence (no installer or keys)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Synthetica-2.0-${{ matrix.compiler }}-DO-NOT-FLASH-${{ github.run_id }}
+          path: ${{ runner.temp }}/s2x-result/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Preserve diagnostic log on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Synthetica-2.0-${{ matrix.compiler }}-FAILED-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s2x-kit/artifacts/build.log
+            ${{ runner.temp }}/s2x-kit/artifacts/FAILED.txt
+          if-no-files-found: warn
+          retention-days: 7
