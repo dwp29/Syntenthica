@@ -1,4 +1,4 @@
-name: Inspect user-provided Lunaris artifact metadata (temporary)
+name: Inspect user-provided Lunaris reference images (temporary)
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
@@ -6,59 +6,101 @@ on:
 permissions:
   contents: read
 jobs:
-  metadata:
+  reference-images:
     runs-on: ubuntu-24.04
-    timeout-minutes: 6
+    timeout-minutes: 25
     steps:
-      - name: Inspect public boot-image download metadata without downloading
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Download only the published public reference images and verify checksums
         run: |
           set -euo pipefail
           npm install --prefix "$RUNNER_TEMP/browser" --no-audit --no-fund playwright-core@1.57.0
           export CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
           node <<'JS'
           const { chromium } = require(process.env.RUNNER_TEMP + '/browser/node_modules/playwright-core');
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const path = require('path');
+          const images = [
+            ['e7kIkBT9','boot.img',134217728,'ed5b0fb6722fc0782058e5c244200307a460a8ba406cc06a82f024958c045720'],
+            ['Ez6gwq3e','dtbo.img',8388608,'a3f3ea20889cdd8bf035da1a96b73ef99753f8e1ecd67e4fae846ca072792991'],
+            ['yj1C9b7I','vbmeta.img',65536,'29906aa8bdf3c0c1abdd37e1c5559b509d2a72ffa719c26dabffc825cab9a831'],
+          ];
+          async function digest(file) {
+            return new Promise((resolve, reject) => {
+              const h = crypto.createHash('sha256'), stream = fs.createReadStream(file);
+              stream.on('data', x => h.update(x)); stream.on('error', reject); stream.on('end', () => resolve(h.digest('hex'));
+            });
+          }
           (async () => {
             const browser = await chromium.launch({executablePath: process.env.CHROME, headless: true, args: ['--no-sandbox']});
-            const context = await browser.newContext({acceptDownloads: false});
+            const context = await browser.newContext({acceptDownloads: true});
             const page = await context.newPage();
-            const requests = [], apiMetadata = [];
-            page.on('response', async response => {
-              const u = new URL(response.url());
-              if (u.hostname.endsWith('gofile.io') && !u.pathname.includes('/dist/')) {
-                requests.push({path: u.origin + u.pathname, status: response.status(), type: response.headers()['content-type']});
-                if (u.pathname.startsWith('/contents/') && (response.headers()['content-type'] || '').includes('json')) {
-                  try {
-                    const o = await response.json();
-                    function walk(value) {
-                      if (!value || typeof value !== 'object') return;
-                      if (value.name && (value.type || value.size)) apiMetadata.push({name: value.name, type: value.type, size: value.size, host: value.link ? new URL(value.link).hostname : null});
-                      for (const x of Object.values(value)) walk(x);
-                    }
-                    walk(o);
-                  } catch (_) {}
-                }
-              }
-            });
-            await page.route('**/*', route => {
-              const u = new URL(route.request().url());
-              if (/\.(zip|img|bin)(?:$|\/)/i.test(u.pathname)) return route.abort();
-              return route.continue();
-            });
-            await page.goto('https://gofile.io/d/e7kIkBT9', {waitUntil: 'domcontentloaded', timeout: 60000});
-            await page.waitForTimeout(9000);
-            const details = await page.evaluate(() => ({
-              title: document.title,
-              text: document.body.innerText.slice(0, 6000),
-              links: Array.from(document.querySelectorAll('a[href]')).map(x => ({text: x.innerText, href: x.href.split('?')[0], title: x.title})).slice(0, 80),
-              buttons: Array.from(document.querySelectorAll('button')).map(x => ({text: x.innerText, label: x.getAttribute('aria-label'), title: x.title})).slice(0, 80)
-            }));
-            details.responses = requests.slice(0, 80);
-            details.apiMetadata = apiMetadata;
-            const text = JSON.stringify(details, null, 2);
-            for (let i=0; i<Math.min(text.length, 12000); i+=2200) {
-              const part = text.slice(i,i+2200).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A');
-              console.log(`::notice title=GoFile metadata ${1+i/2200}::${part}`);
+            for (const [id, name, size, sha] of images) {
+              await page.goto('https://gofile.io/d/' + id, {waitUntil: 'domcontentloaded', timeout: 60000});
+              await page.getByRole('button', {name:'Download', exact:true}).waitFor({timeout:60000});
+              const [download] = await Promise.all([
+                page.waitForEvent('download', {timeout:90000}),
+                page.getByRole('button', {name:'Download', exact:true}).click()
+              ]);
+              if (download.suggestedFilename() !== name) { await download.cancel(); throw Error('unexpected reference filename'); }
+              const file = path.join(process.env.RUNNER_TEMP, name);
+              await download.saveAs(file);
+              if (fs.statSync(file).size !== size || await digest(file) !== sha) throw Error('reference image size or digest mismatch: ' + name);
+              console.log('Verified published SHA-256 and size for ' + name);
             }
             await browser.close();
           })().catch(e => { console.error(e.message); process.exit(1); });
           JS
+      - name: Inspect existing images read-only; do not flash or repackage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, json, os, re, struct, zlib
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          temp = Path(os.environ['RUNNER_TEMP'])
+          spec = importlib.util.spec_from_file_location('boot_audit', root / 'build-kit/scripts/audit_synthetica3_boot.py')
+          audit = importlib.util.module_from_spec(spec); spec.loader.exec_module(audit)
+          boot, dtbo = audit.inspect_boot(temp / 'boot.img'), audit.inspect_dtbo(temp / 'dtbo.img')
+          with (temp / 'boot.img').open('rb') as f:
+              f.seek(boot['sections']['kernel']['offset']); kernel = f.read(boot['sections']['kernel']['bytes'])
+          version = None
+          trailing_bytes = None
+          if kernel[:2] == b'\x1f\x8b':
+              decompress = zlib.decompressobj(16 + zlib.MAX_WBITS)
+              raw = decompress.decompress(kernel, 256 * 1024 * 1024 + 1)
+              if len(raw) > 256 * 1024 * 1024 or not decompress.eof: raise ValueError('reference kernel gzip exceeds bounds')
+              match = re.search(rb'Linux version [^\x00\n]{1,200}', raw)
+              version = match.group(0).decode('ascii', 'replace') if match else None
+              trailing_bytes = len(decompress.unused_data)
+          data = (temp / 'vbmeta.img').read_bytes()
+          if data[:4] != b'AVB0' or len(data) != 65536: raise ValueError('unexpected vbmeta image')
+          vbmeta = {'sha256': '29906aa8bdf3c0c1abdd37e1c5559b509d2a72ffa719c26dabffc825cab9a831',
+                    'algorithm_id': struct.unpack_from('>I', data, 28)[0],
+                    'flags': struct.unpack_from('>I', data, 120)[0],
+                    'scope': 'Header only; no signature, trust, or bootloader verification'}
+          result = {'reference_rom': 'Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303',
+                    'published_image_hashes_match_downloads': True,
+                    'boot': boot, 'kernel_version_banner': version, 'kernel_gzip_trailing_bytes': trailing_bytes,
+                    'dtbo': dtbo, 'vbmeta_header': vbmeta,
+                    'scope': 'Read-only published image audit; installed-device identity, ROM modules, runtime and trust remain unverified'}
+          (temp / 'rom-reference-audit.json').write_text(json.dumps(result, indent=2) + '\n')
+          summary = {'boot_sha256': boot['file_sha256'], 'boot_header_version': boot['header_version'],
+                     'boot_page_size': boot['page_size'], 'boot_kernel_bytes': boot['sections']['kernel']['bytes'],
+                     'boot_ramdisk_format': boot['ramdisk_format_guess'], 'boot_dtb_bytes': boot['sections']['dtb']['bytes'],
+                     'boot_avb_footer': boot['avb']['footer_at_end'], 'kernel_version_banner': version,
+                     'kernel_gzip_trailing_bytes': trailing_bytes, 'dtbo_sha256': dtbo['file_sha256'],
+                     'dtbo_entries': dtbo['entry_count'], 'dtbo_avb_footer': dtbo['avb']['footer_at_end'],
+                     'vbmeta_header': vbmeta, 'scope': result['scope']}
+          print('::notice title=ROM reference image audit::' + json.dumps(summary).replace('%','%25').replace('\n','%0A'))
+          PY
+      - name: Upload structural audit only (no ROM images)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Lunaris-3.13-public-reference-images-audit-${{ github.run_id }}
+          path: ${{ runner.temp }}/rom-reference-audit.json
+          if-no-files-found: error
+          retention-days: 7
