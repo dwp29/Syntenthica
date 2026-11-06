@@ -40,8 +40,17 @@ toolchain yang dipilih. Build ulang `42241223420` mencapai kompilasi dengan
 kedua compiler tetapi gagal pada callback `pagewalk` donor dan penggunaan
 `clamp()` dengan bit-field Uclamp; keduanya dikoreksi di patch lanjutan. Kode
 build awal juga mengandung bug accounting Uclamp yang dikoreksi. Jangan gunakan
-artefak dari kedua run yang gagal; hasil berikutnya belum dapat dianggap berhasil
-sampai CI melaporkan kompilasi dan verifikasi lolos.
+artefak dari kedua run tersebut.
+
+Pada run `42241943772` (commit `eb64744`), build LLVM 18 **lulus kompilasi dan
+pemeriksaan statis**; Neutron gagal pada konversi enum di driver Wi-Fi. Patch
+berikutnya memberikan cast eksplisit yang mempertahankan nilai error yang sudah
+ada, tanpa mematikan pemeriksaan compiler. Hasil Neutron setelah patch tersebut
+masih harus diverifikasi oleh run berikutnya. Artifact LLVM 18 hanya bukti build,
+bukan installer dan bukan bukti aman untuk flash:
+`Synthetica-2.0-clang18-DO-NOT-FLASH-42241943772`, digest arsip SHA-256
+`dee0be086e8eb3de86b8d0ee105157eb322726d66615e585ce503bd7007f59e7`
+(retensi CI 7 hari).
 
 ## Sumber dan reproduksi
 

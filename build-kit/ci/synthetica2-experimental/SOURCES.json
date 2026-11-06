@@ -244,5 +244,12 @@
     "purpose": "Remove duplicate upstream ops hook; this 4.14 tree uses the walk->p4d_entry callback",
     "patch": "patches/0005-mglru-pagewalk-caf.patch",
     "sha256": "7471c88af6e044b7cbc257357474b7be66c31a70ba6633ebab3f59233f5765c8"
+  },
+  "neutron_enum_fix": {
+    "repository": "Saamitk/kernel_xiaomi_sm6250-switchoff",
+    "base_commit": "c1e6f795b557b7bf92220c91f05a42b456de7a74",
+    "purpose": "Explicit QDF_STATUS cast of the existing A_ERROR value: silence Clang 24 enum conversion error without changing numeric return",
+    "patch": "patches/0006-neutron-enum-cast.patch",
+    "sha256": "4bb35593edd0ff9d815a7d9c2c8573747ed913807fb0f3e8711238c743690156"
   }
 }

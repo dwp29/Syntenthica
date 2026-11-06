@@ -99,6 +99,25 @@ class PatchSafetyTests(unittest.TestCase):
         self.assertIn("-\t\tif (ops->p4d_entry) {", fix)
         self.assertIn(" \t\t\terr = walk->p4d_entry(p4d, addr, next, walk);", fix)
 
+    def test_neutron_enum_fix_preserves_the_existing_error_value(self):
+        patch = (s2x.INPUTS / "patches/0006-neutron-enum-cast.patch").read_text()
+        self.assertIn("-\t\treturn A_ERROR;", patch)
+        self.assertIn("+\t\treturn (QDF_STATUS)A_ERROR;", patch)
+        self.assertNotIn("Wno-error", patch)
+        code = r"""
+#include <assert.h>
+typedef enum { A_ERROR = -1, A_OK = 0 } A_STATUS;
+typedef enum { QDF_STATUS_SUCCESS, QDF_STATUS_E_RESOURCES } QDF_STATUS;
+static QDF_STATUS old_return(void) { return A_ERROR; }
+static QDF_STATUS cast_return(void) { return (QDF_STATUS)A_ERROR; }
+int main(void) { assert(old_return() == cast_return()); return 0; }
+"""
+        with tempfile.TemporaryDirectory(prefix="s2x-enum-c-") as temp:
+            src, binary = Path(temp) / "test.c", Path(temp) / "test"
+            src.write_text(code)
+            subprocess.run(["gcc", "-std=c99", str(src), "-o", str(binary)], check=True)
+            subprocess.run([str(binary)], check=True)
+
     def test_uclamp_fix_executes_active_idle_and_group_corner_cases(self):
         # Compile the *actual newly patched C function bodies* against small
         # controlled stubs. This is not a kernel, concurrency, or device test.
@@ -208,6 +227,8 @@ int main(void) {
             pagewalk = (tree / "mm/pagewalk.c").read_text()
             self.assertNotIn("ops->p4d_entry", pagewalk)
             self.assertEqual(pagewalk.count("err = walk->p4d_entry(p4d, addr, next, walk);"), 1)
+            ce = (tree / "drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_main.c").read_text()
+            self.assertEqual(ce.count("return (QDF_STATUS)A_ERROR;"), 1)
             self.assertIn("sched_post_fork(p);", fork)
             self.assertIn("$(KCONFIG_CONFIG) FORCE", (tree / "kernel/Makefile").read_text())
             duplicate = subprocess.run(

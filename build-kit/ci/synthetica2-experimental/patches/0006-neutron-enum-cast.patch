@@ -1,0 +1,13 @@
+diff --git a/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_main.c b/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_main.c
+--- a/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_main.c
++++ b/drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_main.c
+@@ -2132,7 +2132,8 @@
+ 
+ 	if (qdf_unlikely(!ce_hdl)) {
+ 		HIF_ERROR("%s: error CE handle is null", __func__);
+-		return A_ERROR;
++		/* Preserve the existing A_ERROR return value across enum types. */
++		return (QDF_STATUS)A_ERROR;
+ 	}
+ 
+ 	QDF_NBUF_UPDATE_TX_PKT_COUNT(nbuf, QDF_NBUF_TX_PKT_HIF);
