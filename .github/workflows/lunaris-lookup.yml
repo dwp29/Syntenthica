@@ -1,0 +1,36 @@
+name: Inspect user-provided Lunaris artifact metadata (temporary)
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: [.github/workflows/lunaris-lookup.yml]
+permissions:
+  contents: read
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fetch public landing page only
+        run: |
+          set -euo pipefail
+          curl --fail --location --max-time 60 --max-filesize 2000000 \
+            'https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051' \
+            -o "$RUNNER_TEMP/page.html"
+          python3 - <<'PY'
+          import html.parser, json, os, re
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP']) / 'page.html').read_text(errors='replace')
+          class Links(html.parser.HTMLParser):
+              def __init__(self): super().__init__(); self.rows = []
+              def handle_starttag(self, tag, attrs):
+                  d = dict(attrs)
+                  for key in ('href', 'src'):
+                      if key in d and tag in ('a', 'script', 'link'):
+                          self.rows.append((tag, key, d[key]))
+          parser = Links(); parser.feed(text)
+          embedded = sorted(set(re.findall(r'https?://[^\s"<>\\]+', text)))
+          result = json.dumps({'bytes': len(text), 'links': parser.rows[:60], 'embedded_urls': embedded[:30]}, indent=2)
+          for idx, start in enumerate(range(0, len(result), 2200), 1):
+              chunk = result[start:start+2200].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::notice title=Landing page metadata {idx}::{chunk}')
+          PY
