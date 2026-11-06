@@ -21,4 +21,10 @@ jobs:
         run: |
           set -eu
           find diagnostic -type f -printf '%p %s bytes\n'
-          grep -nE '\[patch\] sertifikat Manager|KernelSU-Next Manager|apk_sign:|CERT_MAX|drivers/kernelsu/manager/apk_sign|KernelSU-Next tag|KernelSU-Next version' diagnostic/build.log | tail -60 || true
+          python3 - <<'PY'
+          from pathlib import Path
+          needles = ('[patch] sertifikat Manager', 'KernelSU-Next Manager', 'apk_sign:', 'CERT_MAX', 'drivers/kernelsu/manager/apk_sign', 'KernelSU-Next tag', 'KernelSU-Next version')
+          lines = list(dict.fromkeys(line for line in Path('diagnostic/build.log').read_text(errors='replace').splitlines() if any(needle in line for needle in needles)))
+          text = '\n'.join(lines).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::notice title=Manager preparation::' + text[:3900])
+          PY
