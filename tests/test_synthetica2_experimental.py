@@ -102,7 +102,7 @@ class PatchSafetyTests(unittest.TestCase):
     def test_neutron_enum_fix_preserves_the_existing_error_value(self):
         patch = (s2x.INPUTS / "patches/0006-neutron-enum-cast.patch").read_text()
         self.assertIn("-\t\treturn A_ERROR;", patch)
-        self.assertIn("+\t\treturn (QDF_STATUS)A_ERROR;", patch)
+        self.assertEqual(patch.count("+\t\treturn (QDF_STATUS)A_ERROR;"), 3)
         self.assertNotIn("Wno-error", patch)
         code = r"""
 #include <assert.h>
@@ -228,7 +228,9 @@ int main(void) {
             self.assertNotIn("ops->p4d_entry", pagewalk)
             self.assertEqual(pagewalk.count("err = walk->p4d_entry(p4d, addr, next, walk);"), 1)
             ce = (tree / "drivers/staging/qca-wifi-host-cmn/hif/src/ce/ce_main.c").read_text()
+            htt = (tree / "drivers/staging/qcacld-3.0/core/dp/htt/htt_h2t.c").read_text()
             self.assertEqual(ce.count("return (QDF_STATUS)A_ERROR;"), 1)
+            self.assertEqual(htt.count("return (QDF_STATUS)A_ERROR;"), 2)
             self.assertIn("sched_post_fork(p);", fork)
             self.assertIn("$(KCONFIG_CONFIG) FORCE", (tree / "kernel/Makefile").read_text())
             duplicate = subprocess.run(

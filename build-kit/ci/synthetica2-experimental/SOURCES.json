@@ -250,6 +250,6 @@
     "base_commit": "c1e6f795b557b7bf92220c91f05a42b456de7a74",
     "purpose": "Explicit QDF_STATUS cast of the existing A_ERROR value: silence Clang 24 enum conversion error without changing numeric return",
     "patch": "patches/0006-neutron-enum-cast.patch",
-    "sha256": "4bb35593edd0ff9d815a7d9c2c8573747ed913807fb0f3e8711238c743690156"
+    "sha256": "9cd2d4e883d10ee16f0ee588ac881ca138e7242ac59c42b394ef6ade5fbef6a6"
   }
 }

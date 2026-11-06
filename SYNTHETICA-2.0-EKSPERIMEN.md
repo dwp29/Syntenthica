@@ -29,7 +29,9 @@ runqueue aktif dan penanganan idle, batas min/max cgroup, propagasi group baru,
 serta inisialisasi runqueue. `sched_post_fork()` dihubungkan setelah publikasi
 task. Donor CASS dan defconfig donor sengaja tidak diambil: target ini menggunakan
 WALT, bukan scheduler CASS donor. Integrasi ini masih perlu review dan uji runtime;
-perbaikan-perbaikan itu bukan jaminan backport sudah lengkap.
+perbaikan-perbaikan itu bukan jaminan backport sudah lengkap. Kontrol CPU
+`uclamp.min/max` terdaftar pada cgroup legacy (v1) tree ini; jangan mengasumsikan
+antarmuka cgroup v2 atau kebijakan placement CASS sudah didukung.
 
 Build awal CI `42237485378` gagal: LLVM 18 menemukan definisi `ANON_AND_FILE`
 yang hilang dari backport MGLRU; Neutron berhenti pada pemeriksaan karena paketnya
@@ -43,14 +45,21 @@ build awal juga mengandung bug accounting Uclamp yang dikoreksi. Jangan gunakan
 artefak dari kedua run tersebut.
 
 Pada run `42241943772` (commit `eb64744`), build LLVM 18 **lulus kompilasi dan
-pemeriksaan statis**; Neutron gagal pada konversi enum di driver Wi-Fi. Patch
-berikutnya memberikan cast eksplisit yang mempertahankan nilai error yang sudah
-ada, tanpa mematikan pemeriksaan compiler. Hasil Neutron setelah patch tersebut
-masih harus diverifikasi oleh run berikutnya. Artifact LLVM 18 hanya bukti build,
+pemeriksaan statis**; Neutron gagal pada konversi enum di driver Wi-Fi. Run
+`42243864941` menemukan dua konversi serupa berikutnya. Patch lanjutan memberikan
+cast eksplisit di ketiga lokasi yang mempertahankan nilai error yang sudah ada,
+tanpa mematikan pemeriksaan compiler; hasil Neutron masih perlu diverifikasi.
+Artifact LLVM 18 hanya bukti build,
 bukan installer dan bukan bukti aman untuk flash:
 `Synthetica-2.0-clang18-DO-NOT-FLASH-42241943772`, digest arsip SHA-256
 `dee0be086e8eb3de86b8d0ee105157eb322726d66615e585ce503bd7007f59e7`
-(retensi CI 7 hari).
+(retensi CI 7 hari). Audit terpisah run `42244023150` memverifikasi digest
+arsip, image, konfigurasi tertanam, identitas Manager yang ter-link, dan CRC
+`Module.symvers`. SHA-256 image adalah
+`8077223685a3913588c4c2cb0de8665ede2a333b0860791cb255b3566e2ae060`.
+CRC `module_layout`-nya `0xed5659d1`, berbeda dari `0x6968ee15` pada 41 modul
+sampel ROM yang pernah diaudit. Ini bukti ketidakcocokan ABI untuk sampel itu;
+bukan alasan untuk menonaktifkan pemeriksaan versi atau signature.
 
 ## Sumber dan reproduksi
 

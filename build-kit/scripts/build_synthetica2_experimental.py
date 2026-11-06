@@ -26,7 +26,7 @@ PATCHES = {
     "0003-uclamp-correctness.patch": "f298084b997012dd5f7df51cd2cd31d3b77b880589bbad9b1c4fcefb8b797e70",
     "0004-mglru-anon-file.patch": "705bf69829356e979c47f3e6225137340ce3d1a7375d7ed08400c76146fb4eca",
     "0005-mglru-pagewalk-caf.patch": "7471c88af6e044b7cbc257357474b7be66c31a70ba6633ebab3f59233f5765c8",
-    "0006-neutron-enum-cast.patch": "4bb35593edd0ff9d815a7d9c2c8573747ed913807fb0f3e8711238c743690156",
+    "0006-neutron-enum-cast.patch": "9cd2d4e883d10ee16f0ee588ac881ca138e7242ac59c42b394ef6ade5fbef6a6",
 }
 FEATURE_CONFIG_SHA = "4a6097a894e92790c347d8016b520b5c9923bb4dd5e33acf97ea3bd0159358ff"
 NEUTRON_SHA = "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
