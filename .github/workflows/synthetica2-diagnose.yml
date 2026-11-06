@@ -54,11 +54,11 @@ jobs:
               if not matches:
                   print('::warning title=Diagnostic ' + job + '::No recognized failure line')
                   continue
-              chosen = []
-              for i in matches[-12:]:
-                  chosen.extend(rows[max(i - 1, 0):min(i + 3, len(rows))])
-              unique = list(dict.fromkeys(chosen))[-35:]
-              text = '\n'.join(re.sub(r'https?://\S+', '<url>', row[:650]) for row in unique)
-              text = text[-14000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              exits = [i for i, row in enumerate(rows) if re.search(r'\[exit [1-9][0-9]* in', row)]
+              end = exits[-1] + 1 if exits else matches[-1] + 1
+              chosen = rows[max(0, end - 85):end]
+              text = '\n'.join(re.sub(r'https?://\S+', '<url>', row[:500]) for row in chosen)
+              text = re.sub(r'\x1b\[[0-9;]*[A-Za-z]', '', text)
+              text = text[-24000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print('::notice title=Diagnostic ' + job + '::' + text)
           PY
