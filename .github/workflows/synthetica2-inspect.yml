@@ -37,7 +37,11 @@ jobs:
           text = script.read_text()
           marker = 'echo "--- FULL BUILD $(date -u) ---"'
           assert text.count(marker) == 1
-          script.write_text(text[:text.index(marker)] + 'echo "Object-only diagnosis; no image or installer"\nexit 0\n')
+          text = text[:text.index(marker)] + 'echo "Object-only diagnosis; no image or installer"\nexit 0\n'
+          needle = '  MO+=(KSU_MANAGER_PACKAGE="$KSU_MANAGER_PKG")'
+          assert text.count(needle) == 1
+          text = text.replace(needle, needle + '\n  MO+=("CFLAGS_apk_sign.o=-fno-builtin-strncmp")')
+          script.write_text(text)
           PY
       - name: Compile KSU object and inspect identity representation
         env:
@@ -70,6 +74,9 @@ jobs:
           for name, value in [('KernelSU', b'KernelSU'), ('manager_package', b'net.ember.labs'), ('manager_hash', b'fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140')]:
               notice('KSU object ' + name, 'full literal present=' + str(value in raw))
           dis = (temp / 'disassembly.txt').read_text()
+          cmd = Path(os.environ['OBJ']).parent / '.apk_sign.o.cmd'
+          notice('KSU object targeted flag', 'flag in command=' + str('-fno-builtin-strncmp' in cmd.read_text()))
+          notice('KSU object strncmp relocation', 'call relocation=' + str('R_AARCH64_CALL26\tstrncmp' in dis))
           notice('KSU object disassembly part 1', dis[:3000])
           notice('KSU object disassembly part 2', dis[3000:6000])
           notice('KSU object build completion', '\n'.join(log.splitlines()[-30:]))
