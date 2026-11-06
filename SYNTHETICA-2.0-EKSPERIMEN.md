@@ -71,6 +71,21 @@ kedua compiler tetapi gagal pada callback `pagewalk` donor dan penggunaan
 build awal juga mengandung bug accounting Uclamp yang dikoreksi. Jangan gunakan
 artefak dari kedua run tersebut.
 
+### Bukti build MGLRU-on yang diminta
+
+Pada [run `42258512643`](https://github.com/dwp29/Syntenthica/actions/runs/42258512643),
+job Neutron MGLRU-on dan MGLRU-off selesai dengan guard statis lulus. Audit
+terpisah `42260895446` memastikan hash image/config/certificate/symvers, config
+tertanam, release, dan source metadata konsisten. Kedua konfigurasi hanya
+berbeda pada `LRU_GEN_ENABLED`, compiler/linker dan `module_layout` CRC
+(`0xed5659d1`) sama, tetapi sertifikat modul publiknya **berbeda**. Image on:
+`3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea`;
+image off: `b6a1756de6696ae6fafc4598768efb9126d1b9087b276ecb1d8bb9aeb1523c8b`.
+Tidak ada bukti boot, pairing Manager, suhu, baterai atau kompatibilitas modul
+perangkat. Artefak keduanya tetap `DO-NOT-FLASH` dan memiliki retensi 7 hari.
+Status build LLVM 18-on mengikuti hasil job CI terkait, bukan diasumsikan dari
+hasil Neutron.
+
 ### Bukti build sebelumnya — MGLRU default off
 
 Pada run `42241943772` (commit `eb64744`), build LLVM 18 **lulus kompilasi dan
@@ -133,6 +148,7 @@ berlaku untuk artifact LLVM 18 sebelumnya.
   Seri donor mencakup karya Patrick Bellasi, penulis upstream lainnya dan pemelihara donor; riwayat mereka tetap dirujuk di manifest.
 - `build-kit/ci/synthetica2-experimental/patches/` berisi diff source GPL yang dapat diperiksa. `features.config` memuat fitur bersama, sedangkan `mglru-on.config` dan `mglru-off.config` memilih default untuk masing-masing varian. Ketiganya dipin. Tidak ada source tree besar atau toolchain binary yang dikomit.
 - Workflow `.github/workflows/synthetica2-experimental.yml` membangun Neutron/MGLRU-on, LLVM 18/MGLRU-on, dan kontrol Neutron/MGLRU-off secara terpisah. Ia memeriksa bahwa kedua konfigurasi Neutron hanya berbeda pada default MGLRU; ini **bukan** benchmark maupun uji perangkat. Arsip source dan Neutron diverifikasi sebelum dipakai. Builder disalin ke direktori sementara, diubah hanya dalam salinan itu, dan dihentikan sebelum bagian AnyKernel/installer.
+- **Batas penting kontrol A/B:** karena kedua job Neutron membuat key signing sementara sendiri, sertifikat modul publik yang tertanam **berbeda**. Perbandingan konfigurasi/toolchain tidak berarti seluruh kondisi runtime identik; kemungkinan modul yang dapat dipercaya juga bisa berbeda. Jangan gunakan pasangan ini sebagai benchmark MGLRU yang valid sebelum trust/module ABI diselesaikan dan kondisi kunci disamakan. Menyalakan/mematikan MGLRU pada image yang sama setelah validasi merupakan alternatif yang menjaga sertifikat tetap sama, tetapi efek transisi dan reboot juga harus diperhitungkan.
 - KernelSU-Next dan identitas Manager lama dipertahankan: paket `net.ember.labs`, sertifikat DER 1381 byte, SHA-256 `fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140`. Identitas yang tertaut bukan bukti pairing atau root berhasil.
 
 Uji host yang dapat dijalankan tanpa perangkat:

@@ -1,0 +1,68 @@
+name: Inspect public ROM ZIP index (temporary)
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: [.github/workflows/zip-index.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Read bounded ZIP central directory using HTTP ranges
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/browser" --no-audit --no-fund playwright-core@1.57.0
+          export CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          node <<'JS'
+          const {chromium}=require(process.env.RUNNER_TEMP+'/browser/node_modules/playwright-core');
+          const https=require('https');
+          const size=2925420062;
+          function range(url,start,end,cookie,depth=0){
+            if(depth>3||start<0||end<start||end-start>20_000_000) return Promise.reject(Error('invalid bounded range'));
+            return new Promise((resolve,reject)=>{
+              const u=new URL(url);
+              if(!u.hostname.endsWith('.gofile.io')) return reject(Error('unexpected download host'));
+              const req=https.get(u,{headers:{Range:`bytes=${start}-${end}`,Cookie:cookie,'User-Agent':'Mozilla/5.0'}},res=>{
+                if([301,302,303,307,308].includes(res.statusCode)){
+                  const next=new URL(res.headers.location,u).href;res.resume();range(next,start,end,cookie,depth+1).then(resolve,reject);return;
+                }
+                if(res.statusCode!==206){res.destroy();reject(Error(`range request returned ${res.statusCode}, not 206`));return;}
+                const chunks=[];let count=0;
+                res.on('data',x=>{count+=x.length;if(count>end-start+1){res.destroy(Error('range response too long'));return;}chunks.push(x)});
+                res.on('end',()=>count===end-start+1?resolve(Buffer.concat(chunks)):reject(Error('short range response')));
+                res.on('error',reject);
+              });
+              req.setTimeout(60000,()=>req.destroy(Error('range request timeout')));req.on('error',reject);
+            });
+          }
+          (async()=>{
+            const browser=await chromium.launch({executablePath:process.env.CHROME,headless:true,args:['--no-sandbox']});
+            const ctx=await browser.newContext({acceptDownloads:true});const page=await ctx.newPage();
+            await page.goto('https://gofile.io/d/W0WXctW4',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.getByRole('button',{name:'Download',exact:true}).waitFor({timeout:60000});
+            const [dl]=await Promise.all([page.waitForEvent('download',{timeout:90000}),page.getByRole('button',{name:'Download',exact:true}).click()]);
+            const url=dl.url();const cookies=(await ctx.cookies(url)).map(x=>x.name+'='+x.value).join('; ');
+            await dl.cancel();await browser.close();
+            const tailStart=Math.max(0,size-66000),tail=await range(url,tailStart,size-1,cookies);
+            const sig=Buffer.from('504b0506','hex'),i=tail.lastIndexOf(sig);
+            if(i<0||i+22>tail.length)throw Error('ZIP EOCD not found');
+            const count=tail.readUInt16LE(i+10),length=tail.readUInt32LE(i+12),offset=tail.readUInt32LE(i+16);
+            if(count===65535||length===0xffffffff||offset===0xffffffff||length>20_000_000||offset+length>size)throw Error('unsupported ZIP64 or central directory bounds');
+            const central=await range(url,offset,offset+length-1,cookies);let pos=0;const names=[];
+            while(pos<central.length){
+              if(pos+46>central.length||central.readUInt32LE(pos)!==0x02014b50)throw Error('bad ZIP central directory');
+              const method=central.readUInt16LE(pos+10),compressed=central.readUInt32LE(pos+20),uncompressed=central.readUInt32LE(pos+24);
+              const n=central.readUInt16LE(pos+28),extra=central.readUInt16LE(pos+30),comment=central.readUInt16LE(pos+32);
+              if(pos+46+n+extra+comment>central.length)throw Error('truncated ZIP record');
+              names.push({name:central.subarray(pos+46,pos+46+n).toString('utf8'),method,compressed,uncompressed});
+              pos+=46+n+extra+comment;
+            }
+            if(names.length!==count)throw Error('ZIP central entry count mismatch');
+            const select=names.filter(x=>/payload|vendor|dtbo|boot\.img|vbmeta|super|\.transfer\.list|\.new\.dat|\.patch\.dat|\.ko$/i.test(x.name));
+            const summary={entries:names.length,central_directory_bytes:length,selected:select.slice(0,100),first_entries:names.slice(0,35)};
+            const text=JSON.stringify(summary,null,2);
+            for(let j=0;j<Math.min(text.length,18000);j+=2200)console.log(`::notice title=ZIP index ${1+j/2200}::`+text.slice(j,j+2200).replace(/%/g,'%25').replace(/\n/g,'%0A'));
+          })().catch(e=>{console.log('::error title=ZIP index unavailable::'+e.message.replace(/%/g,'%25').replace(/\n/g,'%0A'));process.exit(1)});
+          JS
