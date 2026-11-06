@@ -1,0 +1,72 @@
+name: "Prepare requested experimental evidence file (temporary)"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: [.github/workflows/synthetica2-transfer-temp.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download the verified Neutron MGLRU-on build evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: Synthetica-2.0-neutron-MGLRU-on-DO-NOT-FLASH-42258512643
+          path: ${{ runner.temp }}/evidence
+          run-id: 42258512643
+          github-token: ${{ github.token }}
+      - name: Package compile evidence without an installer or private keys
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, zipfile
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); source=t/'evidence'; status=json.loads((source/'STATUS.json').read_text())
+          expected_image='3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea'
+          checks={'Image.gz.DO-NOT-FLASH':expected_image,'generated.config.txt':status['config_sha256'],
+                  'module-signing-public-cert.x509':status['module_public_cert_sha256'],
+                  'manager-apk_sign.o':status['manager']['apk_sign_object_sha256'],
+                  'Module.symvers':status['module_symvers_sha256'],'System.map':status['system_map_sha256']}
+          for name,sha in checks.items():
+              if hashlib.sha256((source/name).read_bytes()).hexdigest()!=sha: raise ValueError('evidence checksum mismatch: '+name)
+          if (status['kind']!='EXPERIMENTAL_COMPILED_ONLY_DO_NOT_FLASH' or status['compiler']['kind']!='neutron' or
+              status['mglru']['variant']!='on' or not status['mglru']['enabled_by_default'] or
+              status['installer_created'] is not False or status['private_key_exported'] is not False):
+              raise ValueError('unexpected candidate status')
+          config=(source/'generated.config.txt').read_text()
+          if 'CONFIG_LRU_GEN=y\n' not in config or 'CONFIG_LRU_GEN_ENABLED=y\n' not in config:
+              raise ValueError('MGLRU is not enabled by default in the candidate config')
+          files=['Image.gz.DO-NOT-FLASH','generated.config.txt','Module.symvers','System.map',
+                 'module-signing-public-cert.x509','manager-apk_sign.o','STATUS.json','README-DO-NOT-FLASH.txt']
+          note=('SYNTETICA 2.0 EKSPERIMEN - BUKTI KOMPILASI SAJA\n'
+                'Neutron Clang 24, MGLRU aktif secara default. Ini BUKAN ZIP installer.\n'
+                'File Image.gz.DO-NOT-FLASH adalah kernel mentah, BUKAN boot.img. Jangan flash langsung.\n'
+                'Belum ada uji boot Joyeuse, autentikasi Manager, kompatibilitas modul ROM atau trust AVB.\n'
+                'Kedua boot referensi pada halaman ROM memiliki ramdisk yang berbeda.\n'
+                'Tidak ada kunci privat, modul ROM, ksud, atau installer di arsip ini.\n'
+                f'SHA-256 image: {expected_image}\n')
+          target=t/'Synthetica-2.0-Neutron-MGLRU-on-DO-NOT-FLASH.zip'
+          with zipfile.ZipFile(target,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              z.writestr('BACA-SEBELUM-MENGGUNAKAN.txt',note)
+              for name in files:z.write(source/name,arcname=name)
+          payload=target.read_bytes()
+          (t/'blob-request.json').write_text(json.dumps({'content':base64.b64encode(payload).decode(),'encoding':'base64'}))
+          (t/'transfer-metadata.json').write_text(json.dumps({'bytes':len(payload),'sha256':hashlib.sha256(payload).hexdigest(),
+              'image_sha256':expected_image,'archive_kind':'compile-only evidence, not a flashable installer'}))
+          PY
+      - name: Transfer the evidence through an unreferenced GitHub blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/blob-request.json" > "$RUNNER_TEMP/blob-response.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); m=json.loads((t/'transfer-metadata.json').read_text())
+          m['blob_sha']=json.loads((t/'blob-response.json').read_text())['sha']
+          print('::notice title=Experimental evidence transfer::'+json.dumps(m))
+          PY
