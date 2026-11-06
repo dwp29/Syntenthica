@@ -18,7 +18,8 @@ jobs:
           set -euo pipefail
           npm install --prefix "$RUNNER_TEMP/browser" --no-audit --no-fund playwright-core@1.57.0
           export CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
-          node <<'JS'
+          set +e
+          node 2>"$RUNNER_TEMP/reference-node-error.log" <<'JS'
           const { chromium } = require(process.env.RUNNER_TEMP + '/browser/node_modules/playwright-core');
           const fs = require('fs');
           const crypto = require('crypto');
@@ -31,7 +32,7 @@ jobs:
           async function digest(file) {
             return new Promise((resolve, reject) => {
               const h = crypto.createHash('sha256'), stream = fs.createReadStream(file);
-              stream.on('data', x => h.update(x)); stream.on('error', reject); stream.on('end', () => resolve(h.digest('hex'));
+              stream.on('data', x => h.update(x)); stream.on('error', reject); stream.on('end', () => resolve(h.digest('hex')));
             });
           }
           (async () => {
@@ -54,6 +55,18 @@ jobs:
             await browser.close();
           })().catch(e => { console.error(e.message); process.exit(1); });
           JS
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            cat "$RUNNER_TEMP/reference-node-error.log"
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP']) / 'reference-node-error.log').read_text(errors='replace')[-2000:]
+          print('::error title=Reference download failed::' + text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY
+            exit "$rc"
+          fi
       - name: Inspect existing images read-only; do not flash or repackage
         run: |
           set -euo pipefail
