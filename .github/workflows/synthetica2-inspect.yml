@@ -1,84 +1,87 @@
-name: Diagnose Neutron KSU object without producing an image (temporary)
+name: "Inspect one compile-only Synthetica artifact (no flash)"
 on:
   push:
-    paths:
-      - .github/workflows/synthetica2-inspect.yml
+    branches: [arena/96cbd65a-syntenthica]
+    paths: ['.github/workflows/synthetica2-inspect.yml']
 permissions:
+  actions: read
   contents: read
 jobs:
   inspect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Install build tools
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y clang-18 lld-18 llvm-18 gcc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi bc flex bison libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils zstd python3 patch openssl zip rsync git curl binutils kmod
-      - name: Download and verify pinned Neutron
-        run: |
-          set -euo pipefail
-          archive="$RUNNER_TEMP/neutron.tar.zst"
-          curl --fail --location --retry 3 --output "$archive" https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
-          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
-          test "$(stat -c %s "$archive")" = 77768187
-          mkdir "$RUNNER_TEMP/neutron"
-          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
-          echo "S2X_TOOLCHAIN_BIN=$RUNNER_TEMP/neutron/bin" >> "$GITHUB_ENV"
-      - name: Prepare disposable object-only diagnostic
-        run: |
-          set -euo pipefail
-          python3 build-kit/scripts/build_synthetica2_experimental.py prepare --source build-kit --destination "$RUNNER_TEMP/s2x-kit" --baseline artifacts/generated.config.txt
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-          script = Path(os.environ['RUNNER_TEMP']) / 's2x-kit/ci/rollercoaster/build-rollercoaster.sh'
-          text = script.read_text()
-          marker = 'echo "--- FULL BUILD $(date -u) ---"'
-          assert text.count(marker) == 1
-          text = text[:text.index(marker)] + 'echo "Object-only diagnosis; no image or installer"\nexit 0\n'
-          needle = '  MO+=(KSU_MANAGER_PACKAGE="$KSU_MANAGER_PKG")'
-          assert text.count(needle) == 1
-          text = text.replace(needle, needle + '\n  MO+=("CFLAGS_apk_sign.o=-fno-builtin-strncmp")')
-          script.write_text(text)
-          PY
-      - name: Compile KSU object and inspect identity representation
+      - name: Validate the exact completed Neutron artifact
         env:
-          SP_JOBS: '4'
-          SP_RELEASE_VERSION: '2.0-exp'
-          SP_PROFILE: synthetica
-          SP_BUILD_NAME: Synthetica
-          SP_BUILD_KVER: '2.0-exp'
-          SP_EXPECT_RELEASE: 4.14.357-openela-Synthetica-2.0-exp
-          PYTHONOPTIMIZE: '0'
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export SP_WORK_DIR="$RUNNER_TEMP/s2x-work"
-          export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica2_experimental.py"
-          export S2X_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
-          # The parent driver intentionally reports a missing image after the object-only stop.
-          python3 "$RUNNER_TEMP/s2x-kit/scripts/build_chronicle_base.py" || true
-          export OBJ="$SP_WORK_DIR/tree/out-synthetica/drivers/kernelsu/manager/apk_sign.o"
-          test -s "$OBJ"
-          "$S2X_TOOLCHAIN_BIN/llvm-objdump" -dr --disassemble-symbols=is_manager_apk "$OBJ" > "$RUNNER_TEMP/disassembly.txt"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/13520312420" > "$RUNNER_TEMP/artifact.json"
           python3 - <<'PY'
-          import os
+          import json, os
           from pathlib import Path
-          raw = Path(os.environ['OBJ']).read_bytes()
-          temp = Path(os.environ['RUNNER_TEMP'])
-          log = (temp / 's2x-kit/artifacts/build.log').read_text(errors='replace')
-          def notice(title, msg):
-              safe = msg[:3000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print(f'::notice title={title}::{safe}')
-          for name, value in [('KernelSU', b'KernelSU'), ('manager_package', b'net.ember.labs'), ('manager_hash', b'fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140')]:
-              notice('KSU object ' + name, 'full literal present=' + str(value in raw))
-          dis = (temp / 'disassembly.txt').read_text()
-          cmd = Path(os.environ['OBJ']).parent / '.apk_sign.o.cmd'
-          notice('KSU object targeted flag', 'flag in command=' + str('-fno-builtin-strncmp' in cmd.read_text()))
-          import re
-          notice('KSU object strncmp relocation', 'call relocation=' + str(bool(re.search(r'R_AARCH64_CALL26\s+strncmp\b', dis))))
-          notice('KSU object disassembly part 1', dis[:3000])
-          notice('KSU object disassembly part 2', dis[3000:6000])
-          notice('KSU object build completion', '\n'.join(log.splitlines()[-30:]))
+          m = json.loads((Path(os.environ['RUNNER_TEMP']) / 'artifact.json').read_text())
+          assert m['id'] == 13520312420 and not m['expired']
+          assert m['workflow_run']['id'] == 42250049696
+          assert m['workflow_run']['head_sha'] == '239cf9b10964545f050ac52d4d6a0beb9b3c3c4a'
+          assert m['digest'] == 'sha256:65c6fb5a6e60f0b845510c9d9a78e8ac0db39e0d6dff84d4fbf4888a4f47a114'
+          PY
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13520312420/zip" > "$RUNNER_TEMP/artifact.zip"
+          echo '65c6fb5a6e60f0b845510c9d9a78e8ac0db39e0d6dff84d4fbf4888a4f47a114  '"$RUNNER_TEMP/artifact.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import gzip, hashlib, importlib.util, io, json, os, re, subprocess, zipfile
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          p = Path(os.environ['RUNNER_TEMP']) / 'artifact.zip'
+          expected = {'Image.gz.DO-NOT-FLASH', 'generated.config.txt', 'System.map', 'Module.symvers', 'STATUS.json', 'README-DO-NOT-FLASH.txt', 'manager-apk_sign.o'}
+          with zipfile.ZipFile(p) as z:
+              assert set(z.namelist()) == expected and not z.testzip()
+              assert all(not i.is_dir() and i.file_size < 80 * 1024 * 1024 for i in z.infolist())
+              status = json.loads(z.read('STATUS.json'))
+              image, config, symvers = z.read('Image.gz.DO-NOT-FLASH'), z.read('generated.config.txt'), z.read('Module.symvers').decode()
+              manager_object, system_map = z.read('manager-apk_sign.o'), z.read('System.map').decode()
+          assert status['kind'] == 'EXPERIMENTAL_COMPILED_ONLY_DO_NOT_FLASH'
+          assert status['release'] == '4.14.357-openela-Synthetica-2.0-exp'
+          assert status['compiler']['kind'] == 'neutron'
+          assert status['image_sha256'] == hashlib.sha256(image).hexdigest()
+          assert status['config_sha256'] == hashlib.sha256(config).hexdigest()
+          assert status['manager']['apk_sign_object_sha256'] == hashlib.sha256(manager_object).hexdigest()
+          assert manager_object[:4] == b'\x7fELF' and int.from_bytes(manager_object[16:18], 'little') == 1
+          assert int.from_bytes(manager_object[18:20], 'little') == 183  # AArch64 relocatable object
+          assert b'net.ember.labs\x00' in manager_object and status['manager']['cert_sha256'].encode() + b'\x00' in manager_object
+          assert re.search(r'\bis_manager_apk$', system_map, re.M)
+          obj = Path(os.environ['RUNNER_TEMP']) / 'manager-apk_sign.o'
+          obj.write_bytes(manager_object)
+          relocs = subprocess.run(['readelf', '-Wr', str(obj)], check=True, capture_output=True, text=True).stdout
+          assert re.search(r'R_AARCH64_CALL26\s+\S+\s+strncmp\b', relocs)
+          assert status['compiler']['neutron_archive_sha256'] == '531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30'
+          assert status['manager']['runtime_pairing_tested'] is False
+          assert status['installer_created'] is False and status['private_key_exported'] is False
+          with gzip.GzipFile(fileobj=io.BytesIO(image)) as f:
+              raw = f.read(128 * 1024 * 1024 + 1)
+          assert len(raw) <= 128 * 1024 * 1024
+          spec = importlib.util.spec_from_file_location('s2x', root / 'build-kit/scripts/build_synthetica2_experimental.py')
+          s2x = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(s2x)
+          s2x.v3.verify_embedded_config(raw, config)
+          s2x.check_config(s2x.v3.verified_baseline(root / 'artifacts/generated.config.txt'), config.decode())
+          assert b'Linux version 4.14.357-openela-Synthetica-2.0-exp' in raw
+          assert b'KernelSU' in raw and b'net.ember.labs' in raw
+          assert status['manager']['cert_sha256'].encode() in raw
+          crc = s2x.modules.symvers_records(symvers)['module_layout']
+          assert status['module_layout_crc'] == f'0x{crc:08x}'
+          assert len(status['same_build_modules_static_checks']) == 6
+          summary = {'image_sha256': status['image_sha256'], 'config_sha256': status['config_sha256'],
+                     'module_layout_crc': status['module_layout_crc'], 'compiler': status['compiler'],
+                     'modules_static_only': list(status['same_build_modules_static_checks']),
+                     'physical_tests': status['physical_boot_root_thermal_battery_suspend_charging_tests'],
+                     'rom_vendor_modules': status['rom_vendor_module_abi_and_trust'],
+                     'manager_object_sha256': status['manager']['apk_sign_object_sha256'],
+                     'rom_sample_module_layout_crc': '0x6968ee15',
+                     'sample_abi_match': status['module_layout_crc'] == '0x6968ee15'}
+          text = json.dumps(summary, indent=2)
+          for part, start in enumerate(range(0, len(text), 2400), 1):
+              chunk = text[start:start+2400].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::notice title=Verified compile evidence ' + str(part) + '::' + chunk)
           PY
