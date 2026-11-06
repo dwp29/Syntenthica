@@ -95,6 +95,9 @@ class PatchSafetyTests(unittest.TestCase):
     def test_mglru_has_anon_and_file_array_dimension(self):
         fix = (s2x.INPUTS / "patches/0004-mglru-anon-file.patch").read_text()
         self.assertIn("+#define ANON_AND_FILE 2", fix)
+        fix = (s2x.INPUTS / "patches/0005-mglru-pagewalk-caf.patch").read_text()
+        self.assertIn("-\t\tif (ops->p4d_entry) {", fix)
+        self.assertIn(" \t\t\terr = walk->p4d_entry(p4d, addr, next, walk);", fix)
 
     def test_uclamp_fix_executes_active_idle_and_group_corner_cases(self):
         # Compile the *actual newly patched C function bodies* against small
@@ -113,9 +116,12 @@ class PatchSafetyTests(unittest.TestCase):
 #include <stdbool.h>
 #define CONFIG_UCLAMP_TASK_GROUP 1
 #define UCLAMP_FLAG_IDLE 1
-#define clamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
+/* Model the 4.14 type-checking clamp: typeof(bitfield) is invalid. */
+#define kernel_min(x, y) ({ typeof(x) _x = (x); typeof(y) _y = (y); _x < _y ? _x : _y; })
+#define kernel_max(x, y) ({ typeof(x) _x = (x); typeof(y) _y = (y); _x > _y ? _x : _y; })
+#define clamp(val, lo, hi) kernel_min((typeof(val))kernel_max(val, lo), hi)
 enum uclamp_id { UCLAMP_MIN, UCLAMP_MAX, UCLAMP_CNT };
-struct uclamp_se { unsigned int value; bool active; bool user_defined; };
+struct uclamp_se { unsigned int value : 11; bool active; bool user_defined; };
 struct task_group { struct uclamp_se uclamp[UCLAMP_CNT]; bool autogroup; };
 struct task_struct { struct uclamp_se uclamp[UCLAMP_CNT], uclamp_req[UCLAMP_CNT]; struct task_group *tg; };
 struct rq { unsigned int uclamp_flags; int inc[UCLAMP_CNT], dec[UCLAMP_CNT]; };
@@ -160,7 +166,7 @@ int main(void) {
         with tempfile.TemporaryDirectory(prefix="s2x-uclamp-c-") as temp:
             src, binary = Path(temp) / "test.c", Path(temp) / "test"
             src.write_text(harness)
-            subprocess.run(["gcc", "-std=c99", "-Wall", "-Werror", str(src), "-o", str(binary)], check=True)
+            subprocess.run(["gcc", "-std=gnu99", "-Wall", "-Werror", str(src), "-o", str(binary)], check=True)
             subprocess.run([str(binary)], check=True)
 
     def test_uclamp_group_online_and_initial_rq_are_guarded(self):
@@ -199,6 +205,9 @@ int main(void) {
             self.assertIn("if (!p->uclamp[clamp_id].active)\n\t\treturn;", core)
             self.assertIn("rq->uclamp_flags = UCLAMP_FLAG_IDLE;", core)
             self.assertIn("#define ANON_AND_FILE 2", (tree / "include/linux/mmzone.h").read_text())
+            pagewalk = (tree / "mm/pagewalk.c").read_text()
+            self.assertNotIn("ops->p4d_entry", pagewalk)
+            self.assertEqual(pagewalk.count("err = walk->p4d_entry(p4d, addr, next, walk);"), 1)
             self.assertIn("sched_post_fork(p);", fork)
             self.assertIn("$(KCONFIG_CONFIG) FORCE", (tree / "kernel/Makefile").read_text())
             duplicate = subprocess.run(

@@ -229,7 +229,7 @@
       "Linux 4.14 uses clamp-id re-accounting APIs and an early root cpu cgroup callback; propagation is restricted to non-root online groups after scheduler initialization"
     ],
     "patch": "patches/0003-uclamp-correctness.patch",
-    "sha256": "13611be934098a6cff55d4b4653d86addcad0f9927df0b20c7a410db27a6e290"
+    "sha256": "f298084b997012dd5f7df51cd2cd31d3b77b880589bbad9b1c4fcefb8b797e70"
   },
   "mglru_build_fix": {
     "repository": "NothingTransition/CustomKernel1",
@@ -237,5 +237,12 @@
     "purpose": "Define ANON_AND_FILE before the MGLRU arrays; omitted in the initial donor backport",
     "patch": "patches/0004-mglru-anon-file.patch",
     "sha256": "705bf69829356e979c47f3e6225137340ce3d1a7375d7ed08400c76146fb4eca"
+  },
+  "mglru_pagewalk_fix": {
+    "repository": "NothingTransition/CustomKernel1",
+    "commit": "1b36919295a33a6b86cfb717acfb167af3213b92",
+    "purpose": "Remove duplicate upstream ops hook; this 4.14 tree uses the walk->p4d_entry callback",
+    "patch": "patches/0005-mglru-pagewalk-caf.patch",
+    "sha256": "7471c88af6e044b7cbc257357474b7be66c31a70ba6633ebab3f59233f5765c8"
   }
 }

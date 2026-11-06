@@ -19,7 +19,7 @@ diff --git a/kernel/sched/core.c b/kernel/sched/core.c
  				   unsigned int clamp_value)
  {
  	struct uclamp_bucket *bucket = rq->uclamp[clamp_id].bucket;
-@@ -978,20 +978,18 @@
+@@ -978,20 +978,19 @@
  {
  	struct uclamp_se uc_req = p->uclamp_req[clamp_id];
  #ifdef CONFIG_UCLAMP_TASK_GROUP
@@ -42,12 +42,13 @@ diff --git a/kernel/sched/core.c b/kernel/sched/core.c
 -		return uc_max;
 +	tg_min = task_group(p)->uclamp[UCLAMP_MIN].value;
 +	tg_max = task_group(p)->uclamp[UCLAMP_MAX].value;
-+	value = clamp(uc_req.value, tg_min, tg_max);
++	value = uc_req.value;
++	value = clamp(value, tg_min, tg_max);
 +	uclamp_se_set(&uc_req, value, false);
  #endif
  
  	return uc_req;
-@@ -1189,52 +1187,42 @@
+@@ -1189,52 +1188,42 @@
  		uclamp_rq_dec_id(rq, p, clamp_id);
  }
  
@@ -124,7 +125,7 @@ diff --git a/kernel/sched/core.c b/kernel/sched/core.c
  	css_task_iter_end(&it);
  }
  
-@@ -1426,7 +1414,7 @@
+@@ -1426,7 +1415,7 @@
  		};
  	}
  
@@ -133,7 +134,7 @@ diff --git a/kernel/sched/core.c b/kernel/sched/core.c
  }
  
  static void __init init_uclamp(void)
-@@ -7898,8 +7886,17 @@
+@@ -7898,8 +7887,17 @@
  	struct task_group *tg = css_tg(css);
  	struct task_group *parent = css_tg(css->parent);
  
@@ -152,7 +153,7 @@ diff --git a/kernel/sched/core.c b/kernel/sched/core.c
  	return 0;
  }
  
-@@ -7987,6 +7984,9 @@
+@@ -7987,6 +7985,9 @@
  	enum uclamp_id clamp_id;
  	unsigned int clamps;
  
@@ -162,7 +163,7 @@ diff --git a/kernel/sched/core.c b/kernel/sched/core.c
  	css_for_each_descendant_pre(css, top_css) {
  		uc_parent = css_tg(css)->parent
  			? css_tg(css)->parent->uclamp : NULL;
-@@ -8019,7 +8019,7 @@
+@@ -8019,7 +8020,7 @@
  		}
  
  		/* Immediately update descendants RUNNABLE tasks */

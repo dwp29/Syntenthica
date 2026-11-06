@@ -36,9 +36,12 @@ yang hilang dari backport MGLRU; Neutron berhenti pada pemeriksaan karena paketn
 tidak menyertakan `llvm-size`. Keduanya ditangani di resep eksperimen: perbaikan
 donor untuk definisi MGLRU ditambahkan, dan binary `aarch64-linux-gnu-size` host
 digunakan hanya bila `llvm-size` tidak ada. Compiler dan linker tetap dari
-toolchain yang dipilih. Kode build awal juga mengandung bug Uclamp yang sudah
-dikoreksi pada patch lanjutan; jangan gunakan artefak run awal. Hasil build ulang
-belum dapat dianggap berhasil sampai CI melaporkan kompilasi dan verifikasi lolos.
+toolchain yang dipilih. Build ulang `42241223420` mencapai kompilasi dengan
+kedua compiler tetapi gagal pada callback `pagewalk` donor dan penggunaan
+`clamp()` dengan bit-field Uclamp; keduanya dikoreksi di patch lanjutan. Kode
+build awal juga mengandung bug accounting Uclamp yang dikoreksi. Jangan gunakan
+artefak dari kedua run yang gagal; hasil berikutnya belum dapat dianggap berhasil
+sampai CI melaporkan kompilasi dan verifikasi lolos.
 
 ## Sumber dan reproduksi
 

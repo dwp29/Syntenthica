@@ -23,8 +23,9 @@ EXPECTED_RELEASE = "4.14.357-openela-Synthetica-2.0-exp"
 PATCHES = {
     "0001-mglru-4.14.patch": "6c77c69bef438211859903ded71b35245d14f5cd7282fb5db605103d30d449e2",
     "0002-uclamp-walt-stune.patch": "44004efb1dcb451962fca536a596fc0f112827ab8b256efbfde5d6120dac42a7",
-    "0003-uclamp-correctness.patch": "13611be934098a6cff55d4b4653d86addcad0f9927df0b20c7a410db27a6e290",
+    "0003-uclamp-correctness.patch": "f298084b997012dd5f7df51cd2cd31d3b77b880589bbad9b1c4fcefb8b797e70",
     "0004-mglru-anon-file.patch": "705bf69829356e979c47f3e6225137340ce3d1a7375d7ed08400c76146fb4eca",
+    "0005-mglru-pagewalk-caf.patch": "7471c88af6e044b7cbc257357474b7be66c31a70ba6633ebab3f59233f5765c8",
 }
 FEATURE_CONFIG_SHA = "4a6097a894e92790c347d8016b520b5c9923bb4dd5e33acf97ea3bd0159358ff"
 NEUTRON_SHA = "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
@@ -66,7 +67,8 @@ def check_inputs() -> None:
     for key, name in (("mglru", "0001-mglru-4.14.patch"),
                       ("uclamp", "0002-uclamp-walt-stune.patch"),
                       ("uclamp_correctness", "0003-uclamp-correctness.patch"),
-                      ("mglru_build_fix", "0004-mglru-anon-file.patch")):
+                      ("mglru_build_fix", "0004-mglru-anon-file.patch"),
+                      ("mglru_pagewalk_fix", "0005-mglru-pagewalk-caf.patch")):
         if manifest[key]["sha256"] != PATCHES[name] or manifest[key]["patch"] != "patches/" + name:
             raise ValueError(f"source manifest is inconsistent for {key}")
     if (manifest["feature_config_sha256"] != FEATURE_CONFIG_SHA or
