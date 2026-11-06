@@ -56,11 +56,10 @@ utuh dalam objek. Eksperimen berikutnya menggunakan `-fno-builtin-strncmp` hanya
 untuk `apk_sign.o`, tanpa mengubah kode atau identitas KernelSU, agar string tetap
 dapat diaudit; diagnosis `42248498236` menunjukkan flag, string dan pemanggilan
 `strncmp` pada objek. Guard juga memeriksa identitas pada image, literal objek,
-flag, dan relocasi panggilan. Job Neutron pada run `42250049696` kemudian lulus
-build dan guard statis; job LLVM 18 pada [run yang sama](https://github.com/dwp29/Syntenthica/actions/runs/42250049696)
-masih berjalan pada pemeriksaan terakhir. [Audit terpisah](https://github.com/dwp29/Syntenthica/actions/runs/42252015075)
-memverifikasi arsip, image,
-konfigurasi, identitas ter-link, objek Manager, dan `Module.symvers`. Artifact
+flag, dan relocasi panggilan. Job Neutron dan LLVM 18 pada [run `42250049696`](https://github.com/dwp29/Syntenthica/actions/runs/42250049696)
+sudah selesai dan lulus build serta guard statis. [Audit terpisah](https://github.com/dwp29/Syntenthica/actions/runs/42252015075)
+memverifikasi arsip Neutron, image, konfigurasi, identitas ter-link, objek
+Manager, dan `Module.symvers`. Artifact
 `Synthetica-2.0-neutron-DO-NOT-FLASH-42250049696` memiliki digest arsip SHA-256
 `65c6fb5a6e60f0b845510c9d9a78e8ac0db39e0d6dff84d4fbf4888a4f47a114`
 (retensi CI 7 hari) dan SHA-256 image
@@ -82,7 +81,12 @@ arsip, image, konfigurasi tertanam, identitas Manager yang ter-link, dan CRC
 `8077223685a3913588c4c2cb0de8665ede2a333b0860791cb255b3566e2ae060`.
 CRC `module_layout`-nya `0xed5659d1`, berbeda dari `0x6968ee15` pada 41 modul
 sampel ROM yang pernah diaudit. Ini bukti ketidakcocokan ABI untuk sampel itu;
-bukan alasan untuk menonaktifkan pemeriksaan versi atau signature.
+bukan alasan untuk menonaktifkan pemeriksaan versi atau signature. Run terbaru
+juga menghasilkan artifact LLVM 18 `Synthetica-2.0-clang18-DO-NOT-FLASH-42250049696`
+dengan digest arsip SHA-256
+`648f799cdfde02c8cca2d44238678fb3353d3ccd4ffcc7bf1d001c8faf29172d`; guard
+statisnya lulus dalam CI asal, sedangkan audit terpisah yang disebut di atas
+berlaku untuk artifact LLVM 18 sebelumnya.
 
 ## Sumber dan reproduksi
 
