@@ -36,8 +36,9 @@ jobs:
           from pathlib import Path
           job = os.environ['JOB']
           text = (Path(os.environ['RUNNER_TEMP']) / (job + '.error')).read_text(errors='replace')
-          codes = re.findall(r'HTTP [0-9]{3}|Resource not accessible by integration|Not Found|Forbidden|EOF|failed to download', text, re.I)
-          print('::error title=Log retrieval ' + job + '::' + ', '.join(codes[:5] or ['unknown error']))
+          text = re.sub(r'https?://\S+', '<url>', text)
+          text = text[:1500].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Log retrieval ' + job + '::' + (text or 'unknown error'))
           PY
               exit 1
             fi
