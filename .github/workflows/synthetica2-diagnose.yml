@@ -56,9 +56,11 @@ jobs:
                   continue
               exits = [i for i, row in enumerate(rows) if re.search(r'\[exit [1-9][0-9]* in', row)]
               end = exits[-1] + 1 if exits else matches[-1] + 1
-              chosen = rows[max(0, end - 85):end]
+              chosen = rows[max(0, end - 60):end]
               text = '\n'.join(re.sub(r'https?://\S+', '<url>', row[:500]) for row in chosen)
               text = re.sub(r'\x1b\[[0-9;]*[A-Za-z]', '', text)
-              text = text[-24000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print('::notice title=Diagnostic ' + job + '::' + text)
+              text = re.sub(r'(?m)^\d{4}-\d\d-\d\dT\S+Z ', '', text)
+              for part, start in enumerate(range(0, len(text), 2500), 1):
+                  chunk = text[start:start + 2500].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print('::notice title=Diagnostic ' + job + ' part ' + str(part) + '::' + chunk)
           PY
