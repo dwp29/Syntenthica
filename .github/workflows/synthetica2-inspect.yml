@@ -1,0 +1,72 @@
+name: "Inspect one compile-only Synthetica artifact (no flash)"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: ['.github/workflows/synthetica2-inspect.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate the exact completed LLVM 18 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/13517232591" > "$RUNNER_TEMP/artifact.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads((Path(os.environ['RUNNER_TEMP']) / 'artifact.json').read_text())
+          assert m['id'] == 13517232591 and not m['expired']
+          assert m['workflow_run']['id'] == 42241943772
+          assert m['workflow_run']['head_sha'] == 'eb647442d11bc6b2f9111b4cb62d895cad94763b'
+          assert m['digest'] == 'sha256:dee0be086e8eb3de86b8d0ee105157eb322726d66615e585ce503bd7007f59e7'
+          PY
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13517232591/zip" > "$RUNNER_TEMP/artifact.zip"
+          echo 'dee0be086e8eb3de86b8d0ee105157eb322726d66615e585ce503bd7007f59e7  '"$RUNNER_TEMP/artifact.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import gzip, hashlib, importlib.util, io, json, os, re, zipfile
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          p = Path(os.environ['RUNNER_TEMP']) / 'artifact.zip'
+          expected = {'Image.gz.DO-NOT-FLASH', 'generated.config.txt', 'System.map', 'Module.symvers', 'STATUS.json', 'README-DO-NOT-FLASH.txt'}
+          with zipfile.ZipFile(p) as z:
+              assert set(z.namelist()) == expected and not z.testzip()
+              assert all(not i.is_dir() and i.file_size < 80 * 1024 * 1024 for i in z.infolist())
+              status = json.loads(z.read('STATUS.json'))
+              image, config, symvers = z.read('Image.gz.DO-NOT-FLASH'), z.read('generated.config.txt'), z.read('Module.symvers').decode()
+          assert status['kind'] == 'EXPERIMENTAL_COMPILED_ONLY_DO_NOT_FLASH'
+          assert status['release'] == '4.14.357-openela-Synthetica-2.0-exp'
+          assert status['compiler']['kind'] == 'clang18'
+          assert status['image_sha256'] == hashlib.sha256(image).hexdigest()
+          assert status['config_sha256'] == hashlib.sha256(config).hexdigest()
+          assert status['installer_created'] is False and status['private_key_exported'] is False
+          with gzip.GzipFile(fileobj=io.BytesIO(image)) as f:
+              raw = f.read(128 * 1024 * 1024 + 1)
+          assert len(raw) <= 128 * 1024 * 1024
+          spec = importlib.util.spec_from_file_location('s2x', root / 'build-kit/scripts/build_synthetica2_experimental.py')
+          s2x = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(s2x)
+          s2x.v3.verify_embedded_config(raw, config)
+          s2x.check_config(s2x.v3.verified_baseline(root / 'artifacts/generated.config.txt'), config.decode())
+          assert b'Linux version 4.14.357-openela-Synthetica-2.0-exp' in raw
+          assert b'KernelSU' in raw and b'net.ember.labs' in raw
+          assert status['manager']['cert_sha256'].encode() in raw
+          crc = s2x.modules.symvers_records(symvers)['module_layout']
+          assert status['module_layout_crc'] == f'0x{crc:08x}'
+          assert len(status['same_build_modules_static_checks']) == 6
+          summary = {'image_sha256': status['image_sha256'], 'config_sha256': status['config_sha256'],
+                     'module_layout_crc': status['module_layout_crc'], 'compiler': status['compiler'],
+                     'modules_static_only': list(status['same_build_modules_static_checks']),
+                     'physical_tests': status['physical_boot_root_thermal_battery_suspend_charging_tests'],
+                     'rom_vendor_modules': status['rom_vendor_module_abi_and_trust']}
+          text = json.dumps(summary, indent=2)
+          for part, start in enumerate(range(0, len(text), 2400), 1):
+              chunk = text[start:start+2400].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::notice title=Verified compile evidence ' + str(part) + '::' + chunk)
+          PY
