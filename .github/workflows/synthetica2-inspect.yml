@@ -1,87 +1,28 @@
-name: "Inspect one compile-only Synthetica artifact (no flash)"
+name: Inspect current LLVM 18 job progress (temporary)
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
-    paths: ['.github/workflows/synthetica2-inspect.yml']
+    paths:
+      - .github/workflows/synthetica2-inspect.yml
 permissions:
-  actions: read
   contents: read
+  actions: read
 jobs:
   inspect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Validate the exact completed Neutron artifact
+      - name: Read the current job log snapshot
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/13520312420" > "$RUNNER_TEMP/artifact.json"
+          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/jobs/128002419354/logs" > "$RUNNER_TEMP/job.log"
           python3 - <<'PY'
-          import json, os
+          import os, re
           from pathlib import Path
-          m = json.loads((Path(os.environ['RUNNER_TEMP']) / 'artifact.json').read_text())
-          assert m['id'] == 13520312420 and not m['expired']
-          assert m['workflow_run']['id'] == 42250049696
-          assert m['workflow_run']['head_sha'] == '239cf9b10964545f050ac52d4d6a0beb9b3c3c4a'
-          assert m['digest'] == 'sha256:65c6fb5a6e60f0b845510c9d9a78e8ac0db39e0d6dff84d4fbf4888a4f47a114'
-          PY
-          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/artifacts/13520312420/zip" > "$RUNNER_TEMP/artifact.zip"
-          echo '65c6fb5a6e60f0b845510c9d9a78e8ac0db39e0d6dff84d4fbf4888a4f47a114  '"$RUNNER_TEMP/artifact.zip" | sha256sum -c -
-          python3 - <<'PY'
-          import gzip, hashlib, importlib.util, io, json, os, re, subprocess, zipfile
-          from pathlib import Path
-          root = Path(os.environ['GITHUB_WORKSPACE'])
-          p = Path(os.environ['RUNNER_TEMP']) / 'artifact.zip'
-          expected = {'Image.gz.DO-NOT-FLASH', 'generated.config.txt', 'System.map', 'Module.symvers', 'STATUS.json', 'README-DO-NOT-FLASH.txt', 'manager-apk_sign.o'}
-          with zipfile.ZipFile(p) as z:
-              assert set(z.namelist()) == expected and not z.testzip()
-              assert all(not i.is_dir() and i.file_size < 80 * 1024 * 1024 for i in z.infolist())
-              status = json.loads(z.read('STATUS.json'))
-              image, config, symvers = z.read('Image.gz.DO-NOT-FLASH'), z.read('generated.config.txt'), z.read('Module.symvers').decode()
-              manager_object, system_map = z.read('manager-apk_sign.o'), z.read('System.map').decode()
-          assert status['kind'] == 'EXPERIMENTAL_COMPILED_ONLY_DO_NOT_FLASH'
-          assert status['release'] == '4.14.357-openela-Synthetica-2.0-exp'
-          assert status['compiler']['kind'] == 'neutron'
-          assert status['image_sha256'] == hashlib.sha256(image).hexdigest()
-          assert status['config_sha256'] == hashlib.sha256(config).hexdigest()
-          assert status['manager']['apk_sign_object_sha256'] == hashlib.sha256(manager_object).hexdigest()
-          assert manager_object[:4] == b'\x7fELF' and int.from_bytes(manager_object[16:18], 'little') == 1
-          assert int.from_bytes(manager_object[18:20], 'little') == 183  # AArch64 relocatable object
-          assert b'net.ember.labs\x00' in manager_object and status['manager']['cert_sha256'].encode() + b'\x00' in manager_object
-          assert re.search(r'\bis_manager_apk$', system_map, re.M)
-          obj = Path(os.environ['RUNNER_TEMP']) / 'manager-apk_sign.o'
-          obj.write_bytes(manager_object)
-          relocs = subprocess.run(['readelf', '-Wr', str(obj)], check=True, capture_output=True, text=True).stdout
-          assert re.search(r'R_AARCH64_CALL26\s+\S+\s+strncmp\b', relocs)
-          assert status['compiler']['neutron_archive_sha256'] == '531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30'
-          assert status['manager']['runtime_pairing_tested'] is False
-          assert status['installer_created'] is False and status['private_key_exported'] is False
-          with gzip.GzipFile(fileobj=io.BytesIO(image)) as f:
-              raw = f.read(128 * 1024 * 1024 + 1)
-          assert len(raw) <= 128 * 1024 * 1024
-          spec = importlib.util.spec_from_file_location('s2x', root / 'build-kit/scripts/build_synthetica2_experimental.py')
-          s2x = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(s2x)
-          s2x.v3.verify_embedded_config(raw, config)
-          s2x.check_config(s2x.v3.verified_baseline(root / 'artifacts/generated.config.txt'), config.decode())
-          assert b'Linux version 4.14.357-openela-Synthetica-2.0-exp' in raw
-          assert b'KernelSU' in raw and b'net.ember.labs' in raw
-          assert status['manager']['cert_sha256'].encode() in raw
-          crc = s2x.modules.symvers_records(symvers)['module_layout']
-          assert status['module_layout_crc'] == f'0x{crc:08x}'
-          assert len(status['same_build_modules_static_checks']) == 6
-          summary = {'image_sha256': status['image_sha256'], 'config_sha256': status['config_sha256'],
-                     'module_layout_crc': status['module_layout_crc'], 'compiler': status['compiler'],
-                     'modules_static_only': list(status['same_build_modules_static_checks']),
-                     'physical_tests': status['physical_boot_root_thermal_battery_suspend_charging_tests'],
-                     'rom_vendor_modules': status['rom_vendor_module_abi_and_trust'],
-                     'manager_object_sha256': status['manager']['apk_sign_object_sha256'],
-                     'rom_sample_module_layout_crc': '0x6968ee15',
-                     'sample_abi_match': status['module_layout_crc'] == '0x6968ee15'}
-          text = json.dumps(summary, indent=2)
-          for part, start in enumerate(range(0, len(text), 2400), 1):
-              chunk = text[start:start+2400].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print('::notice title=Verified compile evidence ' + str(part) + '::' + chunk)
+          rows = (Path(os.environ['RUNNER_TEMP']) / 'job.log').read_text(errors='replace').splitlines()
+          text = '\n'.join(rows[-30:])
+          text = re.sub(r'https?://\S+', '<url>', text)
+          text = text[-3000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::notice title=LLVM 18 live progress snapshot::' + text)
           PY
