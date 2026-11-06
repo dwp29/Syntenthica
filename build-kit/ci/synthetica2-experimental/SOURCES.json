@@ -188,5 +188,54 @@
     "url": "https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst",
     "bytes": 77768187,
     "sha256": "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
+  },
+  "uclamp_correctness": {
+    "repository": "torvalds/linux",
+    "upstream_fixes": [
+      {
+        "commit": "7763baace1b738d65efa46d68326c9406311c6bf",
+        "purpose": "correct utilization-value return types (effective-value helper was already unsigned long)"
+      },
+      {
+        "commit": "6e1ff0773f49c7d38e8b4a9df598def6afb9f415",
+        "purpose": "update only tasks actively accounted on a runqueue"
+      },
+      {
+        "commit": "ca4984a7dd863f3e1c0df775ae3e744bff24c303",
+        "purpose": "clear stale idle flag after runqueue maximum is reaccounted"
+      },
+      {
+        "commit": "0c18f2ecfcc274a4bcc1d122f79ebd4001c3b445",
+        "purpose": "group minimum is a protection, not an upper limit"
+      },
+      {
+        "commit": "0213b7083e81f4acd69db32cb72eb4e5f220329a",
+        "purpose": "restrict each task value to group min/max and update both effective clamps"
+      },
+      {
+        "commit": "7226017ad37a888915628e59a84a2d1e57b40707",
+        "purpose": "propagate the effective clamp when a group comes online"
+      },
+      {
+        "commit": "93b73858701fd01de26a4a874eb95f9b7156fd4b",
+        "purpose": "lock cgroup-online propagation with uclamp mutex and RCU"
+      },
+      {
+        "commit": "315c4f884800c45cb6bd8c90422fad554a8b9588",
+        "purpose": "ensure the first enqueue resets the maximum on an idle runqueue"
+      }
+    ],
+    "adaptations": [
+      "Linux 4.14 uses clamp-id re-accounting APIs and an early root cpu cgroup callback; propagation is restricted to non-root online groups after scheduler initialization"
+    ],
+    "patch": "patches/0003-uclamp-correctness.patch",
+    "sha256": "13611be934098a6cff55d4b4653d86addcad0f9927df0b20c7a410db27a6e290"
+  },
+  "mglru_build_fix": {
+    "repository": "NothingTransition/CustomKernel1",
+    "commit": "6fc65f813c583dd43a2c7ec35314fda6690bde70",
+    "purpose": "Define ANON_AND_FILE before the MGLRU arrays; omitted in the initial donor backport",
+    "patch": "patches/0004-mglru-anon-file.patch",
+    "sha256": "705bf69829356e979c47f3e6225137340ce3d1a7375d7ed08400c76146fb4eca"
   }
 }

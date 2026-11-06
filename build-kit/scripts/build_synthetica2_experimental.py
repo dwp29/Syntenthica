@@ -23,6 +23,8 @@ EXPECTED_RELEASE = "4.14.357-openela-Synthetica-2.0-exp"
 PATCHES = {
     "0001-mglru-4.14.patch": "6c77c69bef438211859903ded71b35245d14f5cd7282fb5db605103d30d449e2",
     "0002-uclamp-walt-stune.patch": "44004efb1dcb451962fca536a596fc0f112827ab8b256efbfde5d6120dac42a7",
+    "0003-uclamp-correctness.patch": "13611be934098a6cff55d4b4653d86addcad0f9927df0b20c7a410db27a6e290",
+    "0004-mglru-anon-file.patch": "705bf69829356e979c47f3e6225137340ce3d1a7375d7ed08400c76146fb4eca",
 }
 FEATURE_CONFIG_SHA = "4a6097a894e92790c347d8016b520b5c9923bb4dd5e33acf97ea3bd0159358ff"
 NEUTRON_SHA = "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
@@ -61,7 +63,10 @@ def check_inputs() -> None:
             raise ValueError(f"experimental patch digest changed: {name}")
     if v3.digest(INPUTS / "features.config") != FEATURE_CONFIG_SHA:
         raise ValueError("experimental feature config digest changed")
-    for key, name in (("mglru", "0001-mglru-4.14.patch"), ("uclamp", "0002-uclamp-walt-stune.patch")):
+    for key, name in (("mglru", "0001-mglru-4.14.patch"),
+                      ("uclamp", "0002-uclamp-walt-stune.patch"),
+                      ("uclamp_correctness", "0003-uclamp-correctness.patch"),
+                      ("mglru_build_fix", "0004-mglru-anon-file.patch")):
         if manifest[key]["sha256"] != PATCHES[name] or manifest[key]["patch"] != "patches/" + name:
             raise ValueError(f"source manifest is inconsistent for {key}")
     if (manifest["feature_config_sha256"] != FEATURE_CONFIG_SHA or
@@ -139,13 +144,24 @@ def prepare(source: Path, destination: Path, baseline: Path) -> None:
 # explicitly selected absolute toolchain directory; do not fall back silently.
 : "${S2X_TOOLCHAIN_BIN:?absolute toolchain directory required}"
 case "$S2X_TOOLCHAIN_BIN" in /*) ;; *) echo "toolchain path is not absolute"; exit 1 ;; esac
-for tool in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip llvm-size; do
+for tool in clang ld.lld llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-readelf llvm-strip; do
   [ -x "$S2X_TOOLCHAIN_BIN/$tool" ] || { echo "missing $tool in selected toolchain"; exit 1; }
 done
+# Some Neutron releases omit llvm-size; use the explicitly identified system
+# cross-binutils size tool only for size reporting, never as a compiler/linker.
+if [ -x "$S2X_TOOLCHAIN_BIN/llvm-size" ]; then
+  S2X_SIZE_TOOL="$S2X_TOOLCHAIN_BIN/llvm-size"
+elif [ -x /usr/bin/aarch64-linux-gnu-size ]; then
+  S2X_SIZE_TOOL=/usr/bin/aarch64-linux-gnu-size
+else
+  echo "missing llvm-size and /usr/bin/aarch64-linux-gnu-size"; exit 1
+fi
+echo "Auxiliary size tool: $S2X_SIZE_TOOL"
 export PATH="$S2X_TOOLCHAIN_BIN:/usr/lib/ccache:/usr/bin:/bin:$PATH"
 [ "$(command -v clang)" = "$S2X_TOOLCHAIN_BIN/clang" ] || { echo "wrong clang on PATH"; exit 1; }
 clang --version
 ld.lld --version''')
+    text = replace_once(text, "SIZE=llvm-size", 'SIZE="$S2X_SIZE_TOOL"')
     text = text.replace("S3_HELPER", "S2X_HELPER").replace("S3_BASELINE", "S2X_BASELINE")
     text = text.replace("synthetica3-modules", "synthetica2-experimental-modules")
     text = text.replace("3.0 must keep the whole 2.0 config", "Experiment permits only the reviewed feature config changes")
@@ -190,8 +206,13 @@ def toolchain_info(kind: str, toolchain_bin: Path, neutron_archive: Path | None)
         if (neutron_archive is None or neutron_archive.stat().st_size != NEUTRON_SIZE or
                 v3.digest(neutron_archive) != NEUTRON_SHA):
             raise ValueError("Neutron archive does not match the pinned release")
+    size = toolchain_bin / "llvm-size"
+    if not size.is_file():
+        size = Path("/usr/bin/aarch64-linux-gnu-size")
+    size_record = ({"path": str(size), "sha256": v3.digest(size)} if size.is_file() else None)
     return {"kind": kind, "clang_version": cv, "lld_version": lv,
             "clang_sha256": v3.digest(clang), "lld_sha256": v3.digest(lld),
+            "auxiliary_size_tool": size_record,
             "neutron_archive_sha256": NEUTRON_SHA if kind == "neutron" else None}
 
 

@@ -92,6 +92,87 @@ class PatchSafetyTests(unittest.TestCase):
         self.assertIn("+unsigned int sysctl_sched_uclamp_util_min_rt_default;", patch)
         self.assertIn("*util = boosted_cpu_util(cpu, &loadcpu->walt_load);\n+\t*util = uclamp_util_with(rq, *util, NULL);", patch)
 
+    def test_mglru_has_anon_and_file_array_dimension(self):
+        fix = (s2x.INPUTS / "patches/0004-mglru-anon-file.patch").read_text()
+        self.assertIn("+#define ANON_AND_FILE 2", fix)
+
+    def test_uclamp_fix_executes_active_idle_and_group_corner_cases(self):
+        # Compile the *actual newly patched C function bodies* against small
+        # controlled stubs. This is not a kernel, concurrency, or device test.
+        patch = (s2x.INPUTS / "patches/0003-uclamp-correctness.patch").read_text()
+        updated = "\n".join(line[1:] for line in patch.splitlines()
+                            if line.startswith((" ", "+")) and not line.startswith("+++"))
+        start = updated.index("static inline void uclamp_rq_reinc_id(")
+        end = updated.index("\n}", start) + len("\n}")
+        reinc = updated[start:end]
+        start = updated.index("\tstruct uclamp_se uc_req = p->uclamp_req[clamp_id];")
+        end = updated.index("\n\treturn uc_req;", updated.index("#endif", start)) + len("\n\treturn uc_req;")
+        restrict = "static struct uclamp_se restrict_test(struct task_struct *p, enum uclamp_id clamp_id)\n{\n" + updated[start:end] + "\n}"
+        harness = r"""
+#include <assert.h>
+#include <stdbool.h>
+#define CONFIG_UCLAMP_TASK_GROUP 1
+#define UCLAMP_FLAG_IDLE 1
+#define clamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
+enum uclamp_id { UCLAMP_MIN, UCLAMP_MAX, UCLAMP_CNT };
+struct uclamp_se { unsigned int value; bool active; bool user_defined; };
+struct task_group { struct uclamp_se uclamp[UCLAMP_CNT]; bool autogroup; };
+struct task_struct { struct uclamp_se uclamp[UCLAMP_CNT], uclamp_req[UCLAMP_CNT]; struct task_group *tg; };
+struct rq { unsigned int uclamp_flags; int inc[UCLAMP_CNT], dec[UCLAMP_CNT]; };
+static struct task_group root_task_group;
+static struct task_group *task_group(struct task_struct *p) { return p->tg; }
+static bool task_group_is_autogroup(struct task_group *g) { return g->autogroup; }
+static void uclamp_se_set(struct uclamp_se *se, unsigned int value, bool user) { se->value = value; se->user_defined = user; }
+static void uclamp_rq_dec_id(struct rq *rq, struct task_struct *p, enum uclamp_id id) {
+    assert(p->uclamp[id].active); rq->dec[id]++; p->uclamp[id].active = false;
+    if (id == UCLAMP_MAX) rq->uclamp_flags |= UCLAMP_FLAG_IDLE;
+}
+static void uclamp_rq_inc_id(struct rq *rq, struct task_struct *p, enum uclamp_id id) {
+    assert(!p->uclamp[id].active); rq->inc[id]++; p->uclamp[id].active = true;
+}
+""" + reinc + "\n" + restrict + r"""
+int main(void) {
+    struct task_group group = { .uclamp = {{.value=307}, {.value=512}} };
+    struct task_struct task = { .tg=&group, .uclamp_req = {{.value=614}, {.value=205}} };
+    struct rq rq = { .uclamp_flags=UCLAMP_FLAG_IDLE };
+    /* Inactive tasks must never be re-accounted or change idle state. */
+    uclamp_rq_reinc_id(&rq, &task, UCLAMP_MAX);
+    assert(!rq.dec[UCLAMP_MAX] && !rq.inc[UCLAMP_MAX] && rq.uclamp_flags == UCLAMP_FLAG_IDLE);
+    /* Min updates must not clear the independently held max-idle flag. */
+    task.uclamp[UCLAMP_MIN].active = true;
+    uclamp_rq_reinc_id(&rq, &task, UCLAMP_MIN);
+    assert(rq.dec[UCLAMP_MIN] == 1 && rq.inc[UCLAMP_MIN] == 1 && rq.uclamp_flags == UCLAMP_FLAG_IDLE);
+    /* A last-task max re-accounting must clear its transient idle flag. */
+    task.uclamp[UCLAMP_MAX].active = true; rq.uclamp_flags = 0;
+    uclamp_rq_reinc_id(&rq, &task, UCLAMP_MAX);
+    assert(rq.dec[UCLAMP_MAX] == 1 && rq.inc[UCLAMP_MAX] == 1 && rq.uclamp_flags == 0);
+    /* Crossed per-task requests are constrained within the group range. */
+    assert(restrict_test(&task, UCLAMP_MIN).value == 512);
+    assert(restrict_test(&task, UCLAMP_MAX).value == 307);
+    group.uclamp[UCLAMP_MIN].value = 0; group.uclamp[UCLAMP_MAX].value = 1024;
+    assert(restrict_test(&task, UCLAMP_MIN).value == 614);
+    assert(restrict_test(&task, UCLAMP_MAX).value == 205);
+    task.tg = &root_task_group;
+    assert(restrict_test(&task, UCLAMP_MIN).value == 614);
+    return 0;
+}
+"""
+        with tempfile.TemporaryDirectory(prefix="s2x-uclamp-c-") as temp:
+            src, binary = Path(temp) / "test.c", Path(temp) / "test"
+            src.write_text(harness)
+            subprocess.run(["gcc", "-std=c99", "-Wall", "-Werror", str(src), "-o", str(binary)], check=True)
+            subprocess.run([str(binary)], check=True)
+
+    def test_uclamp_group_online_and_initial_rq_are_guarded(self):
+        patch = (s2x.INPUTS / "patches/0003-uclamp-correctness.patch").read_text()
+        self.assertIn("+\trq->uclamp_flags = UCLAMP_FLAG_IDLE;", patch)
+        self.assertIn("+\tif (parent) {", patch)  # not the pre-scheduler root callback
+        self.assertIn("+\t\tmutex_lock(&uclamp_mutex);", patch)
+        self.assertIn("+\t\trcu_read_lock();", patch)
+        self.assertIn("+\t\tcpu_util_update_eff(css);", patch)
+        self.assertIn("+\t\tmutex_unlock(&uclamp_mutex);", patch)
+        self.assertIn("+\tfor_each_clamp_id(clamp_id)\n+\t\tuclamp_rq_reinc_id(rq, p, clamp_id);", patch)
+
     def test_no_root_or_thermal_source_files_are_touched(self):
         for name in s2x.PATCHES:
             patch = (s2x.INPUTS / "patches" / name).read_text()
@@ -104,7 +185,7 @@ class PatchSafetyTests(unittest.TestCase):
 
     def test_git_apply_chain_to_real_pinned_source_when_fixture_supplied(self):
         # Optional sparse copy of the affected, unmodified pinned source files.
-        # CI also applies both patches to the complete SHA-verified archive.
+        # CI also applies the patch chain to the complete SHA-verified archive.
         fixture = os.environ.get("S2X_PATCH_FIXTURE")
         if not fixture:
             self.skipTest("no locally extracted source fixture")
@@ -115,6 +196,9 @@ class PatchSafetyTests(unittest.TestCase):
             core = (tree / "kernel/sched/core.c").read_text()
             fork = (tree / "kernel/fork.c").read_text()
             self.assertIn("UCLAMP_BUCKETS - 1);", core)
+            self.assertIn("if (!p->uclamp[clamp_id].active)\n\t\treturn;", core)
+            self.assertIn("rq->uclamp_flags = UCLAMP_FLAG_IDLE;", core)
+            self.assertIn("#define ANON_AND_FILE 2", (tree / "include/linux/mmzone.h").read_text())
             self.assertIn("sched_post_fork(p);", fork)
             self.assertIn("$(KCONFIG_CONFIG) FORCE", (tree / "kernel/Makefile").read_text())
             duplicate = subprocess.run(
@@ -136,6 +220,8 @@ class IsolatedBuildTests(unittest.TestCase):
             driver = (kit / "scripts/build_chronicle_base.py").read_text()
             profile_copy = (kit / "ci/rollercoaster/profiles/synthetica.config").read_text()
             self.assertIn("S2X_TOOLCHAIN_BIN", text)
+            self.assertIn('S2X_SIZE_TOOL=/usr/bin/aarch64-linux-gnu-size', text)
+            self.assertIn('SIZE="$S2X_SIZE_TOOL"', text)
             self.assertNotIn('export PATH="/usr/lib/llvm-18/bin:', text)
             self.assertIn('"prepare-tree", "--tree", str(tree)', driver)
             self.assertIn("S2X_HELPER", text)
