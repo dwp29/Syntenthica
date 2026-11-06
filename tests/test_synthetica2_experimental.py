@@ -26,12 +26,12 @@ class ConfigGuardTests(unittest.TestCase):
                                         'CONFIG_LOCALVERSION="-Synthetica-2.0-exp"')
         cls.good += "\n" + "\n".join((
             "CONFIG_UCLAMP_TASK=y", "CONFIG_UCLAMP_TASK_GROUP=y", "CONFIG_UCLAMP_BUCKETS_COUNT=5",
-            "CONFIG_LRU_GEN=y", "# CONFIG_LRU_GEN_ENABLED is not set", "# CONFIG_LRU_GEN_STATS is not set",
+            "CONFIG_LRU_GEN=y", "CONFIG_LRU_GEN_ENABLED=y", "# CONFIG_LRU_GEN_STATS is not set",
             "CONFIG_NR_LRU_GENS=7", "CONFIG_TIERS_PER_GEN=4", ""))
 
     def test_only_reviewed_changes_are_allowed(self):
         changed = s2x.check_config(self.baseline, self.good)
-        self.assertEqual(set(changed), set(s2x.ALLOWED_CHANGES))
+        self.assertEqual(set(changed), set(s2x.ALLOWED_CHANGES) | {"LRU_GEN_ENABLED"})
 
     def test_existing_walt_and_schedtune_are_required(self):
         for sym in ("SCHED_WALT", "SCHED_TUNE", "CPU_FREQ_GOV_SCHEDUTIL", "CGROUP_SCHED"):
@@ -47,10 +47,23 @@ class ConfigGuardTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, sym):
                     s2x.check_config(self.baseline, bad)
 
-    def test_mglru_on_at_boot_is_rejected_until_validated(self):
-        bad = self.good.replace("# CONFIG_LRU_GEN_ENABLED is not set", "CONFIG_LRU_GEN_ENABLED=y")
+    def test_mglru_on_and_control_are_explicit_and_never_interchangeable(self):
+        control = self.good.replace("CONFIG_LRU_GEN_ENABLED=y", "# CONFIG_LRU_GEN_ENABLED is not set")
+        enabled = s2x.check_config(self.baseline, self.good, "on")
+        disabled = s2x.check_config(self.baseline, control, "off")
+        self.assertEqual(set(enabled) - set(disabled), {"LRU_GEN_ENABLED"})
+        self.assertEqual(set(disabled), set(s2x.ALLOWED_CHANGES))
+        self.assertEqual(s2x.compare_mglru_configs(self.baseline, self.good, control),
+                         {"LRU_GEN_ENABLED": {"on": "y", "off": "n"}})
+        with self.assertRaises(ValueError):
+            s2x.compare_mglru_configs(self.baseline, self.good,
+                                       control.replace("CONFIG_UCLAMP_BUCKETS_COUNT=5", "CONFIG_UCLAMP_BUCKETS_COUNT=6"))
         with self.assertRaisesRegex(ValueError, "LRU_GEN_ENABLED"):
-            s2x.check_config(self.baseline, bad)
+            s2x.check_config(self.baseline, control, "on")
+        with self.assertRaisesRegex(ValueError, "LRU_GEN_ENABLED"):
+            s2x.check_config(self.baseline, self.good, "off")
+        with self.assertRaisesRegex(ValueError, "on or off"):
+            s2x.check_config(self.baseline, self.good, "surprise")
 
     def test_mglru_stats_and_unrequested_config_are_rejected(self):
         for bad in (self.good.replace("# CONFIG_LRU_GEN_STATS is not set", "CONFIG_LRU_GEN_STATS=y"),
@@ -259,13 +272,22 @@ class IsolatedBuildTests(unittest.TestCase):
             self.assertIn('"prepare-tree", "--tree", str(tree)', driver)
             self.assertIn("S2X_HELPER", text)
             self.assertIn("CONFIG_UCLAMP_TASK=y", profile_copy)
-            self.assertIn("# CONFIG_LRU_GEN_ENABLED is not set", profile_copy)
+            self.assertIn("CONFIG_LRU_GEN_ENABLED=y", profile_copy)
+            self.assertIn('check-config --baseline "$S2X_BASELINE" --generated "$OUT/.config" --mglru on', text)
             self.assertIn("synthetica2-experimental-modules", text)
             self.assertNotIn("patch_cmdline", text)
             self.assertNotIn("# --- kemas AnyKernel3", text)
             self.assertTrue(text.rstrip().endswith("exit 0"))
             with self.assertRaises(ValueError):
                 s2x.prepare(ROOT / "build-kit", kit, ROOT / "artifacts/generated.config.txt")
+            control = Path(temp) / "control"
+            s2x.prepare(ROOT / "build-kit", control, ROOT / "artifacts/generated.config.txt", "off")
+            control_profile = (control / "ci/rollercoaster/profiles/synthetica.config").read_text()
+            control_builder = (control / "ci/rollercoaster/build-rollercoaster.sh").read_text()
+            self.assertIn("# CONFIG_LRU_GEN_ENABLED is not set", control_profile)
+            self.assertIn('check-config --baseline "$S2X_BASELINE" --generated "$OUT/.config" --mglru off', control_builder)
+            with self.assertRaisesRegex(ValueError, "on or off"):
+                s2x.prepare(ROOT / "build-kit", Path(temp) / "bad", ROOT / "artifacts/generated.config.txt", "invalid")
         self.assertEqual(before, {p: s2x.v3.digest(p) for p in before})
 
     def test_manager_object_guard_requires_literals_flag_and_real_comparison(self):

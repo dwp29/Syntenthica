@@ -1,9 +1,25 @@
 # Synthetica 2.0 — eksperimen Uclamp, MGLRU, dan Neutron
 
-**Status: eksperimen pengembangan, bukan rilis atau paket flash.** Baseline 2.0,
-APK Manager, dan resep yang digunakan 3.0 tidak diganti. BakaSU tidak dipasang.
-Hasil build yang berhasil sekalipun hanya bukti kompilasi, bukan bukti aman untuk
-perangkat atau kompatibel dengan modul vendor ROM.
+**Status: eksperimen pengembangan, bukan rilis atau paket flash.** Target yang
+dilaporkan pengguna adalah Joyeuse dengan Lunaris AOSP GMS 3.13 Android 16;
+[tautan ROM yang diberikan](https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051)
+menampilkan metadata `Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip`
+(bukan build resmi 3.12 yang tercantum di direktori lama). Pengunduhan dan
+identitas build yang terpasang belum diverifikasi. Baseline 2.0, APK Manager,
+dan resep yang digunakan 3.0 tidak diganti. BakaSU tidak dipasang. Hasil build
+yang berhasil sekalipun hanya bukti kompilasi, bukan bukti aman untuk perangkat
+atau kompatibel dengan modul vendor ROM.
+
+## Metadata ROM yang diberikan
+
+API Artifact Explorer untuk build yang diberikan mencantumkan arsip Community
+3.13 GMS, ukuran `2.925.420.062` byte, SHA-256 **yang diterbitkan server**
+`37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7`.
+Server juga mencantumkan `boot.img`, `dtbo.img`, `recovery.img`, `vbmeta.img`
+dan `super_empty.img` terpisah; hash yang diterbitkan untuk boot, DTBO dan vbmeta
+dicatat dalam `SOURCES.json`. Gofile menampilkan nama arsip yang sama. Metadata
+ini belum membuktikan bahwa byte yang diunduh cocok, bahwa ROM tersebut benar
+terpasang di Joyeuse, atau bahwa modul di dalamnya cocok/tepercaya oleh kernel.
 
 ## Cakupan dan default
 
@@ -11,13 +27,15 @@ perangkat atau kompatibel dengan modul vendor ROM.
 |---|---|
 | WALT + SchedTune | Keduanya dipertahankan seperti konfigurasi 2.0 yang tersimpan. |
 | Uclamp | Backport per-task dan CPU cgroup, dengan lima bucket; clamp default netral dan default boost RT tambahan 0. Pengaturan pengguna/ROM tetap bisa mengubah clamp. |
-| MGLRU | Dikompilasi (`CONFIG_LRU_GEN=y`), tetapi **tidak diaktifkan saat boot** (`CONFIG_LRU_GEN_ENABLED=n`); statistik tambahan dimatikan. Pengujian MGLRU aktif masih diperlukan. |
+| MGLRU | Atas permintaan pengguna, varian eksperimen **aktif secara default** (`CONFIG_LRU_GEN=y`, `CONFIG_LRU_GEN_ENABLED=y`). Varian kontrol Neutron mematikan default MGLRU untuk pembandingan; statistik tambahan tetap dimatikan. Keduanya belum diuji pada perangkat. |
 | Thermal, frekuensi dan root | Tidak ada patch thermal, overclock, bypass signature modul, atau perubahan implementasi KernelSU-Next/Manager. Penjagaan konfigurasi menolak perubahan lain dari konfigurasi 2.0 tersimpan. |
 | Neutron | Calon compiler dipin ke tag `06092026`, Clang `24.0.0git`, arsip SHA-256 `531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30`. CI membandingkan build yang sama dengan LLVM 18; itu bukan benchmark. |
 
-MGLRU ditahan dalam keadaan runtime off karena perubahan MM 4.14 luas dan donor
-melaporkan hang saat idle/charging pada versi terdahulu. Runtime off tidak
-menghapus semua risiko: struktur kernel dan ABI tetap berubah. Kode Uclamp
+MGLRU aktif dalam varian yang diminta, tetapi backport MM 4.14 ini luas dan donor
+melaporkan hang saat idle/charging pada versi terdahulu; laporan itu tidak
+membuktikan penyebab atau kejadian pada ROM pengguna. Varian kontrol dengan
+runtime default off juga tidak menghapus semua risiko: struktur kernel dan ABI
+tetap berubah. Kode Uclamp
 menerapkan clamp setelah `boosted_cpu_util()` yang sudah ada; tidak ada boost
 statis tambahan yang dipaksakan. Namun WALT, SchedTune, I/O-wait, dan nilai yang
 dikirim userspace tetap dapat memengaruhi frekuensi. `uclamp.max` adalah hint,
@@ -44,6 +62,8 @@ kedua compiler tetapi gagal pada callback `pagewalk` donor dan penggunaan
 build awal juga mengandung bug accounting Uclamp yang dikoreksi. Jangan gunakan
 artefak dari kedua run tersebut.
 
+### Bukti build sebelumnya — MGLRU default off
+
 Pada run `42241943772` (commit `eb64744`), build LLVM 18 **lulus kompilasi dan
 pemeriksaan statis**; Neutron gagal pada konversi enum di driver Wi-Fi. Run
 `42243864941` menemukan dua konversi serupa berikutnya. Patch lanjutan memberikan
@@ -66,8 +86,9 @@ Manager, dan `Module.symvers`. Artifact
 `cda7b5691dc2fa06b7d9be963ee48fdff224511aba4bbe668a4b02033e413a39`.
 Enam modul build yang sama hanya diperiksa statis oleh CI asal; tidak ikut sebagai
 installer. CRC `module_layout` Neutron juga `0xed5659d1`, berbeda dari
-`0x6968ee15` pada 41 modul sampel ROM. Ini tetap bukan bukti Manager bekerja,
-modul ROM kompatibel, atau kernel aman di-flash.
+`0x6968ee15` pada 41 modul sampel ROM yang diperiksa sebelumnya. Sampel itu
+**bukan bukti** tentang modul Lunaris 3.13 yang sedang dipakai pengguna. Ini tetap
+bukan bukti Manager bekerja, modul ROM kompatibel, atau kernel aman di-flash.
 
 Neutron juga memperingatkan frame stack `check_block` sebesar 2240 byte terhadap
 batas peringatan 2048 byte. Peringatan ini perlu ditinjau dalam konteks stack dan
@@ -101,8 +122,8 @@ berlaku untuk artifact LLVM 18 sebelumnya.
   dengan perubahan target, [perbaikan batas bucket](https://github.com/torvalds/linux/commit/6d2f8909a5fabb73fe2a63918117943986c39b6c)
   dan perbaikan upstream lanjutan yang dirujuk per commit di manifest.
   Seri donor mencakup karya Patrick Bellasi, penulis upstream lainnya dan pemelihara donor; riwayat mereka tetap dirujuk di manifest.
-- `build-kit/ci/synthetica2-experimental/patches/` berisi diff source GPL yang dapat diperiksa; `features.config` adalah fragment eksperimen. Tidak ada source tree besar atau toolchain binary yang dikomit.
-- Workflow `.github/workflows/synthetica2-experimental.yml` membuat dua build terpisah: LLVM 18 dan Neutron. Arsip source dan Neutron diverifikasi sebelum dipakai. Builder disalin ke direktori sementara, diubah hanya dalam salinan itu, dan dihentikan sebelum bagian AnyKernel/installer.
+- `build-kit/ci/synthetica2-experimental/patches/` berisi diff source GPL yang dapat diperiksa. `features.config` memuat fitur bersama, sedangkan `mglru-on.config` dan `mglru-off.config` memilih default untuk masing-masing varian. Ketiganya dipin. Tidak ada source tree besar atau toolchain binary yang dikomit.
+- Workflow `.github/workflows/synthetica2-experimental.yml` membangun Neutron/MGLRU-on, LLVM 18/MGLRU-on, dan kontrol Neutron/MGLRU-off secara terpisah. Ia memeriksa bahwa kedua konfigurasi Neutron hanya berbeda pada default MGLRU; ini **bukan** benchmark maupun uji perangkat. Arsip source dan Neutron diverifikasi sebelum dipakai. Builder disalin ke direktori sementara, diubah hanya dalam salinan itu, dan dihentikan sebelum bagian AnyKernel/installer.
 - KernelSU-Next dan identitas Manager lama dipertahankan: paket `net.ember.labs`, sertifikat DER 1381 byte, SHA-256 `fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140`. Identitas yang tertaut bukan bukti pairing atau root berhasil.
 
 Uji host yang dapat dijalankan tanpa perangkat:
@@ -117,7 +138,8 @@ stub terkontrol; ini tidak menguji locking atau scheduler kernel sebenarnya.
 `prepare-tree` dan CI juga menjalankan `git apply --check` untuk tiap patch pada
 salinan source yang dipin. Hasil build yang lolos pemeriksaan berisi image yang
 diberi nama `DO-NOT-FLASH`, konfigurasi, `System.map`, `Module.symvers`, objek
-`manager-apk_sign.o`, dan status; tidak memuat installer atau kunci privat. Enam modul yang dipilih oleh
+`manager-apk_sign.o`, sertifikat modul **publik**, dan status; tidak memuat
+installer atau kunci privat. Enam modul yang dipilih oleh
 konfigurasi 2.0 diperiksa terhadap CRC dan sertifikat dari build yang sama,
 bukan diuji dimuat ke perangkat dan bukan validasi modul vendor ROM.
 
@@ -126,6 +148,6 @@ bukan diuji dimuat ke perangkat dan bukan validasi modul vendor ROM.
 1. Kedua build harus lolos kompilasi dan verifikasi konfigurasi/IKCONFIG; catat error tiap compiler secara terpisah.
 2. Verifikasi perangkat/ROM, AVB, metode pemulihan, dan kompatibilitas seluruh modul vendor: vermagic, CRC `MODVERSIONS`, dan signer yang benar. Audit terdahulu menemukan ketidakcocokan modul vendor; jangan menonaktifkan pemeriksaan untuk memaksanya.
 3. Setelah ada kandidat yang layak diuji, ukur boot, pengenalan Manager/root, kamera, jaringan, sleep/wake, idle sambil mengisi daya, tekanan RAM dan stabilitas lama.
-4. Ukur performa, suhu dan baterai pada beban yang sama dengan baseline. MGLRU aktif dan clamp non-netral memerlukan pengujian terpisah; jangan diaktifkan hanya karena build berhasil.
+4. Setelah gerbang di atas terpenuhi, uji varian MGLRU-on dan kontrol MGLRU-off dengan toolchain serta beban yang sama. Catat status MGLRU aktual karena userspace bisa mengubahnya; ukur tekanan RAM, respons, suspend/idle sambil charging, suhu dan baterai. Perubahan clamp non-netral perlu pengujian terpisah.
 
 Tidak ada flash, pengubahan perangkat, atau jaminan bebas regresi dalam eksperimen ini.

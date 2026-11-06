@@ -28,7 +28,11 @@ PATCHES = {
     "0005-mglru-pagewalk-caf.patch": "7471c88af6e044b7cbc257357474b7be66c31a70ba6633ebab3f59233f5765c8",
     "0006-neutron-enum-cast.patch": "9cd2d4e883d10ee16f0ee588ac881ca138e7242ac59c42b394ef6ade5fbef6a6",
 }
-FEATURE_CONFIG_SHA = "4a6097a894e92790c347d8016b520b5c9923bb4dd5e33acf97ea3bd0159358ff"
+FEATURE_CONFIG_SHA = "84d2648e897b95990e6752422284a079d3ca3fc03710b4d23ee7d0cb6f848dff"
+MGLRU_FRAGMENTS = {
+    "on": ("mglru-on.config", "8835d5dc5806cc5d79fbdd519490d1e00089398adb963a17f928ebdf2f1e48c5"),
+    "off": ("mglru-off.config", "cd0c1f8f8a54ad5ca9462f874ff351ff96e48b44342831cab2b92ec44a72d90c"),
+}
 NEUTRON_SHA = "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
 NEUTRON_SIZE = 77768187
 MANAGER_APK_SHA = "7bded761808c560fa5511acf32d3ce728adedce663002820815d00176526b567"
@@ -65,6 +69,16 @@ def check_inputs() -> None:
             raise ValueError(f"experimental patch digest changed: {name}")
     if v3.digest(INPUTS / "features.config") != FEATURE_CONFIG_SHA:
         raise ValueError("experimental feature config digest changed")
+    if "LRU_GEN_ENABLED" in v3.read_config((INPUTS / "features.config").read_text(encoding="utf-8")):
+        raise ValueError("MGLRU boot default must be chosen by exactly one variant fragment")
+    for mode, (name, digest) in MGLRU_FRAGMENTS.items():
+        fragment = INPUTS / name
+        if (v3.digest(fragment) != digest or manifest["mglru_variants"][mode]["sha256"] != digest or
+                manifest["mglru_variants"][mode]["fragment"] != name):
+            raise ValueError(f"MGLRU {mode} fragment digest changed")
+        config = v3.read_config(fragment.read_text(encoding="utf-8"))
+        if config != {"LRU_GEN_ENABLED": "y" if mode == "on" else "n"}:
+            raise ValueError(f"MGLRU {mode} fragment must change only the boot default")
     for key, name in (("mglru", "0001-mglru-4.14.patch"),
                       ("uclamp", "0002-uclamp-walt-stune.patch"),
                       ("uclamp_correctness", "0003-uclamp-correctness.patch"),
@@ -106,28 +120,50 @@ def verify_manager() -> dict[str, object]:
     return data
 
 
-def check_config(baseline: str, generated: str) -> dict[str, dict[str, str]]:
+def check_config(baseline: str, generated: str, mglru: str = "on") -> dict[str, dict[str, str]]:
+    if mglru not in MGLRU_FRAGMENTS:
+        raise ValueError("MGLRU variant must be on or off")
     old, new = v3.read_config(baseline), v3.read_config(generated)
     for symbol in (*v3.REQUIRED_Y, "SCHED_WALT", "SCHED_TUNE", "CPU_FREQ_GOV_SCHEDUTIL",
                    "CPU_FREQ_DEFAULT_GOV_SCHEDUTIL", "CGROUP_SCHED"):
         if old.get(symbol) != "y" or new.get(symbol) != "y":
             raise ValueError(f"required baseline, thermal/security or scheduler feature not preserved: {symbol}")
-    for symbol in (*v3.FORBIDDEN_Y, "LRU_GEN_ENABLED", "LRU_GEN_STATS"):
+    for symbol in (*v3.FORBIDDEN_Y, "LRU_GEN_STATS"):
         if new.get(symbol, "n") != "n":
             raise ValueError(f"unsafe or premature experimental option enabled: {symbol}")
+    if new.get("LRU_GEN_ENABLED", "n") != ("y" if mglru == "on" else "n"):
+        raise ValueError(f"LRU_GEN_ENABLED does not match requested {mglru} variant")
     changed = {
         k: {"2.0": old.get(k, "n"), "experiment": new.get(k, "n")}
         for k in sorted(old.keys() | new.keys()) if old.get(k, "n") != new.get(k, "n")
     }
-    expected = {k: {"2.0": a, "experiment": b} for k, (a, b) in ALLOWED_CHANGES.items()}
+    expected_values = dict(ALLOWED_CHANGES)
+    if mglru == "on":
+        expected_values["LRU_GEN_ENABLED"] = ("n", "y")
+    expected = {k: {"2.0": a, "experiment": b} for k, (a, b) in expected_values.items()}
     if changed != expected:
         bad = sorted(k for k in changed.keys() | expected.keys() if changed.get(k) != expected.get(k))
         raise ValueError("unexpected configuration difference(s): " + ", ".join(bad[:20]))
     return changed
 
 
-def prepare(source: Path, destination: Path, baseline: Path) -> None:
+def compare_mglru_configs(baseline: str, on: str, off: str) -> dict[str, dict[str, str]]:
+    """Ensure a same-toolchain control differs only in MGLRU's boot default."""
+    check_config(baseline, on, "on")
+    check_config(baseline, off, "off")
+    enabled, disabled = v3.read_config(on), v3.read_config(off)
+    differences = {key: {"on": enabled.get(key, "n"), "off": disabled.get(key, "n")}
+                   for key in sorted(enabled.keys() | disabled.keys())
+                   if enabled.get(key, "n") != disabled.get(key, "n")}
+    if differences != {"LRU_GEN_ENABLED": {"on": "y", "off": "n"}}:
+        raise ValueError("MGLRU A/B configs differ in more than the requested boot default")
+    return differences
+
+
+def prepare(source: Path, destination: Path, baseline: Path, mglru: str = "on") -> None:
     check_inputs()
+    if mglru not in MGLRU_FRAGMENTS:
+        raise ValueError("MGLRU variant must be on or off")
     verify_manager()
     destination = ensure_disposable(destination)
     # This verifies every pinned 2.0 input before copying; no original is edited.
@@ -141,6 +177,7 @@ def prepare(source: Path, destination: Path, baseline: Path) -> None:
     with profile.open("a", encoding="utf-8") as out:
         out.write("\n# Synthetica 2.0 experiment only\n")
         out.write((INPUTS / "features.config").read_text(encoding="utf-8"))
+        out.write((INPUTS / MGLRU_FRAGMENTS[mglru][0]).read_text(encoding="utf-8"))
 
     builder = destination / "ci/rollercoaster/build-rollercoaster.sh"
     text = builder.read_text(encoding="utf-8")
@@ -176,6 +213,8 @@ ld.lld --version''')
   # for this object only; authentication and the pinned identity are unchanged.
   MO+=("CFLAGS_apk_sign.o=-fno-builtin-strncmp")''')
     text = text.replace("S3_HELPER", "S2X_HELPER").replace("S3_BASELINE", "S2X_BASELINE")
+    config_check = 'python3 "$S2X_HELPER" check-config --baseline "$S2X_BASELINE" --generated "$OUT/.config"'
+    text = replace_once(text, config_check, config_check + " --mglru " + mglru)
     text = text.replace("synthetica3-modules", "synthetica2-experimental-modules")
     text = text.replace("3.0 must keep the whole 2.0 config", "Experiment permits only the reviewed feature config changes")
     builder.write_text(text, encoding="utf-8")
@@ -187,7 +226,7 @@ ld.lld --version''')
     text = text.replace("Image compiled; 3.0 verification still required",
                         "Experimental image compiled; verification and device tests still required")
     driver.write_text(text, encoding="utf-8")
-    print(f"Prepared disposable 2.0 experiment kit: {destination}")
+    print(f"Prepared disposable 2.0 experiment kit (MGLRU {mglru}): {destination}")
 
 
 def prepare_tree(tree: Path) -> None:
@@ -251,7 +290,7 @@ def verify_manager_object(out: Path, objdump: Path, manager: dict[str, object]) 
 
 
 def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
-           toolchain_bin: Path, neutron_archive: Path | None) -> None:
+           toolchain_bin: Path, neutron_archive: Path | None, mglru: str = "on") -> None:
     check_inputs()
     manager = verify_manager()
     toolchain = toolchain_info(kind, toolchain_bin, neutron_archive)
@@ -262,7 +301,7 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
     cfg = (out / ".config").read_bytes()
     if cfg != (kit / "artifacts/generated.config.txt").read_bytes():
         raise ValueError("built and collected configurations differ")
-    changes = check_config(baseline_text, cfg.decode("utf-8"))
+    changes = check_config(baseline_text, cfg.decode("utf-8"), mglru)
     image = kit / "artifacts/Image.gz"
     if image.stat().st_size <= v3.MIN_IMAGE_BYTES:
         raise ValueError("image is unexpectedly small")
@@ -306,10 +345,14 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
         "compiler": toolchain,
         "image_sha256": v3.digest(image),
         "config_sha256": v3.digest(out / ".config"),
+        "module_symvers_sha256": v3.digest(out / "Module.symvers"),
+        "system_map_sha256": v3.digest(system_map),
+        "module_public_cert_sha256": v3.digest(cert),
         "changes_from_saved_2_0_config": changes,
         "walt_and_schedtune": "compiled in; runtime interaction not tested",
         "uclamp": "compiled in; neutral defaults; runtime interaction not tested",
-        "mglru": "compiled in, disabled by default; runtime not tested",
+        "mglru": {"compiled": True, "enabled_by_default": mglru == "on",
+                  "variant": mglru, "runtime_tested": False},
         "manager": {"package": manager["package"], "cert_der_bytes": 1381, "cert_sha256": MANAGER_CERT_SHA,
                     "apk_sha256": MANAGER_APK_SHA,
                     "apk_sign_object_sha256": v3.digest(manager_object),
@@ -328,12 +371,15 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
     shutil.copy2(out / ".config", result / "generated.config.txt")
     shutil.copy2(system_map, result / "System.map")
     shutil.copy2(out / "Module.symvers", result / "Module.symvers")
+    shutil.copy2(cert, result / "module-signing-public-cert.x509")
     shutil.copy2(manager_object, result / "manager-apk_sign.o")
     (result / "STATUS.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     (result / "README-DO-NOT-FLASH.txt").write_text(
         "EXPERIMENTAL COMPILE EVIDENCE ONLY. No installer is provided.\n"
         "Boot, Manager, vendor module ABI/trust, suspend, charging, thermal and battery are NOT tested.\n"
-        "MGLRU is compiled in but disabled by default; do not enable it on an unvalidated device.\n",
+        f"MGLRU is compiled in and is {'ENABLED' if mglru == 'on' else 'disabled'} by default in this variant.\n"
+        "The MGLRU-on variant has NOT been tested on a device; its presence is not a flash recommendation.\n"
+        "The module signing certificate included is public only; no signing private key is exported.\n",
         encoding="utf-8")
     print(json.dumps(report, indent=2))
 
@@ -344,28 +390,31 @@ def main() -> None:
     prep = sub.add_parser("prepare")
     for name in ("source", "destination", "baseline"):
         prep.add_argument("--" + name, type=Path, required=True)
+    prep.add_argument("--mglru", choices=tuple(MGLRU_FRAGMENTS), default="on")
     tree = sub.add_parser("prepare-tree")
     tree.add_argument("--tree", type=Path, required=True)
     cfg = sub.add_parser("check-config")
     cfg.add_argument("--baseline", type=Path, required=True)
     cfg.add_argument("--generated", type=Path, required=True)
+    cfg.add_argument("--mglru", choices=tuple(MGLRU_FRAGMENTS), default="on")
     done = sub.add_parser("finish")
     for name in ("kit", "out", "baseline", "result", "toolchain-bin"):
         done.add_argument("--" + name, type=Path, required=True)
     done.add_argument("--compiler", choices=("clang18", "neutron"), required=True)
     done.add_argument("--neutron-archive", type=Path)
+    done.add_argument("--mglru", choices=tuple(MGLRU_FRAGMENTS), default="on")
     args = p.parse_args()
     if args.command == "prepare":
-        prepare(args.source, args.destination, args.baseline)
+        prepare(args.source, args.destination, args.baseline, args.mglru)
     elif args.command == "prepare-tree":
         prepare_tree(args.tree)
     elif args.command == "check-config":
         check_inputs()
         print(json.dumps(check_config(v3.verified_baseline(args.baseline),
-                                      args.generated.read_text(encoding="utf-8")), indent=2))
+                                      args.generated.read_text(encoding="utf-8"), args.mglru), indent=2))
     else:
         finish(args.kit, args.out, args.baseline, args.result, args.compiler,
-               args.toolchain_bin, args.neutron_archive)
+               args.toolchain_bin, args.neutron_archive, args.mglru)
 
 
 if __name__ == "__main__":

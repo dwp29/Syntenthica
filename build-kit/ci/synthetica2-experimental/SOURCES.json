@@ -179,7 +179,19 @@
     "patch": "patches/0002-uclamp-walt-stune.patch",
     "sha256": "44004efb1dcb451962fca536a596fc0f112827ab8b256efbfde5d6120dac42a7"
   },
-  "feature_config_sha256": "4a6097a894e92790c347d8016b520b5c9923bb4dd5e33acf97ea3bd0159358ff",
+  "feature_config_sha256": "84d2648e897b95990e6752422284a079d3ca3fc03710b4d23ee7d0cb6f848dff",
+  "mglru_variants": {
+    "on": {
+      "fragment": "mglru-on.config",
+      "sha256": "8835d5dc5806cc5d79fbdd519490d1e00089398adb963a17f928ebdf2f1e48c5",
+      "purpose": "User-requested experimental build with MGLRU enabled by default; device runtime untested"
+    },
+    "off": {
+      "fragment": "mglru-off.config",
+      "sha256": "cd0c1f8f8a54ad5ca9462f874ff351ff96e48b44342831cab2b92ec44a72d90c",
+      "purpose": "Compiled-in MGLRU disabled by default; same-toolchain control, not a flashable release"
+    }
+  },
   "neutron": {
     "tag": "06092026",
     "catalogue_commit": "4bd827900870b688fbf19c202f6625a13b04fa92",
@@ -258,5 +270,18 @@
     "purpose": "Keep the real Manager package comparison auditable as a call and literal; do not modify authentication logic or identity",
     "object_diagnostics": [42248121703, 42248498236],
     "runtime_pairing_tested": false
+  },
+  "user_reported_rom": {
+    "device": "joyeuse / miatoll",
+    "rom": "Lunaris AOSP Community 3.13 GMS, Android 16",
+    "explorer_url": "https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051",
+    "published_artifact": "Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip",
+    "published_archive_sha256": "37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7",
+    "published_boot_sha256": "ed5b0fb6722fc0782058e5c244200307a460a8ba406cc06a82f024958c045720",
+    "published_dtbo_sha256": "a3f3ea20889cdd8bf035da1a96b73ef99753f8e1ecd67e4fae846ca072792991",
+    "published_vbmeta_sha256": "29906aa8bdf3c0c1abdd37e1c5559b509d2a72ffa719c26dabffc825cab9a831",
+    "artifact_bytes_verified": false,
+    "installed_build_identity_verified": false,
+    "rom_module_compatibility_verified": false
   }
 }

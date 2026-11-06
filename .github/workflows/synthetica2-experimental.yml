@@ -21,16 +21,23 @@ concurrency:
 jobs:
   compile:
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        compiler: [clang18, neutron]
+        include:
+          - compiler: neutron
+            mglru: 'on'
+          - compiler: clang18
+            mglru: 'on'
+          - compiler: neutron
+            mglru: 'off'
     steps:
       - name: Check out triggering commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install host tools and baseline LLVM 18
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -74,9 +81,11 @@ jobs:
           python3 build-kit/scripts/build_synthetica2_experimental.py prepare \
             --source build-kit \
             --destination "$RUNNER_TEMP/s2x-kit" \
-            --baseline artifacts/generated.config.txt
+            --baseline artifacts/generated.config.txt \
+            --mglru '${{ matrix.mglru }}'
 
       - name: Compile kernel and same-build modules without any installer
+        timeout-minutes: 75
         env:
           SP_JOBS: '4'
           SP_RELEASE_VERSION: '2.0-exp'
@@ -128,7 +137,8 @@ jobs:
             --out "$RUNNER_TEMP/s2x-work/tree/out-synthetica" \
             --baseline artifacts/generated.config.txt \
             --result "$RUNNER_TEMP/s2x-result" \
-            --compiler "$COMPILER_KIND" --toolchain-bin "$S2X_TOOLCHAIN_BIN" "${extra[@]}" \
+            --compiler "$COMPILER_KIND" --toolchain-bin "$S2X_TOOLCHAIN_BIN" \
+            --mglru '${{ matrix.mglru }}' "${extra[@]}" \
             2> "$RUNNER_TEMP/s2x-finish-error.txt"; then
             cat "$RUNNER_TEMP/s2x-finish-error.txt"
             python3 - <<'PY'
@@ -144,7 +154,7 @@ jobs:
       - name: Upload compile-only evidence (no installer or keys)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Synthetica-2.0-${{ matrix.compiler }}-DO-NOT-FLASH-${{ github.run_id }}
+          name: Synthetica-2.0-${{ matrix.compiler }}-MGLRU-${{ matrix.mglru }}-DO-NOT-FLASH-${{ github.run_id }}
           path: ${{ runner.temp }}/s2x-result/
           if-no-files-found: error
           retention-days: 7
@@ -153,9 +163,76 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: Synthetica-2.0-${{ matrix.compiler }}-FAILED-${{ github.run_id }}
+          name: Synthetica-2.0-${{ matrix.compiler }}-MGLRU-${{ matrix.mglru }}-FAILED-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/s2x-kit/artifacts/build.log
             ${{ runner.temp }}/s2x-kit/artifacts/FAILED.txt
           if-no-files-found: warn
+          retention-days: 7
+
+  compare-neutron-mglru:
+    name: Compare Neutron MGLRU on/off configs (no device test)
+    needs: compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Download MGLRU-on compile evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: Synthetica-2.0-neutron-MGLRU-on-DO-NOT-FLASH-${{ github.run_id }}
+          path: ${{ runner.temp }}/mglru-on
+      - name: Download MGLRU-off control evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: Synthetica-2.0-neutron-MGLRU-off-DO-NOT-FLASH-${{ github.run_id }}
+          path: ${{ runner.temp }}/mglru-off
+      - name: Verify the control differs only in the intended config
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, importlib.util, json, os
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          temp = Path(os.environ['RUNNER_TEMP'])
+          spec = importlib.util.spec_from_file_location('s2x', root / 'build-kit/scripts/build_synthetica2_experimental.py')
+          s2x = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(s2x)
+          baseline = s2x.v3.verified_baseline(root / 'artifacts/generated.config.txt')
+          variants = {}
+          for mode in ('on', 'off'):
+              directory = temp / ('mglru-' + mode)
+              status = json.loads((directory / 'STATUS.json').read_text())
+              config = (directory / 'generated.config.txt').read_bytes()
+              image = (directory / 'Image.gz.DO-NOT-FLASH').read_bytes()
+              if (status['kind'] != 'EXPERIMENTAL_COMPILED_ONLY_DO_NOT_FLASH' or
+                  status['release'] != s2x.EXPECTED_RELEASE or status['compiler']['kind'] != 'neutron' or
+                  status['mglru']['variant'] != mode or status['mglru']['enabled_by_default'] != (mode == 'on') or
+                  status['installer_created'] or status['private_key_exported'] or
+                  status['config_sha256'] != hashlib.sha256(config).hexdigest() or
+                  status['image_sha256'] != hashlib.sha256(image).hexdigest()):
+                  raise ValueError(f'invalid {mode} compile evidence')
+              variants[mode] = {'status': status, 'config': config.decode('utf-8')}
+          a, b = (variants[x]['status'] for x in ('on', 'off'))
+          for field in ('clang_sha256', 'lld_sha256', 'neutron_archive_sha256'):
+              if a['compiler'][field] != b['compiler'][field]:
+                  raise ValueError('toolchain differs between on/off controls: ' + field)
+          if a['base_source'] != b['base_source']:
+              raise ValueError('kernel source differs between on/off controls')
+          diff = s2x.compare_mglru_configs(baseline, variants['on']['config'], variants['off']['config'])
+          summary = {'kind': 'STATIC_COMPARISON_ONLY_NOT_A_DEVICE_TEST',
+                     'config_difference': diff, 'compiler': 'neutron',
+                     'on_image_sha256': a['image_sha256'], 'off_image_sha256': b['image_sha256'],
+                     'on_module_layout_crc': a['module_layout_crc'], 'off_module_layout_crc': b['module_layout_crc'],
+                     'rom_compatibility': 'NOT VERIFIED', 'device_runtime': 'NOT TESTED'}
+          output = temp / 'mglru-comparison.json'
+          output.write_text(json.dumps(summary, indent=2) + '\n')
+          print(json.dumps(summary, indent=2))
+          PY
+      - name: Upload static control comparison (not a flashable package)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Synthetica-2.0-neutron-MGLRU-control-comparison-${{ github.run_id }}
+          path: ${{ runner.temp }}/mglru-comparison.json
+          if-no-files-found: error
           retention-days: 7
