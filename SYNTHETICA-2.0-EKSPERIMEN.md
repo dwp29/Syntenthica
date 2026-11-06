@@ -56,8 +56,19 @@ utuh dalam objek. Eksperimen berikutnya menggunakan `-fno-builtin-strncmp` hanya
 untuk `apk_sign.o`, tanpa mengubah kode atau identitas KernelSU, agar string tetap
 dapat diaudit; diagnosis `42248498236` menunjukkan flag, string dan pemanggilan
 `strncmp` pada objek. Guard juga memeriksa identitas pada image, literal objek,
-flag, dan relocasi panggilan; hasil build penuh dengan guard baru masih perlu
-diverifikasi. Ini tetap bukan bukti Manager bekerja pada perangkat.
+flag, dan relocasi panggilan. Job Neutron pada run `42250049696` kemudian lulus
+build dan guard statis; job LLVM 18 pada [run yang sama](https://github.com/dwp29/Syntenthica/actions/runs/42250049696)
+masih berjalan pada pemeriksaan terakhir. [Audit terpisah](https://github.com/dwp29/Syntenthica/actions/runs/42252015075)
+memverifikasi arsip, image,
+konfigurasi, identitas ter-link, objek Manager, dan `Module.symvers`. Artifact
+`Synthetica-2.0-neutron-DO-NOT-FLASH-42250049696` memiliki digest arsip SHA-256
+`65c6fb5a6e60f0b845510c9d9a78e8ac0db39e0d6dff84d4fbf4888a4f47a114`
+(retensi CI 7 hari) dan SHA-256 image
+`cda7b5691dc2fa06b7d9be963ee48fdff224511aba4bbe668a4b02033e413a39`.
+Enam modul build yang sama hanya diperiksa statis oleh CI asal; tidak ikut sebagai
+installer. CRC `module_layout` Neutron juga `0xed5659d1`, berbeda dari
+`0x6968ee15` pada 41 modul sampel ROM. Ini tetap bukan bukti Manager bekerja,
+modul ROM kompatibel, atau kernel aman di-flash.
 
 Neutron juga memperingatkan frame stack `check_block` sebesar 2240 byte terhadap
 batas peringatan 2048 byte. Peringatan ini perlu ditinjau dalam konteks stack dan
@@ -101,8 +112,8 @@ Tes host mencakup pengujian fungsi C Uclamp yang diekstrak dari patch dengan
 stub terkontrol; ini tidak menguji locking atau scheduler kernel sebenarnya.
 `prepare-tree` dan CI juga menjalankan `git apply --check` untuk tiap patch pada
 salinan source yang dipin. Hasil build yang lolos pemeriksaan berisi image yang
-diberi nama `DO-NOT-FLASH`, konfigurasi, `System.map`, `Module.symvers`, dan
-status; tidak memuat installer atau kunci privat. Enam modul yang dipilih oleh
+diberi nama `DO-NOT-FLASH`, konfigurasi, `System.map`, `Module.symvers`, objek
+`manager-apk_sign.o`, dan status; tidak memuat installer atau kunci privat. Enam modul yang dipilih oleh
 konfigurasi 2.0 diperiksa terhadap CRC dan sertifikat dari build yang sama,
 bukan diuji dimuat ke perangkat dan bukan validasi modul vendor ROM.
 
