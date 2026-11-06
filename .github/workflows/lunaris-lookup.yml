@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
-      - name: Inspect public page without downloading any ROM
+      - name: Inspect public boot-image download metadata without downloading
         run: |
           set -euo pipefail
           npm install --prefix "$RUNNER_TEMP/browser" --no-audit --no-fund playwright-core@1.57.0
@@ -21,30 +21,43 @@ jobs:
             const browser = await chromium.launch({executablePath: process.env.CHROME, headless: true, args: ['--no-sandbox']});
             const context = await browser.newContext({acceptDownloads: false});
             const page = await context.newPage();
-            const requests = [];
-            page.on('response', response => {
+            const requests = [], apiMetadata = [];
+            page.on('response', async response => {
               const u = new URL(response.url());
-              if (u.hostname.endsWith('serverhive.in') && !u.pathname.includes('/assets/'))
+              if (u.hostname.endsWith('gofile.io') && !u.pathname.includes('/dist/')) {
                 requests.push({path: u.origin + u.pathname, status: response.status(), type: response.headers()['content-type']});
+                if (u.pathname.startsWith('/contents/') && (response.headers()['content-type'] || '').includes('json')) {
+                  try {
+                    const o = await response.json();
+                    function walk(value) {
+                      if (!value || typeof value !== 'object') return;
+                      if (value.name && (value.type || value.size)) apiMetadata.push({name: value.name, type: value.type, size: value.size, host: value.link ? new URL(value.link).hostname : null});
+                      for (const x of Object.values(value)) walk(x);
+                    }
+                    walk(o);
+                  } catch (_) {}
+                }
+              }
             });
             await page.route('**/*', route => {
               const u = new URL(route.request().url());
               if (/\.(zip|img|bin)(?:$|\/)/i.test(u.pathname)) return route.abort();
               return route.continue();
             });
-            await page.goto('https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051', {waitUntil: 'networkidle', timeout: 60000});
-            await page.waitForTimeout(3000);
+            await page.goto('https://gofile.io/d/e7kIkBT9', {waitUntil: 'domcontentloaded', timeout: 60000});
+            await page.waitForTimeout(9000);
             const details = await page.evaluate(() => ({
               title: document.title,
-              text: document.body.innerText.slice(0, 9000),
-              links: Array.from(document.querySelectorAll('a[href]')).map(x => ({text: x.innerText, href: x.href.split('?')[0]})).slice(0, 60),
-              buttons: Array.from(document.querySelectorAll('button')).map(x => ({text: x.innerText, label: x.getAttribute('aria-label')})).slice(0, 50)
+              text: document.body.innerText.slice(0, 6000),
+              links: Array.from(document.querySelectorAll('a[href]')).map(x => ({text: x.innerText, href: x.href.split('?')[0], title: x.title})).slice(0, 80),
+              buttons: Array.from(document.querySelectorAll('button')).map(x => ({text: x.innerText, label: x.getAttribute('aria-label'), title: x.title})).slice(0, 80)
             }));
-            details.responses = requests.slice(0, 60);
+            details.responses = requests.slice(0, 80);
+            details.apiMetadata = apiMetadata;
             const text = JSON.stringify(details, null, 2);
             for (let i=0; i<Math.min(text.length, 12000); i+=2200) {
               const part = text.slice(i,i+2200).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A');
-              console.log(`::notice title=Rendered metadata ${1+i/2200}::${part}`);
+              console.log(`::notice title=GoFile metadata ${1+i/2200}::${part}`);
             }
             await browser.close();
           })().catch(e => { console.error(e.message); process.exit(1); });
