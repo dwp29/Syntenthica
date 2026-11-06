@@ -216,4 +216,22 @@ dengan brightness, jaringan, aplikasi, suhu lingkungan, dan beban yang sama;
 ulangi pengukuran agar perubahan acak tidak disangka manfaat. Jangan meninggalkan
 uji suspend/charging tanpa pengawasan pada build yang belum tervalidasi.
 
-Tidak ada flash, pengubahan perangkat, atau jaminan bebas regresi dalam eksperimen ini.
+### Pemeriksaan tambahan terhadap pemaketan boot
+
+Pada [run `42265188285`](https://github.com/dwp29/Syntenthica/actions/runs/42265188285),
+`magiskboot` bawaan ZIP 2.0 dijalankan melalui emulasi ARM terhadap **boot v2
+sintetis**, bukan boot perangkat atau ROM yang terpasang. Setelah kernel
+percobaan dimasukkan, pemeriksaan byte menemukan header stabil dan bagian
+ramdisk, DTB, second dan recovery DTBO fixture tidak berubah; footer AVB tetap
+terlihat. Pemeriksaan ini **tidak** memverifikasi signature AVB, membuktikan
+perangkat dapat boot, atau menguji installer pada perangkat. Mengganti kernel
+membuat hash/signature lama untuk boot tidak lagi dapat diasumsikan valid.
+
+Installer 2.0 lama bukan otomatis aman sebagai pembungkus eksperimen: dalam
+kondisi tertentu saat Magisk terdeteksi, core-nya dapat mem-patch DTB dan skrip
+lamanya juga memasang `ksud`. Boot yang benar-benar terpasang, kondisi trust,
+dan kompatibilitas modul Lunaris masih belum terbukti. File yang disiapkan
+untuk dibagikan karena itu tetap **bukti kompilasi, bukan ZIP installer**;
+`Image.gz.DO-NOT-FLASH` adalah kernel mentah, bukan `boot.img`, dan jangan
+langsung di-flash. Tidak ada flash, pengubahan perangkat, atau jaminan bebas
+regresi dalam eksperimen ini.
