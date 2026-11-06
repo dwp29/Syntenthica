@@ -4,8 +4,9 @@
 dilaporkan pengguna adalah Joyeuse dengan Lunaris AOSP GMS 3.13 Android 16;
 [tautan ROM yang diberikan](https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051)
 menampilkan metadata `Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip`
-(bukan build resmi 3.12 yang tercantum di direktori lama). Arsip ROM dan
-identitas build yang terpasang belum diverifikasi. Baseline 2.0, APK Manager,
+(bukan build resmi 3.12 yang tercantum di direktori lama). Hash arsip ROM sudah
+cocok dengan metadata publik, tetapi identitas build yang terpasang belum
+diverifikasi. Baseline 2.0, APK Manager,
 dan resep yang digunakan 3.0 tidak diganti. BakaSU tidak dipasang. Hasil build
 yang berhasil sekalipun hanya bukti kompilasi, bukan bukti aman untuk perangkat
 atau kompatibel dengan modul vendor ROM.
@@ -19,8 +20,10 @@ Server juga mencantumkan `boot.img`, `dtbo.img`, `recovery.img`, `vbmeta.img`
 dan `super_empty.img` terpisah; hash yang diterbitkan untuk boot, DTBO dan vbmeta
 dicatat dalam `SOURCES.json`. Gofile menampilkan nama arsip yang sama. Metadata
 Ketiga image referensi publik `boot.img`, `dtbo.img`, dan `vbmeta.img` sudah
-didownload sekali dan cocok dengan hash yang dipublikasikan; arsip ROM belum
-diperiksa. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
+didownload dan cocok dengan hash yang dipublikasikan. Arsip ROM berukuran
+`2.925.420.062` byte juga diunduh dan cocok dengan SHA-256 publik pada run
+`42260746566`; pemeriksaan modul belum selesai karena format isi arsip tidak
+sesuai asumsi awal tentang `payload.bin`. Pada [audit read-only `42258937123`](https://github.com/dwp29/Syntenthica/actions/runs/42258937123),
 `boot.img` memiliki header Android v2, page 4096, ramdisk LZ4 legacy dan bagian
 DTB terpisah; `dtbo.img` memiliki empat entry. Kedua image memiliki footer AVB;
 header `vbmeta.img` tercatat memiliki flags `0x3`. Ini hanya struktur berkas,
@@ -74,7 +77,8 @@ artefak dari kedua run tersebut.
 ### Bukti build MGLRU-on yang diminta
 
 Pada [run `42258512643`](https://github.com/dwp29/Syntenthica/actions/runs/42258512643),
-job Neutron MGLRU-on dan MGLRU-off selesai dengan guard statis lulus. Audit
+job Neutron MGLRU-on, Neutron MGLRU-off, dan LLVM 18 MGLRU-on selesai dengan
+guard statis lulus. Audit
 terpisah `42260895446` memastikan hash image/config/certificate/symvers, config
 tertanam, release, dan source metadata konsisten. Kedua konfigurasi hanya
 berbeda pada `LRU_GEN_ENABLED`, compiler/linker dan `module_layout` CRC
@@ -82,9 +86,8 @@ berbeda pada `LRU_GEN_ENABLED`, compiler/linker dan `module_layout` CRC
 `3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea`;
 image off: `b6a1756de6696ae6fafc4598768efb9126d1b9087b276ecb1d8bb9aeb1523c8b`.
 Tidak ada bukti boot, pairing Manager, suhu, baterai atau kompatibilitas modul
-perangkat. Artefak keduanya tetap `DO-NOT-FLASH` dan memiliki retensi 7 hari.
-Status build LLVM 18-on mengikuti hasil job CI terkait, bukan diasumsikan dari
-hasil Neutron.
+perangkat. Semua artefak tetap `DO-NOT-FLASH` dan memiliki retensi 7 hari;
+LLVM 18-on lulus guard di CI asal dan belum diaudit terpisah seperti Neutron.
 
 ### Bukti build sebelumnya — MGLRU default off
 

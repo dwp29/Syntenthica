@@ -18,6 +18,7 @@ jobs:
           node <<'JS'
           const {chromium}=require(process.env.RUNNER_TEMP+'/browser/node_modules/playwright-core');
           const https=require('https');
+          const zlib=require('zlib');
           const size=2925420062;
           function range(url,start,end,cookie,depth=0){
             if(depth>3||start<0||end<start||end-start>20_000_000) return Promise.reject(Error('invalid bounded range'));
@@ -56,12 +57,26 @@ jobs:
               const method=central.readUInt16LE(pos+10),compressed=central.readUInt32LE(pos+20),uncompressed=central.readUInt32LE(pos+24);
               const n=central.readUInt16LE(pos+28),extra=central.readUInt16LE(pos+30),comment=central.readUInt16LE(pos+32);
               if(pos+46+n+extra+comment>central.length)throw Error('truncated ZIP record');
-              names.push({name:central.subarray(pos+46,pos+46+n).toString('utf8'),method,compressed,uncompressed});
+              const localOffset=central.readUInt32LE(pos+42);
+              names.push({name:central.subarray(pos+46,pos+46+n).toString('utf8'),method,compressed,uncompressed,localOffset});
               pos+=46+n+extra+comment;
             }
             if(names.length!==count)throw Error('ZIP central entry count mismatch');
             const select=names.filter(x=>/payload|vendor|dtbo|boot\.img|vbmeta|super|\.transfer\.list|\.new\.dat|\.patch\.dat|\.ko$/i.test(x.name));
-            const summary={entries:names.length,central_directory_bytes:length,selected:select.slice(0,100),first_entries:names.slice(0,35)};
+            const vendor=names.find(x=>x.name==='vendor.transfer.list');
+            let transfer=null;
+            if(vendor){
+              const h=await range(url,vendor.localOffset,vendor.localOffset+29,cookies);
+              if(h.readUInt32LE(0)!==0x04034b50)throw Error('invalid local file header');
+              const start=vendor.localOffset+30+h.readUInt16LE(26)+h.readUInt16LE(28);
+              const encoded=await range(url,start,start+vendor.compressed-1,cookies);
+              const decoded=vendor.method===8?zlib.inflateRawSync(encoded):encoded;
+              if(decoded.length!==vendor.uncompressed)throw Error('transfer list length mismatch');
+              const lines=decoded.toString('utf8').trim().split(/\r?\n/), commands={};
+              for(const line of lines.slice(4)){const cmd=line.split(' ')[0];commands[cmd]=(commands[cmd]||0)+1;}
+              transfer={header:lines.slice(0,4),command_counts:commands,first_commands:lines.slice(4,7)};
+            }
+            const summary={entries:names.length,central_directory_bytes:length,vendor_transfer:transfer,selected:select.slice(0,100),first_entries:names.slice(0,35)};
             const text=JSON.stringify(summary,null,2);
             for(let j=0;j<Math.min(text.length,18000);j+=2200)console.log(`::notice title=ZIP index ${1+j/2200}::`+text.slice(j,j+2200).replace(/%/g,'%25').replace(/\n/g,'%0A'));
           })().catch(e=>{console.log('::error title=ZIP index unavailable::'+e.message.replace(/%/g,'%25').replace(/\n/g,'%0A'));process.exit(1)});
