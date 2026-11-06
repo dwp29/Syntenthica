@@ -77,6 +77,8 @@ def check_inputs() -> None:
             manifest["neutron"]["sha256"] != NEUTRON_SHA or
             manifest["neutron"]["bytes"] != NEUTRON_SIZE):
         raise ValueError("feature config or Neutron manifest pin changed")
+    if manifest["manager_audit_codegen"]["flag"] != "-fno-builtin-strncmp":
+        raise ValueError("Manager object audit code-generation manifest changed")
 
 
 def ensure_disposable(path: Path) -> Path:
@@ -166,6 +168,13 @@ export PATH="$S2X_TOOLCHAIN_BIN:/usr/lib/ccache:/usr/bin:/bin:$PATH"
 clang --version
 ld.lld --version''')
     text = replace_once(text, "SIZE=llvm-size", 'SIZE="$S2X_SIZE_TOOL"')
+    text = replace_once(text,
+        '  MO+=(KSU_MANAGER_PACKAGE="$KSU_MANAGER_PKG")',
+        '''  MO+=(KSU_MANAGER_PACKAGE="$KSU_MANAGER_PKG")
+  # LLVM 24 can turn the package comparison into immediate instructions,
+  # hiding its literal from a linked-image audit. Preserve a real strncmp call
+  # for this object only; authentication and the pinned identity are unchanged.
+  MO+=("CFLAGS_apk_sign.o=-fno-builtin-strncmp")''')
     text = text.replace("S3_HELPER", "S2X_HELPER").replace("S3_BASELINE", "S2X_BASELINE")
     text = text.replace("synthetica3-modules", "synthetica2-experimental-modules")
     text = text.replace("3.0 must keep the whole 2.0 config", "Experiment permits only the reviewed feature config changes")
@@ -220,6 +229,27 @@ def toolchain_info(kind: str, toolchain_bin: Path, neutron_archive: Path | None)
             "neutron_archive_sha256": NEUTRON_SHA if kind == "neutron" else None}
 
 
+def verify_manager_object(out: Path, objdump: Path, manager: dict[str, object]) -> Path:
+    """Check the specific KSU object as well as the final image; never replace runtime tests."""
+    directory = out / "drivers/kernelsu/manager"
+    obj = directory / "apk_sign.o"
+    command = (directory / ".apk_sign.o.cmd").read_text(encoding="utf-8")
+    if "-fno-builtin-strncmp" not in command.split():
+        raise ValueError("Manager object was not compiled with the auditable package comparison")
+    raw = obj.read_bytes()
+    for label, value in (("package", manager["package"]), ("certificate hash", manager["cert_sha256"])):
+        if str(value).encode("ascii") + b"\x00" not in raw:
+            raise ValueError(f"pinned Manager {label} literal not found in KSU object")
+    disassembly = subprocess.run(
+        [str(objdump), "-dr", "--disassemble=is_manager_apk", str(obj)],
+        check=True, text=True, capture_output=True,
+    ).stdout
+    if ("<is_manager_apk>:" not in disassembly or
+            not re.search(r"R_AARCH64_CALL26\s+strncmp\b", disassembly)):
+        raise ValueError("KSU Manager object has no auditable strncmp call")
+    return obj
+
+
 def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
            toolchain_bin: Path, neutron_archive: Path | None) -> None:
     check_inputs()
@@ -244,9 +274,13 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
     if not match or match.group(1).decode("ascii", "replace") != EXPECTED_RELEASE:
         raise ValueError("unexpected image release string")
     v3.verify_embedded_config(raw, cfg)
-    if (b"KernelSU" not in raw or manager["package"].encode() not in raw or
-            manager["cert_sha256"].encode() not in raw):
-        raise ValueError("pinned KernelSU Manager identity not found in image")
+    for label, value in (("KernelSU", b"KernelSU"), ("Manager package", manager["package"].encode()),
+                         ("Manager certificate hash", manager["cert_sha256"].encode())):
+        if value not in raw:
+            raise ValueError(f"pinned {label} not found in image")
+    # GNU cross-objdump is a post-build auditor, never the selected compiler/linker.
+    audit_objdump = Path("/usr/bin/aarch64-linux-gnu-objdump")
+    manager_object = verify_manager_object(out, audit_objdump, manager)
     kit_manager = kit / "artifacts/manager/MANAGER.json"
     if v3.digest(kit_manager) != v3.PINNED_INPUTS["artifacts/manager/MANAGER.json"]:
         raise ValueError("disposable kit's Manager identity changed after preparation")
@@ -277,7 +311,11 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
         "uclamp": "compiled in; neutral defaults; runtime interaction not tested",
         "mglru": "compiled in, disabled by default; runtime not tested",
         "manager": {"package": manager["package"], "cert_der_bytes": 1381, "cert_sha256": MANAGER_CERT_SHA,
-                    "apk_sha256": MANAGER_APK_SHA, "runtime_pairing_tested": False},
+                    "apk_sha256": MANAGER_APK_SHA,
+                    "apk_sign_object_sha256": v3.digest(manager_object),
+                    "audit_objdump_sha256": v3.digest(audit_objdump),
+                    "package_comparison": "object uses strncmp; identity literals present in object and image",
+                    "runtime_pairing_tested": False},
         "module_layout_crc": f"0x{crc:08x}",
         "same_build_modules_static_checks": {name: item[1] for name, item in checked_modules.items()},
         "rom_vendor_module_abi_and_trust": "NOT VERIFIED",
@@ -290,6 +328,7 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
     shutil.copy2(out / ".config", result / "generated.config.txt")
     shutil.copy2(system_map, result / "System.map")
     shutil.copy2(out / "Module.symvers", result / "Module.symvers")
+    shutil.copy2(manager_object, result / "manager-apk_sign.o")
     (result / "STATUS.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     (result / "README-DO-NOT-FLASH.txt").write_text(
         "EXPERIMENTAL COMPILE EVIDENCE ONLY. No installer is provided.\n"

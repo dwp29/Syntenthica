@@ -48,8 +48,20 @@ Pada run `42241943772` (commit `eb64744`), build LLVM 18 **lulus kompilasi dan
 pemeriksaan statis**; Neutron gagal pada konversi enum di driver Wi-Fi. Run
 `42243864941` menemukan dua konversi serupa berikutnya. Patch lanjutan memberikan
 cast eksplisit di ketiga lokasi yang mempertahankan nilai error yang sudah ada,
-tanpa mematikan pemeriksaan compiler; hasil Neutron masih perlu diverifikasi.
-Artifact LLVM 18 hanya bukti build,
+tanpa mematikan pemeriksaan compiler. Pada run `42245943990`, Neutron sudah
+mengompilasi kernel dan modul, tetapi **ditolak** oleh penjaga identitas Manager.
+Diagnosis object-only `42248121703` menunjukkan LLVM 24 mengubah perbandingan
+nama paket menjadi konstanta instruksi, sehingga string paket tidak tersimpan
+utuh dalam objek. Eksperimen berikutnya menggunakan `-fno-builtin-strncmp` hanya
+untuk `apk_sign.o`, tanpa mengubah kode atau identitas KernelSU, agar string tetap
+dapat diaudit; diagnosis `42248498236` menunjukkan flag, string dan pemanggilan
+`strncmp` pada objek. Guard juga memeriksa identitas pada image, literal objek,
+flag, dan relocasi panggilan; hasil build penuh dengan guard baru masih perlu
+diverifikasi. Ini tetap bukan bukti Manager bekerja pada perangkat.
+
+Neutron juga memperingatkan frame stack `check_block` sebesar 2240 byte terhadap
+batas peringatan 2048 byte. Peringatan ini perlu ditinjau dalam konteks stack dan
+diuji; peringatan saja tidak membuktikan overflow. Artifact LLVM 18 hanya bukti build,
 bukan installer dan bukan bukti aman untuk flash:
 `Synthetica-2.0-clang18-DO-NOT-FLASH-42241943772`, digest arsip SHA-256
 `dee0be086e8eb3de86b8d0ee105157eb322726d66615e585ce503bd7007f59e7`

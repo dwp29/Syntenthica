@@ -251,5 +251,12 @@
     "purpose": "Explicit QDF_STATUS cast of the existing A_ERROR value: silence Clang 24 enum conversion error without changing numeric return",
     "patch": "patches/0006-neutron-enum-cast.patch",
     "sha256": "9cd2d4e883d10ee16f0ee588ac881ca138e7242ac59c42b394ef6ade5fbef6a6"
+  },
+  "manager_audit_codegen": {
+    "scope": "apk_sign.o only in the disposable experimental build kit",
+    "flag": "-fno-builtin-strncmp",
+    "purpose": "Keep the real Manager package comparison auditable as a call and literal; do not modify authentication logic or identity",
+    "object_diagnostics": [42248121703, 42248498236],
+    "runtime_pairing_tested": false
   }
 }

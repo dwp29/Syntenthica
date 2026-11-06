@@ -254,6 +254,7 @@ class IsolatedBuildTests(unittest.TestCase):
             self.assertIn("S2X_TOOLCHAIN_BIN", text)
             self.assertIn('S2X_SIZE_TOOL=/usr/bin/aarch64-linux-gnu-size', text)
             self.assertIn('SIZE="$S2X_SIZE_TOOL"', text)
+            self.assertEqual(text.count('MO+=("CFLAGS_apk_sign.o=-fno-builtin-strncmp")'), 1)
             self.assertNotIn('export PATH="/usr/lib/llvm-18/bin:', text)
             self.assertIn('"prepare-tree", "--tree", str(tree)', driver)
             self.assertIn("S2X_HELPER", text)
@@ -266,6 +267,39 @@ class IsolatedBuildTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 s2x.prepare(ROOT / "build-kit", kit, ROOT / "artifacts/generated.config.txt")
         self.assertEqual(before, {p: s2x.v3.digest(p) for p in before})
+
+    def test_manager_object_guard_requires_literals_flag_and_real_comparison(self):
+        manager = s2x.verify_manager()
+        with tempfile.TemporaryDirectory(prefix="s2x-ksu-object-") as temp:
+            root = Path(temp)
+            out = root / "out"
+            directory = out / "drivers/kernelsu/manager"
+            directory.mkdir(parents=True)
+            obj = directory / "apk_sign.o"
+            cmd = directory / ".apk_sign.o.cmd"
+            original = b'ELF\x00' + manager['package'].encode() + b'\x00' + manager['cert_sha256'].encode() + b'\x00'
+            obj.write_bytes(original)
+            cmd.write_text('clang -O2 -fno-builtin-strncmp -c apk_sign.c\n')
+            tools = root / "tools"
+            tools.mkdir()
+            disassembler = tools / "aarch64-linux-gnu-objdump"
+            disassembler.write_text('#!/bin/sh\nprintf "<is_manager_apk>:\\n  00: R_AARCH64_CALL26 strncmp\\n"\n')
+            disassembler.chmod(0o755)
+            self.assertEqual(s2x.verify_manager_object(out, disassembler, manager), obj)
+            cmd.write_text('clang -O2 -c apk_sign.c\n')
+            with self.assertRaisesRegex(ValueError, "not compiled"):
+                s2x.verify_manager_object(out, disassembler, manager)
+            cmd.write_text('clang -O2 -fno-builtin-strncmp -c apk_sign.c\n')
+            obj.write_bytes(original.replace(manager['package'].encode(), b'wrong.package'))
+            with self.assertRaisesRegex(ValueError, "package literal"):
+                s2x.verify_manager_object(out, disassembler, manager)
+            obj.write_bytes(original.replace(manager['cert_sha256'].encode(), b'incorrect'))
+            with self.assertRaisesRegex(ValueError, "certificate hash literal"):
+                s2x.verify_manager_object(out, disassembler, manager)
+            obj.write_bytes(original)
+            disassembler.write_text('#!/bin/sh\nprintf "<is_manager_apk>:\\n  00: R_AARCH64_CALL26 strcmp\\n"\n')
+            with self.assertRaisesRegex(ValueError, "no auditable strncmp"):
+                s2x.verify_manager_object(out, disassembler, manager)
 
     def test_refuse_tree_inside_repo(self):
         with self.assertRaisesRegex(ValueError, "outside the repository"):
