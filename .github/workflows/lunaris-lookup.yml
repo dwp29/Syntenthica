@@ -99,16 +99,34 @@ jobs:
             --sha256 37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7 \
             --bytes 2925420062 > "$RUNNER_TEMP/ota-extraction-summary.json"
           python3 - <<'PY'
-          import json,os,zipfile
+          import json,os,shutil,sys,zipfile
           from pathlib import Path
-          temp=Path(os.environ['RUNNER_TEMP'])
-          with zipfile.ZipFile(temp/'lunaris.zip') as z:
-              names=sorted(x.filename for x in z.infolist())
+          root=Path(os.environ['GITHUB_WORKSPACE']); temp=Path(os.environ['RUNNER_TEMP']); rom=temp/'lunaris.zip'
+          sys.path.insert(0,str(root/'build-kit/scripts'))
+          import extract_synthetica2_block_ota as ota
+          expected='37263a7671b93ec4ae506574925b3e5d97a14756ab7152b138208a3b6b0f33d7'
+          if ota.file_digest(rom)!=expected: raise ValueError('ROM changed after vendor extraction')
+          result={}
+          with zipfile.ZipFile(rom) as z:
+              names=sorted(x.filename for x in z.infolist()); plans=[]
+              for part in ('system','system_ext'):
+                  transfer=ota.info_once(z,part+'.transfer.list',ota.MAX_TRANSFER)
+                  info=ota.info_once(z,part+'.new.dat.br',ota.MAX_VENDOR_COMPRESSED)
+                  ota.info_once(z,part+'.patch.dat',0)
+                  size,ranges=ota.parse_transfer(z.read(transfer))
+                  plans.append((part,info,size,ranges))
+              if shutil.disk_usage(temp).free<sum(p[2] for p in plans)+1_000_000_000:
+                  raise ValueError('insufficient space for system partition inspection')
+              for part,info,size,ranges in plans:
+                  out=temp/'rom-images'/f'{part}.img'
+                  ota.extract_vendor(z,info,out,size,ranges)
+                  result[part]={'image_bytes':size,'image_sha256':ota.file_digest(out),'new_ranges':len(ranges)}
+          if ota.file_digest(rom)!=expected: raise ValueError('ROM changed during system extraction')
           (temp/'zip-metadata.json').write_text(json.dumps({'entry_count':len(names),'format':'full block OTA'},indent=2)+'\n')
           (temp/'partition-metadata.json').write_text(json.dumps({
               'partition_sources':sorted({n.split('.')[0] for n in names if n.endswith('.transfer.list')}),
-              'selected':['vendor','boot'],
-              'scope':'Only vendor and boot were extracted; system, product and system_ext are not inspected'},indent=2)+'\n')
+              'selected':['vendor','system','system_ext','boot'],'reconstructed':result,
+              'scope':'Product and other locations were not inspected; loaded modules remain unknown'},indent=2)+'\n')
           PY
       - name: Extract only module directories and inspect the boot ramdisk
         timeout-minutes: 15
@@ -122,7 +140,7 @@ jobs:
           audit=importlib.util.module_from_spec(spec); spec.loader.exec_module(audit)
           modules=temp/'rom-modules'; modules.mkdir()
           details={'filesystems':{},'module_directory_attempts':[], 'boot':None,
-                   'scope':'Only selected partitions and boot ramdisk; load lists, installed-device identity and runtime are not established'}
+                   'scope':'Only selected partition module paths and boot ramdisk; load lists, installed-device identity and runtime are not established'}
           for image in sorted((temp/'rom-images').glob('*.img')):
               if image.name=='boot.img':
                   try:
@@ -169,7 +187,7 @@ jobs:
                   f.seek(1024); sb=f.read(64)
               fs='erofs' if sb[:4]==bytes.fromhex('e2e1f5e0') else 'ext4' if sb[56:58]==bytes.fromhex('53ef') else 'unknown'
               details['filesystems'][image.stem]=fs
-              for number,source in enumerate(('/lib/modules','/vendor/lib/modules','/system/lib/modules')):
+              for number,source in enumerate(('/lib/modules','/vendor/lib/modules','/system/lib/modules','/system_ext/lib/modules','/vendor_dlkm/lib/modules')):
                   dest=modules/(image.stem+'-'+str(number)); dest.mkdir()
                   if fs=='ext4': command=['debugfs','-R',f'rdump {source} {dest}',str(image)]
                   elif fs=='erofs': command=['fsck.erofs','--extract='+str(dest),'--path='+source,str(image)]
