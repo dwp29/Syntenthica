@@ -18,12 +18,29 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run view 42237485378 --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha \
+          if ! gh run view 42237485378 --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha \
             --jq 'select(.status == "completed" and .conclusion == "failure") | .headSha' \
-            | grep -Fx 'f2cc808999df7da91f19504a9a4bb0b3b1864798' \
-            || { echo '::error::Unexpected run identity'; exit 1; }
+            > "$RUNNER_TEMP/identity" 2> "$RUNNER_TEMP/identity.error"; then
+            echo '::error title=Run identity::Unable to read original run through API'
+            exit 1
+          fi
+          if ! grep -Fx 'f2cc808999df7da91f19504a9a4bb0b3b1864798' "$RUNNER_TEMP/identity"; then
+            echo '::error title=Run identity::Unexpected original run identity or status'
+            exit 1
+          fi
+          echo '::notice title=Run identity::Verified initial failed build'
           for job in 127958803333 127958803348; do
-            gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$job/logs" > "$RUNNER_TEMP/$job.log"
+            if ! gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$job/logs" > "$RUNNER_TEMP/$job.log" 2> "$RUNNER_TEMP/$job.error"; then
+              JOB="$job" python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          job = os.environ['JOB']
+          text = (Path(os.environ['RUNNER_TEMP']) / (job + '.error')).read_text(errors='replace')
+          codes = re.findall(r'HTTP [0-9]{3}|Resource not accessible by integration|Not Found|Forbidden|EOF|failed to download', text, re.I)
+          print('::error title=Log retrieval ' + job + '::' + ', '.join(codes[:5] or ['unknown error']))
+          PY
+              exit 1
+            fi
           done
           python3 - <<'PY'
           import os, re
