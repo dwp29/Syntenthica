@@ -16,7 +16,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/jobs/128002419354/logs" > "$RUNNER_TEMP/job.log"
+          if ! gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/jobs/128002419354/logs" > "$RUNNER_TEMP/job.log" 2> "$RUNNER_TEMP/error.log"; then
+            cp "$RUNNER_TEMP/error.log" "$RUNNER_TEMP/job.log"
+          fi
           python3 - <<'PY'
           import os, re
           from pathlib import Path
