@@ -61,7 +61,7 @@ jobs:
           python3 "$RUNNER_TEMP/s2x-kit/scripts/build_chronicle_base.py" || true
           export OBJ="$SP_WORK_DIR/tree/out-synthetica/drivers/kernelsu/manager/apk_sign.o"
           test -s "$OBJ"
-          aarch64-linux-gnu-objdump -dr --disassemble=is_manager_apk "$OBJ" > "$RUNNER_TEMP/disassembly.txt"
+          "$S2X_TOOLCHAIN_BIN/llvm-objdump" -dr --disassemble-symbols=is_manager_apk "$OBJ" > "$RUNNER_TEMP/disassembly.txt"
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -76,7 +76,8 @@ jobs:
           dis = (temp / 'disassembly.txt').read_text()
           cmd = Path(os.environ['OBJ']).parent / '.apk_sign.o.cmd'
           notice('KSU object targeted flag', 'flag in command=' + str('-fno-builtin-strncmp' in cmd.read_text()))
-          notice('KSU object strncmp relocation', 'call relocation=' + str('R_AARCH64_CALL26\tstrncmp' in dis))
+          import re
+          notice('KSU object strncmp relocation', 'call relocation=' + str(bool(re.search(r'R_AARCH64_CALL26\s+strncmp\b', dis))))
           notice('KSU object disassembly part 1', dis[:3000])
           notice('KSU object disassembly part 2', dis[3000:6000])
           notice('KSU object build completion', '\n'.join(log.splitlines()[-30:]))
