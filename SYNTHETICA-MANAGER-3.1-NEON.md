@@ -88,3 +88,30 @@ public CI. Signing is a separate, explicitly authorized step.
 The Manager does not automatically send Device Check readings, but the existing
 application retains its previous network features; this is not a claim that the
 whole Manager never uses the network.
+
+## Validation snapshot — 2026-11-07
+
+- Build [42367954269](https://github.com/dwp29/Syntenthica/actions/runs/42367954269)
+  from application-source commit `2afee99` compiled both the unsigned Manager
+  and the separate preview. The independently downloaded Manager has SHA-256
+  `794b0e618f2ffa848f86ba2557deff5687acb9e32a1a757b51057b06e73bdaf3`.
+  Its ZIP integrity, alignment, package/version and permissions were checked;
+  its permissions match both the 2.0 baseline and the signed 3.0 Manager. JNI,
+  daemon, and root-facing packaged assets match the baseline as described
+  above. **It is unsigned and cannot be installed as an update.**
+- [Emulator run 42368656302](https://github.com/dwp29/Syntenthica/actions/runs/42368656302)
+  used the exact separate preview from that build (SHA-256
+  `779203510ea167e3f835ebc091427168f4671e19768321f9623716ffa72206ae`).
+  Theme persistence, selected-only copy preview, diagnostics, simulated ZIP
+  classification/confirmation/cancellation, multiple-package approvals,
+  rejected batches, callback dialogs, staged-file cleanup, and tamper refusal
+  passed. No Manager or installer was run there.
+- The local host suite passed 194 tests with 16 opt-in/fixture-dependent skips;
+  the Kotlin preflight/device unit runner passed 12 methods. The real 3.0
+  candidate ZIP was classified and hashed without installation. Pinned x86
+  BusyBox verified and extracted its installer on Linux without executing it,
+  and refused a modified copy; Android/ARM/root execution remains untested.
+- Five signing-tool tests also passed against this unsigned APK using only a
+  freshly generated throwaway key. The original private key was not accessed
+  or used for 3.1. Physical-device behavior, an actual Manager upgrade, root
+  authorization and real module/kernel flashing remain unverified.
