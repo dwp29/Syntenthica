@@ -1,8 +1,6 @@
 name: "Neon Manager local signing safety tests"
 on:
   push:
-    branches:
-      - arena/96cbd65a-syntenthica
     paths:
       - '.github/workflows/synthetica30-neon-signing-tests.yml'
       - 'build-kit/scripts/sign_neon_manager_locally.py'
@@ -10,11 +8,26 @@ on:
       - 'tests/test_neon_signing_integration.py'
       - 'tests/verify_synthetica30_apk.py'
   workflow_dispatch:
+    inputs:
+      manager_run_id:
+        description: "Successful unsigned Manager build run ID (artifact retained for 14 days)"
+        required: true
+        type: string
+      manager_sha256:
+        description: "SHA-256 of the unsigned Manager APK from that build"
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
 jobs:
+  signing-unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python3 -m unittest discover -s tests -p 'test_neon_signing.py' -v
   throwaway-key:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -23,10 +36,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Validate selected build
+        env:
+          MANAGER_RUN_ID: ${{ inputs.manager_run_id }}
+          EXPECTED_APK_SHA256: ${{ inputs.manager_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$MANAGER_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$EXPECTED_APK_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica30-neon-unsigned-42347623437
-          run-id: 42347623437
+          name: synthetica30-neon-unsigned-${{ inputs.manager_run_id }}
+          run-id: ${{ inputs.manager_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/neon-input
       - name: Install Android signing tools
@@ -44,9 +65,10 @@ jobs:
         env:
           NEON_SIGNING_INTEGRATION: '1'
           NEON_UNSIGNED_APK: ${{ runner.temp }}/neon-input/Synthetica-Manager-3.0.0-Neon-UNSIGNED.apk
+          EXPECTED_APK_SHA256: ${{ inputs.manager_sha256 }}
         run: |
           set -euo pipefail
           export NEON_ANDROID_BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
-          echo 'a6d0c1ff11130a56d66ae040786ca4060b29b55992643997b64fadebbb88ebea  '"$NEON_UNSIGNED_APK" | sha256sum -c -
+          printf '%s  %s\n' "$EXPECTED_APK_SHA256" "$NEON_UNSIGNED_APK" | sha256sum -c -
           python3 -m unittest discover -s tests -p 'test_neon_signing*.py' -v
           echo '::notice title=Signing test::Only an ephemeral test key was generated; the real Manager identity was neither accessed nor recreated.'
