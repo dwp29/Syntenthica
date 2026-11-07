@@ -161,8 +161,11 @@ internal object PackagePreflight {
             val trimmed = line.trim()
             if (!trimmed.startsWith('#') && '=' in trimmed) {
                 val (key, value) = trimmed.split('=', limit = 2)
-                if (key.trim() in setOf("id", "name", "version", "author")) {
-                    result[key.trim()] = safeLabel(value)
+                val normalizedKey = key.trim()
+                if (normalizedKey in setOf("id", "name", "version", "author")) {
+                    // Different installers may pick the first or last value.
+                    if (normalizedKey in result) throw PreflightException(PreflightProblem.INVALID_METADATA)
+                    result[normalizedKey] = safeLabel(value)
                 }
             }
         }
