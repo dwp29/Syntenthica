@@ -58,7 +58,7 @@ def prepare(target: Path, source: Path) -> None:
         shutil.copy2(ASSETS / 'device' / file, device / file)
     preflight = main / 'java/com/rifsxd/ksunext/ui/preflight'
     preflight.mkdir(parents=True)
-    for file in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
+    for file in ('PackagePreflight.kt', 'ZipStructure.kt', 'AndroidZipPreflight.kt'):
         shutil.copy2(ASSETS / 'preflight' / file, preflight / file)
     shutil.copytree(ASSETS / 'res', main / 'res', dirs_exist_ok=True)
     shutil.copytree(ASSETS / 'assets', main / 'assets', dirs_exist_ok=True)

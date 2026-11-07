@@ -117,6 +117,7 @@ private fun problemMessage(problem: PreflightProblem): Int = when (problem) {
     PreflightProblem.TOO_MANY_ENTRIES -> R.string.zip31_too_many
     PreflightProblem.UNSAFE_PATH, PreflightProblem.DUPLICATE_PATH -> R.string.zip31_unsafe_path
     PreflightProblem.INVALID_ZIP -> R.string.zip31_invalid
+    PreflightProblem.UNSUPPORTED_ZIP -> R.string.zip31_unsupported
     PreflightProblem.UNKNOWN_TYPE -> R.string.zip31_unknown
     PreflightProblem.AMBIGUOUS_TYPE -> R.string.zip31_ambiguous
     PreflightProblem.MISSING_INSTALLER -> R.string.zip31_missing_installer

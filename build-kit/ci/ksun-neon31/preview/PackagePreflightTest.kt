@@ -93,6 +93,39 @@ class PackagePreflightTest {
         rejects(zip("module.prop" to ("id=" + "a".repeat(65_536))), PreflightProblem.INVALID_METADATA)
     }
 
+    @Test fun centralAndLocalHeadersCannotDisagreeOrHideSpecialEntries() {
+        fun central(bytes: ByteArray): Int {
+            for (i in 0 until bytes.size - 4) {
+                if (bytes[i] == 0x50.toByte() && bytes[i + 1] == 0x4b.toByte() &&
+                    bytes[i + 2] == 0x01.toByte() && bytes[i + 3] == 0x02.toByte()) return i
+            }
+            error("central directory missing")
+        }
+        val mismatch = zip("module.prop" to "id=a")
+        val unsafeLocalName = "../evilXXXX".toByteArray()
+        assertEquals("module.prop".length, unsafeLocalName.size)
+        unsafeLocalName.copyInto(mismatch, destinationOffset = 30)
+        rejects(mismatch, PreflightProblem.INVALID_ZIP)
+
+        val symlink = zip("module.prop" to "id=a")
+        val c = central(symlink)
+        symlink[c + 5] = 3 // Unix creator
+        symlink[c + 40] = 0xff.toByte()
+        symlink[c + 41] = 0xa1.toByte() // Unix symlink mode 0120777
+        rejects(symlink, PreflightProblem.UNSAFE_PATH)
+
+        val encrypted = zip("module.prop" to "id=a")
+        encrypted[6] = (encrypted[6].toInt() or 1).toByte()
+        val encryptedCentral = central(encrypted)
+        encrypted[encryptedCentral + 8] = (encrypted[encryptedCentral + 8].toInt() or 1).toByte()
+        rejects(encrypted, PreflightProblem.UNSUPPORTED_ZIP)
+
+        val badCrc = zip("module.prop" to "id=a")
+        val crcCentral = central(badCrc)
+        badCrc[crcCentral + 16] = (badCrc[crcCentral + 16].toInt() xor 1).toByte()
+        rejects(badCrc, PreflightProblem.INVALID_ZIP)
+    }
+
     @Test fun metadataCannotInjectMultilineOrBidiUiText() {
         val report = inspect(zip("module.prop" to "id=a\nname=hello\u202Eworld\nauthor=valid\n"))
         assertFalse(report.metadata.getValue("name").contains('\u202E'))

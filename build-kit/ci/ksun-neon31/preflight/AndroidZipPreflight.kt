@@ -51,8 +51,8 @@ internal object AndroidZipPreflight {
         val source = runCatching { if (uri.scheme == "file") File(path).canonicalFile else null }
             .getOrNull() ?: return fail()
         val destinationCanonical = runCatching { destination.canonicalFile }.getOrNull() ?: return fail()
-        if (source.parentFile != root || !source.name.startsWith(PREFIX) || !source.name.endsWith(".zip") ||
-            source == destinationCanonical) return fail()
+        if (source == destinationCanonical) return false // Never delete the source itself.
+        if (source.parentFile != root || !source.name.startsWith(PREFIX) || !source.name.endsWith(".zip")) return fail()
         val copied = runCatching {
             val input = context.contentResolver.openInputStream(uri) ?: error("staged ZIP unavailable")
             var size = 0L

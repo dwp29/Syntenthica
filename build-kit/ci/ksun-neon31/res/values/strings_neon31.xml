@@ -65,7 +65,7 @@
     <string name="device31_copy_system">Android and kernel</string>
     <string name="device31_copy_display">Display</string>
     <string name="device31_copy_cpu">Processor</string>
-    <string name="device31_copy_live">Battery, memory and storage</string>
+    <string name="device31_copy_live">Battery, memory, storage and uptime</string>
     <string name="device31_copy_performance">Performance readings</string>
     <string name="device31_copy_preview">Preview</string>
     <string name="device31_copy_choose">Select at least one section to preview.</string>
@@ -96,7 +96,7 @@
     <string name="zip31_unreadable">The ZIP could not be read. No installation was started.</string>
     <string name="zip31_too_large">The ZIP or combined batch exceeds the 512 MiB inspection limit. No installation was started.</string>
     <string name="zip31_too_many">The ZIP contains too many entries. No installation was started.</string>
-    <string name="zip31_unsafe_path">The ZIP has an unsafe or duplicate path. No installation was started.</string>
+    <string name="zip31_unsafe_path">The ZIP has an unsafe or duplicate path or a special file entry. No installation was started.</string>
     <string name="zip31_invalid">The ZIP is empty, corrupt, or unreadable. No installation was started.</string>
     <string name="zip31_unknown">No recognizable module or AnyKernel3 marker was found. No installation was started.</string>
     <string name="zip31_ambiguous">The ZIP has both module and kernel markers. Its type is ambiguous, so installation was stopped.</string>
@@ -105,4 +105,5 @@
     <string name="zip31_changed">The confirmed ZIP copy is unavailable or its SHA-256 changed. Installation was stopped before running the installer.</string>
     <string name="zip31_batch_warning">All ZIPs are checked and confirmed before installation starts. If a later module fails, earlier modules remain installed.</string>
     <string name="zip31_partial">%1$d earlier module(s) may already be installed; this batch was not rolled back.</string>
+    <string name="zip31_unsupported">ZIP64, split or encrypted ZIPs are not supported by this check. No installation was started.</string>
 </resources>

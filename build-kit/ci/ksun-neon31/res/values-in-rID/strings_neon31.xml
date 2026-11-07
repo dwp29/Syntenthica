@@ -65,7 +65,7 @@
     <string name="device31_copy_system">Android dan kernel</string>
     <string name="device31_copy_display">Layar</string>
     <string name="device31_copy_cpu">Prosesor</string>
-    <string name="device31_copy_live">Baterai, memori dan penyimpanan</string>
+    <string name="device31_copy_live">Baterai, memori, penyimpanan dan waktu aktif</string>
     <string name="device31_copy_performance">Pengukuran performa</string>
     <string name="device31_copy_preview">Pratinjau</string>
     <string name="device31_copy_choose">Pilih setidaknya satu bagian untuk melihat pratinjau.</string>
@@ -96,7 +96,7 @@
     <string name="zip31_unreadable">ZIP tidak dapat dibaca. Tidak ada pemasangan yang dimulai.</string>
     <string name="zip31_too_large">ZIP atau gabungan semua ZIP melebihi batas pemeriksaan 512 MiB. Tidak ada pemasangan yang dimulai.</string>
     <string name="zip31_too_many">ZIP berisi terlalu banyak entri. Tidak ada pemasangan yang dimulai.</string>
-    <string name="zip31_unsafe_path">ZIP memiliki path tidak aman atau duplikat. Tidak ada pemasangan yang dimulai.</string>
+    <string name="zip31_unsafe_path">ZIP memiliki path tidak aman, duplikat, atau entri berkas khusus. Tidak ada pemasangan yang dimulai.</string>
     <string name="zip31_invalid">ZIP kosong, rusak, atau tidak dapat dibaca. Tidak ada pemasangan yang dimulai.</string>
     <string name="zip31_unknown">Penanda modul maupun AnyKernel3 tidak ditemukan. Tidak ada pemasangan yang dimulai.</string>
     <string name="zip31_ambiguous">ZIP memiliki penanda modul dan kernel sekaligus. Jenisnya ambigu, jadi pemasangan dihentikan.</string>
@@ -105,4 +105,5 @@
     <string name="zip31_changed">Salinan ZIP yang dikonfirmasi tidak tersedia atau SHA-256 berubah. Pemasangan dihentikan sebelum installer dijalankan.</string>
     <string name="zip31_batch_warning">Semua ZIP diperiksa dan dikonfirmasi sebelum pemasangan dimulai. Jika modul berikutnya gagal, modul sebelumnya tetap terpasang.</string>
     <string name="zip31_partial">%1$d modul sebelumnya mungkin sudah terpasang; proses ini tidak dibatalkan otomatis.</string>
+    <string name="zip31_unsupported">ZIP64, ZIP terpisah, atau ZIP terenkripsi tidak didukung oleh pemeriksaan ini. Tidak ada pemasangan yang dimulai.</string>
 </resources>

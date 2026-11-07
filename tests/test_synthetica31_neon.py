@@ -132,11 +132,16 @@ class Neon31Tests(unittest.TestCase):
     def test_zip_preflight_is_bounded_and_not_a_security_scanner(self):
         engine = (ASSETS / 'preflight/PackagePreflight.kt').read_text()
         android = (ASSETS / 'preflight/AndroidZipPreflight.kt').read_text()
+        headers = (ASSETS / 'preflight/ZipStructure.kt').read_text()
         flow = (ASSETS / 'screen/FlashPreflight.kt').read_text()
         for marker in ('512L * 1024L * 1024L', 'MAX_ENTRIES = 10_000', 'MAX_METADATA_BYTES = 64 * 1024',
                        'PreflightProblem.UNSAFE_PATH', 'PreflightProblem.DUPLICATE_PATH',
                        'PreflightProblem.AMBIGUOUS_TYPE', 'PreflightProblem.UNKNOWN_TYPE', 'SHA-256', 'ZipFile(file)'):
             self.assertIn(marker, engine)
+        for marker in ('centralName.contentEquals(localName)', 'PreflightProblem.UNSUPPORTED_ZIP',
+                       'PreflightProblem.UNSAFE_PATH', 'sorted[index].first < sorted[index - 1].second',
+                       'u32(descriptor, base) != crc'):
+            self.assertIn(marker, headers)
         for marker in ('MAX_BATCH = 16', 'MAX_BATCH_BYTES = PackagePreflight.MAX_ARCHIVE_BYTES',
                        'source.parentFile != root', 'PackagePreflight.matchesSha256(destination, expectedSha256)',
                        'file.parentFile == root', 'STALE_MILLIS'):
@@ -188,7 +193,7 @@ class ActualPreparedSourceTests(unittest.TestCase):
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/theme/{name}' for name in (
                 'Color.kt', 'Glass.kt', 'Theme.kt', 'Type.kt', 'AppearanceControls.kt')),
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/device/{name}' for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt')),
-            *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/preflight/{name}' for name in ('PackagePreflight.kt', 'AndroidZipPreflight.kt')),
+            *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/preflight/{name}' for name in ('PackagePreflight.kt', 'ZipStructure.kt', 'AndroidZipPreflight.kt')),
             'manager/app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt',
             'manager/app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt',
             'manager/app/src/main/res/font/oxanium.ttf',
@@ -269,7 +274,7 @@ class ActualPreparedSourceTests(unittest.TestCase):
                              (ASSETS / 'screen/FlashPreflight.kt').read_bytes())
             self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt').read_bytes(),
                              (self.new / 'manager/app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt').read_bytes())
-            for name in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
+            for name in ('PackagePreflight.kt', 'ZipStructure.kt', 'AndroidZipPreflight.kt'):
                 self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/preflight' / name).read_bytes(),
                                  (ASSETS / 'preflight' / name).read_bytes())
             for name in ('Color.kt', 'Theme.kt', 'Glass.kt', 'Shapes.kt', 'Type.kt', 'AppearanceControls.kt'):

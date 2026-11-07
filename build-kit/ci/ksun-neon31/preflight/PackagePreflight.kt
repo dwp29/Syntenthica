@@ -14,7 +14,7 @@ import java.util.zip.ZipFile
 internal enum class PackageKind { MODULE, ANYKERNEL }
 internal enum class PreflightProblem {
     UNREADABLE, TOO_LARGE, TOO_MANY_ENTRIES, UNSAFE_PATH, DUPLICATE_PATH,
-    INVALID_ZIP, UNKNOWN_TYPE, AMBIGUOUS_TYPE, MISSING_INSTALLER, INVALID_METADATA,
+    INVALID_ZIP, UNSUPPORTED_ZIP, UNKNOWN_TYPE, AMBIGUOUS_TYPE, MISSING_INSTALLER, INVALID_METADATA,
 }
 internal class PreflightException(val problem: PreflightProblem) : IOException(problem.name)
 internal data class PackageReport(
@@ -77,6 +77,7 @@ internal object PackagePreflight {
 
     private fun inspectZip(file: File, maxEntries: Int): Pair<PackageKind, Map<String, String>> {
         try {
+            val expectedEntries = ZipStructure.validate(file, maxEntries)
             ZipFile(file).use { zip ->
                 val names = mutableSetOf<String>()
                 var module: ZipEntry? = null
@@ -99,6 +100,7 @@ internal object PackagePreflight {
                         }
                     }
                 }
+                if (count != expectedEntries) throw PreflightException(PreflightProblem.INVALID_ZIP)
                 if (module != null && anyKernel != null) throw PreflightException(PreflightProblem.AMBIGUOUS_TYPE)
                 if (module != null) return PackageKind.MODULE to readProperties(zip, module)
                 if (anyKernel != null) {

@@ -126,7 +126,7 @@ def copy_ui_assets(src: Path) -> None:
         shutil.copy2(ASSETS / 'device' / file, device / file)
     preflight = app / 'java/com/rifsxd/ksunext/ui/preflight'
     preflight.mkdir(parents=True, exist_ok=True)
-    for file in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
+    for file in ('PackagePreflight.kt', 'ZipStructure.kt', 'AndroidZipPreflight.kt'):
         shutil.copy2(ASSETS / 'preflight' / file, preflight / file)
     shutil.copy2(ASSETS / 'screen/DeviceCheckScreen.kt', app / 'java/com/rifsxd/ksunext/ui/screen/DeviceCheckScreen.kt')
     shutil.copy2(ASSETS / 'screen/FlashPreflight.kt', app / 'java/com/rifsxd/ksunext/ui/screen/FlashPreflight.kt')
