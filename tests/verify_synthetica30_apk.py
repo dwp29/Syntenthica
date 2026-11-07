@@ -12,7 +12,9 @@ import zipfile
 
 from verify_synthetica21_apk import REFERENCE, SYMBOL, get_symbol_code, normalized_native
 
-REQUIRED_DEX = (b'neon-ambient', b'neon-pulse', b'neon_accent', b'neon_motion', b'NEON // MANAGER 3.0')
+# R8 can remove animation tooling labels such as "neon-ambient" in release builds.
+# The phase label, persisted preferences and visible splash marker remain in DEX.
+REQUIRED_DEX = (b'neon-pulse', b'neon_accent', b'neon_motion', b'NEON // MANAGER 3.0')
 
 
 def verify(apk: Path) -> None:

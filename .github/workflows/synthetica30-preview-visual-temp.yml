@@ -1,0 +1,123 @@
+name: "Validate Neon preview on an Android emulator (temporary)"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica30-preview-visual-temp.yml'
+permissions:
+  contents: write
+  actions: read
+jobs:
+  emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: synthetica30-neon-preview-42345128537
+          run-id: 42345128537
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/preview-artifact
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Check emulator acceleration
+        id: kvm
+        run: |
+          if [ -c /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo '::warning::KVM unavailable: emulator runtime test not run.'
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Android emulator and API 35 image
+        if: steps.kvm.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          SDK="$HOME/neon-emulator-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK/emulator" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64' 2>&1 | tail -12
+          echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd -f -n neon-preview -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
+      - name: Boot emulator, launch preview and exercise navigation
+        if: steps.kvm.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/preview-artifact/Synthetica-3.0-Neon-PREVIEW-NOT-MANAGER.apk"
+          echo 'd7329d7807612e16a6c4477f08530ce742f1e3be5ce82cc3a92c6f5e91d391f3  '"$APK" | sha256sum -c -
+          emulator -avd neon-preview -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          adb start-server
+          timeout 360s adb wait-for-device
+          timeout 360s bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
+          adb shell settings put global window_animation_scale 1
+          adb shell settings put global transition_animation_scale 1
+          adb shell settings put global animator_duration_scale 1
+          adb install -r "$APK"
+          adb shell am start -W -n 'net.ember.labs.neonpreview/com.rifsxd.ksunext.PreviewActivity'
+          sleep 5
+          adb shell uiautomator dump /sdcard/neon-window.xml > /dev/null
+          adb exec-out cat /sdcard/neon-window.xml > "$RUNNER_TEMP/home.xml"
+          grep -q 'PRATINJAU SAJA' "$RUNNER_TEMP/home.xml"
+          adb exec-out screencap -p > "$RUNNER_TEMP/home.png"
+          python3 - <<'PY'
+          import os,re,subprocess,xml.etree.ElementTree as ET
+          root=ET.parse(os.path.join(os.environ['RUNNER_TEMP'],'home.xml')).getroot()
+          nodes=[n for n in root.iter('node') if n.get('text')=='Setelan']
+          if not nodes: raise SystemExit('Settings tab or tile not found')
+          def rect(n):
+              m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',n.get('bounds',''))
+              if not m: raise ValueError('invalid node bounds')
+              return [int(v) for v in m.groups()]
+          target=max(nodes,key=lambda n:rect(n)[3])
+          x1,y1,x2,y2=rect(target)
+          subprocess.run(['adb','shell','input','tap',str((x1+x2)//2),str((y1+y2)//2)],check=True)
+          PY
+          sleep 3
+          adb shell uiautomator dump /sdcard/neon-settings.xml > /dev/null
+          adb exec-out cat /sdcard/neon-settings.xml > "$RUNNER_TEMP/settings.xml"
+          grep -q 'AKSEN NEON' "$RUNNER_TEMP/settings.xml"
+          grep -q 'Animasi neon' "$RUNNER_TEMP/settings.xml"
+          adb exec-out screencap -p > "$RUNNER_TEMP/settings.png"
+          echo '::notice title=Android emulator preview::API 35 preview launched and navigation to neon settings passed; root Manager was not tested.'
+      - name: Transfer screenshots for inspection
+        if: steps.kvm.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for name in home settings; do
+            NAME="$name" python3 - <<'PY'
+          import base64,json,os,pathlib,hashlib
+          tmp=pathlib.Path(os.environ['RUNNER_TEMP']); name=os.environ['NAME']
+          data=(tmp/(name+'.png')).read_bytes()
+          assert data.startswith(b'\x89PNG\r\n\x1a\n')
+          (tmp/(name+'-blob.json')).write_text(json.dumps({'content':base64.b64encode(data).decode(),'encoding':'base64'}))
+          print(f'::notice title=Screenshot {name} SHA-256::{hashlib.sha256(data).hexdigest()}')
+          PY
+            blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/$name-blob.json" --jq .sha)
+            echo "::notice title=Screenshot $name blob::$blob"
+          done
+      - name: Upload screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: neon-preview-emulator-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/home.png
+            ${{ runner.temp }}/settings.png
+            ${{ runner.temp }}/home.xml
+            ${{ runner.temp }}/settings.xml
+            ${{ runner.temp }}/emulator.log
+          retention-days: 7
+          if-no-files-found: warn
