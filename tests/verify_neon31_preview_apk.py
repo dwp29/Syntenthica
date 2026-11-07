@@ -20,7 +20,8 @@ def verify(apk: Path) -> None:
             if any(name.endswith(suffix) for name in names):
                 raise ValueError(f'Preview contains a root Manager payload: {suffix}')
         dex = b''.join(z.read(name) for name in names if name.endswith('.dex'))
-        for marker in (b'neon_theme', b'neon_glow', b'PREVIEW ONLY', b'/sys/devices/system/cpu/cpu'):
+        for marker in (b'neon_theme', b'neon_glow', b'PREVIEW ONLY', b'/sys/devices/system/cpu/cpu',
+                       b'/proc/loadavg', b'neon31-preflight', b'ZIP preflight preview'):
             if marker not in dex:
                 raise ValueError(f'Preview marker missing: {marker!r}')
         for forbidden in (b'/data/adb/ksud', b'/system/bin/su', b'Java_com_rifsxd_ksunext_Natives'):
@@ -31,7 +32,7 @@ def verify(apk: Path) -> None:
             raise ValueError('Pinned offline font is missing')
         if 'assets/licenses/Oxanium-OFL.txt' not in names:
             raise ValueError('Font license is missing')
-        print('ZIP integrity, Device Check/theme markers, licensed font and no KSU native payload: OK')
+        print('ZIP integrity, Device Check/theme/preflight markers, licensed font and no KSU native payload: OK')
         print('This separate preview cannot grant or administer root.')
 
 

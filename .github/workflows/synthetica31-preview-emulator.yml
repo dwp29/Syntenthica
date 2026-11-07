@@ -28,8 +28,8 @@ jobs:
     steps:
       - name: Validate input
         env:
-          BUILD_RUN_ID: ${{ inputs.build_run_id || '42365937487' }}
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 || 'ba7e4de90cb36a80e4aa9f1ae0f66193be2c8912e37db5d732aaa9206a558e40' }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id || '42366173731' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '1b79c93ad241cba01eb6ebf32b3962229faa0e53e1caa045b5eaac01ac924f60' }}
         run: |
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
@@ -37,8 +37,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica31-preview-${{ inputs.build_run_id || '42365937487' }}
-          run-id: ${{ inputs.build_run_id || '42365937487' }}
+          name: synthetica31-preview-${{ inputs.build_run_id || '42366173731' }}
+          run-id: ${{ inputs.build_run_id || '42366173731' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/preview31-artifact
       - uses: actions/setup-java@v4
@@ -75,7 +75,7 @@ jobs:
           python3 -m pip install --user --disable-pip-version-check pillow
       - name: Boot emulator and validate preview only
         env:
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 || 'ba7e4de90cb36a80e4aa9f1ae0f66193be2c8912e37db5d732aaa9206a558e40' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '1b79c93ad241cba01eb6ebf32b3962229faa0e53e1caa045b5eaac01ac924f60' }}
         run: |
           set -euo pipefail
           APK="$RUNNER_TEMP/preview31-artifact/Synthetica-3.1-Neon-PREVIEW-NOT-MANAGER.apk"
@@ -100,7 +100,7 @@ jobs:
           python3 - <<'PY'
           import base64,json,os,pathlib,subprocess
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'neon31-test-output'
-          for name in ('settings-light.png','settings-dark.png','settings-amoled.png','settings-system-light.png','settings-system-dark.png','device-check.png','copy-dialog.png','zip-dialog.png','device-check.xml','copy-preview.xml','zip-module-dialog-0.xml','zip-kernel-dialog-0.xml','settings-light.xml','settings-dark.xml','settings-amoled.xml','home.xml','test.log'):
+          for name in ('test.log','copy-empty-0.xml','copy-selected.xml','copy-preview.xml','zip-module-dialog-0.xml','zip-kernel-dialog-0.xml','copy-dialog.png','zip-dialog.png','device-check.xml','device-check.png','settings-light.png','settings-dark.png','settings-amoled.png','settings-system-light.png','settings-system-dark.png','settings-light.xml','settings-dark.xml','settings-amoled.xml','home.xml'):
               path=root/name
               if not path.is_file(): continue
               payload=root/(name+'.json')

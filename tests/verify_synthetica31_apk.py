@@ -12,7 +12,8 @@ from verify_synthetica21_apk import REFERENCE, SYMBOL, get_symbol_code, normaliz
 FONT_SHA256 = '2ce01d946e1e1ffc8d7eecfffbda8623bedd63eaf811a20488c4b69af45babb0'
 LICENSE_SHA256 = 'fe17c0f2581d71b4e1ea7e636e7f4877c29223e11bb1dd1a871e8c3f2a86336b'
 REQUIRED_DEX = (b'neon-pulse', b'neon_accent', b'neon_motion', b'neon_theme', b'neon_glow',
-                b'NEON // MANAGER 3.1', b'/sys/devices/system/cpu/cpu')
+                b'NEON // MANAGER 3.1', b'/sys/devices/system/cpu/cpu', b'/proc/loadavg',
+                b'/sys/class/kgsl/kgsl-3d0/gpuclk', b'neon31-preflight', b'SHA-256', b'sha256sum -c -')
 
 
 def verify(apk: Path) -> None:
@@ -54,7 +55,7 @@ def verify(apk: Path) -> None:
         print('JNI: UAPI 4; JNI and adbroot match 2.0 except ELF build ID')
         print('arm64 ksud:', hashlib.sha256(daemon).hexdigest(), '(matches 2.0)')
         print('Root-facing packaged scripts and main.jar match 2.0')
-        print('Licensed Oxanium font and Device Check/theme markers are present')
+        print('Licensed Oxanium font, diagnostics and ZIP preflight markers are present')
         print('Not a signature, Android runtime, update or root test')
 
 
