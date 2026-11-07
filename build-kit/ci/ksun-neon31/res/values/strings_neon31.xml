@@ -60,7 +60,7 @@
     <string name="device31_copy_title">Copy selected device info</string>
     <string name="device31_copy_subtitle">Choose sections and preview before copying</string>
     <string name="device31_copy_report_title">Synthetica Device Check</string>
-    <string name="device31_copy_privacy">Choose what to copy. The clipboard may be visible to other apps or synced by your keyboard. No serial number or IMEI is included.</string>
+    <string name="device31_copy_privacy">Choose what to copy. The clipboard may be visible to other apps or synced by your keyboard. No serial number, IMEI or Android ID is included.</string>
     <string name="device31_copy_device">Device identifiers (model and codename)</string>
     <string name="device31_copy_system">Android and kernel</string>
     <string name="device31_copy_display">Display</string>

@@ -60,7 +60,7 @@
     <string name="device31_copy_title">Salin info perangkat terpilih</string>
     <string name="device31_copy_subtitle">Pilih bagian dan lihat pratinjau sebelum menyalin</string>
     <string name="device31_copy_report_title">Synthetica Device Check</string>
-    <string name="device31_copy_privacy">Pilih info yang akan disalin. Clipboard mungkin dapat dibaca aplikasi lain atau disinkronkan keyboard. Nomor seri dan IMEI tidak disertakan.</string>
+    <string name="device31_copy_privacy">Pilih info yang akan disalin. Clipboard mungkin dapat dibaca aplikasi lain atau disinkronkan keyboard. Nomor seri, IMEI dan Android ID tidak disertakan.</string>
     <string name="device31_copy_device">Identitas perangkat (model dan codename)</string>
     <string name="device31_copy_system">Android dan kernel</string>
     <string name="device31_copy_display">Layar</string>
