@@ -40,7 +40,7 @@ def prepare(target: Path, source: Path) -> None:
         shutil.copy2(ASSETS / 'theme' / file, theme / file)
     device = main / 'java/com/rifsxd/ksunext/ui/device'
     device.mkdir(parents=True)
-    for file in ('DeviceCheck.kt', 'DeviceMath.kt'):
+    for file in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
         shutil.copy2(ASSETS / 'device' / file, device / file)
     shutil.copytree(ASSETS / 'res', main / 'res', dirs_exist_ok=True)
     shutil.copytree(ASSETS / 'assets', main / 'assets', dirs_exist_ok=True)

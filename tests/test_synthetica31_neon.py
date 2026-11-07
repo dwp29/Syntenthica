@@ -104,12 +104,30 @@ class Neon31Tests(unittest.TestCase):
         self.assertIn('level > scale', math)
         self.assertIn('available in 0..total', math)
         self.assertIn('cores = Runtime.getRuntime().availableProcessors(),', device)
-        self.assertIn('coreCount.coerceIn(1, 64)', device)  # bound I/O, not the displayed count
+        self.assertIn('hardware.cores.coerceIn(1, 64)', device)  # bound I/O, not the displayed count
         self.assertIn('stat.availableBytes to stat.totalBytes', device)
         for locale in ('values', 'values-in-rID'):
             strings = ET.parse(ASSETS / f'res/{locale}/strings_neon31.xml').getroot()
             storage_label = next(x.text for x in strings if x.get('name') == 'device31_storage_used')
             self.assertIn('available' if locale == 'values' else 'tersedia', storage_label.lower())
+
+    def test_performance_is_read_only_and_clipboard_is_explicit(self):
+        device = (ASSETS / 'device/DeviceCheck.kt').read_text()
+        math = (ASSETS / 'device/DeviceMath.kt').read_text()
+        summary = (ASSETS / 'device/DeviceSummary.kt').read_text()
+        for marker in ('/proc/loadavg', '/proc/pressure/', '/sys/block/zram0/',
+                       '/sys/class/kgsl/', '/sys/class/devfreq', 'readPerformance(hardware.gpuNodes)'):
+            self.assertIn(marker, device)
+        for marker in ('parseGpuFrequencyHz', 'parseLoadAverages', 'parseZramData', 'parsePressureAvg10'):
+            self.assertIn(marker, math)
+        self.assertIn('mutableStateOf(emptySet<String>())', device)
+        self.assertIn('renderSelectedSummary(title, sections, selected)', device)
+        self.assertIn('TextButton(enabled = preview.isNotEmpty(), onClick = {', device)
+        self.assertEqual(device.count('clipboard.setPrimaryClip(clip)'), 1)
+        self.assertIn('EXTRA_IS_SENSITIVE', device)
+        self.assertIn('sections.filter { it.id in selected }', summary)
+        for forbidden in ('Build.SERIAL', 'getSerial(', 'TelephonyManager', 'ANDROID_ID', 'Manifest.permission'):
+            self.assertNotIn(forbidden, device + summary)
 
     def test_translations_match_and_do_not_duplicate_keys(self):
         locales = []
@@ -146,7 +164,7 @@ class ActualPreparedSourceTests(unittest.TestCase):
                 'Home.kt', 'Customization.kt', 'Module.kt', 'ModuleRepo.kt', 'MetaModule.kt', 'DeviceCheckScreen.kt')),
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/theme/{name}' for name in (
                 'Color.kt', 'Glass.kt', 'Theme.kt', 'Type.kt', 'AppearanceControls.kt')),
-            *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/device/{name}' for name in ('DeviceCheck.kt', 'DeviceMath.kt')),
+            *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/device/{name}' for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt')),
             'manager/app/src/main/res/font/oxanium.ttf',
             'manager/app/src/main/res/values/strings_neon31.xml',
             'manager/app/src/main/res/values-in-rID/strings_neon31.xml',
@@ -184,7 +202,7 @@ class ActualPreparedSourceTests(unittest.TestCase):
             gradle = (target / 'app/build.gradle.kts').read_text()
             self.assertIn('applicationId = "net.ember.labs.neon31preview"', gradle)
             self.assertNotIn('applicationId = "net.ember.labs"', gradle)
-            for name in ('DeviceCheck.kt', 'DeviceMath.kt'):
+            for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
                 self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/device' / name).read_bytes(),
                                  (ASSETS / 'device' / name).read_bytes())
             for name in ('Color.kt', 'Theme.kt', 'Glass.kt', 'Shapes.kt', 'Type.kt', 'AppearanceControls.kt'):

@@ -120,7 +120,7 @@ def copy_ui_assets(src: Path) -> None:
         shutil.copy2(ASSETS / 'theme' / file, theme / file)
     device = app / 'java/com/rifsxd/ksunext/ui/device'
     device.mkdir(parents=True, exist_ok=True)
-    for file in ('DeviceCheck.kt', 'DeviceMath.kt'):
+    for file in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
         shutil.copy2(ASSETS / 'device' / file, device / file)
     shutil.copy2(ASSETS / 'screen/DeviceCheckScreen.kt', app / 'java/com/rifsxd/ksunext/ui/screen/DeviceCheckScreen.kt')
     shutil.copytree(ASSETS / 'res', app / 'res', dirs_exist_ok=True)
