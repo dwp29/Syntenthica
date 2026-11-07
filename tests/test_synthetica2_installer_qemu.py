@@ -10,6 +10,7 @@ import importlib.util
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -67,7 +68,7 @@ class SyntheticRepackTests(unittest.TestCase):
         p.chmod(0o755)
         return p
 
-    def make_boot(self, name: str, *, magisk: bool) -> Path:
+    def make_boot(self, name: str, *, magisk: bool, partition_bytes: int = 32 * 1024 * 1024) -> Path:
         rd = self.t / ('rd-' + name)
         rd.mkdir()
         (rd / 'init').write_bytes(b'#!/bin/sh\nexit 0\n')
@@ -84,7 +85,7 @@ class SyntheticRepackTests(unittest.TestCase):
         path = self.t / (name + '.img')
         path.write_bytes(fixture.boot(kernel=b'old synthetic kernel', ramdisk=compressed, tree=self.tree))
         subprocess.run(['python3', str(self.avbtool), 'add_hash_footer', '--image', str(path),
-                        '--partition_size', str(32 * 1024 * 1024), '--partition_name', 'boot'], check=True)
+                        '--partition_size', str(partition_bytes), '--partition_name', 'boot'], check=True)
         return path
 
     def prepare(self, name: str, *, original: Path | None = None, kernel: Path | None = None,
@@ -136,6 +137,64 @@ class SyntheticRepackTests(unittest.TestCase):
                 p, _ = self.prepare('tamper-' + kind, mb=wrapper)
                 self.assertNotEqual(p.returncode, 0, p.stdout)
                 self.assertIn(message, p.stdout)
+
+    @unittest.skipUnless(os.environ.get('S2_LOOP_WRITER') == '1', 'loop-backed writer integration is opt-in')
+    def test_loop_backed_writer_round_trip(self):
+        # CI-only. Never touch an existing /dev/block path or an unverified loop device.
+        if os.geteuid() != 0:
+            self.skipTest('loop fixture requires root')
+        target = Path('/dev/block/bootdevice/by-name/boot')
+        if target.exists() or target.is_symlink():
+            self.skipTest('real or preexisting boot path exists; refusing to touch it')
+        backing = self.make_boot('loop-fixture', magisk=False, partition_bytes=134217728)
+        before = audit.inspect_boot(backing)
+        attach = subprocess.run(['losetup', '--find', '--show', str(backing)], text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if attach.returncode:
+            self.skipTest('loop devices unavailable: ' + attach.stderr.strip())
+        loop = attach.stdout.strip()
+        created = []
+        try:
+            actual = subprocess.run(['losetup', '--noheadings', '--output', 'BACK-FILE', loop],
+                                    check=True, text=True, stdout=subprocess.PIPE).stdout.strip()
+            self.assertEqual(Path(actual).resolve(), backing.resolve(), 'loop does not reference our fixture')
+            for d in (Path('/dev/block'), Path('/dev/block/bootdevice'), target.parent):
+                if not d.exists():
+                    d.mkdir()
+                    created.append(d)
+            target.symlink_to(loop)
+            home = self.t / 'recovery-home'
+            tools, bindir = home / 'tools', home / 'bin'
+            tools.mkdir(parents=True)
+            bindir.mkdir()
+            shutil.copy(self.bb, tools / 'busybox')
+            shutil.copy(self.mb, tools / 'magiskboot')
+            shutil.copy(PREPARE, tools / 'prepare-boot.sh')
+            shutil.copy(self.image, home / 'Image.gz')
+            (bindir / 'ash').symlink_to(shutil.which('busybox'))
+            prop = bindir / 'getprop'
+            prop.write_text('#!/bin/sh\n[ "$1" = ro.boot.flash.locked ] && echo 0\nexit 0\n')
+            prop.chmod(0o755)
+            entry = (ROOT / 'build-kit/ci/synthetica2-experimental/test-installer/anykernel.sh').read_text()
+            reference = '6ae7105b5ad512e40af1f14e53a8c27010b2d7caf0934d53c58cfcc24cc3f239'
+            self.assertEqual(entry.count(reference), 1)
+            (home / 'test-anykernel.sh').write_text(entry.replace(reference, self.dtb_hash))
+            env = os.environ | {'AKHOME': str(home), 'OUTFD': '1', 'PATH': str(bindir) + ':' + os.environ['PATH']}
+            p = subprocess.run(['busybox', 'ash', str(home / 'test-anykernel.sh')], env=env,
+                               text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            self.assertEqual(p.returncode, 0, p.stdout)
+            self.assertIn('Boot write and byte readback completed', p.stdout)
+            after = audit.inspect_boot(backing)
+            comparison = audit.compare_boot(before, after, self.kernel_hash)
+            self.assertTrue(all(comparison['stable_header_fields_match'].values()), comparison)
+            self.assertTrue(all(comparison['non_kernel_sections_match'].values()), comparison)
+            self.assertTrue(comparison['candidate_kernel_equals_bundle_image'])
+        finally:
+            if target.is_symlink() and os.readlink(target) == loop:
+                target.unlink()
+            subprocess.run(['losetup', '--detach', loop], check=True)
+            for d in reversed(created):
+                d.rmdir()
 
     def test_missing_footer_or_wrong_header_is_rejected_before_output(self):
         raw = bytearray(self.original.read_bytes())

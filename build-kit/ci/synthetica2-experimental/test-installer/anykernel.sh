@@ -60,6 +60,7 @@ if ! ash "$AKHOME/tools/prepare-boot.sh" "$original" "$AKHOME/Image.gz" "$candid
   fail 'Boot checks failed. The boot partition was not written.'
 fi
 [ "$("$BB" stat -c %s "$candidate")" = "$partsize" ] || fail 'Repacked boot has unexpected size'
+"$BB" cmp -s "$original" "$BLOCK" || fail 'Boot changed during preparation; no write performed'
 ui_print 'WARNING: AVB signature and ROM modules are NOT verified.' 'Writing boot partition...'
 if ! "$BB" dd if="$candidate" of="$BLOCK" bs=1048576 conv=fsync; then
   ui_print 'WRITE FAILED. DO NOT REBOOT. RESTORE YOUR EXACT BOOT BACKUP FROM RECOVERY.'

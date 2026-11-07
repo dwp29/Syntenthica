@@ -46,6 +46,15 @@ def collect(evidence: Path) -> dict[str, bytes]:
         raise ValueError('base ZIP or downloaded compile evidence checksum mismatch')
     with zipfile.ZipFile(io.BytesIO(raw_base)) as z:
         files = {name: read_zip_unique(z, name, 4_000_000) for name in BASE_FILES}
+    # The upstream backend otherwise creates a persistent debug archive of the
+    # unpacked workspace (including the user's boot image) when a debug marker
+    # exists. Disable only that function; no silent boot copies to userdata.
+    name = 'META-INF/com/google/android/update-binary'
+    backend = files[name]
+    start, end = backend.find(b'debugging() {\n'), backend.find(b'\ncleanup() {\n')
+    if start < 0 or end < start or backend.count(b'debugging() {\n') != 1:
+        raise ValueError('unexpected AnyKernel debugging function; refusing to patch')
+    files[name] = backend[:start] + b'debugging() { :; } # disabled for this test installer\n' + backend[end:]
     with zipfile.ZipFile(io.BytesIO(raw_evidence)) as z:
         image = read_zip_unique(z, 'Image.gz.DO-NOT-FLASH', 25_000_000)
         config = read_zip_unique(z, 'generated.config.txt', 1_000_000)

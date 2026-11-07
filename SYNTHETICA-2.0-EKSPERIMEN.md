@@ -230,8 +230,30 @@ membuat hash/signature lama untuk boot tidak lagi dapat diasumsikan valid.
 Installer 2.0 lama bukan otomatis aman sebagai pembungkus eksperimen: dalam
 kondisi tertentu saat Magisk terdeteksi, core-nya dapat mem-patch DTB dan skrip
 lamanya juga memasang `ksud`. Boot yang benar-benar terpasang, kondisi trust,
-dan kompatibilitas modul Lunaris masih belum terbukti. File yang disiapkan
-untuk dibagikan karena itu tetap **bukti kompilasi, bukan ZIP installer**;
-`Image.gz.DO-NOT-FLASH` adalah kernel mentah, bukan `boot.img`, dan jangan
-langsung di-flash. Tidak ada flash, pengubahan perangkat, atau jaminan bebas
-regresi dalam eksperimen ini.
+dan kompatibilitas modul Lunaris masih belum terbukti. Arsip bukti kompilasi
+lama tetap **bukan ZIP installer**: `Image.gz.DO-NOT-FLASH` adalah kernel mentah,
+bukan `boot.img`, dan jangan langsung di-flash.
+
+### ZIP recovery eksperimen terpisah
+
+Atas permintaan pengujian langsung, ada paket terpisah
+`Synthetica-2.0-EXP-Neutron-MGLRU-on-TEST.zip`. Ini **installer AnyKernel3
+untuk uji coba, bukan rilis stabil**. Belum ada uji boot fisik atau uji installer
+di recovery, kompatibilitas modul ROM/AVB belum diketahui, dan bootloop serta
+hilangnya fungsi/root tetap mungkin. Pengujian sintetis dengan komponen ARM di
+QEMU serta jalur gagal preflight tercatat di [run `42331569829`](https://github.com/dwp29/Syntenthica/actions/runs/42331569829);
+itu bukan bukti perangkat akan boot.
+
+Installer membaca boot yang ada, memeriksa checksum kernel, status unlock,
+ukuran/header boot dan hash DTB referensi, membatalkan untuk Magisk/ramdisk tak
+dikenal atau hasil repack yang mengubah komponen non-kernel, lalu menulis hanya
+partisi boot dan melakukan pembacaan balik. Tidak ada backup boot otomatis,
+tidak mengganti `ksud` atau modul, tidak mengubah partisi `vbmeta` maupun `dtbo`,
+dan tidak menonaktifkan verifikasi. Signature boot lama bisa tidak valid setelah
+kernel diubah. Backend debug archive AnyKernel dinonaktifkan agar tidak menyalin
+boot ke penyimpanan secara diam-diam. Jika pemasangan batal, jangan memaksa;
+jika penulisan gagal atau terjadi bootloop, pulihkan boot backup yang tepat dari
+recovery tanpa wipe data. DTB cocok tidak membuktikan ROM terpasang ataupun ABI.
+
+Kompilasi awal, pengemasan dan tes host/QEMU tidak melakukan flash maupun
+pengubahan perangkat, dan tidak menjamin bebas regresi.

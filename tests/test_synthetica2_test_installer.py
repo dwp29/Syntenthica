@@ -71,6 +71,7 @@ class InstallerShellTests(unittest.TestCase):
         self.assertIn('of="$BLOCK"', text)
         self.assertIn('conv=fsync', text)
         self.assertIn('cmp -s -n "$partsize" "$candidate" "$BLOCK"', text)
+        self.assertIn('cmp -s "$original" "$BLOCK"', text)
         self.assertIn('do.modules=0', text)
         self.assertIn('do.systemless=0', text)
         self.assertNotIn('/data/adb/ksud', text)
@@ -107,6 +108,10 @@ class PackageTests(unittest.TestCase):
             self.assertFalse(meta['auto_backup'])
             self.assertIn('NOT VERIFIED', meta['rom_module_abi_and_signatures'])
             self.assertNotIn('ksud', z.namelist())
+            backend = z.read('META-INF/com/google/android/update-binary')
+            self.assertIn(b'debugging() { :; } # disabled for this test installer', backend)
+            self.assertNotIn(b'tar -czf "$DIR/anykernel3-', backend)
+            subprocess.run(['busybox', 'ash', '-n'], input=backend, check=True)
             self.assertIn(b'BUKAN RILIS STABIL', z.read('README-FLASH.txt'))
         with self.assertRaisesRegex(ValueError, 'overwrite'):
             pkg.package(self.evidence, a)

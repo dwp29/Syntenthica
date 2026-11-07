@@ -73,6 +73,25 @@ jobs:
           PY
             exit "$rc"
           fi
+      - name: Exercise writer on a synthetic loop-backed boot, if supported
+        run: |
+          set +e
+          (cd tests && sudo env S2_QEMU_INTEGRATION=1 S2_LOOP_WRITER=1 \
+            S2_IMAGE="$RUNNER_TEMP/Image.gz" S2_ARM_BB="$RUNNER_TEMP/arm/busybox" \
+            S2_ARM_MAGISKBOOT="$RUNNER_TEMP/arm/magiskboot" S2_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
+            python3 -m unittest test_synthetica2_installer_qemu.SyntheticRepackTests.test_loop_backed_writer_round_trip -v) > "$RUNNER_TEMP/loop-test.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/loop-test.log"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'loop-test.log').read_text(errors='replace')[-6000:]
+          for i in range(0,len(text),1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::notice title=Loop fixture result {i//1800+1}::{s}')
+          PY
+          exit "$rc"
       - name: Record test scope
         run: |
           echo '::notice title=Scope::Synthetic files and ARM emulation only. No real device boot, ROM module ABI, signature trust, root pairing, or installer-on-recovery test was performed.'
