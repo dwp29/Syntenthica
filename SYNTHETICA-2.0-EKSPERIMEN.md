@@ -1,7 +1,12 @@
 # Synthetica 2.0 — eksperimen Uclamp, MGLRU, dan Neutron
 
-**Status: eksperimen pengembangan, bukan rilis atau paket flash.** Target yang
-dilaporkan pengguna adalah Joyeuse dengan Lunaris AOSP GMS 3.13 Android 16;
+**Status: eksperimen pengembangan, bukan rilis stabil.** Pengguna melaporkan
+varian Neutron/MGLRU-on berhasil boot dan terbaca di Manager pada Joyeuse;
+screenshot menunjukkan Android 16 GMS-Community dan waktu build yang cocok
+(6 November 2026 17:07:35 UTC). Hash kernel yang terpasang, status MGLRU saat
+runtime, fungsi seluruh modul, root, dan stabilitas jangka panjang belum
+diverifikasi secara independen. Target yang dilaporkan pengguna adalah
+Joyeuse dengan Lunaris AOSP GMS 3.13 Android 16;
 [tautan ROM yang diberikan](https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051)
 menampilkan metadata `Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip`
 (bukan build resmi 3.12 yang tercantum di direktori lama). Hash arsip ROM sudah
@@ -10,6 +15,27 @@ diverifikasi. Baseline 2.0, APK Manager,
 dan resep yang digunakan 3.0 tidak diganti. BakaSU tidak dipasang. Hasil build
 yang berhasil sekalipun hanya bukti kompilasi, bukan bukti aman untuk perangkat
 atau kompatibel dengan modul vendor ROM.
+
+## Observasi perangkat 7 November 2026
+
+Pengguna mengirim screenshot bahwa Joyeuse Android 16 GMS-Community berhasil
+boot dengan `4.14.357-openela-Synthetica-2.0-exp #1 Fri Nov 06 17:07:35 UTC 2026`.
+Release dan waktu build cocok dengan banner image Neutron-on yang didistribusikan;
+ini belum membuktikan hash partisi yang sedang terpasang. Screenshot Manager
+2.1.2 menampilkan versi kernel, 2 superuser, 5 modul, mode hook Manual, dan
+SELinux Enforcing. Ini membuktikan tampilan status/boot yang dilaporkan, bukan
+bahwa setiap modul, operasi `su`, suspend, charging, atau kamera sudah diuji.
+
+Konfigurasi tertanam pada image kandidat Neutron-on sudah diverifikasi terhadap
+file konfigurasi: `UCLAMP_TASK=y`, `UCLAMP_TASK_GROUP=y`, `SCHED_TUNE=y`,
+`SCHED_WALT=y`, `LRU_GEN=y`, `LRU_GEN_ENABLED=y`, dan `KSU=y`. Ini adalah bukti
+fitur terkompilasi, bukan bukti kebijakan userspace atau nilai runtime. Pengguna
+belum mengirim isi `/sys/kernel/mm/lru_gen/enabled`; baca `1`/`0` untuk status
+aktual MGLRU. Neutron Clang 24.0.0git adalah toolchain build, bukan fitur yang
+dinyalakan saat runtime. Screenshot menyatakan SECCOMP `Disabled`; konfigurasi
+image `CONFIG_SECCOMP=y` dan `CONFIG_SECCOMP_FILTER=y`. Pada source Manager
+2.1.2 yang dipin, tampilan itu membaca `PR_GET_SECCOMP` dari thread Manager
+yang memanggilnya, bukan verifikasi status filter untuk setiap proses aplikasi.
 
 ## Metadata ROM yang diberikan
 
@@ -51,7 +77,7 @@ tepercaya oleh kernel.
 |---|---|
 | WALT + SchedTune | Keduanya dipertahankan seperti konfigurasi 2.0 yang tersimpan. |
 | Uclamp | Backport per-task dan CPU cgroup, dengan lima bucket; clamp default netral dan default boost RT tambahan 0. Pengaturan pengguna/ROM tetap bisa mengubah clamp. |
-| MGLRU | Atas permintaan pengguna, varian eksperimen **aktif secara default** (`CONFIG_LRU_GEN=y`, `CONFIG_LRU_GEN_ENABLED=y`). Varian kontrol Neutron mematikan default MGLRU untuk pembandingan; statistik tambahan tetap dimatikan. Keduanya belum diuji pada perangkat. |
+| MGLRU | Atas permintaan pengguna, varian eksperimen **aktif secara default** (`CONFIG_LRU_GEN=y`, `CONFIG_LRU_GEN_ENABLED=y`). Varian on dilaporkan berhasil boot, tetapi status MGLRU runtime belum dibaca; kontrol Neutron default-off belum diuji perangkat. Statistik tambahan tetap dimatikan. |
 | Thermal, frekuensi dan root | Tidak ada patch thermal, overclock, bypass signature modul, atau perubahan implementasi KernelSU-Next/Manager. Penjagaan konfigurasi menolak perubahan lain dari konfigurasi 2.0 tersimpan. |
 | Neutron | Calon compiler dipin ke tag `06092026`, Clang `24.0.0git`, arsip SHA-256 `531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30`. CI membandingkan build yang sama dengan LLVM 18; itu bukan benchmark. |
 
@@ -97,8 +123,10 @@ berbeda pada `LRU_GEN_ENABLED`, compiler/linker dan `module_layout` CRC
 (`0xed5659d1`) sama, tetapi sertifikat modul publiknya **berbeda**. Image on:
 `3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea`;
 image off: `b6a1756de6696ae6fafc4598768efb9126d1b9087b276ecb1d8bb9aeb1523c8b`.
-Tidak ada bukti boot, pairing Manager, suhu, baterai atau kompatibilitas modul
-perangkat. Semua artefak tetap `DO-NOT-FLASH` dan memiliki retensi 7 hari;
+Ketika audit statis tersebut dibuat belum ada bukti boot perangkat. Pengguna
+sekarang melaporkan varian on boot dan terlihat di Manager; fungsi root,
+kompatibilitas modul, suhu dan baterai tetap perlu diuji. Artefak bukti
+kompilasi asal tetap `DO-NOT-FLASH` dan memiliki retensi 7 hari;
 LLVM 18-on lulus guard di CI asal dan belum diaudit terpisah seperti Neutron.
 Pada host, 125 unit test lolos dengan fixture source untuk rangkaian patch;
 itu tetap bukan simulasi runtime kernel.
@@ -238,9 +266,10 @@ bukan `boot.img`, dan jangan langsung di-flash.
 
 Atas permintaan pengujian langsung, ada paket terpisah
 `Synthetica-2.0-EXP-Neutron-MGLRU-on-TEST.zip`. Ini **installer AnyKernel3
-untuk uji coba, bukan rilis stabil**. Belum ada uji boot fisik atau uji installer
-di recovery, kompatibilitas modul ROM/AVB belum diketahui, dan bootloop serta
-hilangnya fungsi/root tetap mungkin. Pengujian sintetis dengan komponen ARM di
+untuk uji coba, bukan rilis stabil**. Pengguna melaporkan boot berhasil dan
+menunjukkan kernel di layar Manager; hash image terpasang belum dibaca secara
+independen, status modul ROM/AVB belum diketahui, dan bootloop serta hilangnya
+fungsi/root tetap mungkin. Pengujian sintetis dengan komponen ARM di
 QEMU, jalur gagal preflight, dan penulisan ke file sintetis via loop device
 tercatat di [run `42331828644`](https://github.com/dwp29/Syntenthica/actions/runs/42331828644);
 itu bukan uji recovery atau bukti perangkat akan boot.
