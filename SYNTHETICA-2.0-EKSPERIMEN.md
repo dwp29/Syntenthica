@@ -3,9 +3,9 @@
 **Status: eksperimen pengembangan, bukan rilis stabil.** Pengguna melaporkan
 varian Neutron/MGLRU-on berhasil boot dan terbaca di Manager pada Joyeuse;
 screenshot menunjukkan Android 16 GMS-Community dan waktu build yang cocok
-(6 November 2026 17:07:35 UTC). Hash kernel yang terpasang, status MGLRU saat
-runtime, fungsi seluruh modul, root, dan stabilitas jangka panjang belum
-diverifikasi secara independen. Target yang dilaporkan pengguna adalah
+(6 November 2026 17:07:35 UTC). Pengguna melaporkan MGLRU runtime bernilai `1`
+dan kamera 0.6× freeze. Hash kernel yang terpasang, fungsi seluruh modul, root,
+dan stabilitas jangka panjang belum diverifikasi secara independen. Target yang dilaporkan pengguna adalah
 Joyeuse dengan Lunaris AOSP GMS 3.13 Android 16;
 [tautan ROM yang diberikan](https://artifacts.serverhive.in/?id=lunaris-aosp-miatoll-20261103-045856621051)
 menampilkan metadata `Lunaris-AOSP-miatoll-Community-3.13-GMS-2026110303.zip`
@@ -29,13 +29,16 @@ bahwa setiap modul, operasi `su`, suspend, charging, atau kamera sudah diuji.
 Konfigurasi tertanam pada image kandidat Neutron-on sudah diverifikasi terhadap
 file konfigurasi: `UCLAMP_TASK=y`, `UCLAMP_TASK_GROUP=y`, `SCHED_TUNE=y`,
 `SCHED_WALT=y`, `LRU_GEN=y`, `LRU_GEN_ENABLED=y`, dan `KSU=y`. Ini adalah bukti
-fitur terkompilasi, bukan bukti kebijakan userspace atau nilai runtime. Pengguna
-belum mengirim isi `/sys/kernel/mm/lru_gen/enabled`; baca `1`/`0` untuk status
-aktual MGLRU. Neutron Clang 24.0.0git adalah toolchain build, bukan fitur yang
-dinyalakan saat runtime. Screenshot menyatakan SECCOMP `Disabled`; konfigurasi
-image `CONFIG_SECCOMP=y` dan `CONFIG_SECCOMP_FILTER=y`. Pada source Manager
-2.1.2 yang dipin, tampilan itu membaca `PR_GET_SECCOMP` dari thread Manager
-yang memanggilnya, bukan verifikasi status filter untuk setiap proses aplikasi.
+fitur terkompilasi, bukan bukti kebijakan userspace. Pengguna melaporkan isi
+`/sys/kernel/mm/lru_gen/enabled` adalah **`1`**, jadi MGLRU aktif saat dibaca.
+Pengguna juga melaporkan kamera 0.6× freeze, sementara fitur lainnya umumnya
+normal; kamera belum diperbaiki atau didiagnosis melalui log. Neutron Clang
+24.0.0git adalah toolchain build, bukan fitur yang dinyalakan saat runtime.
+Screenshot menyatakan SECCOMP `Disabled`; konfigurasi image `CONFIG_SECCOMP=y`
+dan `CONFIG_SECCOMP_FILTER=y`. Pada source Manager 2.1.2 yang dipin, tampilan itu
+membaca `PR_GET_SECCOMP` dari thread Manager yang memanggilnya, bukan verifikasi
+status filter untuk setiap proses aplikasi. Lihat `SYNTHETICA-3.0-RC1.md` untuk
+penyelidikan dan cakupan patch Manager yang masih harus diuji pada perangkat.
 
 ## Metadata ROM yang diberikan
 

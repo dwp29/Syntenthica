@@ -1,0 +1,2 @@
+# Preserve the upstream fixture byte-for-byte, including its original whitespace.
+tests/fixtures/synthetica3-seccomp/setuid_hook.c whitespace=-blank-at-eol

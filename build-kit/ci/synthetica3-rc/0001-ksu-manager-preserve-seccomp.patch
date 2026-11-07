@@ -1,0 +1,17 @@
+--- a/KernelSU-Next/kernel/hook/setuid_hook.c
++++ b/KernelSU-Next/kernel/hook/setuid_hook.c
+@@ -122,9 +122,11 @@
+         if (current->seccomp.mode == SECCOMP_MODE_FILTER && current->seccomp.filter) {
+             ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
+         }
+-#else
+-		disable_seccomp(current);
+ #endif
++        /* On pre-5.10 kernels there is no allow-cache. Keep the Manager's
++         * inherited seccomp filter; it gets a KSU fd via task_work below.
++         * The existing allowlisted-app and root-profile paths are unchanged.
++         */
+-
++
+ #ifdef KSU_KPROBES_HOOK
+         ksu_set_task_tracepoint_flag(current);

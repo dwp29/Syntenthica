@@ -175,7 +175,12 @@ class SyntheticRepackTests(unittest.TestCase):
             prop = bindir / 'getprop'
             prop.write_text('#!/bin/sh\n[ "$1" = ro.boot.flash.locked ] && echo 0\nexit 0\n')
             prop.chmod(0o755)
-            entry = (ROOT / 'build-kit/ci/synthetica2-experimental/test-installer/anykernel.sh').read_text()
+            # A caller may supply the actual generated candidate entry; the
+            # default remains the pinned 2.0 experimental installer.
+            entry_path = Path(os.environ.get('S2_ANYKERNEL', str(
+                ROOT / 'build-kit/ci/synthetica2-experimental/test-installer/anykernel.sh')))
+            entry = entry_path.read_text()
+            self.assertIn(self.kernel_hash, entry, 'installer is not pinned to the test kernel')
             reference = '6ae7105b5ad512e40af1f14e53a8c27010b2d7caf0934d53c58cfcc24cc3f239'
             self.assertEqual(entry.count(reference), 1)
             (home / 'test-anykernel.sh').write_text(entry.replace(reference, self.dtb_hash))

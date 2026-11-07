@@ -1,5 +1,9 @@
 # Synthetica 3.0 — jalur kernel berbasis 2.0
 
+**Catatan:** ini menjelaskan build 3.0 lama berbasis 2.0, bukan kandidat baru
+berdasarkan eksperimen MGLRU yang dilaporkan boot. Untuk kandidat baru lihat
+`SYNTHETICA-3.0-RC1.md`; jangan menyamakan image atau status pengujiannya.
+
 **Status: belum siap flash.** Hasil 3.0 harus lulus build dan pemeriksaan, lalu
 kompatibilitas modul dan perilaku perangkat harus diuji terpisah. Pengguna
 menyatakan Synthetica 2.0 pernah boot bersama HOS4 di Joyeuse; hash kernel yang
