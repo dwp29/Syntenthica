@@ -39,18 +39,32 @@ Lunaris. Versi ROM dan cara pemasangan adalah laporan pengguna.
 Ini bukti positif bahwa kombinasi yang ditunjukkan dapat masuk Android dengan
 kernel yang melaporkan banner build 3.0; bukan pembuktian hash image yang
 terpasang, stabilitas, semua fitur atau kompatibilitas setiap miatoll/ROM.
-Belum diketahui apakah perangkat ini sama dengan perangkat pada log penolakan
-DTB. Jika memakai installer lain, guard DTB di installer Synthetica tidak
-otomatis ikut dipakai; tanpa ZIP dan log installer lain kita belum tahu apakah
+Pengguna menyatakan perangkat tersebut **berbeda** dari perangkat pada log
+penolakan DTB. Pengguna juga melaporkan empat pengguna mengalami Error 1, satu
+berhasil boot, dan satu lagi berhasil dengan memindah image; rincian instalasi
+keberhasilan pertama serta log keempat kegagalan belum tersedia. Angka ini
+adalah laporan pengguna, bukan hasil verifikasi independen, dan Error 1 tidak
+membuktikan seluruh kegagalan terjadi pada guard yang sama.
+
+Kernel wadah yang ditunjuk adalah
+[Not-Kinesis-KSU-Miatoll-20261030-1718.zip](https://t.me/whisperersdump/778?single).
+Posting tersebut mencantumkan ukuran 16,9 MB dan SHA-1
+`ec8cc69400fd1f922e261b73e72d666e021912ba`. Ini metadata penerbit, bukan
+verifikasi lokal atau bukti autentisitas. Hingga pencatatan ini isi ZIP Telegram
+belum diperoleh/diperiksa; jangan menganggap ZIP lain atau source mirip sebagai
+identik dengan paket tersebut.
+
+Jika memakai installer lain, guard DTB di installer Synthetica tidak otomatis
+ikut dipakai; tanpa ZIP dan log installer lain kita belum tahu apakah
 DTB/DTBO, ramdisk, AVB, modul, atau partisi lain dipertahankan atau diubah.
 Jangan menyimpulkan bahwa DTB sebelum dan sesudahnya identik atau meniru
 pemindahan image untuk perangkat lain sebagai solusi universal.
 
-Untuk investigasi baca-saja, minta nama/versi dan link ZIP asli kernel lain,
-ZIP hasil modifikasi bila tersedia, dan apakah itu perangkat yang sama dengan
-log Error 1. Periksa ZIP sebagai input tidak tepercaya tanpa menjalankan
-skripnya. Hash DTB saat ini dan data sebelum perubahan, bila tersedia,
-membantu tetapi hash semata tidak membuktikan kompatibilitas/kepercayaan AVB.
+Untuk investigasi baca-saja, minta ZIP asli dari posting tersebut dan, bila
+ada, ZIP hasil modifikasi serta pesan/log recovery dari pengguna yang gagal.
+Periksa ZIP sebagai input tidak tepercaya tanpa menjalankan skripnya. Hash
+DTB saat ini dan data sebelum perubahan, bila tersedia, membantu tetapi hash
+semata tidak membuktikan kompatibilitas/kepercayaan AVB.
 
 ## Error 1: klasifikasi berdasarkan pesan, bukan tebakan
 
