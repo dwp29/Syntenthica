@@ -55,7 +55,23 @@ jobs:
           S2_ARM_BB: ${{ runner.temp }}/arm-busybox
           S2_ARM_MAGISKBOOT: ${{ runner.temp }}/arm-magiskboot
           S2_AVBTOOL: ${{ runner.temp }}/avbtool.py
-        run: python3 -m unittest discover -s tests -p 'test_synthetica2_installer_qemu.py' -v
+        run: |
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica2_installer_qemu.py' -v > "$RUNNER_TEMP/qemu-test.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/qemu-test.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'qemu-test.log').read_text(errors='replace')[-12000:]
+          for i in range(0,len(text),1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=QEMU synthetic test diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
       - name: Record test scope
         run: |
           echo '::notice title=Scope::Synthetic files and ARM emulation only. No real device boot, ROM module ABI, signature trust, root pairing, or installer-on-recovery test was performed.'
