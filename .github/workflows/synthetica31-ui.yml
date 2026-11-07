@@ -1,0 +1,82 @@
+name: "Synthetica 3.1 TWRP UI and legacy installer - synthetic tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-ui.yml'
+      - 'build-kit/scripts/package_synthetica31.py'
+      - 'tests/test_synthetica31_package*.py'
+      - 'tests/test_synthetica3_installer20_qemu.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install ARM fixture tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static >/dev/null
+      - name: Fetch the pinned previous kernel for early UI testing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/transfer30.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/transfer30.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer30.zip" synthetica-3.0.zip > "$RUNNER_TEMP/original30.zip"
+          echo '16b32f57381005c08cbee0ec684397dc91acc77f5b2ccbb4ef7f4b99a9a791e6  '"$RUNNER_TEMP/original30.zip" | sha256sum -c -
+      - name: Test UI, device-check and script identity
+        run: python3 -m unittest discover -s tests -p 'test_synthetica31_package.py' -v
+      - name: Build a synthetic-only fixture with the earlier image
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, os, zipfile
+          from pathlib import Path
+          path = Path('build-kit/scripts/package_synthetica31.py')
+          s = importlib.util.spec_from_file_location('s31', path)
+          m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
+          t = Path(os.environ['RUNNER_TEMP'])
+          source = m.legacy.read_archive(Path('release/Synthetica-2.0.zip'), m.legacy.SOURCE20_SHA, 21567245, m.legacy.SOURCE20_MEMBERS)
+          old = m.legacy.read_archive(t/'original30.zip', m.legacy.SOURCE30_SHA, 15719303, m.legacy.SOURCE30_MEMBERS)
+          source['Image.gz'] = old['Image.gz']
+          source['anykernel.sh'] = m.ui_changes(source['anykernel.sh'], m.ENTRY_UI)
+          source[m.legacy.BINARY] = m.ui_changes(source[m.legacy.BINARY], m.BACKEND_UI)
+          source['banner'] = m.BANNER
+          with zipfile.ZipFile(t/'SYNTHETIC-ONLY.zip', 'w', compression=zipfile.ZIP_DEFLATED) as z:
+              for name, data in source.items(): z.writestr(name, data)
+          PY
+      - name: Exercise presentation and failure paths with ARM tools on synthetic files
+        env:
+          S31_QEMU: '1'
+          S31_ZIP: ${{ runner.temp }}/SYNTHETIC-ONLY.zip
+          S31_IMAGE_SHA: 92316b2d52af2a29ec2a5da48cbc18b9b33cebc5727ecb1b3c21ef27b9029deb
+        run: |
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica31_package_qemu.py' -v > "$RUNNER_TEMP/s31-qemu.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/s31-qemu.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP'])/'s31-qemu.log').read_text(errors='replace')[-16000:]
+          for i in range(0, len(text), 1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=3.1 UI fixture diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
+      - name: Record test scope
+        run: echo '::notice title=Scope::This early UI fixture uses the previous 3.0 image and synthetic regular files with mocked paths. It is not the newly rebuilt kernel and has not been run in recovery or on a phone.'
