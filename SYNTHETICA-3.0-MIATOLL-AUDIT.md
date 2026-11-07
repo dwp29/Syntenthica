@@ -3,9 +3,10 @@
 **Status: diagnosis dan kandidat pengembangan; bukan perbaikan bootloop yang
 sudah terbukti dan bukan izin untuk flash kandidat pengembangan.** Kernel ZIP
 3.0 dan semua gerbang pemeriksaan boot yang substantif belum diubah. Hash DTB
-baru belum disetujui. Tidak ada pengujian pada recovery/perangkat fisik dalam
-pekerjaan ini; pengguna sebelumnya melaporkan 3.0 dapat boot pada suatu perangkat,
-tetapi isi partisi dan kompatibilitas ROM lain belum diverifikasi secara independen.
+baru belum disetujui. Asisten tidak melakukan flashing atau pengujian langsung
+pada perangkat fisik. Pengguna menunjukkan screenshot perangkat yang sudah masuk
+Android dan menampilkan banner yang cocok dengan build 3.0; identitas byte image
+terpasang dan kompatibilitas ROM lain belum diverifikasi secara independen.
 
 ## Yang diketahui dan yang belum
 
@@ -22,6 +23,34 @@ tetapi isi partisi dan kompatibilitas ROM lain belum diverifikasi secara indepen
   Nama atau properti saja tidak membuktikan hardware, ROM, DTB, atau ABI aman.
 - Paket lama tidak menetapkan batas versi Android 16/17. Itu bukan bukti bahwa
   kernel cocok dengan semua Android 16 atau 17.
+
+## Laporan boot menggunakan installer kernel lain
+
+Pengguna melaporkan ada joyeuse/Lunaris 3.13 yang berhasil boot setelah
+`Image.gz` Synthetica 3.0 dipindah ke ZIP kernel lain. Screenshot menunjukkan
+Android 16 GMS-Community sudah berjalan pada joyeuse dan menampilkan banner
+`4.14.357-openela-synthetica-3.0`, Neutron 24, serta waktu build
+`Sat Nov 07 08:09:14 UTC 2026`. Banner lengkap tersebut cocok dengan banner
+tertanam pada `Image.gz` ZIP 3.0 yang dipin. Screenshot lain menunjukkan
+`Image.gz` ada di ZIP 3.0 asal; screenshot tidak memperlihatkan hasil edit
+ZIP lain, langkah flashing, hash image yang terpasang, atau nomor versi ROM
+Lunaris. Versi ROM dan cara pemasangan adalah laporan pengguna.
+
+Ini bukti positif bahwa kombinasi yang ditunjukkan dapat masuk Android dengan
+kernel yang melaporkan banner build 3.0; bukan pembuktian hash image yang
+terpasang, stabilitas, semua fitur atau kompatibilitas setiap miatoll/ROM.
+Belum diketahui apakah perangkat ini sama dengan perangkat pada log penolakan
+DTB. Jika memakai installer lain, guard DTB di installer Synthetica tidak
+otomatis ikut dipakai; tanpa ZIP dan log installer lain kita belum tahu apakah
+DTB/DTBO, ramdisk, AVB, modul, atau partisi lain dipertahankan atau diubah.
+Jangan menyimpulkan bahwa DTB sebelum dan sesudahnya identik atau meniru
+pemindahan image untuk perangkat lain sebagai solusi universal.
+
+Untuk investigasi baca-saja, minta nama/versi dan link ZIP asli kernel lain,
+ZIP hasil modifikasi bila tersedia, dan apakah itu perangkat yang sama dengan
+log Error 1. Periksa ZIP sebagai input tidak tepercaya tanpa menjalankan
+skripnya. Hash DTB saat ini dan data sebelum perubahan, bila tersedia,
+membantu tetapi hash semata tidak membuktikan kompatibilitas/kepercayaan AVB.
 
 ## Error 1: klasifikasi berdasarkan pesan, bukan tebakan
 
