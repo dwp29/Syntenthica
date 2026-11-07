@@ -73,8 +73,9 @@ ISI LAPORAN
 - 14-partition-layout.txt: nama partisi relevan, ukuran/status dan sebagian
   angka header boot jika bisa dibaca. Tidak ada image boot/ramdisk disalin.
 - 15-error-lines.txt: potongan kandidat error, bukan kesimpulan penyebab.
-- STATUS.tsv: OK, EMPTY, MISSING, UNREADABLE, READ_ERROR, LIMIT_REACHED,
-  TIMED_OUT atau status skip. Log dibatasi; LIMIT_REACHED mungkin terpotong.
+- STATUS.tsv: OK, EMPTY, MISSING, UNREADABLE, READ_ERROR, WRITE_ERROR,
+  LIMIT_REACHED, TIMED_OUT atau status skip. Log dibatasi; LIMIT_REACHED mungkin
+  terpotong.
 
 BATASAN KOMPATIBILITAS
 Synthetica 3.0 yang saat ini tersedia memiliki pemeriksaan khusus joyeuse/

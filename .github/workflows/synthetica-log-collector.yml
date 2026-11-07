@@ -29,7 +29,19 @@ jobs:
       - name: Exercise collector and package guards
         run: |
           set -euo pipefail
-          python3 -m unittest discover -s tests -p 'test_synthetica_log_collector.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica_log_collector.py' -v > "$RUNNER_TEMP/collector-host.log" 2>&1 || {
+            cat "$RUNNER_TEMP/collector-host.log"
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'collector-host.log'
+          text=p.read_text(errors='replace')[-9000:]
+          text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::error title=Host collector fixture failure::'+text)
+          PY
+            exit 1
+          }
+          cat "$RUNNER_TEMP/collector-host.log"
           python3 build-kit/scripts/package_log_collector.py --output "$RUNNER_TEMP/Synthetica-Log-Collector-1.0.zip"
           sha256sum "$RUNNER_TEMP/Synthetica-Log-Collector-1.0.zip"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

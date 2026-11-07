@@ -261,7 +261,7 @@ capture_command 11-logcat-recovery.log logcat -d -v threadtime -b all
 
 # Only fixed, non-unique property keys: never enumerate getprop or copy raw
 # cmdline. Recovery properties may describe the recovery, not the installed ROM.
-{
+if {
   printf 'Collector version: %s\n' "$VERSION"
   printf 'UTC timestamp: %s\n' "$stamp"
   printf 'Fixture test mode: %s\n' "$TEST_MODE"
@@ -304,15 +304,19 @@ capture_command 11-logcat-recovery.log logcat -d -v threadtime -b all
   else
     printf 'unavailable\n'
   fi
-} > "$OUT/12-recovery-context.txt" 2>&1
-status 12-recovery-context.txt OK 'allowlisted recovery properties and boot arguments'
+  printf '\n'
+} > "$OUT/12-recovery-context.txt" 2>&1; then
+  status 12-recovery-context.txt OK 'allowlisted recovery properties and boot arguments'
+else
+  status 12-recovery-context.txt WRITE_ERROR 'could not write the full report file'
+fi
 
 # Mounted build.prop files can help identify the installed ROM. Do not mount
 # anything to obtain them. Keep only fixed software/device metadata keys.
-{
+rom_files=0
+if {
   printf 'Only already-mounted build.prop files are inspected; missing is normal.\n'
   printf 'These files can describe a different slot or stale mount.\n\n'
-  rom_files=0
   for propfile in "$ROOT/system/build.prop" "$ROOT/system/system/build.prop" \
                   "$ROOT/system_root/system/build.prop" "$ROOT/vendor/build.prop" \
                   "$ROOT/product/build.prop" "$ROOT/system_ext/build.prop"; do
@@ -324,11 +328,15 @@ status 12-recovery-context.txt OK 'allowlisted recovery properties and boot argu
       app grep -E '^(ro\.product\.(device|vendor\.device|system\.device|brand|manufacturer|model)|ro\.(build|system\.build|vendor\.build)\.(fingerprint|display\.id|version\.release|version\.sdk|version\.security_patch))=' "$propfile" 2>/dev/null | app head -c 65536 || :
     fi
   done
-} > "$OUT/13-mounted-rom-properties.txt" 2>&1
-if [ "$rom_files" -eq 0 ]; then
-  status 13-mounted-rom-properties.txt UNAVAILABLE 'no readable build.prop in an already-mounted system'
+  printf '\n'
+} > "$OUT/13-mounted-rom-properties.txt" 2>&1; then
+  if [ "$rom_files" -eq 0 ]; then
+    status 13-mounted-rom-properties.txt UNAVAILABLE 'no readable build.prop in an already-mounted system'
+  else
+    status 13-mounted-rom-properties.txt OK "files=$rom_files; allowlisted keys only"
+  fi
 else
-  status 13-mounted-rom-properties.txt OK "files=$rom_files; allowlisted keys only"
+  status 13-mounted-rom-properties.txt WRITE_ERROR 'could not write the full report file'
 fi
 
 # Parse only numeric boot header fields. The raw header, cmdline, ramdisk, kernel
@@ -365,10 +373,10 @@ boot_header() (
     *) printf '  header is not a recognized Android boot image\n' ;;
   esac
 )
-{
+found=0
+if {
   printf 'Selected by-name entries. Sizes/header fields are read only. No image is copied.\n'
   printf 'A slot or matching format alone does not establish kernel compatibility.\n'
-  found=0
   for byname in "$ROOT/dev/block/bootdevice/by-name" "$ROOT/dev/block/by-name" \
                 "$ROOT/dev/block/platform/"*/by-name "$ROOT/dev/block/platform/"*/*/by-name; do
     [ -d "$byname" ] || continue
@@ -398,14 +406,18 @@ boot_header() (
     done
   done
   [ "$found" -gt 0 ] || printf '\nNo selected by-name entries found or accessible.\n'
-} > "$OUT/14-partition-layout.txt" 2>&1
-if [ "$found" -eq 0 ]; then
-  status 14-partition-layout.txt UNAVAILABLE 'no selected by-name entries found'
+  printf '\n'
+} > "$OUT/14-partition-layout.txt" 2>&1; then
+  if [ "$found" -eq 0 ]; then
+    status 14-partition-layout.txt UNAVAILABLE 'no selected by-name entries found'
+  else
+    status 14-partition-layout.txt OK "entries=$found; selected header fields only"
+  fi
 else
-  status 14-partition-layout.txt OK "entries=$found; selected header fields only"
+  status 14-partition-layout.txt WRITE_ERROR 'could not write the full report file'
 fi
 
-{
+if {
   printf 'Candidate lines from captured recovery/installer logs, NOT a diagnosis.\n'
   printf 'A later collector operation can replace last_install. Inspect raw logs too.\n\n'
   for hint_file in "$OUT/01-recovery-current.log" "$OUT/03-anykernel-prepare.log" \
@@ -416,8 +428,12 @@ fi
     app grep -iE 'error|failed|failure|abort|assert|denied|unsupported|device|slot|dtb|ramdisk|signature|verify|not found|cannot|unable|zip|boot' "$hint_file" 2>/dev/null | app tail -n 120
     printf '\n'
   done
-} > "$OUT/15-error-lines.txt" 2>&1
-status 15-error-lines.txt OK 'selected lines, may include private information'
+  printf '\n'
+} > "$OUT/15-error-lines.txt" 2>&1; then
+  status 15-error-lines.txt OK 'selected lines, may include private information'
+else
+  status 15-error-lines.txt WRITE_ERROR 'could not write the full report file'
+fi
 
 app cat > "$OUT/README.txt" <<'TXT'
 Synthetica Log Collector 1.0 -- diagnostik, BUKAN installer kernel

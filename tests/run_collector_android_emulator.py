@@ -30,7 +30,9 @@ def main() -> None:
 
     def adb(*cmd: str, check: bool = True) -> str:
         result = subprocess.run(['adb', '-s', args.serial, *cmd], text=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check)
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if check and result.returncode:
+            raise RuntimeError(f'adb {cmd!r} failed ({result.returncode}): {result.stderr} {result.stdout}')
         return result.stdout.replace('\r\n', '\n')
 
     if adb('shell', 'getprop', 'ro.kernel.qemu').strip() != '1':
@@ -125,7 +127,10 @@ esac
             raise AssertionError('raw boot header leaked')
         if subprocess.run(['adb', '-s', args.serial, 'shell', 'test', '-e', REMOTE + '/unsafe-called']).returncode == 0:
             raise AssertionError('a prohibited mutating command was executed')
-        adb('pull', report, str(args.output / 'report'))
+        # Pull the physical fixture path rather than the /sdcard symlink; some
+        # adbd sync implementations reject traversing a symbolic link.
+        physical_report = report.replace(REMOTE + '/sdcard/', REMOTE + '/data/media/0/', 1)
+        adb('pull', physical_report, str(args.output / 'report'))
         (args.output / 'status-android.txt').write_text(status)
 
         # A writable directory without a persistent mount must be flagged as
@@ -135,6 +140,7 @@ esac
         second = run_collector('volatile')
         if 'TEMPORARY /tmp' not in second or f'Report folder: {REMOTE}/tmp/Synthetica-logs/' not in second:
             raise AssertionError('unmounted fallback was not labeled volatile: ' + second)
+        adb('pull', REMOTE + '/tmp/Synthetica-logs', str(args.output / 'volatile-report'))
         if subprocess.run(['adb', '-s', args.serial, 'shell', 'test', '-e', REMOTE + '/unsafe-called']).returncode == 0:
             raise AssertionError('a prohibited mutating command was executed')
     print('Android emulator shell tests passed on fake data; no actual recovery/kernel/device was tested.', flush=True)
