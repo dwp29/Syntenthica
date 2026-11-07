@@ -7,7 +7,6 @@ import importlib.util
 import os
 from pathlib import Path
 import re
-import shlex
 import subprocess
 import unittest
 
@@ -26,7 +25,7 @@ class ArmAuditTests(base.AuditScriptTests):
         self.magiskboot = Path(os.environ['S3_ARM_MAGISKBOOT']).resolve()
         self.assertTrue(arm_bb.is_file())
         self.assertTrue(self.magiskboot.is_file())
-        self.wrapper_bb('qemu-arm-static ' + shlex.quote(str(arm_bb)))
+        self.wrapper_bb(['qemu-arm-static', str(arm_bb)])
         self.shell = ['qemu-arm-static', str(arm_bb), 'ash']
 
     def test_hash_matches_real_magiskboot_unpack_for_single_and_multi_dtb(self):

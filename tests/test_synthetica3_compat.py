@@ -241,10 +241,10 @@ esac
         prop.chmod(0o755)
         host_busybox = shutil.which('busybox')
         assert host_busybox
-        self.wrapper_bb(host_busybox)
+        self.wrapper_bb([host_busybox])
         self.shell = [host_busybox, 'ash']
 
-    def wrapper_bb(self, command: str):
+    def wrapper_bb(self, command: list[str]):
         wrapper = self.bin / 'busybox'
         wrapper.write_text('''#!/bin/sh
 if [ "$1" = blockdev ] && [ "$2" = --getsize64 ]; then
@@ -256,7 +256,7 @@ if [ "$1" = dd ] && [ "${SHORT_DTB-}" = 1 ]; then
     case "$arg" in of=*/dtb.bin) printf X > "${arg#of=}"; exit 0;; esac
   done
 fi
-exec ''' + shlex.quote(command) + ''' "$@"
+exec ''' + shlex.join(command) + ''' "$@"
 ''')
         wrapper.chmod(0o755)
 
