@@ -111,7 +111,14 @@ whole Manager never uses the network.
   candidate ZIP was classified and hashed without installation. Pinned x86
   BusyBox verified and extracted its installer on Linux without executing it,
   and refused a modified copy; Android/ARM/root execution remains untested.
-- Five signing-tool tests also passed against this unsigned APK using only a
-  freshly generated throwaway key. The original private key was not accessed
-  or used for 3.1. Physical-device behavior, an actual Manager upgrade, root
-  authorization and real module/kernel flashing remain unverified.
+- Five signing-tool tests passed against this unsigned APK using a freshly
+  generated throwaway key. After the user's explicit authorization, the final
+  APK was signed locally using the original Manager identity; temporary private
+  material was removed afterward. Signed APK SHA-256:
+  `120a218656869b5442d3de9cb114dec3c8a9a74534f07c6230b0a8ddb8def207`.
+  Its certificate matches the signed 3.0 Manager; v2/v3 signatures, 4-byte
+  and 16-KiB alignment, unchanged non-signature payload, and rejection of a
+  tampered copy were independently verified.
+- The APK was not installed on a phone. Physical-device behavior, an actual
+  Manager upgrade, root authorization and real module/kernel flashing remain
+  unverified; matching package, version, and signature do not prove them.
