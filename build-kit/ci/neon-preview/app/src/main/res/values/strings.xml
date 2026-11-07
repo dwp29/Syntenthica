@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="neon_back">Kembali</string>
+    <string name="neon_accent_cyan">Sian</string>
+    <string name="neon_accent_pink">Merah muda</string>
+    <string name="neon_accent_violet">Ungu</string>
+    <string name="neon_accent_lime">Lime</string>
+</resources>

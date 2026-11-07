@@ -1,0 +1,102 @@
+name: "Synthetica Neon UI preview (not a root Manager)"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica30-neon-preview.yml'
+      - 'build-kit/scripts/build_neon_preview.py'
+      - 'build-kit/ci/neon-preview/**'
+      - 'build-kit/ci/ksun-neon/**'
+      - 'build-kit/ci/branding-neon/**'
+      - 'tests/test_neon_preview.py'
+      - 'tests/verify_neon_preview_apk.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: synthetica-neon-preview-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare pinned Gradle wrapper and run isolation tests
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ksun-git" "$RUNNER_TEMP/ksun-fixture"
+          git -C "$RUNNER_TEMP/ksun-git" init -q
+          git -C "$RUNNER_TEMP/ksun-git" remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
+          git -C "$RUNNER_TEMP/ksun-git" fetch -q --depth=1 origin ea51427ff700f73909e7e8c8717cc3241322ee1e
+          test "$(git -C "$RUNNER_TEMP/ksun-git" rev-parse FETCH_HEAD)" = ea51427ff700f73909e7e8c8717cc3241322ee1e
+          git -C "$RUNNER_TEMP/ksun-git" archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/ksun-fixture"
+          NEON_SOURCE="$RUNNER_TEMP/ksun-fixture" python3 -m unittest discover -s tests -p 'test_neon_preview.py' -v
+      - name: Install Android SDK for the preview
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.1.0' 2>&1 | tail -10
+      - name: Build separate demo-signed preview
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/preview-output"
+          NEON_PREVIEW_OUTPUT="$RUNNER_TEMP/preview-output/Synthetica-3.0-Neon-PREVIEW-NOT-MANAGER.apk" \
+            python3 build-kit/scripts/build_neon_preview.py --source "$RUNNER_TEMP/ksun-fixture" 2>&1 | tee "$RUNNER_TEMP/preview-output/build.log"
+      - name: Verify isolation, metadata, permissions and test signature
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/preview-output/Synthetica-3.0-Neon-PREVIEW-NOT-MANAGER.apk"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          "$TOOLS/aapt" dump badging "$APK" > "$RUNNER_TEMP/preview-output/badging.txt"
+          head -1 "$RUNNER_TEMP/preview-output/badging.txt"
+          grep -F "name='net.ember.labs.neonpreview'" "$RUNNER_TEMP/preview-output/badging.txt"
+          grep -F "versionCode='40000'" "$RUNNER_TEMP/preview-output/badging.txt"
+          grep -F "versionName='3.0.0-preview'" "$RUNNER_TEMP/preview-output/badging.txt"
+          "$TOOLS/aapt" dump permissions "$APK" > "$RUNNER_TEMP/preview-output/permissions.txt"
+          if grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE|REQUEST_INSTALL_PACKAGES|WRITE_SECURE_SETTINGS|MANAGE_EXTERNAL_STORAGE)' "$RUNNER_TEMP/preview-output/permissions.txt"; then
+            echo '::error::A privileged or network permission was added to the preview.'
+            exit 1
+          fi
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/preview-output/signature.txt"
+          if grep -iF 'fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140' "$RUNNER_TEMP/preview-output/signature.txt"; then
+            echo '::error::Preview must not use the real Manager identity.'
+            exit 1
+          fi
+          python3 tests/verify_neon_preview_apk.py "$APK" | tee "$RUNNER_TEMP/preview-output/static-checks.txt"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/preview-output/SHA256.txt"
+      - name: Transfer preview as a Git blob
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,pathlib
+          tmp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          apk=tmp/'preview-output/Synthetica-3.0-Neon-PREVIEW-NOT-MANAGER.apk'
+          (tmp/'preview-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode('ascii'),'encoding':'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/preview-blob.json" --jq .sha)
+          echo "::notice title=Preview APK blob (not a root Manager)::$blob"
+      - name: Upload preview and build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica30-neon-preview-${{ github.run_id }}
+          path: ${{ runner.temp }}/preview-output/
+          retention-days: 14
+          if-no-files-found: warn
