@@ -1,0 +1,60 @@
+# Synthetica Manager 4.0 — Pixel Signal
+
+## Scope and release identity
+
+Manager 4.0 builds on the independently retained 3.1 source-preparation pipeline. It keeps package `net.ember.labs`, arm64, KernelSU UAPI 4, the original pinned native Manager authorization code and the same `libksud.so` as 2.0/3.1. Version is `4.0.0` / code `50000`. The build workflow produces an **unsigned** APK; an update-compatible release requires separate authorization and signing with the existing Manager key. Compiling or signing is not a physical-device upgrade test.
+
+- Pixel Art × Nothing OS-inspired design: monochrome surfaces, red signal accent, original pixel emblem, dot-matrix/pixel indicators, square-cut cards and a refreshed navigation dock. There is no Nothing trademark/font or copied product asset.
+- Silkscreen display font is used only for short headings. System sans-serif remains for body copy; the bundled [Silkscreen font](https://github.com/google/fonts/tree/main/ofl/silkscreen) carries its unmodified SIL OFL 1.1 license at `assets/licenses/Silkscreen-OFL.txt`. Non-Latin characters fall back to the device's fonts.
+- System/light/dark/AMOLED modes and the user's existing 3.x settings are retained. A single shared, low-key pixel phase animates panels without moving text or hit targets; navigation and switches respond to the motion setting. The shared phase stops when the app is paused or Android animations are disabled. Android's own animation-duration scale also applies to Compose transitions.
+- Existing root profiles, optional app lock, ZIP preflight/confirmation, module management, WebUI, backup/restore menus, and read-only Device Check remain. A confirmation is now shown before a root grant through the app-profile screen; revocation remains immediate. This confirmation is **not** per-grant biometric authentication and does not replace the kernel's authorization or the optional app lock.
+
+## Diagnostics — read-only
+
+**SuSFS** queries only the daemon's existing `susfs support`, `version`, `variant`, and `features` commands. A support/features report means the kernel reported those capabilities; it does **not** prove that any hiding rule is configured, active, effective, or compatible with a particular app. Missing/error responses are shown as unavailable, not automatically as disabled. This release does not expose SuSFS mutation commands or presets because the bundled backend and the OriginSU mutation ABI do not match.
+
+**Zygisk** distinguishes the Manager process's own `ZYGISK_ENABLED` environment indicator from global injection. It lists known provider-name candidates from module metadata and warns if more than one is marked enabled. This is heuristic: renamed/built-in providers, pending changes and injection failures can be missed. No provider is bundled or installed automatically. The safest interpretation of a negative result is **unknown**, not proof that Zygisk is inactive.
+
+## Opt-in Control and Boost
+
+Every write action requires an explicit confirmation. The Manager does not silently apply these controls at launch or install new service.d scripts.
+
+- **Control** restores the tested 2.1 Daily/Gaming helper as runtime-only actions. It acts only on available CPU, GPU, VM and I/O nodes, snapshots prior values for the current boot, verifies writes and reports skipped/failed operations. Gaming can increase power use and heat. A partial operation can have changed some values even if it reports failure.
+- **Control restore** attempts to restore the snapshot taken before the first action in this boot. It can overwrite subsequent changes by another tuning tool; the confirmation warns about this. A missing snapshot or incompatible/read-only node cannot be inferred or guaranteed restored. No target device behavior has been verified.
+- **Network/audio Boost** is now runtime-only. Before a first supported write in a boot, it saves a readable original; writes are checked by readback. Restore refuses to overwrite a value changed by another tool after Boost and retains that snapshot for inspection. Unsupported controls, inconsistent mixer channels, write/readback failures and partial results are reported. Audio gain can damage hearing; stock gain is not assumed to be 84.
+- Snapshots are kept in private root-owned state under `/data/adb/synthetica40/boost/<boot-id>/` for Boost and the existing `/data/adb/synthetica21/control/` for Control. A different boot ID is never restored as though it were the current boot. Locks serialize simultaneous actions; if an action is interrupted, inspect the result/state before retrying. The app cannot guarantee restoration of values already changed by earlier releases.
+- Legacy `/data/adb/service.d/{synthetica-boost.sh,rc-boost.sh,synthetica-sound.sh,rc-sound.sh}` files are **not** removed automatically. A read-only status action reports them; a separately confirmed action removes only those four known startup paths. Removal neither recovers unsaved old values nor stops a legacy script that is already running. Other service.d files are left alone.
+
+## Module sources and channels
+
+The existing configurable KernelSU Next JSON module catalogue remains separate. A new **Popular sources & channels** page provides external HTTPS links; tapping one first displays the exact destination and a confirmation. The page itself does not fetch, install or run third-party code. Listings are not endorsements or audits; release availability and compatibility can change. The ZIP preflight is **not** antivirus, signature/authenticity verification, or a device-compatibility test.
+
+Research and GitHub API checks on 2026-11-07:
+
+| Category | Sources | Important distinction |
+|---|---|---|
+| Directories | [KernelSU Modules](https://modules.kernelsu.org/en/), [KernelSU Next catalogue source](https://github.com/KernelSU-Next/KernelSU-Next-Modules-Repo), [Magisk Modules Alt Repo](https://github.com/Magisk-Modules-Alt-Repo), [LSPosed Module Repository](https://modules.lsposed.org/), [Awesome Android Root](https://github.com/awesome-android-root/awesome-android-root) | Mixed catalogues are third-party; Magisk compatibility does not imply KernelSU compatibility. The LSPosed directory lists Xposed APKs, not root-manager ZIPs. |
+| Alternative Zygisk providers | [Zygisk Next](https://github.com/Dr-TSNG/ZygiskNext/releases), [ReZygisk](https://github.com/PerformanC/ReZygisk/releases), [NeoZygisk](https://github.com/JingMatrix/NeoZygisk/releases) | Alternatives, not components to run together. Check the maintainer's release and device requirements. |
+| Xposed framework ZIP | [LSPosed](https://github.com/LSPosed/LSPosed/releases), [Vector](https://github.com/JingMatrix/Vector/releases) | Vector is a third-party LSPosed fork. Framework ZIPs are different from the APK modules enabled within a framework. |
+| Root module ZIP | [bindhosts](https://github.com/bindhosts/bindhosts/releases), [Systemless Hosts](https://github.com/symbuzzer/systemless-hosts-KernelSU-module/releases), [AdGuard Home for Root](https://github.com/twoone-3/AdGuardHomeForRoot/releases), [PlayIntegrityFork](https://github.com/osm0sis/PlayIntegrityFork/releases), [PlayIntegrityFix by KOWX712](https://github.com/KOWX712/PlayIntegrityFix/releases), [SuSFS companion by sidex15](https://github.com/sidex15/susfs4ksu-module/releases), [Mountify](https://github.com/backslashxx/mountify/releases), [Advanced Charging Controller](https://github.com/VR-25/acc/releases), [Universal GMS Doze](https://github.com/gloeyisk/universal-gms-doze/releases) | Requirements vary. In particular SuSFS addon/kernel ABI compatibility is not verified, mounting/charging support varies, GMS Doze may delay notifications and integrity results are not guaranteed. |
+| LSPosed/Xposed APK | [Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist/releases), [HyperCeiler](https://github.com/ReChronoRain/HyperCeiler/releases), [DisableFlagSecure](https://github.com/LSPosed/DisableFlagSecure/releases) | Require a compatible Xposed framework/scope; HyperCeiler is ROM-specific and disabling secure-window flags can expose protected content. |
+| Channels | [LSPosed](https://t.me/LSPosed), [ReZygisk](https://t.me/rezygisk) | These links are listed in the respective project's README; verify announcements independently. |
+
+No ZIP, APK, provider, custom repository or channel in this list has been installed or executed as part of the build.
+
+## Build and test procedure
+
+- Pinned upstream: `KernelSU-Next/KernelSU-Next@ea51427ff700f73909e7e8c8717cc3241322ee1e`; 3.1 pipeline unchanged.
+- Source preparation: `build-kit/scripts/build_manager_40_pixel.py`; shared 4.0 UI/assets in `build-kit/ci/ksun-pixel40/`.
+- Optional local signing: `build-kit/scripts/sign_manager_40_locally.py` requires the independently checked unsigned APK SHA-256, the original certificate, an interactive password prompt and a keystore outside the checkout. It refuses existing outputs and checks v2/v3 signatures, 4-byte and 16-KiB alignment, package identity and unchanged non-signature payload. A signing step still needs separate explicit authorization; never commit the private key or send it to CI.
+- Host tests: `PIXEL40_SOURCE=<pinned-source> NEON_SOURCE=<pinned-source> python3 -m unittest discover -s tests -p 'test_*.py'`. All root-tuning tests use fake proc/sys/service paths and fake `iw`/`tinymix` commands.
+- `.github/workflows/synthetica40-manager.yml` compiles the unsigned Manager and a separately packaged, non-root preview; checks package/permissions/native payload, license and ZIP-preflight markers; and runs Kotlin unit tests on the preview.
+- `.github/workflows/synthetica40-preview-emulator.yml` installs **only the separate preview** on a verified Android emulator. Preview Control/Boost actions are simulated; it contains neither root Manager binaries nor helper scripts and has no network permission.
+- Physical device installation, Manager update, root authorization, SuSFS reports, module flashing, and tuning/writeback behavior remain unverified until individually tested on the intended device. No kernel or vbmeta changes are made by this Manager build.
+
+## Validation snapshot — 2026-11-07
+
+- [Build 42378566780](https://github.com/dwp29/Syntenthica/actions/runs/42378566780), from application-source commit `82c9531`, completed both the unsigned Manager and isolated preview jobs. The independently downloaded Manager SHA-256 is `6cc17268f476069d808d81d7e72d1d974fc9f2beb553c1afc23e8463f7e7a3cf`; package, version, permissions, ZIP integrity, native/root asset checks and unsigned status passed. Its 4-byte and 16-KiB alignment were also checked locally. **This build is unsigned and is not an installable upgrade.**
+- [Emulator run 42378473128](https://github.com/dwp29/Syntenthica/actions/runs/42378473128) tested the exact isolated preview from the earlier preview build, SHA-256 `72a7b9598716941ed41ac85a453501b493ffacf4122aba20c35675a547dbd5c7`. It exercised navigation, read-only simulated diagnostics, Control/Boost confirmation and simulated outcomes, LSPosed source disclosure, Light/Dark/AMOLED appearance, persisted motion choice and Android's animation scale. Measurements found the app and system motion-off screenshots unchanged over the test interval. The actual Manager and root backend were not installed or exercised. This preview uses the same 4.0 UI; the corrected Manager-only splash was not part of the preview.
+- The local complete host suite ran 220 tests with 17 opt-in or fixture-dependent skips. All five local signing-gate tests were also run with Android signing tools and a **throwaway** key: mismatched SHA-256 and wrong certificate were refused; the test-only happy path verified the signed identity and rejected a modified APK. No original private key was used for these tests.
+- Simulator checks do not establish that the Manager updates on a phone, grants root correctly, loads module/WebUI content or applies and restores tuning on the target hardware. See the limitations above before using any root function.
