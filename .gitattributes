@@ -3,3 +3,6 @@ tests/fixtures/synthetica3-seccomp/setuid_hook.c whitespace=-blank-at-eol
 # Preserve the upstream kernel fixtures and unified-diff context verbatim.
 tests/fixtures/synthetica3-root/** whitespace=-blank-at-eol,-space-before-tab
 build-kit/ci/synthetica3-root/*.patch whitespace=-blank-at-eol,-space-before-tab
+
+# Preserve the upstream Silkscreen OFL license byte-for-byte.
+build-kit/ci/ksun-pixel40/assets/licenses/Silkscreen-OFL.txt whitespace=-blank-at-eol
