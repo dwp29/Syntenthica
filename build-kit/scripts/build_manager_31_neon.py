@@ -157,6 +157,7 @@ def prepare_tree(src: Path) -> None:
     zip_patch.patch_main(java / 'MainActivity.kt')
     zip_patch.patch_flash(java / 'screen/Flash.kt')
     zip_patch.patch_ksu_cli(java / 'util/KsuCli.kt')
+    zip_patch.patch_dialog(java / 'component/Dialog.kt')
     for locale in ('values', 'values-in-rID'):
         path = app / 'res' / locale / 'strings_synthetica.xml'
         text = path.read_text(encoding='utf-8')

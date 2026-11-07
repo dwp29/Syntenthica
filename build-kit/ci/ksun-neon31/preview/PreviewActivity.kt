@@ -55,6 +55,7 @@ import com.rifsxd.ksunext.ui.theme.GlassTopBar
 import com.rifsxd.ksunext.ui.theme.IosBlueDark
 import com.rifsxd.ksunext.ui.theme.IosCyanDark
 import com.rifsxd.ksunext.ui.theme.IosGroup
+import com.rifsxd.ksunext.ui.theme.IosGroupDivider
 import com.rifsxd.ksunext.ui.theme.IosHeroCard
 import com.rifsxd.ksunext.ui.theme.IosPinkDark
 import com.rifsxd.ksunext.ui.theme.IosPill
@@ -83,12 +84,16 @@ private val tabs = listOf(
 private fun PreviewApp() {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var deviceOpen by rememberSaveable { mutableStateOf(false) }
+    var preflightOpen by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = deviceOpen) { deviceOpen = false }
+    BackHandler(enabled = preflightOpen) { preflightOpen = false }
     KernelSUTheme {
         Box(modifier = Modifier.fillMaxSize()) {
             GlassBackground(wallpaperLayer = null)
             if (deviceOpen) {
                 DeviceCheckPage(onBack = { deviceOpen = false })
+            } else if (preflightOpen) {
+                PreviewPreflightDemo(onBack = { preflightOpen = false })
             } else {
                 Scaffold(
                     containerColor = Color.Transparent,
@@ -127,6 +132,10 @@ private fun PreviewApp() {
                                         IosRow(Icons.Rounded.DeveloperBoard, IosCyanDark, stringResource(R.string.device31_title),
                                             subtitle = stringResource(R.string.device31_subtitle), showChevron = true,
                                             onClick = { deviceOpen = true })
+                                        IosGroupDivider()
+                                        IosRow(Icons.Rounded.DeveloperBoard, IosBlueDark, "ZIP preflight preview",
+                                            subtitle = "Demo samples only • no installation", showChevron = true,
+                                            onClick = { preflightOpen = true })
                                     }
                                 }
                                 3 -> NeonAppearanceControls()

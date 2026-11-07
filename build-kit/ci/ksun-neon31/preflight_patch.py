@@ -55,7 +55,7 @@ def patch_main(path: Path) -> None:
                             else -> FlashIt.FlashModules(uris)
                         }'''
     new = '''                        val flashIt = when {
-                            component?.endsWith("FlashAnyKernel") == true -> FlashIt.FlashAnyKernel(uris.first())
+                            component?.endsWith("FlashAnyKernel") == true && uris.size == 1 -> FlashIt.FlashAnyKernel(uris.first())
                             else -> FlashIt.FlashModules(uris, allowAnyKernel = uris.size == 1)
                         }'''
     path.write_text(replace_once(text, old, new, 'external ZIP entry'), encoding='utf-8')
@@ -179,6 +179,41 @@ def patch_flash(path: Path) -> None:
     text = replace_once(text, 'flashModulesSequentially(flashIt.uris, onStdout, onStderr)',
                         'flashModulesSequentially(flashIt.uris, flashIt.approvedHashes, onStdout, onStderr)', 'module digest handoff')
     path.write_text(text, encoding='utf-8')
+
+
+def patch_dialog(path: Path) -> None:
+    text = path.read_text(encoding='utf-8')
+    text = replace_once(text, 'import androidx.compose.foundation.layout.Box\n',
+                        'import androidx.compose.foundation.rememberScrollState\n'
+                        'import androidx.compose.foundation.verticalScroll\n'
+                        'import androidx.compose.foundation.layout.heightIn\n'
+                        'import androidx.compose.foundation.layout.Box\n', 'scrollable confirmation imports')
+    text = replace_once(text, 'Text(text = visuals.content)',
+                        'Text(text = visuals.content, modifier = Modifier.heightIn(max = 390.dp).verticalScroll(rememberScrollState()))',
+                        'scrollable confirmation text')
+    old = '''                .onEach { result ->
+                    awaitContinuation?.let {
+                        awaitContinuation = null
+                        if (it.isActive) {
+                            it.resume(result)
+                        }
+                    }
+                }
+                .onEach { hide() }
+'''
+    new = '''                .onEach { result ->
+                    // Hide the completed dialog before resuming; the next ZIP
+                    // may immediately ask for a separate confirmation.
+                    visible.value = false
+                    awaitContinuation?.let {
+                        awaitContinuation = null
+                        if (it.isActive) {
+                            it.resume(result)
+                        }
+                    }
+                }
+'''
+    path.write_text(replace_once(text, old, new, 'sequential confirmation ordering'), encoding='utf-8')
 
 
 def patch_ksu_cli(path: Path) -> None:

@@ -190,6 +190,7 @@ class ActualPreparedSourceTests(unittest.TestCase):
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/device/{name}' for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt')),
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/preflight/{name}' for name in ('PackagePreflight.kt', 'AndroidZipPreflight.kt')),
             'manager/app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt',
+            'manager/app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt',
             'manager/app/src/main/res/font/oxanium.ttf',
             'manager/app/src/main/res/values/strings_neon31.xml',
             'manager/app/src/main/res/values-in-rID/strings_neon31.xml',
@@ -230,6 +231,7 @@ class ActualPreparedSourceTests(unittest.TestCase):
         for source in (main, install, module, flash):
             self.assertNotIn('ZipUtils.isAnyKernel3Zip(', source)
         self.assertIn('allowAnyKernel = uris.size == 1', main)
+        self.assertIn('endsWith("FlashAnyKernel") == true && uris.size == 1', main)
         self.assertIn('allowAnyKernel = uris.size == 1', module)
         self.assertIn('prepareZipInstall(context, flashIt, confirmDialog)', flash)
         self.assertIn('pendingFlashIt = approved', flash)
@@ -248,6 +250,10 @@ class ActualPreparedSourceTests(unittest.TestCase):
         self.assertNotIn('|| true', kernel_func)
         self.assertEqual(flash.count('flashAnyKernelZip('), 1)
         self.assertEqual(flash.count('flashModule('), 1)
+        dialog = (ui / 'component/Dialog.kt').read_text()
+        self.assertIn('Modifier.heightIn(max = 390.dp).verticalScroll(rememberScrollState())', dialog)
+        result_flow = dialog.split('.onEach { result ->', 1)[1].split('.collect(resultCollector)', 1)[0]
+        self.assertLess(result_flow.index('visible.value = false'), result_flow.index('it.resume(result)'))
 
     def test_preview_is_separate_and_shares_actual_ui_and_device_check(self):
         with tempfile.TemporaryDirectory(prefix='neon31-preview-test-') as temp:
@@ -259,6 +265,10 @@ class ActualPreparedSourceTests(unittest.TestCase):
             for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
                 self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/device' / name).read_bytes(),
                                  (ASSETS / 'device' / name).read_bytes())
+            self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/screen/FlashPreflight.kt').read_bytes(),
+                             (ASSETS / 'screen/FlashPreflight.kt').read_bytes())
+            self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt').read_bytes(),
+                             (self.new / 'manager/app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt').read_bytes())
             for name in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
                 self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/preflight' / name).read_bytes(),
                                  (ASSETS / 'preflight' / name).read_bytes())

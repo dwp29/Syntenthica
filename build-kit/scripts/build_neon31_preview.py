@@ -32,9 +32,23 @@ def prepare(target: Path, source: Path) -> None:
                  'applicationId = "net.ember.labs.neon31preview"')
     replace_once(gradle, 'versionCode = 40000', 'versionCode = 41000')
     replace_once(gradle, 'versionName = "3.0.0-preview"', 'versionName = "3.1.0-preview"')
-    replace_once(gradle, 'dependencies {\n', 'dependencies {\n    testImplementation("junit:junit:4.13.2")\n')
+    replace_once(gradle, 'id("org.jetbrains.kotlin.plugin.compose")\n',
+                 'id("org.jetbrains.kotlin.plugin.compose")\n    id("kotlin-parcelize")\n')
+    replace_once(gradle, 'dependencies {\n',
+                 'dependencies {\n    testImplementation("junit:junit:4.13.2")\n'
+                 '    implementation("io.noties.markwon:core:4.6.2")\n')
     replace_once(main / 'AndroidManifest.xml', 'Synthetica Neon Preview', 'Synthetica 3.1 Neon Preview')
     shutil.copy2(ASSETS / 'preview/PreviewActivity.kt', main / 'java/com/rifsxd/ksunext/PreviewActivity.kt')
+    shutil.copy2(ASSETS / 'preview/PreviewPreflightDemo.kt', main / 'java/com/rifsxd/ksunext/PreviewPreflightDemo.kt')
+    stub_component = main / 'java/com/rifsxd/ksunext/ui/component'
+    stub_component.mkdir(parents=True, exist_ok=True)
+    dialog = stub_component / 'Dialog.kt'
+    shutil.copy2(source / 'manager/app/src/main/java/com/rifsxd/ksunext/ui/component/Dialog.kt', dialog)
+    neon31.zip_patch.patch_dialog(dialog)
+    stub_screen = main / 'java/com/rifsxd/ksunext/ui/screen'
+    stub_screen.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ASSETS / 'preview/PreviewFlashStub.kt', stub_screen / 'PreviewFlashStub.kt')
+    shutil.copy2(ASSETS / 'screen/FlashPreflight.kt', stub_screen / 'FlashPreflight.kt')
     theme = main / 'java/com/rifsxd/ksunext/ui/theme'
     for file in ('Color.kt', 'Theme.kt', 'Glass.kt', 'Shapes.kt', 'Type.kt', 'AppearanceControls.kt'):
         shutil.copy2(ASSETS / 'theme' / file, theme / file)
