@@ -1,0 +1,61 @@
+name: "Synthetica 2.0 experimental installer - synthetic tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica2-installer-experiment.yml'
+      - 'build-kit/ci/synthetica2-experimental/test-installer/**'
+      - 'build-kit/scripts/package_synthetica2_test.py'
+      - 'build-kit/scripts/audit_synthetica3_boot.py'
+      - 'tests/test_synthetica2_test_installer.py'
+      - 'tests/test_synthetica2_installer_qemu.py'
+      - 'tests/test_synthetica3_boot.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install synthetic test tools
+        timeout-minutes: 4
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static cpio lz4 > /dev/null
+      - name: Fetch pinned compile evidence and pinned fixture tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/d5e292c91a36c7706deedfdb9f1ca8b7a703ee3e" > "$RUNNER_TEMP/evidence.zip"
+          echo '742068c09eb99f6eb37d55aa3ee1bca9ee156db592d10d3d901fca738900dabc  '"$RUNNER_TEMP/evidence.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/evidence.zip" Image.gz.DO-NOT-FLASH > "$RUNNER_TEMP/Image.gz"
+          echo '3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea  '"$RUNNER_TEMP/Image.gz" | sha256sum -c -
+          gh api 'repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5' --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
+          unzip -p release/Synthetica-2.0.zip tools/busybox > "$RUNNER_TEMP/arm-busybox"
+          unzip -p release/Synthetica-2.0.zip tools/magiskboot > "$RUNNER_TEMP/arm-magiskboot"
+          chmod 755 "$RUNNER_TEMP/arm-busybox" "$RUNNER_TEMP/arm-magiskboot"
+      - name: Check package and preflight failure paths
+        env:
+          S2_EVIDENCE: ${{ runner.temp }}/evidence.zip
+        run: python3 -m unittest discover -s tests -p 'test_synthetica2_test_installer.py' -v
+      - name: Repack and attack synthetic boot v2 fixtures with ARM tools under QEMU
+        env:
+          S2_QEMU_INTEGRATION: '1'
+          S2_IMAGE: ${{ runner.temp }}/Image.gz
+          S2_ARM_BB: ${{ runner.temp }}/arm-busybox
+          S2_ARM_MAGISKBOOT: ${{ runner.temp }}/arm-magiskboot
+          S2_AVBTOOL: ${{ runner.temp }}/avbtool.py
+        run: python3 -m unittest discover -s tests -p 'test_synthetica2_installer_qemu.py' -v
+      - name: Record test scope
+        run: |
+          echo '::notice title=Scope::Synthetic files and ARM emulation only. No real device boot, ROM module ABI, signature trust, root pairing, or installer-on-recovery test was performed.'
