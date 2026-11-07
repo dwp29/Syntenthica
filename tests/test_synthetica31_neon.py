@@ -85,6 +85,7 @@ class Neon31Tests(unittest.TestCase):
         self.assertIn('LocalNeonGlow provides glow', theme)
         self.assertIn('LocalNeonGlow.current', glass)
         self.assertIn('phase.value', glass)
+        self.assertRegex(glass, r'drawRect\(glass.canvasBase\)\s*//[^\n]*\n\s*//[^\n]*\n\s*if \(!glass.isAmoled\)')
         self.assertIn('NEON // MANAGER 3.1', glass)
 
     def test_device_check_is_read_only_and_does_not_request_permissions(self):
@@ -102,6 +103,13 @@ class Neon31Tests(unittest.TestCase):
         self.assertIn('?: return null', math)
         self.assertIn('level > scale', math)
         self.assertIn('available in 0..total', math)
+        self.assertIn('cores = Runtime.getRuntime().availableProcessors(),', device)
+        self.assertIn('coreCount.coerceIn(1, 64)', device)  # bound I/O, not the displayed count
+        self.assertIn('stat.availableBytes to stat.totalBytes', device)
+        for locale in ('values', 'values-in-rID'):
+            strings = ET.parse(ASSETS / f'res/{locale}/strings_neon31.xml').getroot()
+            storage_label = next(x.text for x in strings if x.get('name') == 'device31_storage_used')
+            self.assertIn('available' if locale == 'values' else 'tersedia', storage_label.lower())
 
     def test_translations_match_and_do_not_duplicate_keys(self):
         locales = []

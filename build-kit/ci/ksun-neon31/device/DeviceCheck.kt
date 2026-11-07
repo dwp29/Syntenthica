@@ -126,7 +126,7 @@ private fun readHardware(context: Context): HardwareInfo {
         kernel = runCatching { Os.uname().release.known() }.getOrNull(),
         abi = Build.SUPPORTED_ABIS.firstOrNull().known(),
         hardware = Build.HARDWARE.known(), display = display,
-        cores = Runtime.getRuntime().availableProcessors().coerceIn(1, 64),
+        cores = Runtime.getRuntime().availableProcessors(),
         sensors = sensors, cameras = cameras,
     )
 }

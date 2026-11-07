@@ -128,44 +128,48 @@ fun GlassBackground(
             } else drawContent()
         }
     ) {
-        val p = phase.value
-        val haloStrength = glow * if (glass.isDark) 1f else 0.50f
-        val w = size.width
-        val h = size.height
         drawRect(glass.canvasBase)
-        val left = Offset(w * (0.12f + p * 0.08f), h * 0.10f)
-        val right = Offset(w * (0.88f - p * 0.06f), h * 0.38f)
-        drawCircle(
-            brush = Brush.radialGradient(listOf(cyan.copy(alpha = (0.17f * haloStrength).coerceIn(0f, 1f)), Color.Transparent), left, w * 0.84f),
-            radius = w * 0.84f, center = left,
-        )
-        drawCircle(
-            brush = Brush.radialGradient(listOf(pink.copy(alpha = (0.16f * haloStrength).coerceIn(0f, 1f)), Color.Transparent), right, w * 0.78f),
-            radius = w * 0.78f, center = right,
-        )
-        val step = 48.dp.toPx()
-        var x = 0f
-        while (x < w) {
-            drawLine(cyan.copy(alpha = 0.045f), Offset(x, 0f), Offset(x, h), strokeWidth = 0.6.dp.toPx())
-            x += step
+        // AMOLED means an actually black canvas, not a black base obscured by
+        // full-screen gradients and grid lines. Neon remains on the controls.
+        if (!glass.isAmoled) {
+            val p = phase.value
+            val haloStrength = glow * if (glass.isDark) 1f else 0.50f
+            val w = size.width
+            val h = size.height
+            val left = Offset(w * (0.12f + p * 0.08f), h * 0.10f)
+            val right = Offset(w * (0.88f - p * 0.06f), h * 0.38f)
+            drawCircle(
+                brush = Brush.radialGradient(listOf(cyan.copy(alpha = (0.17f * haloStrength).coerceIn(0f, 1f)), Color.Transparent), left, w * 0.84f),
+                radius = w * 0.84f, center = left,
+            )
+            drawCircle(
+                brush = Brush.radialGradient(listOf(pink.copy(alpha = (0.16f * haloStrength).coerceIn(0f, 1f)), Color.Transparent), right, w * 0.78f),
+                radius = w * 0.78f, center = right,
+            )
+            val step = 48.dp.toPx()
+            var x = 0f
+            while (x < w) {
+                drawLine(cyan.copy(alpha = 0.045f), Offset(x, 0f), Offset(x, h), strokeWidth = 0.6.dp.toPx())
+                x += step
+            }
+            var y = 0f
+            while (y < h) {
+                drawLine(cyan.copy(alpha = 0.035f), Offset(0f, y), Offset(w, y), strokeWidth = 0.6.dp.toPx())
+                y += step
+            }
+            // One shared animated scan line; text and controls remain motionless/readable.
+            val sweep = h * (0.12f + 0.76f * p)
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.5f to cyan.copy(alpha = 0.05f),
+                    1f to Color.Transparent,
+                    startY = sweep - 18.dp.toPx(), endY = sweep + 18.dp.toPx(),
+                ),
+                topLeft = Offset(0f, sweep - 18.dp.toPx()),
+                size = androidx.compose.ui.geometry.Size(w, 36.dp.toPx()),
+            )
         }
-        var y = 0f
-        while (y < h) {
-            drawLine(cyan.copy(alpha = 0.035f), Offset(0f, y), Offset(w, y), strokeWidth = 0.6.dp.toPx())
-            y += step
-        }
-        // One shared animated scan line; text and controls remain motionless/readable.
-        val sweep = h * (0.12f + 0.76f * p)
-        drawRect(
-            brush = Brush.verticalGradient(
-                0f to Color.Transparent,
-                0.5f to cyan.copy(alpha = 0.05f),
-                1f to Color.Transparent,
-                startY = sweep - 18.dp.toPx(), endY = sweep + 18.dp.toPx(),
-            ),
-            topLeft = Offset(0f, sweep - 18.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(w, 36.dp.toPx()),
-        )
     }
 }
 
