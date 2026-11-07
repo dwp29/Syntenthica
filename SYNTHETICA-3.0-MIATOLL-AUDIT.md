@@ -108,16 +108,17 @@ baru yang diumumkan. Backup otomatis belum ada.
 
 ## Validasi sintetis dan identitas artefak
 
-- [Actions 42389338960](https://github.com/dwp29/Syntenthica/actions/runs/42389338960)
-  berhasil menjalankan pengujian host, BusyBox dan MagiskBoot ARM melalui QEMU,
-  guard repack, serta dua pengujian boot sintetis berbasis loop. Hash DTB audit
+- [Actions 42389526170](https://github.com/dwp29/Syntenthica/actions/runs/42389526170)
+  berhasil menjalankan pengujian host, jalur ekstraksi ZIP, BusyBox dan MagiskBoot
+  ARM melalui QEMU, guard repack, serta dua pengujian boot sintetis berbasis loop.
+  Hash DTB audit
   cocok dengan keluaran MagiskBoot untuk fixture tunggal dan gabungan; penolakan
   DTB berbeda pada loop tidak mengubah boot fixture. Jalur tulis positif diuji
   hanya setelah hash fixture sintetis dimasukkan ke salinan sementara skrip.
 - ZIP Boot Audit yang identik dengan CI berukuran 867.544 byte dan SHA-256
   `50ce02a4789b8fb760fc2bfac681e5486b8b411be8949c57026e69958a1a00a3`.
   Tidak ada kernel di dalamnya. Kandidat pengembangan tetap tidak boleh di-flash.
-- Uji host keseluruhan menjalankan 266 tes dengan 37 dilewati saat tool/env
+- Uji host keseluruhan menjalankan 268 tes dengan 38 dilewati saat tool/env
   opsional tidak tersedia. Pengujian sintetis/loop bukan uji recovery atau boot
   perangkat, dan tidak menguji ABI, kepercayaan AVB, root atau ROM aktual.
 
