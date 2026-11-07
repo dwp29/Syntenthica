@@ -1,0 +1,123 @@
+name: "Synthetica 3.1 - verify and package rebuilt kernel"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-package.yml'
+      - 'build-kit/ci/synthetica31-build-evidence.json'
+      - 'build-kit/scripts/package_synthetica31.py'
+      - 'tests/test_synthetica31_package*.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install ARM fixture tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static >/dev/null
+      - name: Validate the recorded build identity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          x = json.loads(Path('build-kit/ci/synthetica31-build-evidence.json').read_text())
+          for key, size in (('transfer_git_blob',40),('transfer_sha256',64),('image_sha256',64),('config_sha256',64),('module_public_cert_sha256',64)):
+              if not isinstance(x.get(key), str) or not re.fullmatch('[0-9a-f]{%d}' % size, x[key]): raise ValueError('invalid evidence identity '+key)
+          if x.get('release') != '4.14.357-openela-synthetica-3.1' or not isinstance(x.get('build_run'), int): raise ValueError('invalid build release/run')
+          env = Path(os.environ['GITHUB_ENV'])
+          with env.open('a') as f:
+              for k in ('transfer_git_blob','transfer_sha256','image_sha256','config_sha256','module_public_cert_sha256'):
+                  f.write('S31_'+k.upper()+'='+x[k]+'\n')
+          PY
+      - name: Fetch and hash-check the previous configs and new compile evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/transfer30.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/transfer30.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer30.zip" generated.config.txt > "$RUNNER_TEMP/config30"
+          echo '253a89a338e8c5b71da71b698a0160d9fb361468cfac3a3bfc7fae2c52f4af2d  '"$RUNNER_TEMP/config30" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/d5e292c91a36c7706deedfdb9f1ca8b7a703ee3e" > "$RUNNER_TEMP/transfer20.zip"
+          echo '742068c09eb99f6eb37d55aa3ee1bca9ee156db592d10d3d901fca738900dabc  '"$RUNNER_TEMP/transfer20.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer20.zip" generated.config.txt > "$RUNNER_TEMP/config20exp"
+          echo 'c72503550d74446f5af3573288b4e93dc1407854c5df338d20681d1866ccb96c  '"$RUNNER_TEMP/config20exp" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/$S31_TRANSFER_GIT_BLOB" > "$RUNNER_TEMP/transfer31.zip"
+          echo "$S31_TRANSFER_SHA256  $RUNNER_TEMP/transfer31.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import os, zipfile
+          from pathlib import Path
+          t = Path(os.environ['RUNNER_TEMP']); out = t/'result'; out.mkdir()
+          allowed = {'Image.gz.DO-NOT-FLASH','STATUS.json','generated.config.txt','module-signing-public-cert.x509','Module.symvers','System.map'}
+          with zipfile.ZipFile(t/'transfer31.zip') as z:
+              names=z.namelist()
+              if set(names)!=allowed or len(names)!=len(allowed) or z.testzip(): raise ValueError('unexpected 3.1 evidence archive')
+              for name in names:
+                  if z.getinfo(name).file_size > 30000000: raise ValueError('oversized evidence member')
+                  (out/name).write_bytes(z.read(name))
+          PY
+          echo "$S31_IMAGE_SHA256  $RUNNER_TEMP/result/Image.gz.DO-NOT-FLASH" | sha256sum -c -
+          echo "$S31_CONFIG_SHA256  $RUNNER_TEMP/result/generated.config.txt" | sha256sum -c -
+          echo "$S31_MODULE_PUBLIC_CERT_SHA256  $RUNNER_TEMP/result/module-signing-public-cert.x509" | sha256sum -c -
+          echo "S31_RESULT=$RUNNER_TEMP/result" >> "$GITHUB_ENV"
+          echo "S31_BASELINE_CONFIG=$RUNNER_TEMP/config30" >> "$GITHUB_ENV"
+          echo "S3RC_TESTED_CONFIG=$RUNNER_TEMP/config20exp" >> "$GITHUB_ENV"
+      - name: Verify build evidence and create recovery ZIP
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/release"
+          python3 build-kit/scripts/package_synthetica31.py \
+            --result "$S31_RESULT" --tested20 "$S3RC_TESTED_CONFIG" --baseline30 "$S31_BASELINE_CONFIG" \
+            --output "$RUNNER_TEMP/release/Synthetica-3.1-Installer-2.0-TEST.zip"
+          cd "$RUNNER_TEMP/release"
+          sha256sum Synthetica-3.1-Installer-2.0-TEST.zip > Synthetica-3.1-Installer-2.0-TEST.zip.sha256
+          cat Synthetica-3.1-Installer-2.0-TEST.zip.sha256
+          sha256sum -c Synthetica-3.1-Installer-2.0-TEST.zip.sha256
+          echo "::notice title=3.1 recovery ZIP SHA256::$(cut -d' ' -f1 Synthetica-3.1-Installer-2.0-TEST.zip.sha256)"
+      - name: Test actual 3.1 ZIP and deterministic packaging
+        run: python3 -m unittest discover -s tests -p 'test_synthetica31_package.py' -v
+      - name: Exercise actual 3.1 image through AnyKernel using synthetic boot files
+        env:
+          S31_QEMU: '1'
+          S31_ZIP: ${{ runner.temp }}/release/Synthetica-3.1-Installer-2.0-TEST.zip
+        run: |
+          export S31_IMAGE_SHA="$S31_IMAGE_SHA256"
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica31_package_qemu.py' -v > "$RUNNER_TEMP/s31-qemu.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/s31-qemu.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'s31-qemu.log').read_text(errors='replace')[-16000:]
+          for i in range(0, len(text), 1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=3.1 final fixture diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
+      - name: State the test scope
+        run: echo '::notice title=Scope::QEMU used synthetic regular boot files and redirected paths, not a phone or physical TWRP. Boot, root, AVB, ROM modules and camera remain unverified.'
+      - name: Upload recovery ZIP and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: synthetica-3.1-installer20-${{ github.run_id }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 14

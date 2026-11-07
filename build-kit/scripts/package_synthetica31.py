@@ -134,6 +134,8 @@ def verify_result(result: Path, tested20: Path, baseline30: Path) -> tuple[bytes
     checked = guard.collect(result, tested20, expected_kind=build.STATUS_KIND)
     image = checked['Image.gz']
     certificate = (result / 'module-signing-public-cert.x509').read_bytes()
+    if sha(certificate) == build.BASE30_MODULE_CERT_SHA256:
+        raise ValueError('unexpected reuse of the previous 3.0 module-signing certificate')
     with gzip.GzipFile(fileobj=io.BytesIO(image)) as f:
         raw = f.read(build.base.rc.s2x.v3.MAX_RAW_IMAGE + 1)
     if len(raw) > build.base.rc.s2x.v3.MAX_RAW_IMAGE or raw.count(certificate) != 1:
@@ -170,6 +172,10 @@ Alur 2.0 tidak memiliki guard slot/unlock, hash DTB dan readback setara installe
 bisa mem-patch DTB/AVB dalam kondisi tertentu seperti Magisk; signature boot
 belum diverifikasi. Jangan wipe data atau ubah vbmeta untuk memaksa boot.
 Jika terjadi kesalahan saat penulisan, jangan reboot; pulihkan boot dari recovery.
+
+Jika penyimpanan dapat ditulis, log instalasi disimpan sebagai
+Synthetica/install-log-*.txt. Recovery dapat menimpa /tmp/recovery.log saat ZIP
+lain di-flash, jadi simpan log tersebut lebih dahulu jika diperlukan.
 
 Kernel uname: {build.RELEASE}
 Image.gz SHA-256: {image_sha}
@@ -215,14 +221,16 @@ def package(result: Path, tested20: Path, baseline30: Path, source20: Path, outp
     output.parent.mkdir(parents=True, exist_ok=True)
     created = False
     try:
-        with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        # Store ZIP members verbatim. Image.gz is already compressed and this
+        # avoids zlib-version differences between local and CI packages.
+        with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_STORED) as z:
             created = True
             for name, data in sorted(files.items()):
                 info = zipfile.ZipInfo(name, (2026, 11, 8, 0, 0, 0))
                 info.create_system = 3
                 executable = name in (legacy.BINARY, 'anykernel.sh', 'ksud') or name.startswith('tools/')
                 info.external_attr = (0o100755 if executable else 0o100644) << 16
-                z.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+                z.writestr(info, data, compress_type=zipfile.ZIP_STORED)
         with zipfile.ZipFile(output) as z:
             names = z.namelist()
             if len(names) != len(set(names)) or set(names) != set(files) or z.testzip():

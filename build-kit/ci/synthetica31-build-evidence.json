@@ -1,0 +1,16 @@
+{
+  "kind": "SYNTHETICA_3_1_COMPILE_EVIDENCE_PUBLIC_ONLY",
+  "build_run": 42399880621,
+  "build_commit": "30d6849",
+  "release": "4.14.357-openela-synthetica-3.1",
+  "transfer_git_blob": "0f815b773d39a8f0b392a7d190be9ca1ad702ead",
+  "transfer_sha256": "67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847",
+  "image_sha256": "650d5f1e9e73788babeb67e5a21a30e565babd059f8cd908c318531464a74287",
+  "config_sha256": "4b53a2cb030e9aa55ff798a3ee5c773c0eb50e56cd36430d2874adcb56fa236d",
+  "module_public_cert_sha256": "6d8ab0c34f5052d098c801841d34976a75ef9c3fed53e3630376dc2b0f93b72e",
+  "baseline_3_0_config_sha256": "253a89a338e8c5b71da71b698a0160d9fb361468cfac3a3bfc7fae2c52f4af2d",
+  "config_change": "LOCALVERSION only; enforced against the exact 3.0 build config",
+  "module_layout_crc": "0xed5659d1",
+  "physical_boot_or_rom_module_trust": "NOT VERIFIED",
+  "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74"
+}

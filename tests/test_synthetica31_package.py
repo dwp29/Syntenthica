@@ -159,6 +159,7 @@ class ActualPackageTests(unittest.TestCase):
             self.assertIsNone(z.testzip())
             self.assertEqual(set(z.namelist()), package.legacy.SOURCE20_MEMBERS | {'banner'})
             self.assertEqual(z.read('banner'), package.BANNER)
+            self.assertTrue(all(info.compress_type == zipfile.ZIP_STORED for info in z.infolist()))
         with self.assertRaisesRegex(ValueError, 'overwrite'):
             package.package(RESULT, TESTED20, BASE30, SOURCE20, one)
 
