@@ -30,7 +30,8 @@ SETELAH ERROR 1 DI CUSTOM RECOVERY
    Simpan/foto log sekarang: menjalankan ZIP kedua dapat menambah atau mengganti
    recovery.log/last_install sehingga error asli mungkin hilang.
 2. Pilih Install dan jalankan Synthetica-Log-Collector-1.0.zip. Ini ZIP
-   diagnostik yang menulis laporan, bukan ZIP kernel. Tidak ada reboot otomatis.
+   diagnostik yang menulis laporan, bukan ZIP kernel atau modul; jangan gunakan
+   installer modul di Manager. Tidak ada reboot otomatis.
    ZIP ini tidak ditandatangani sebagai OTA: stock recovery atau verifikasi
    signature recovery dapat menolaknya. Jangan mematikan verifikasi demi tool ini;
    gunakan Copy Log atau metode adb di bawah jika tersedia.

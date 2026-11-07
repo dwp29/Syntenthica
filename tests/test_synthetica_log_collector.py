@@ -303,6 +303,21 @@ case "$1" in */Synthetica-logs/*) echo sentinel > "$1.tar.gz" ;; esac''')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Invalid test fixture', result.stdout)
 
+    def test_fixture_without_commands_never_falls_back_to_real_logs(self):
+        f = self.fixture
+        for name in ('dmesg', 'logcat', 'getprop'):
+            (f.base / 'bin' / name).unlink()
+        for shell in ('sh', 'busybox'):
+            if shell == 'busybox' and not shutil.which('busybox'):
+                continue
+            report = f.report(f.run(shell=shell))
+            statuses = (report / 'STATUS.tsv').read_text()
+            self.assertIn('10-dmesg-recovery.log\tMISSING_COMMAND', statuses)
+            self.assertIn('11-logcat-recovery.log\tMISSING_COMMAND', statuses)
+            self.assertIn('recovery-properties\tMISSING_COMMAND', statuses)
+            self.assertFalse((report / '10-dmesg-recovery.log').exists())
+            self.assertFalse((report / '11-logcat-recovery.log').exists())
+
 
 class CollectorPackageTests(unittest.TestCase):
     def test_zip_is_deterministic_small_and_contains_only_diagnostic_files(self):

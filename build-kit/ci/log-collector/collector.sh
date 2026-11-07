@@ -222,7 +222,14 @@ capture_command() (
     status "$cc_name" SKIPPED_NO_TIMEOUT 'command not run'; exit 0
   fi
   cc_executable=$1
-  if command -v "$cc_executable" >/dev/null 2>&1; then
+  if [ "$TEST_MODE" = 1 ]; then
+    # Some BusyBox ash builds prefer embedded applets over PATH. Never query a
+    # real dmesg/logcat in fixture mode, even if the fixture omitted a stub.
+    if [ ! -x "$ROOT/bin/$cc_executable" ]; then
+      status "$cc_name" MISSING_COMMAND 'fixture command not supplied'; exit 0
+    fi
+    shift; set -- "$ROOT/bin/$cc_executable" "$@"
+  elif command -v "$cc_executable" >/dev/null 2>&1; then
     :
   elif [ "$cc_executable" = dmesg ] && command -v busybox >/dev/null 2>&1; then
     shift; set -- busybox dmesg "$@"
@@ -268,7 +275,13 @@ if {
   printf 'Kernel in CURRENT recovery session: '
   app uname -r 2>/dev/null || printf 'unavailable\n'
   printf '\nThese properties are from the current recovery and may NOT describe the installed ROM.\n'
-  if command -v getprop >/dev/null 2>&1; then
+  property_command=
+  if [ "$TEST_MODE" = 1 ]; then
+    [ ! -x "$ROOT/bin/getprop" ] || property_command="$ROOT/bin/getprop"
+  elif command -v getprop >/dev/null 2>&1; then
+    property_command=getprop
+  fi
+  if [ -n "$property_command" ]; then
     property_count=0
     for property in ro.product.device ro.product.vendor.device ro.product.system.device \
       ro.product.brand ro.product.manufacturer ro.product.model ro.hardware \
@@ -277,7 +290,7 @@ if {
       ro.boot.flash.locked ro.boot.verifiedbootstate ro.boot.vbmeta.device_state \
       ro.boot.veritymode ro.boot.hardware ro.boot.bootreason ro.bootmode ro.boot.mode \
       ro.recovery.version ro.twrp.version ro.orangefox.version ro.crypto.state; do
-      value=$(getprop "$property" 2>/dev/null)
+      value=$("$property_command" "$property" 2>/dev/null)
       if [ -n "$value" ]; then
         property_count=$((property_count + 1))
         printf '%s=%s\n' "$property" "$value"
