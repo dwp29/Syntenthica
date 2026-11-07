@@ -6,6 +6,25 @@ satu kemungkinan penyebab; belum ada bukti bahwa itu penyebab di perangkat,
 dan image ini belum diuji secara fisik. `uname -r` yang diharapkan adalah
 `4.14.357-openela-synthetica-3.0`; nama ZIP adalah `synthetica-3.0.zip`.
 
+## Kandidat dan bukti pengujian
+
+- [Unduh synthetica-3.0.zip](https://drive.google.com/file/d/1tKKHqM3gclN-0ZnT7b6_Wrxtxj-sjvNd/view?usp=drivesdk)
+  — 15.719.303 byte; SHA-256 ZIP
+  `16b32f57381005c08cbee0ec684397dc91acc77f5b2ccbb4ef7f4b99a9a791e6`.
+- SHA-256 `Image.gz`:
+  `92316b2d52af2a29ec2a5da48cbc18b9b33cebc5727ecb1b3c21ef27b9029deb`.
+- Sertifikat modul publik SHA-256:
+  `fccecddc68e8828ff42c59be08f3aca01baf1f07e9caf8369ce69e8fad4bd062`.
+- [Run build 42354153045](https://github.com/dwp29/Syntenthica/actions/runs/42354153045)
+  berhasil mengompilasi kernel, memeriksa konfigurasi, source, object, identity
+  dan modul, serta mengemas ZIP. **Run keseluruhan gagal** karena tes sintetis
+  pertama timeout setelah 75 detik; penyebab timeout belum diketahui.
+- [Run terisolasi 42355147656](https://github.com/dwp29/Syntenthica/actions/runs/42355147656)
+  memverifikasi SHA ZIP yang sama, kemudian lulus lima tes repack/penolakan
+  ARM/QEMU dan tes writer sebenarnya pada boot sintetis berbasis loop. Tidak
+  ada perangkat fisik yang diuji. Host suite lokal: 177 tes, 17 dilewati;
+  pengujian packaging kandidat nyata juga lulus secara terpisah.
+
 ## Root dan SECCOMP
 
 Pada source kernel yang dipin, fd driver Manager memakai `O_CLOEXEC`. Source
