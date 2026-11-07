@@ -256,7 +256,7 @@ def main() -> None:
     emulator.assert_checked(root, 'Device identifiers (model and codename)', True)
     emulator.assert_enabled(root, 'Copy', True)
     if 'Codename:' not in emulator.all_text(root):
-        emulator.adb('shell', 'input', 'swipe', '540', '1440', '540', '850', '400')
+        emulator.adb('shell', 'input', 'swipe', '540', '1170', '540', '720', '400')
         root = emulator.dump('copy-preview')
     text = emulator.all_text(root)
     if 'Codename:' not in text or 'Kernel:' in text:
@@ -331,6 +331,39 @@ def main() -> None:
     emulator.tap('Continue to installation', 'zip-kernel-approve')
     emulator.wait_for('Verified approved copy; no installation occurred.', 'zip-kernel-success', scroll=True)
     emulator.assert_staging_empty()
+
+    emulator.tap('Test mixed kernel batch', 'zip-mixed-kernel', scroll=True)
+    root = emulator.wait_for('ZIP cannot be installed', 'zip-mixed-kernel-dialog')
+    if 'kernel ZIP must be checked and confirmed by itself' not in emulator.all_text(root):
+        raise AssertionError('A mixed kernel batch was not blocked before confirmation')
+    emulator.tap('OK', 'zip-mixed-kernel-close')
+    emulator.wait_for('Blocked or canceled; no installation occurred.', 'zip-mixed-kernel-result', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test invalid module batch', 'zip-batch-invalid', scroll=True)
+    root = emulator.wait_for('ZIP cannot be installed', 'zip-batch-invalid-dialog')
+    if 'No recognizable module or AnyKernel3 marker' not in emulator.all_text(root):
+        raise AssertionError('An invalid batch was not blocked before confirmation')
+    emulator.tap('OK', 'zip-batch-invalid-close')
+    emulator.wait_for('Blocked or canceled; no installation occurred.', 'zip-batch-invalid-result', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test module from kernel picker', 'zip-module-from-kernel', scroll=True)
+    root = emulator.wait_for('Module ZIP check (1/1)', 'zip-module-from-kernel-dialog')
+    if 'Detected type: Module' not in emulator.all_text(root):
+        raise AssertionError('A module from the kernel picker was not classified as a module')
+    emulator.tap('Continue to installation', 'zip-module-from-kernel-approve')
+    emulator.wait_for('Verified approved copy; no installation occurred.', 'zip-module-from-kernel-result', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test callback dialog', 'dialog-callback-confirm', scroll=True)
+    emulator.wait_for('Callback dialog test', 'dialog-callback-confirm-open')
+    emulator.tap('Confirm', 'dialog-callback-confirm-tap')
+    emulator.wait_for('Callback confirmed; no installation occurred.', 'dialog-callback-confirm-result', scroll=True)
+    emulator.tap('Test callback dialog', 'dialog-callback-cancel', scroll=True)
+    emulator.wait_for('Callback dialog test', 'dialog-callback-cancel-open')
+    emulator.tap('Cancel', 'dialog-callback-cancel-tap')
+    emulator.wait_for('Callback dismissed; no installation occurred.', 'dialog-callback-cancel-result', scroll=True)
 
     emulator.adb('shell', 'dumpsys', 'gfxinfo', PACKAGE)
     print('PASS: preview themes, saved settings, selective copy, read-only diagnostics, ZIP confirmations and hash guard.', flush=True)
