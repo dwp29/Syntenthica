@@ -48,6 +48,10 @@ internal fun PreviewPreflightDemo(onBack: () -> Unit) {
     var running by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf("Choose a sample. No installation will occur.") }
     val dialog = rememberConfirmDialog()
+    val callbackDialog = rememberConfirmDialog(
+        onConfirm = { result = "Callback confirmed; no installation occurred." },
+        onDismiss = { result = "Callback dismissed; no installation occurred." },
+    )
     fun runDemo(kind: Demo) {
         if (running) return
         running = true
@@ -107,6 +111,8 @@ internal fun PreviewPreflightDemo(onBack: () -> Unit) {
         Button(onClick = { runDemo(Demo.MIXED_KERNEL) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test mixed kernel batch") }
         Button(onClick = { runDemo(Demo.INVALID_BATCH) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test invalid module batch") }
         Button(onClick = { runDemo(Demo.MODULE_FROM_KERNEL) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test module from kernel picker") }
+        Button(onClick = { callbackDialog.showConfirm("Callback dialog test", "Preview callback only; no installation.", confirm = "Confirm", dismiss = "Cancel") },
+            enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test callback dialog") }
         Text(result, style = MaterialTheme.typography.bodyMedium)
         TextButton(onClick = onBack, enabled = !running) { Text("Back to preview") }
     }
