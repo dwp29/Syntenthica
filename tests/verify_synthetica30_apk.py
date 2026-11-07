@@ -29,9 +29,16 @@ def verify(apk: Path) -> None:
             raise ValueError('Manager JNI accessor does not return UAPI 4')
         if normalized_native(native) != normalized_native(previous.read(libname)):
             raise ValueError('Manager JNI differs from 2.0 except ELF build ID')
+        adbroot_name = 'lib/arm64-v8a/libadbroot.so'
+        if normalized_native(candidate.read(adbroot_name)) != normalized_native(previous.read(adbroot_name)):
+            raise ValueError('ADB root native code differs from 2.0 except ELF build ID')
         daemon = candidate.read(daemon_name)
         if daemon != previous.read(daemon_name):
             raise ValueError('Manager daemon differs from 2.0')
+        for name in ('assets/main.jar', 'META-INF/com/google/android/update-binary',
+                     'META-INF/com/google/android/updater-script'):
+            if candidate.read(name) != previous.read(name):
+                raise ValueError(f'Root-facing packaged asset differs from 2.0: {name}')
         other_arch = [name for name in candidate.namelist()
                       if name.startswith('lib/') and name.endswith('.so') and not name.startswith('lib/arm64-v8a/')]
         if other_arch:
@@ -41,8 +48,9 @@ def verify(apk: Path) -> None:
         if missing:
             raise ValueError(f'Neon UI bytecode markers missing: {missing}')
         print('APK ZIP CRC: OK')
-        print('JNI: UAPI 4, matches 2.0 except ELF build ID')
+        print('JNI: UAPI 4; JNI and adbroot match 2.0 except ELF build ID')
         print('arm64 ksud:', hashlib.sha256(daemon).hexdigest(), '(matches 2.0)')
+        print('Root-facing packaged scripts and main.jar match 2.0')
         print('Neon UI and preferences markers present; no non-arm64 native libraries')
         print('Not a signature, Android runtime, update or root test')
 
