@@ -24,11 +24,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh api 'repos/dwp29/Syntenthica/actions/jobs/128320452662/logs' > "$RUNNER_TEMP/manager-failed.log"
+          gh api 'repos/dwp29/Syntenthica/actions/jobs/128320452662/logs' > "$RUNNER_TEMP/manager-failed.log" 2> "$RUNNER_TEMP/log-error.txt" || true
           python3 - <<'PY'
           import os,pathlib
           tmp=pathlib.Path(os.environ['RUNNER_TEMP'])
           text=(tmp/'manager-failed.log').read_text(errors='replace')
+          error=(tmp/'log-error.txt').read_text(errors='replace')
+          if error:
+              safe=error[-3000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print('::notice title=Log fetch result::'+safe)
           lines=text.splitlines()
           needle=[i for i,line in enumerate(lines) if 'Verify package, permissions, alignment and UAPI' in line]
           if needle:
@@ -42,6 +46,9 @@ jobs:
           for p in sorted(files.rglob('*')):
               if p.is_file():
                   print(f'::notice title=Failed output file::{p.relative_to(files)} ({p.stat().st_size} bytes)')
+                  if p.suffix == '.txt':
+                      data=p.read_text(errors='replace')[-3000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+                      print(f'::notice title={p.name}::{data}')
           PY
       - name: Transfer unverified compiled bytes for diagnostic-only retest
         env:
