@@ -50,6 +50,8 @@ class Pixel40AssetTests(unittest.TestCase):
         self.assertIn('EnterTransition.None', glass)
         self.assertIn('ExitTransition.None', glass)
         self.assertIn('defaultMinSize(minHeight = 56.dp)', glass)
+        self.assertIn('PIXEL // MANAGER 4.0', glass)
+        self.assertNotIn('NEON // MANAGER 3.1', glass)
 
     def test_catalog_is_grouped_safe_and_requires_explicit_external_open(self):
         source = (ASSETS / 'pixel/Sources40.kt').read_text()

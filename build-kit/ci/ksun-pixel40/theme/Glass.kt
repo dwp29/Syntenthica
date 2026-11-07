@@ -724,7 +724,7 @@ fun GlassSplash(visible: Boolean, modifier: Modifier = Modifier) {
                 Spacer(Modifier.height(24.dp))
                 Text("SYNTHETICA", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground, letterSpacing = 2.sp)
                 Spacer(Modifier.height(6.dp))
-                Text("NEON // MANAGER 3.1", style = MaterialTheme.typography.labelMedium, color = accent, letterSpacing = 1.5.sp)
+                Text("PIXEL // MANAGER 4.0", style = MaterialTheme.typography.labelMedium, color = accent, letterSpacing = 1.5.sp)
                 Spacer(Modifier.height(28.dp))
                 Box(
                     modifier = Modifier.width(128.dp).height(3.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f)).drawBehind {
