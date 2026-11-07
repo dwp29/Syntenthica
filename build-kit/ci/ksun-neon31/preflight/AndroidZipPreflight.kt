@@ -59,10 +59,15 @@ internal object AndroidZipPreflight {
             input.use {
                 destination.outputStream().buffered().use { output ->
                     val buffer = ByteArray(64 * 1024)
+                    var emptyReads = 0
                     while (true) {
                         val count = it.read(buffer)
                         if (count < 0) break
-                        if (count == 0) continue
+                        if (count == 0) {
+                            if (++emptyReads >= 16) error("staged ZIP made no progress")
+                            continue
+                        }
+                        emptyReads = 0
                         if (count.toLong() > PackagePreflight.MAX_ARCHIVE_BYTES - size) error("staged ZIP too large")
                         output.write(buffer, 0, count)
                         size += count.toLong()

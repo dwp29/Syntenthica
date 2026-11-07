@@ -47,10 +47,15 @@ internal object PackagePreflight {
                 input.use { source ->
                     destination.outputStream().buffered().use { output ->
                         val buffer = ByteArray(64 * 1024)
+                        var emptyReads = 0
                         while (true) {
                             val read = source.read(buffer)
                             if (read < 0) break
-                            if (read == 0) continue
+                            if (read == 0) {
+                                if (++emptyReads >= 16) throw PreflightException(PreflightProblem.UNREADABLE)
+                                continue
+                            }
+                            emptyReads = 0
                             if (read.toLong() > maxBytes - size) throw PreflightException(PreflightProblem.TOO_LARGE)
                             output.write(buffer, 0, read)
                             digest.update(buffer, 0, read)

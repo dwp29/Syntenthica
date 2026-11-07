@@ -93,6 +93,32 @@ class PackagePreflightTest {
         rejects(zip("module.prop" to ("id=" + "a".repeat(65_536))), PreflightProblem.INVALID_METADATA)
     }
 
+    @Test fun stalledOrFailedInputIsRejectedAndTheStageIsDeleted() {
+        val stalled = object : java.io.InputStream() {
+            override fun read(): Int = 0
+            override fun read(bytes: ByteArray, offset: Int, length: Int): Int = 0
+        }
+        val destination = File.createTempFile("pkg31-", ".zip", root)
+        try {
+            PackagePreflight.stageAndInspect(stalled, destination, "stalled.zip")
+            fail("expected unreadable input")
+        } catch (error: PreflightException) {
+            assertEquals(PreflightProblem.UNREADABLE, error.problem)
+            assertFalse(destination.exists())
+        }
+        val broken = object : java.io.InputStream() {
+            override fun read(): Int = throw java.io.IOException("simulated read failure")
+        }
+        val failedDestination = File.createTempFile("pkg31-", ".zip", root)
+        try {
+            PackagePreflight.stageAndInspect(broken, failedDestination, "broken.zip")
+            fail("expected failed input")
+        } catch (error: PreflightException) {
+            assertEquals(PreflightProblem.UNREADABLE, error.problem)
+            assertFalse(failedDestination.exists())
+        }
+    }
+
     @Test fun centralAndLocalHeadersCannotDisagreeOrHideSpecialEntries() {
         fun central(bytes: ByteArray): Int {
             for (i in 0 until bytes.size - 4) {

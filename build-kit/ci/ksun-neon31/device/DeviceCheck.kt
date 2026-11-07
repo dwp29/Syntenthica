@@ -298,7 +298,7 @@ fun DeviceCheckPage(onBack: () -> Unit) {
                 val l = live!!
                 val performance = l.performance
                 val load = performance.load?.joinToString(" / ") { String.format(Locale.getDefault(), "%.2f", it) } ?: unavailable
-                fun pressure(value: Double?): String = value?.let { decimal(it, "%") } ?: unavailable
+                fun pressure(value: Double?): String = value?.let { String.format(Locale.getDefault(), "%.2f %%", it) } ?: unavailable
                 fun size(value: Long?): String = value?.let { Formatter.formatShortFileSize(context, it) } ?: unavailable
                 val gpu = performance.gpuHz?.let { decimal(it / 1_000_000.0, "MHz") } ?: unavailable
                 val zramData = displayBytes(context, performance.zramData) ?: unavailable
