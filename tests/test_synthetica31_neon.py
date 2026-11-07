@@ -263,6 +263,10 @@ class ActualPreparedSourceTests(unittest.TestCase):
         self.assertIn('Modifier.heightIn(max = 390.dp).verticalScroll(rememberScrollState())', dialog)
         result_flow = dialog.split('.onEach { result ->', 1)[1].split('.collect(resultCollector)', 1)[0]
         self.assertLess(result_flow.index('visible.value = false'), result_flow.index('it.resume(result)'))
+        self.assertIn('handle.visuals === shownVisuals', dialog)
+        self.assertIn('fun answerOnce(result: ConfirmResult)', dialog)
+        answer = dialog.split('fun answerOnce(result: ConfirmResult)', 1)[1].split('ConfirmDialog(', 1)[0]
+        self.assertLess(answer.index('visible.value = false'), answer.index('resultChannel.send(result)'))
 
     def test_pinned_busybox_sha256_check_fails_closed(self):
         arm = self.old / 'userspace/ksud/bin/aarch64/busybox'

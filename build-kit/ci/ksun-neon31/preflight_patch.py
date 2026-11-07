@@ -225,7 +225,32 @@ def patch_dialog(path: Path) -> None:
                     }
                 }
 '''
-    path.write_text(replace_once(text, old, new, 'sequential confirmation ordering'), encoding='utf-8')
+    text = replace_once(text, old, new, 'sequential confirmation ordering')
+    old = '''    if (visible.value) {
+        ConfirmDialog(
+            handle.visuals,
+            confirm = { coroutineScope.launch { resultChannel.send(ConfirmResult.Confirmed) } },
+            dismiss = { coroutineScope.launch { resultChannel.send(ConfirmResult.Canceled) } }
+        )
+    }
+'''
+    new = '''    if (visible.value) {
+        val shownVisuals = handle.visuals
+        fun answerOnce(result: ConfirmResult) {
+            // A queued tap from an earlier ZIP must not approve the next one.
+            if (visible.value && handle.visuals === shownVisuals) {
+                visible.value = false
+                coroutineScope.launch { resultChannel.send(result) }
+            }
+        }
+        ConfirmDialog(
+            shownVisuals,
+            confirm = { answerOnce(ConfirmResult.Confirmed) },
+            dismiss = { answerOnce(ConfirmResult.Canceled) }
+        )
+    }
+'''
+    path.write_text(replace_once(text, old, new, 'deduplicate confirmation taps'), encoding='utf-8')
 
 
 def patch_ksu_cli(path: Path) -> None:
