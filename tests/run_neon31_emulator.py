@@ -126,6 +126,18 @@ class Emulator:
                 current = parents.get(current)
         raise AssertionError(f'{label!r} not marked checked={expected}')
 
+    def assert_enabled(self, root: ET.Element, label: str, expected: bool) -> None:
+        parents = {child: parent for parent in root.iter() for child in parent}
+        for node in self.find(root, label):
+            current = node
+            while current is not None:
+                if current.get('clickable') == 'true':
+                    if current.get('enabled') == str(expected).lower():
+                        return
+                    break
+                current = parents.get(current)
+        raise AssertionError(f'{label!r} not marked enabled={expected}')
+
     def choose_radio(self, label: str, name: str) -> ET.Element:
         # Compose transitions can leave a previous tab briefly on screen. Retry
         # a radio tap (idempotent) until its accessibility state settles.
@@ -237,13 +249,12 @@ def main() -> None:
     # section must not put other sections in the generated preview.
     emulator.tap('Copy selected device info', 'copy-dialog-open')
     root = emulator.wait_for('Copy', 'copy-empty')
-    copy_nodes = emulator.find(root, 'Copy')
-    if not copy_nodes or any(node.get('enabled') != 'false' for node in copy_nodes):
-        raise AssertionError('Copy was enabled before any section was selected')
+    emulator.assert_enabled(root, 'Copy', False)
     emulator.assert_checked(root, 'Device identifiers (model and codename)', False)
     emulator.tap('Device identifiers (model and codename)', 'copy-select-device')
     root = emulator.dump('copy-selected')
     emulator.assert_checked(root, 'Device identifiers (model and codename)', True)
+    emulator.assert_enabled(root, 'Copy', True)
     if 'Codename:' not in emulator.all_text(root):
         emulator.adb('shell', 'input', 'swipe', '540', '1440', '540', '850', '400')
         root = emulator.dump('copy-preview')
