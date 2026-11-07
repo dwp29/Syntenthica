@@ -1,0 +1,107 @@
+name: "Synthetica Manager 3.0 Neon (unsigned)"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica30-manager-neon.yml'
+      - 'build-kit/scripts/build_manager_30_neon.py'
+      - 'build-kit/ci/ksun-neon/**'
+      - 'build-kit/ci/branding-neon/**'
+      - 'tests/test_synthetica30_neon.py'
+      - 'tests/verify_synthetica30_apk.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: synthetica-manager-neon-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  unsigned-manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify against the exact UAPI-4 source and run host tests
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ksun-git" "$RUNNER_TEMP/ksun-fixture"
+          git -C "$RUNNER_TEMP/ksun-git" init -q
+          git -C "$RUNNER_TEMP/ksun-git" remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
+          git -C "$RUNNER_TEMP/ksun-git" fetch -q --depth=1 origin ea51427ff700f73909e7e8c8717cc3241322ee1e
+          test "$(git -C "$RUNNER_TEMP/ksun-git" rev-parse FETCH_HEAD)" = ea51427ff700f73909e7e8c8717cc3241322ee1e
+          git -C "$RUNNER_TEMP/ksun-git" archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/ksun-fixture"
+          NEON_SOURCE="$RUNNER_TEMP/ksun-fixture" python3 -m unittest discover -s tests -p 'test_synthetica30_neon.py' -v
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' \
+            'ndk;29.0.14206865' 'cmake;3.22.1' 2>&1 | tail -10
+      - name: Build unsigned Manager from the pinned source
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/neon-output"
+          SYNTHETICA_MANAGER_WORKDIR="$RUNNER_TEMP/neon-manager-source" \
+          SYNTHETICA_UNSIGNED_APK="$RUNNER_TEMP/neon-output/Synthetica-Manager-3.0.0-Neon-UNSIGNED.apk" \
+            python3 build-kit/scripts/build_manager_30_neon.py 2>&1 | tee "$RUNNER_TEMP/neon-output/build.log"
+      - name: Verify package, permissions, alignment and UAPI
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/neon-output/Synthetica-Manager-3.0.0-Neon-UNSIGNED.apk"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          "$TOOLS/zipalign" -c -p 4 "$APK"
+          "$TOOLS/aapt" dump badging "$APK" > "$RUNNER_TEMP/neon-output/badging.txt"
+          head -1 "$RUNNER_TEMP/neon-output/badging.txt"
+          grep -F "name='net.ember.labs'" "$RUNNER_TEMP/neon-output/badging.txt"
+          grep -F "versionCode='40000'" "$RUNNER_TEMP/neon-output/badging.txt"
+          grep -F "versionName='3.0.0'" "$RUNNER_TEMP/neon-output/badging.txt"
+          "$TOOLS/aapt" dump permissions "$APK" | grep '^uses-permission' | sort > "$RUNNER_TEMP/neon-permissions.txt" || true
+          "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort > "$RUNNER_TEMP/reference-permissions.txt" || true
+          test -s "$RUNNER_TEMP/reference-permissions.txt"
+          test -s "$RUNNER_TEMP/neon-permissions.txt"
+          diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/neon-permissions.txt"
+          python3 tests/verify_synthetica30_apk.py "$APK" | tee "$RUNNER_TEMP/neon-output/static-checks.txt"
+          if "$TOOLS/apksigner" verify "$APK" > "$RUNNER_TEMP/neon-output/signature-check.txt" 2>&1; then
+            echo '::error::Expected an UNSIGNED build; refusing an unexpected signing identity.'
+            exit 1
+          fi
+          grep -q 'DOES NOT VERIFY' "$RUNNER_TEMP/neon-output/signature-check.txt"
+          "$TOOLS/apksigner" verify --print-certs release/Synthetica-2.0.apk > "$RUNNER_TEMP/neon-output/reference-signature.txt"
+          grep -iF 'fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140' "$RUNNER_TEMP/neon-output/reference-signature.txt"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/neon-output/SHA256.txt"
+      - name: Transfer verified unsigned APK as a Git blob
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,pathlib
+          tmp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          apk=tmp/'neon-output/Synthetica-Manager-3.0.0-Neon-UNSIGNED.apk'
+          (tmp/'neon-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode('ascii'),'encoding':'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/neon-blob.json" --jq .sha)
+          echo "::notice title=Verified unsigned Manager blob::$blob"
+      - name: Upload unsigned APK and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica30-neon-unsigned-${{ github.run_id }}
+          path: ${{ runner.temp }}/neon-output/
+          retention-days: 14
+          if-no-files-found: warn
