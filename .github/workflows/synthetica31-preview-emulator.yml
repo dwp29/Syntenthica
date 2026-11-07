@@ -1,5 +1,11 @@
 name: "Validate Synthetica 3.1 preview on Android emulator"
 on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica31-preview-emulator.yml'
+      - 'tests/run_neon31_emulator.py'
   workflow_dispatch:
     inputs:
       build_run_id:
@@ -10,6 +16,8 @@ on:
         description: "SHA-256 of that preview APK"
         required: true
         type: string
+# Push-triggered validation is pinned to the first successful 3.1 preview.
+# For another build, change these fallback inputs or dispatch with explicit values.
 permissions:
   contents: write
   actions: read
@@ -20,8 +28,8 @@ jobs:
     steps:
       - name: Validate input
         env:
-          BUILD_RUN_ID: ${{ inputs.build_run_id }}
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id || '42362416104' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '96d36f94dd1a250391c4ca2f9eae0bff481d5dc4c5467fbcabe86f0202a70f37' }}
         run: |
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
@@ -29,8 +37,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica31-preview-${{ inputs.build_run_id }}
-          run-id: ${{ inputs.build_run_id }}
+          name: synthetica31-preview-${{ inputs.build_run_id || '42362416104' }}
+          run-id: ${{ inputs.build_run_id || '42362416104' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/preview31-artifact
       - uses: actions/setup-java@v4
@@ -67,7 +75,7 @@ jobs:
           python3 -m pip install --user --disable-pip-version-check pillow
       - name: Boot emulator and validate preview only
         env:
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '96d36f94dd1a250391c4ca2f9eae0bff481d5dc4c5467fbcabe86f0202a70f37' }}
         run: |
           set -euo pipefail
           APK="$RUNNER_TEMP/preview31-artifact/Synthetica-3.1-Neon-PREVIEW-NOT-MANAGER.apk"
