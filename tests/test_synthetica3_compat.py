@@ -2,8 +2,10 @@
 """Synthetic tests: no test reads or writes a phone or a real boot partition."""
 from __future__ import annotations
 
+import gzip
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -28,6 +30,7 @@ def load(name: str, path: Path):
 
 
 pkg = load('compat_pkg', ROOT / 'build-kit/scripts/package_synthetica3_compat.py')
+config_guard = load('compat_config_guard', ROOT / 'build-kit/scripts/build_synthetica3.py')
 fixture = load('compat_boot_fixture', ROOT / 'tests/test_synthetica3_boot.py')
 previous = load('compat_previous_tests', ROOT / 'tests/test_synthetica3_root_installer.py')
 AUDIT = ROOT / 'build-kit/ci/synthetica3-compat/boot-audit.sh'
@@ -35,6 +38,67 @@ AUDIT = ROOT / 'build-kit/ci/synthetica3-compat/boot-audit.sh'
 
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def config_in_pinned_image(image_gz: bytes) -> bytes:
+    """Read IKCONFIG only after the containing ZIP was verified against its pin."""
+    raw = gzip.decompress(image_gz)
+    start, end = b'IKCFG_ST', b'IKCFG_ED'
+    if raw.count(start) != 1 or raw.count(end) != 1:
+        raise ValueError('missing or ambiguous embedded config markers')
+    a, b = raw.index(start) + len(start), raw.index(end)
+    if b <= a or b - a > 4 * 1024 * 1024:
+        raise ValueError('unexpected embedded config length')
+    return gzip.decompress(raw[a:b])
+
+
+class Released20ComparisonTests(unittest.TestCase):
+    """Compare the actual, SHA-pinned 2.0 release without running its scripts."""
+
+    @classmethod
+    def setUpClass(cls):
+        archive = (ROOT / 'release/Synthetica-2.0.zip').read_bytes()
+        if hashlib.sha256(archive).hexdigest() != previous.pkg.base.BASE_SHA256:
+            raise AssertionError('2.0 release ZIP does not match its pinned digest')
+        with zipfile.ZipFile(io.BytesIO(archive)) as z:
+            if z.testzip() is not None or len(z.namelist()) != len(set(z.namelist())):
+                raise AssertionError('invalid 2.0 release ZIP')
+            cls.names = set(z.namelist())
+            cls.entry = z.read('anykernel.sh')
+            cls.core = z.read('tools/ak3-core.sh')
+            cls.image = z.read('Image.gz')
+
+    def test_compat_candidate_recognizes_the_same_device_names_as_20(self):
+        names = lambda data: set(re.findall(rb'^device\.name\d+=([a-z0-9_]+)$', data, re.M))
+        release_names = names(self.entry)
+        candidate = pkg.compat_entry(previous.entry_template())
+        self.assertEqual(release_names, {b'joyeuse', b'curtana', b'excalibur', b'gram', b'miatoll'})
+        self.assertEqual(names(candidate), release_names)
+        # Recognition alone is not boot approval: the strict DTB guard stays.
+        self.assertEqual(candidate.count(pkg.REFERENCE_DTB.encode()), 1)
+        self.assertIn(b'cmp -s -n "$partsize" "$candidate" "$BLOCK"', candidate)
+
+    def test_20_dtb_and_ksud_behaviour_is_not_kernel_only(self):
+        self.assertTrue({'dtb', 'dtb.img', 'dtbo', 'dtbo.img'}.isdisjoint(self.names))
+        self.assertIn('ksud', self.names)
+        self.assertIn(b'cp -f ./ksud /data/adb/ksud;', self.entry)
+        self.assertLess(self.entry.index(b'cp -f ./ksud'), self.entry.index(b'dump_boot;'))
+        self.assertIn(b'PATCH_VBMETA_FLAG=auto;', self.entry)
+        self.assertIn(b'magiskboot dtb $fdt patch', self.core)
+        self.assertIn(b'flash_generic dtbo;', self.core)
+
+    def test_20_image_embeds_stock_defconfig_not_the_recorded_build_config(self):
+        self.assertEqual(hashlib.sha256(self.image).hexdigest(),
+                         '58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff')
+        embedded = config_in_pinned_image(self.image)
+        baseline = (ROOT / 'artifacts/generated.config.txt').read_bytes()
+        self.assertEqual(hashlib.sha256(embedded).hexdigest(),
+                         '8188e2539466a3e6797e98dd704b4b5a8e6439b21c08ba8d2a82b2829a8b190d')
+        self.assertEqual(hashlib.sha256(baseline).hexdigest(),
+                         '248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b')
+        self.assertNotEqual(embedded, baseline)
+        self.assertIn(b'CONFIG_LOCALVERSION="-perf"', embedded)
+        self.assertIn(b'CONFIG_LOCALVERSION="-Synthetica-2.0"', baseline)
 
 
 @unittest.skipUnless(shutil.which('busybox'), 'host BusyBox required')
@@ -354,6 +418,29 @@ class PackageTests(unittest.TestCase):
             subprocess.run(['sh', '-n', str(path)], check=True)
             if shutil.which('busybox'):
                 subprocess.run(['busybox', 'ash', '-n', str(path)], check=True)
+
+    def test_exact_20_and_30_share_tools_but_have_known_config_differences(self):
+        release = (ROOT / 'release/Synthetica-2.0.zip').read_bytes()
+        self.assertEqual(hashlib.sha256(release).hexdigest(), previous.pkg.base.BASE_SHA256)
+        with zipfile.ZipFile(io.BytesIO(release)) as z:
+            self.assertEqual(z.read('tools/busybox'), self.files['tools/busybox'])
+            self.assertEqual(z.read('tools/magiskboot'), self.files['tools/magiskboot'])
+        baseline = (ROOT / 'artifacts/generated.config.txt').read_bytes()
+        self.assertEqual(hashlib.sha256(baseline).hexdigest(), config_guard.V2_CONFIG_SHA256)
+        actual = config_in_pinned_image(self.files['Image.gz'])
+        info = json.loads(self.files['BUILD-INFO.json'])
+        self.assertEqual(hashlib.sha256(actual).hexdigest(), info['config_sha256'])
+        before, after = config_guard.read_config(baseline.decode()), config_guard.read_config(actual.decode())
+        changes = {key: (before.get(key, 'n'), after.get(key, 'n'))
+                   for key in set(before) | set(after)
+                   if before.get(key, 'n') != after.get(key, 'n')}
+        self.assertEqual(changes, {
+            'LOCALVERSION': ('"-Synthetica-2.0"', '"-synthetica-3.0"'),
+            'LRU_GEN': ('n', 'y'), 'LRU_GEN_ENABLED': ('n', 'y'),
+            'NR_LRU_GENS': ('n', '7'), 'TIERS_PER_GEN': ('n', '4'),
+            'UCLAMP_BUCKETS_COUNT': ('n', '5'), 'UCLAMP_TASK': ('n', 'y'),
+            'UCLAMP_TASK_GROUP': ('n', 'y'),
+        })
 
     def test_existing_output_and_tampered_original_are_rejected(self):
         with self.assertRaises(ValueError):

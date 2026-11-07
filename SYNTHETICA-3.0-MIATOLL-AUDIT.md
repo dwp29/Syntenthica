@@ -1,5 +1,9 @@
 # Audit kompatibilitas Synthetica 3.0 — miatoll
 
+Perbandingan langsung ZIP rilis 2.0 dengan ZIP asli 3.0, termasuk perbedaan
+installer, DTB, ramdisk, `ksud`, konfigurasi dan modul, tersedia di
+[SYNTHETICA-2.0-3.0-PERBANDINGAN.md](SYNTHETICA-2.0-3.0-PERBANDINGAN.md).
+
 **Status: diagnosis dan kandidat pengembangan; bukan perbaikan bootloop yang
 sudah terbukti dan bukan izin untuk flash kandidat pengembangan.** Kernel ZIP
 3.0 dan semua gerbang pemeriksaan boot yang substantif belum diubah. Hash DTB

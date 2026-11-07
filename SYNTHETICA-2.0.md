@@ -1,5 +1,13 @@
 # Synthetica 2.0
 
+> **Koreksi keselamatan untuk `release/Synthetica-2.0.zip`:** installer tidak
+> membuat backup boot otomatis dan, bila `/data/adb` dapat diakses, mencoba
+> menulis `ksud` ke `/data/adb/ksud`. Abaikan klaim sebaliknya pada catatan
+> build historis `STATUS.json`, `RELEASE-INFO.json`, dan
+> `artifacts/ARTIFACTS-MANIFEST.txt`. Perbandingan dengan 3.0, termasuk batas
+> perubahan DTB/ramdisk dan konfigurasi, ada di
+> [SYNTHETICA-2.0-3.0-PERBANDINGAN.md](SYNTHETICA-2.0-3.0-PERBANDINGAN.md).
+
 Satu batch, urutan tetap: **APK dulu, kernel kemudian** (job kernel `needs` job manager dan
 menanam sertifikat APK itu). Tidak ada pasangan campur antar-batch.
 
@@ -14,8 +22,10 @@ menanam sertifikat APK itu). Tidak ada pasangan campur antar-batch.
 ## Optimasi harian (config saja — tanpa OC, tanpa ubah thermal)
 
 Basis 1.16 sudah daily (schedutil, CPU boost, BBR + fq_codel, zram LZ4). Profil `synthetica`
-menambah: I/O default **mq-deadline** (lebih cocok untuk UFS daripada CFQ), workqueue
-power-efficient, statistik f2fs dimatikan. Audit CI memaksa `KSU=y`, `KSU_MANUAL_HOOK=y`,
+mencoba memilih I/O **mq-deadline**, mengaktifkan workqueue power-efficient, dan mematikan
+statistik f2fs. Konfigurasi build yang tersimpan menunjukkan `CONFIG_MQ_IOSCHED_DEADLINE=y`
+tetapi `CONFIG_DEFAULT_IOSCHED="cfq"`; itu bukan bukti scheduler yang aktif untuk setiap
+perangkat/ROM. Audit CI memaksa `KSU=y`, `KSU_MANUAL_HOOK=y`,
 `MQ_IOSCHED_DEADLINE=y`, governor schedutil.
 
 ## Installer (bahasa Inggris, ringkas)
