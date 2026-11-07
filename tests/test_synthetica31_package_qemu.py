@@ -56,6 +56,27 @@ class NewInstallerTests(old.OriginalAnyKernelTests):
         self.assertIn('Done. No automatic reboot.', p.stdout)
         self.verify_boot(tree)
 
+    def test_failed_ksud_copy_warns_and_keeps_2_0_nonfatal_behavior(self):
+        tree = old.fixture.fdt(b'31-ksud-copy-failure\0')
+        self.make_boot(tree)
+        adb = self.fs / 'data/adb'
+        adb.mkdir(parents=True)
+        (adb / 'ksud').write_bytes(b'unchanged original')
+        wrapper = self.bin / 'cp'
+        wrapper.write_text('''#!/bin/sh
+for arg do
+  case "$arg" in */data/adb/ksud) exit 1;; esac
+done
+exec /bin/cp "$@"
+''')
+        wrapper.chmod(0o755)
+        p = self.run_entry()
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertIn('WARNING: ksud failed', p.stdout)
+        self.assertEqual((adb / 'ksud').read_bytes(), b'unchanged original')
+        self.assertIn('Done. No automatic reboot.', p.stdout)
+        self.verify_boot(tree)
+
     def test_invalid_boot_exposes_error_and_never_reports_success(self):
         tree = old.fixture.fdt(b'31-invalid-boot\0')
         self.make_boot(tree)

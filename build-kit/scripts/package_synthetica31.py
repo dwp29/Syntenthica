@@ -64,7 +64,7 @@ sp_progress 0.20;'''),
     ('ui_print "  ! ksud failed (data read-only?)";', 'ui_print "WARNING: ksud failed (data read-only?)";'),
     ('ui_print "  ksud OK";', 'ui_print "ksud: OK";'),
     ('ui_print "  ! /data is locked - ksud NOT installed. Unlock data, then flash again.";',
-     'ui_print "WARNING: /data locked; ksud skipped.";'),
+     'ui_print "WARNING: /data locked; ksud skipped.";\n    ui_print "Unlock /data and flash again for ksud.";'),
     ('''ui_print "  Writing kernel...";
 log_line "write=started"
 dump_boot;
@@ -148,7 +148,7 @@ def verify_result(result: Path, tested20: Path, baseline30: Path) -> tuple[bytes
 
 
 def readme(image_sha: str, cert_sha: str) -> bytes:
-    return f'''SY N T H E T I C A  3.1
+    return f'''SYNTHETICA 3.1
 
 Kernel 3.1 dikompilasi ulang dari resep/source 3.0, dengan konfigurasi yang sama
 kecuali LOCALVERSION. Installer mengikuti alur rilis 2.0 yang sebelumnya

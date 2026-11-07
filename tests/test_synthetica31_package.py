@@ -42,8 +42,8 @@ class InstallerUiTests(unittest.TestCase):
         entry = self.entry.decode()
         backend = self.backend.decode()
         for marker in ('[2/3] Installing ksud', '[3/3] Preparing boot', '[3/3] Writing boot',
-                       'WARNING: /data locked; ksud skipped.', 'WARNING: ksud failed',
-                       'Done. No automatic reboot.', 'sp_progress 0.20', 'sp_progress 0.45',
+                       'WARNING: /data locked; ksud skipped.', 'Unlock /data and flash again for ksud.',
+                       'WARNING: ksud failed', 'Done. No automatic reboot.', 'sp_progress 0.20', 'sp_progress 0.45',
                        'sp_progress 0.75', 'sp_progress 1.0'):
             self.assertIn(marker, entry)
         self.assertIn('[1/3] Checking device...', backend)
@@ -72,6 +72,20 @@ class InstallerUiTests(unittest.TestCase):
             self.assertTrue(self.original[file])
         self.assertIn('dump_boot;\nui_print "[3/3] Writing boot...";', self.entry.decode())
         self.assertIn('write_boot;\nsp_progress 1.0;', self.entry.decode())
+
+    @unittest.skipUnless(shutil.which('busybox'), 'BusyBox shell needed')
+    def test_logo_passes_through_original_recovery_ui_protocol(self):
+        backend = self.backend.decode('utf-8')
+        functions = backend[backend.index('ui_print() {'):backend.index('show_progress() {')]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'banner').write_bytes(package.BANNER)
+            script = root / 'banner.sh'
+            script.write_text('OUTFD=1; BOOTMODE=true;\n' + functions + '\nui_printfile banner\n')
+            p = subprocess.run(['busybox', 'ash', str(script)], cwd=root, text=True, capture_output=True)
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+            for line in package.BANNER.decode().splitlines():
+                self.assertIn('ui_print ' + line, p.stdout)
 
     @unittest.skipUnless(shutil.which('busybox'), 'BusyBox shell needed')
     def test_device_checks_and_failure_remain_visible(self):
