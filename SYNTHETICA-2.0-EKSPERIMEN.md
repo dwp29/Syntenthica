@@ -241,8 +241,9 @@ Atas permintaan pengujian langsung, ada paket terpisah
 untuk uji coba, bukan rilis stabil**. Belum ada uji boot fisik atau uji installer
 di recovery, kompatibilitas modul ROM/AVB belum diketahui, dan bootloop serta
 hilangnya fungsi/root tetap mungkin. Pengujian sintetis dengan komponen ARM di
-QEMU serta jalur gagal preflight tercatat di [run `42331569829`](https://github.com/dwp29/Syntenthica/actions/runs/42331569829);
-itu bukan bukti perangkat akan boot.
+QEMU, jalur gagal preflight, dan penulisan ke file sintetis via loop device
+tercatat di [run `42331828644`](https://github.com/dwp29/Syntenthica/actions/runs/42331828644);
+itu bukan uji recovery atau bukti perangkat akan boot.
 
 Installer membaca boot yang ada, memeriksa checksum kernel, status unlock,
 ukuran/header boot dan hash DTB referensi, membatalkan untuk Magisk/ramdisk tak
