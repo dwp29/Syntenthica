@@ -24,17 +24,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/128330058199/logs" > "$RUNNER_TEMP/job.log"
           python3 - <<'PY'
           import base64, json, os, pathlib, subprocess
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'neon-emulator'
-          log=(root.parent/'job.log').read_text(errors='replace')
-          lines=log.splitlines()
-          selected=[line for line in lines if any(x in line for x in ('##[error]', '##[group]Exercise accent', 'neon_accent', 'neon_motion', 'Cannot confirm', 'Settings label not found', 'not debuggable', 'No such file'))]
           def emit(title,text):
               text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
               print(f'::notice title={title}::{text}',flush=True)
-          emit('Failed-step clues','\n'.join(selected[-30:]) or 'No matching log lines')
           for file in sorted(root.rglob('*')):
               if not file.is_file(): continue
               emit('Output',f'{file.relative_to(root)} ({file.stat().st_size} bytes)')

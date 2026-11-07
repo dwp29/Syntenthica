@@ -25,8 +25,8 @@ jobs:
           java-version: '21'
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica30-neon-unsigned-42345579689
-          run-id: 42345579689
+          name: synthetica30-neon-unsigned-42347623437
+          run-id: 42347623437
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/neon-input
       - name: Install Android signing tools
@@ -47,6 +47,6 @@ jobs:
         run: |
           set -euo pipefail
           export NEON_ANDROID_BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
-          echo '2c04be6a223f53217305e39a0b6cce9e6c7e01c2df5d59f19826427b3bcd6441  '"$NEON_UNSIGNED_APK" | sha256sum -c -
+          echo 'a6d0c1ff11130a56d66ae040786ca4060b29b55992643997b64fadebbb88ebea  '"$NEON_UNSIGNED_APK" | sha256sum -c -
           python3 -m unittest discover -s tests -p 'test_neon_signing*.py' -v
           echo '::notice title=Signing test::Only an ephemeral test key was generated; the real Manager identity was neither accessed nor recreated.'
