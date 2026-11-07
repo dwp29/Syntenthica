@@ -369,7 +369,13 @@ boot_header() (
     414e44524f494421)
       hv=$(u32le "$header_path" 40) || hv=unknown
       kernel_size=$(u32le "$header_path" 8) || kernel_size=unknown
-      ramdisk_size=$(u32le "$header_path" 12) || ramdisk_size=unknown
+      # Legacy headers put kernel_addr at byte 12 and ramdisk_size at 16;
+      # v3/v4 put ramdisk_size at 12. Never guess for an unknown layout.
+      case "$hv" in
+        0|1|2) ramdisk_size=$(u32le "$header_path" 16) || ramdisk_size=unknown ;;
+        3|4) ramdisk_size=$(u32le "$header_path" 12) || ramdisk_size=unknown ;;
+        *) ramdisk_size=unknown ;;
+      esac
       printf '  magic=ANDROID! header_version=%s kernel_bytes=%s ramdisk_bytes=%s\n' "$hv" "$kernel_size" "$ramdisk_size"
       case "$hv" in
         0|1|2)

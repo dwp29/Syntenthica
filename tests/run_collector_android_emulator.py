@@ -74,7 +74,8 @@ esac
             put('bin/' + name, '#!/system/bin/sh\necho called >> "$SYNT_COLLECTOR_TEST_ROOT/unsafe-called"\nexit 87\n')
         data = bytearray(4096)
         data[:8] = b'ANDROID!'
-        for offset, number in ((8, 123456), (12, 65432), (36, 4096), (40, 2), (1644, 1660)):
+        for offset, number in ((8, 123456), (12, 0x10008000), (16, 65432),
+                               (36, 4096), (40, 2), (1644, 1660)):
             struct.pack_into('<I', data, offset, number)
         data[500:520] = b'DO_NOT_COPY_SERIAL!!'
         put('dev/block/bootdevice/by-name/boot_a', bytes(data))
@@ -121,7 +122,8 @@ esac
         if 'ro.build.version.release=15' not in rom or 'SERIAL-PRIVATE' in rom:
             raise AssertionError('mounted ROM properties incorrect')
         layout = read('14-partition-layout.txt')
-        if 'header_version=2' not in layout or 'legacy_header_bytes=1660' not in layout:
+        if ('header_version=2 kernel_bytes=123456 ramdisk_bytes=65432' not in layout
+                or 'legacy_header_bytes=1660' not in layout):
             raise AssertionError('Android shell could not decode synthetic boot header: ' + layout)
         if 'DO_NOT_COPY_SERIAL' in layout:
             raise AssertionError('raw boot header leaked')

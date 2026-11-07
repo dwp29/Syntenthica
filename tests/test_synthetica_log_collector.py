@@ -71,7 +71,11 @@ esac''')
         data = bytearray(4096)
         data[:8] = magic
         struct.pack_into('<I', data, 8, 123456)
-        struct.pack_into('<I', data, 12, 65432)
+        if version <= 2:
+            struct.pack_into('<I', data, 12, 0x10008000)  # kernel_addr, not size
+            struct.pack_into('<I', data, 16, 65432)       # legacy ramdisk_size
+        else:
+            struct.pack_into('<I', data, 12, 65432)       # v3/v4 ramdisk_size
         struct.pack_into('<I', data, 36, 4096)
         struct.pack_into('<I', data, 40, version)
         struct.pack_into('<I', data, 1644, 1660)
@@ -132,8 +136,10 @@ class CollectorFilesystemTests(unittest.TestCase):
                 self.assertIn('ro.build.version.release=15', rom)
                 self.assertNotIn('DO_NOT_COPY', rom)
                 layout = (report / '14-partition-layout.txt').read_text()
-                for text in ('header_version=2', 'legacy_page_bytes=4096', 'legacy_header_bytes=1660'):
+                for text in ('header_version=2', 'kernel_bytes=123456', 'ramdisk_bytes=65432',
+                             'legacy_page_bytes=4096', 'legacy_header_bytes=1660'):
                     self.assertIn(text, layout)
+                self.assertNotIn('ramdisk_bytes=268468224', layout)  # legacy kernel_addr
                 self.assertNotIn('DO_NOT_COPY_SERIAL', layout)
                 self.assertIn('PREPARE FAILED', (report / '15-error-lines.txt').read_text())
                 statuses = (report / 'STATUS.tsv').read_text()
@@ -253,16 +259,18 @@ class CollectorFilesystemTests(unittest.TestCase):
         a = f.boot('boot_a', version=2)
         b = f.boot('boot_b', version=4)
         v = f.boot('vendor_boot_a', version=4, magic=b'VNDRBOOT')
-        before = [p.read_bytes() for p in (a, b, v)]
+        unknown = f.boot('init_boot_a', version=7)
+        before = [p.read_bytes() for p in (a, b, v, unknown)]
         report = f.report(f.run())
         layout = (report / '14-partition-layout.txt').read_text()
         self.assertIn('boot_a', layout)
-        self.assertIn('header_version=2', layout)
-        self.assertIn('header_version=4', layout)
+        self.assertIn('header_version=2 kernel_bytes=123456 ramdisk_bytes=65432', layout)
+        self.assertIn('header_version=4 kernel_bytes=123456 ramdisk_bytes=65432', layout)
+        self.assertIn('header_version=7 kernel_bytes=123456 ramdisk_bytes=unknown', layout)
         self.assertIn('page/header-size layout not interpreted', layout)
         self.assertIn('magic=VNDRBOOT', layout)
         self.assertNotIn('DO_NOT_COPY_SERIAL', layout)
-        self.assertEqual(before, [p.read_bytes() for p in (a, b, v)])
+        self.assertEqual(before, [p.read_bytes() for p in (a, b, v, unknown)])
         self.assertFalse(any(p.suffix in ('.img', '.bin') for p in report.iterdir()))
 
     def test_failed_and_timed_out_commands_are_reported(self):
