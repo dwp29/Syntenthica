@@ -1,0 +1,83 @@
+name: "Synthetica 3.0 with 2.0 installer - build and synthetic tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica3-installer20.yml'
+      - 'build-kit/scripts/package_synthetica3_installer20.py'
+      - 'tests/test_synthetica3_installer20*.py'
+      - 'tests/test_synthetica3_boot.py'
+      - 'release/Synthetica-2.0.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install synthetic-test tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static >/dev/null
+      - name: Fetch pinned original 3.0 image package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/transfer.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/transfer.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer.zip" synthetica-3.0.zip > "$RUNNER_TEMP/original30.zip"
+          echo '16b32f57381005c08cbee0ec684397dc91acc77f5b2ccbb4ef7f4b99a9a791e6  '"$RUNNER_TEMP/original30.zip" | sha256sum -c -
+      - name: Build the 3.0 kernel with the 2.0 installer
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_synthetica3_installer20.py \
+            --source30 "$RUNNER_TEMP/original30.zip" \
+            --output "$RUNNER_TEMP/Synthetica-3.0-Installer-2.0-TEST.zip"
+          (cd "$RUNNER_TEMP" && sha256sum Synthetica-3.0-Installer-2.0-TEST.zip > Synthetica-3.0-Installer-2.0-TEST.sha256)
+          echo '::notice title=Package SHA-256::'"$(cut -d' ' -f1 "$RUNNER_TEMP/Synthetica-3.0-Installer-2.0-TEST.sha256")"
+      - name: Check package, input integrity, and actual 2.0 device check
+        env:
+          S3_INSTALLER20_SOURCE30: ${{ runner.temp }}/original30.zip
+        run: python3 -m unittest discover -s tests -p 'test_synthetica3_installer20.py' -v
+      - name: Exercise original AnyKernel core with ARM tools on synthetic files
+        env:
+          S3_INSTALLER20_QEMU: '1'
+          S3_INSTALLER20_ZIP: ${{ runner.temp }}/Synthetica-3.0-Installer-2.0-TEST.zip
+        run: |
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica3_installer20_qemu.py' -v > "$RUNNER_TEMP/integration.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/integration.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP']) / 'integration.log').read_text(errors='replace')[-16000:]
+          for i in range(0, len(text), 1800):
+              s = text[i:i+1800].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=Installer 2.0 synthetic diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
+      - name: Publish test package and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: synthetica-3.0-installer-2.0-test-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/Synthetica-3.0-Installer-2.0-TEST.zip
+            ${{ runner.temp }}/Synthetica-3.0-Installer-2.0-TEST.sha256
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record test scope
+        run: echo '::notice title=Scope::Only temporary synthetic regular files were used with path and command mocks; no physical recovery, ROM, AVB trust, root, module compatibility or boot was tested.'
