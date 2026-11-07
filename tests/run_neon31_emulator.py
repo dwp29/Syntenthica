@@ -102,6 +102,19 @@ class Emulator:
                 current = parents.get(current)
         raise AssertionError(f'{label!r} not marked checked={expected}')
 
+    def choose_radio(self, label: str, name: str) -> ET.Element:
+        # Compose transitions can leave a previous tab briefly on screen. Retry
+        # a radio tap (idempotent) until its accessibility state settles.
+        for attempt in range(3):
+            self.tap(label, f'{name}-tap-{attempt}')
+            root = self.dump(name)
+            try:
+                self.assert_checked(root, label, True)
+                return root
+            except AssertionError:
+                time.sleep(1)
+        raise AssertionError(f'{label!r} did not become selected after retries')
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -120,15 +133,11 @@ def main() -> None:
     home = emulator.dump('home')
     assert emulator.find(home, 'Device Check'), 'Device Check entry missing'
     emulator.tap('Settings', 'open-settings')
-    emulator.tap('Light', 'choose-light')
-    light = emulator.dump('settings-light')
-    emulator.assert_checked(light, 'Light', True)
+    emulator.choose_radio('Light', 'settings-light')
     light_png = emulator.screenshot('settings-light')
     if '<string name="neon_theme">light</string>' not in emulator.prefs():
         raise AssertionError('Light mode was not persisted')
-    emulator.tap('Dark', 'choose-dark')
-    dark = emulator.dump('settings-dark')
-    emulator.assert_checked(dark, 'Dark', True)
+    emulator.choose_radio('Dark', 'settings-dark')
     dark_png = emulator.screenshot('settings-dark')
     try:
         from PIL import Image, ImageStat
@@ -141,7 +150,42 @@ def main() -> None:
             raise AssertionError('Light and dark modes did not render distinctly')
     except ImportError as exc:
         raise RuntimeError('Pillow is required for the light/dark visual assertion') from exc
-    emulator.tap('Light', 'restore-light')
+    # AMOLED keeps the actual canvas black, rather than painting a full-screen
+    # gradient on top of black. Sample the outer margin, excluding system bars.
+    emulator.choose_radio('AMOLED black', 'settings-amoled')
+    amoled_png = emulator.screenshot('settings-amoled')
+    if '<string name="neon_theme">amoled</string>' not in emulator.prefs():
+        raise AssertionError('AMOLED mode was not persisted')
+    with Image.open(BytesIO(amoled_png.read_bytes())) as image:
+        pixels = image.convert('RGB')
+        w, h = pixels.size
+        samples = [pixels.getpixel((x, y)) for x in (1, w - 2)
+                   for y in range(h // 8, 7 * h // 8)]
+        black_ratio = sum(pixel == (0, 0, 0) for pixel in samples) / len(samples)
+    print(f'AMOLED black canvas edge ratio: {black_ratio:.3f}', flush=True)
+    if black_ratio < 0.80:
+        raise AssertionError('AMOLED canvas was not actually black')
+
+    # Follow-system mode should respond to Android's day/night configuration.
+    emulator.adb('shell', 'cmd', 'uimode', 'night', 'no')
+    time.sleep(3)
+    emulator.choose_radio('Follow system', 'settings-system')
+    system_light = emulator.screenshot('settings-system-light')
+    if '<string name="neon_theme">system</string>' not in emulator.prefs():
+        raise AssertionError('Follow-system mode was not persisted')
+    emulator.adb('shell', 'cmd', 'uimode', 'night', 'yes')
+    time.sleep(4)
+    system_dark = emulator.screenshot('settings-system-dark')
+    with Image.open(BytesIO(system_light.read_bytes())) as image:
+        sys_light_luma = ImageStat.Stat(image.convert('L')).mean[0]
+    with Image.open(BytesIO(system_dark.read_bytes())) as image:
+        sys_dark_luma = ImageStat.Stat(image.convert('L')).mean[0]
+    print(f'Follow-system brightness: light={sys_light_luma:.1f}, dark={sys_dark_luma:.1f}', flush=True)
+    if sys_light_luma < sys_dark_luma + 40:
+        raise AssertionError('Follow-system mode did not respond to day/night')
+    emulator.adb('shell', 'cmd', 'uimode', 'night', 'no')
+    time.sleep(3)
+    emulator.choose_radio('Light', 'settings-restored-light')
     emulator.tap('Normal', 'choose-glow', scroll=True)
     emulator.tap('Neon motion', 'disable-motion', scroll=True)
     prefs = emulator.prefs()
@@ -160,12 +204,12 @@ def main() -> None:
     emulator.tap('Device Check', 'open-device-check', scroll=True)
     time.sleep(4)
     root = emulator.dump('device-check')
-    for label in ('Device Check', 'Live overview', 'RAM in use / total'):
+    emulator.screenshot('device-check')
+    for label in ('Device Check', 'LIVE OVERVIEW', 'RAM in use / total'):
         if not emulator.find(root, label):
             raise AssertionError(f'Device Check label missing: {label}')
-    emulator.screenshot('device-check')
     emulator.adb('shell', 'dumpsys', 'gfxinfo', PACKAGE)
-    print('PASS: preview light/dark rendering, settings persistence and live Device Check on emulator.', flush=True)
+    print('PASS: preview light, dark, AMOLED and system rendering, saved settings and Device Check on emulator.', flush=True)
     print('The real Manager, root and physical devices were not tested.', flush=True)
 
 
