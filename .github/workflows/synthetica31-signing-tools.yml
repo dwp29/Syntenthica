@@ -1,0 +1,117 @@
+name: "Synthetica 3.1 signing safety and local toolchain"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica31-signing-tools.yml'
+      - 'build-kit/scripts/sign_manager_31_locally.py'
+      - 'tests/test_neon31_signing*.py'
+  workflow_dispatch:
+    inputs:
+      manager_run_id:
+        description: "Run containing the verified unsigned 3.1 Manager"
+        required: true
+        type: string
+      manager_sha256:
+        description: "SHA-256 of the unsigned Manager"
+        required: true
+        type: string
+# Push runs exercise the first compiled 3.1 APK with an ephemeral test key.
+# Specify a run and digest to test a different unsigned build.
+permissions:
+  contents: write
+  actions: read
+jobs:
+  throwaway-signing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Validate input
+        env:
+          MANAGER_RUN_ID: ${{ inputs.manager_run_id || '42362416104' }}
+          MANAGER_SHA256: ${{ inputs.manager_sha256 || 'fea181866b5c884c6717105460a19c83c96a31dde5f949290ac8e9ec451cdbad' }}
+        run: |
+          set -euo pipefail
+          [[ "$MANAGER_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$MANAGER_SHA256" =~ ^[a-f0-9]{64}$ ]]
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: synthetica31-manager-unsigned-${{ inputs.manager_run_id || '42362416104' }}
+          run-id: ${{ inputs.manager_run_id || '42362416104' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/manager31-input
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install official Android signing tools
+        run: |
+          set -euo pipefail
+          SDK="$HOME/neon31-sign-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'build-tools;36.1.0' 2>&1 | tail -8
+      - name: Assemble minimal Java and Android signing tools
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/sign31-tools"
+          mkdir -p "$DEST/android-tools/lib" "$DEST/android-tools/lib64" "$RUNNER_TEMP/sign31-output"
+          "$JAVA_HOME/bin/jlink" --strip-debug --no-header-files --no-man-pages --compress=2 \
+            --add-modules java.base,java.logging,java.xml,java.naming,java.management,java.desktop,java.security.jgss,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.zipfs \
+            --output "$DEST/java"
+          cp "$ANDROID_SDK_ROOT/build-tools/36.1.0/aapt" "$DEST/android-tools/aapt"
+          cp "$ANDROID_SDK_ROOT/build-tools/36.1.0/zipalign" "$DEST/android-tools/zipalign"
+          cp "$ANDROID_SDK_ROOT/build-tools/36.1.0/apksigner" "$DEST/android-tools/apksigner"
+          cp "$ANDROID_SDK_ROOT/build-tools/36.1.0/lib/apksigner.jar" "$DEST/android-tools/lib/apksigner.jar"
+          cp "$ANDROID_SDK_ROOT/build-tools/36.1.0/lib64/libc++.so" "$DEST/android-tools/lib64/libc++.so"
+          chmod 755 "$DEST/android-tools/aapt" "$DEST/android-tools/zipalign" "$DEST/android-tools/apksigner"
+          LD_LIBRARY_PATH="$DEST/android-tools/lib64" PATH="$DEST/java/bin:$PATH" "$DEST/android-tools/aapt" version
+          LD_LIBRARY_PATH="$DEST/android-tools/lib64" PATH="$DEST/java/bin:$PATH" "$DEST/android-tools/apksigner" version
+          "$DEST/java/bin/java" -version 2>&1 | tee "$RUNNER_TEMP/sign31-output/java-version.txt"
+          sha256sum "$DEST/android-tools/aapt" "$DEST/android-tools/zipalign" "$DEST/android-tools/apksigner" \
+            "$DEST/android-tools/lib/apksigner.jar" "$DEST/android-tools/lib64/libc++.so" > "$RUNNER_TEMP/sign31-output/ANDROID-TOOLS-SHA256.txt"
+      - name: Run signing integration using only a throwaway key
+        env:
+          NEON31_SIGNING_INTEGRATION: '1'
+          NEON31_UNSIGNED_APK: ${{ runner.temp }}/manager31-input/Synthetica-Manager-3.1.0-Neon-UNSIGNED.apk
+          MANAGER_SHA256: ${{ inputs.manager_sha256 || 'fea181866b5c884c6717105460a19c83c96a31dde5f949290ac8e9ec451cdbad' }}
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/sign31-tools"
+          printf '%s  %s\n' "$MANAGER_SHA256" "$NEON31_UNSIGNED_APK" | sha256sum -c -
+          export JAVA_HOME="$DEST/java" PATH="$DEST/java/bin:$PATH" LD_LIBRARY_PATH="$DEST/android-tools/lib64"
+          export NEON31_ANDROID_BUILD_TOOLS="$DEST/android-tools"
+          python3 -m unittest discover -s tests -p 'test_neon31_signing*.py' -v 2>&1 | tee "$RUNNER_TEMP/sign31-output/integration.log"
+          echo '::notice title=3.1 signing integration::Only an ephemeral test key was generated. No real private key was accessed.'
+      - name: Export non-secret signing tools for local use
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tar -czf "$RUNNER_TEMP/sign31-output/sign31-tools.tar.gz" -C "$RUNNER_TEMP/sign31-tools" java android-tools
+          sha256sum "$RUNNER_TEMP/sign31-output/sign31-tools.tar.gz" > "$RUNNER_TEMP/sign31-output/ARCHIVE-SHA256.txt"
+          split -b 20M -d -a 2 "$RUNNER_TEMP/sign31-output/sign31-tools.tar.gz" "$RUNNER_TEMP/sign31-output/sign31-tools.part-"
+          python3 - <<'PY'
+          import base64,hashlib,json,os,pathlib,subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'sign31-output'
+          archive=root/'sign31-tools.tar.gz'
+          print('::notice title=Signing tool archive SHA256::'+hashlib.sha256(archive.read_bytes()).hexdigest())
+          for p in sorted(root.glob('sign31-tools.part-*')):
+              payload=root/(p.name+'.json')
+              payload.write_text(json.dumps({'content':base64.b64encode(p.read_bytes()).decode(),'encoding':'base64'}))
+              blob=subprocess.run(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs",'--method','POST','--input',str(payload),'--jq','.sha'],capture_output=True,text=True,check=True).stdout.strip()
+              print(f'::notice title=Signing tools {p.name} SHA256 {hashlib.sha256(p.read_bytes()).hexdigest()}::{blob}')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: synthetica31-signing-tools-${{ github.run_id }}
+          path: ${{ runner.temp }}/sign31-output/
+          retention-days: 7
+          if-no-files-found: warn
