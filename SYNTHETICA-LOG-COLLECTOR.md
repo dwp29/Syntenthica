@@ -33,6 +33,14 @@ Minta model/codename perangkat, ROM dan versi Android, jenis/versi recovery, slo
 
 Synthetica 3.0 yang sebelumnya dibagikan memakai pemeriksaan untuk joyeuse/miatoll, boot tanpa A/B, ukuran dan format boot, DTB referensi, bootloader dan ramdisk. Kegagalan di device/ROM lain bisa saja merupakan penolakan keselamatan yang disengaja, tetapi penyebab kasus ini **belum diketahui tanpa log**. Jangan hilangkan pemeriksaan tersebut, menebak kompatibilitas dari versi Android saja, atau menyatakan perangkat lain didukung berdasarkan collector.
 
+## Keterbatasan akses laporan 1.0
+
+Pada 7 November 2026 ada laporan bahwa hasil collector kosong/tidak terlihat di recovery; rincian perangkat, layar, dan status file belum tersedia, sehingga penyebabnya belum diketahui. Jangan menganggap laporan tersebut pasti disebabkan salah satu kemungkinan di bawah.
+
+Collector 1.0 memakai `umask 077` dan membuat direktori sesi dengan mode `700` untuk membatasi akses ke log sensitif. Pada simulasi host, saat collector dijalankan sebagai root pada filesystem POSIX, folder hasil dan folder induknya dimiliki root dengan mode `700` dan `STATUS.tsv` ber-mode `600`: pengguna non-root tidak dapat membacanya walaupun laporan ada. Hal ini **dapat** membuat laporan tidak terlihat atau tidak bisa disalin melalui metode MTP/Android/non-root tertentu; efek sebenarnya bergantung recovery, filesystem dan implementasi MTP. Simulasi ini bukan bukti bahwa itulah penyebab laporan pengguna, dan bukan uji perangkat fisik.
+
+Periksa lokasi yang tertulis di layar `Report folder:` dengan file manager/ADB recovery yang memang memiliki izin, termasuk `/tmp/Synthetica-logs` bila fallback sementara digunakan. Jika ada, periksa `STATUS.tsv` dan foto layar hasil eksekusi sebelum mencoba lagi. `/tmp` hilang saat reboot. Tidak semua recovery menyediakan ADB atau akses yang memadai. Jangan memperluas izin log sensitif secara otomatis, jangan menjalankan ZIP lain sebelum menyimpan log, dan jangan ulangi flash kernel untuk membuat log.
+
 ## Struktur dan pengujian
 
 - `build-kit/ci/log-collector/collector.sh`: payload shell mandiri yang sama untuk recovery dan ADB.
