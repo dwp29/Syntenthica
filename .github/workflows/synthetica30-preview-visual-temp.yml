@@ -47,9 +47,13 @@ jobs:
           echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK/platform-tools" >> "$GITHUB_PATH"
           echo "$SDK/emulator" >> "$GITHUB_PATH"
+          export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK" ANDROID_AVD_HOME="$RUNNER_TEMP/neon-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64' 2>&1 | tail -12
           echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd -f -n neon-preview -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
+          test -f "$ANDROID_AVD_HOME/neon-preview.ini"
       - name: Boot emulator, launch preview and exercise navigation
         if: steps.kvm.outputs.available == 'true'
         run: |
@@ -57,9 +61,12 @@ jobs:
           APK="$RUNNER_TEMP/preview-artifact/Synthetica-3.0-Neon-PREVIEW-NOT-MANAGER.apk"
           echo 'd7329d7807612e16a6c4477f08530ce742f1e3be5ce82cc3a92c6f5e91d391f3  '"$APK" | sha256sum -c -
           emulator -avd neon-preview -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emulator_pid=$!
+          sleep 12
+          if ! kill -0 "$emulator_pid" 2>/dev/null; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
           adb start-server
-          timeout 360s adb wait-for-device
-          timeout 360s bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
+          timeout 240s adb wait-for-device
+          timeout 240s bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
           adb shell settings put global window_animation_scale 1
           adb shell settings put global transition_animation_scale 1
           adb shell settings put global animator_duration_scale 1
