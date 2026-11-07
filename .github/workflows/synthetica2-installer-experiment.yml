@@ -41,9 +41,10 @@ jobs:
           echo '3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea  '"$RUNNER_TEMP/Image.gz" | sha256sum -c -
           gh api 'repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5' --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
           test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
-          unzip -p release/Synthetica-2.0.zip tools/busybox > "$RUNNER_TEMP/arm-busybox"
-          unzip -p release/Synthetica-2.0.zip tools/magiskboot > "$RUNNER_TEMP/arm-magiskboot"
-          chmod 755 "$RUNNER_TEMP/arm-busybox" "$RUNNER_TEMP/arm-magiskboot"
+          mkdir "$RUNNER_TEMP/arm"
+          unzip -p release/Synthetica-2.0.zip tools/busybox > "$RUNNER_TEMP/arm/busybox"
+          unzip -p release/Synthetica-2.0.zip tools/magiskboot > "$RUNNER_TEMP/arm/magiskboot"
+          chmod 755 "$RUNNER_TEMP/arm/busybox" "$RUNNER_TEMP/arm/magiskboot"
       - name: Check package and preflight failure paths
         env:
           S2_EVIDENCE: ${{ runner.temp }}/evidence.zip
@@ -52,8 +53,8 @@ jobs:
         env:
           S2_QEMU_INTEGRATION: '1'
           S2_IMAGE: ${{ runner.temp }}/Image.gz
-          S2_ARM_BB: ${{ runner.temp }}/arm-busybox
-          S2_ARM_MAGISKBOOT: ${{ runner.temp }}/arm-magiskboot
+          S2_ARM_BB: ${{ runner.temp }}/arm/busybox
+          S2_ARM_MAGISKBOOT: ${{ runner.temp }}/arm/magiskboot
           S2_AVBTOOL: ${{ runner.temp }}/avbtool.py
         run: |
           set +e
