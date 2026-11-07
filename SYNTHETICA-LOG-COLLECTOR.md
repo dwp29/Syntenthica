@@ -41,4 +41,6 @@ Synthetica 3.0 yang sebelumnya dibagikan memakai pemeriksaan untuk joyeuse/miato
 - `tests/run_collector_android_emulator.py` dan `.github/workflows/synthetica-log-collector.yml`: menjalankan shell collector pada emulator Android dengan filesystem dan isi log palsu, **bukan** pengujian custom recovery atau perangkat fisik.
 - Dilarang menyamakan sukses simulasi dengan keberhasilan recovery, kemampuan mengambil crash log, kompatibilitas flash, atau pembuktian penyebab bootloop.
 
+Validasi 7 November 2026: suite host keseluruhan menjalankan 237 tes, 17 di-skip; 17 tes khusus collector lulus. [CI 42381698938](https://github.com/dwp29/Syntenthica/actions/runs/42381698938) lulus untuk fixture host serta shell emulator Android 35 x86_64. Kedua job mengemas ZIP dengan SHA-256 `47de133c4aa4c48a71dad40094eb7e01215abd6dd11fc8f10906433bd4213726`, sama dengan ZIP yang disiapkan untuk dibagikan. Emulator hanya memakai data buatan, **tidak menjalankan custom recovery**, tidak mensimulasikan flash atau bootloop nyata, dan belum ada pengujian pada perangkat fisik.
+
 Collector lama di `release/Synthetica-2.0-LOG.zip` adalah artefak historis. Ia memiliki perilaku dan klaim privasi yang berbeda; untuk prosedur ini gunakan collector 1.0 baru dan panduannya.
