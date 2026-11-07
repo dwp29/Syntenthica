@@ -197,9 +197,10 @@ exec ''' + command + ''' "$@"
         data = fixture.boot(tree=self.tree, second=second, recovery=recovery)
         self.boot.write_bytes(data + b'\0' * (16 * 1024 * 1024 - len(data)))
 
-    def audit(self, **extra):
+    def audit(self, *, bundle: Path | None = None, **extra):
         env = os.environ | {'PATH': str(self.bin) + ':/usr/bin:/bin'} | extra
-        return subprocess.run(self.shell + [str(self.script), '3', '1', str(self.t / 'missing.zip')],
+        zip_path = bundle if bundle is not None else self.t / 'missing.zip'
+        return subprocess.run(self.shell + [str(self.script), '3', '1', str(zip_path)],
                               env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               text=True, timeout=30)
 
@@ -215,6 +216,25 @@ exec ''' + command + ''' "$@"
         self.assertEqual(''.join(parts), hashlib.sha256(self.tree).hexdigest())
         self.assertIn('3.0 reference DTB: DIFFERENT', p.stdout)
         self.assertIn('No partition was written.', p.stdout)
+        self.assert_read_only(before)
+
+    def test_zip_extraction_path_and_corrupt_zip_failure(self):
+        before = sha(self.boot)
+        bundle = self.t / 'fixture.zip'
+        # Fixture BusyBox wrapper exposes only the fake blockdev; all other
+        # applets are the same host/ARM BusyBox used by this test class.
+        with zipfile.ZipFile(bundle, 'w') as z:
+            z.writestr('tools/busybox', (self.bin / 'busybox').read_bytes())
+        p = self.audit(bundle=bundle)
+        self.assertEqual(p.returncode, 0, p.stdout)
+        parts = re.findall(r'DTB SHA256 [12]/2: ([0-9a-f]{32})', p.stdout)
+        self.assertEqual(''.join(parts), hashlib.sha256(self.tree).hexdigest())
+        self.assert_read_only(before)
+        bundle.write_bytes(b'not a zip')
+        p = self.audit(bundle=bundle)
+        self.assertNotEqual(p.returncode, 0, p.stdout)
+        self.assertIn('Cannot extract the bundled BusyBox', p.stdout)
+        self.assertNotIn('DTB SHA256 1/2:', p.stdout)
         self.assert_read_only(before)
 
     def test_hash_covers_concatenated_and_trailing_dtb_bytes(self):
