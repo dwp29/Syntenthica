@@ -42,6 +42,10 @@ def prepare(target: Path, source: Path) -> None:
     device.mkdir(parents=True)
     for file in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
         shutil.copy2(ASSETS / 'device' / file, device / file)
+    preflight = main / 'java/com/rifsxd/ksunext/ui/preflight'
+    preflight.mkdir(parents=True)
+    for file in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
+        shutil.copy2(ASSETS / 'preflight' / file, preflight / file)
     shutil.copytree(ASSETS / 'res', main / 'res', dirs_exist_ok=True)
     shutil.copytree(ASSETS / 'assets', main / 'assets', dirs_exist_ok=True)
     (main / 'res/values/strings_preview31.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
@@ -54,6 +58,9 @@ def prepare(target: Path, source: Path) -> None:
     tests = target / 'app/src/test/java/com/rifsxd/ksunext/ui/device'
     tests.mkdir(parents=True)
     shutil.copy2(ASSETS / 'preview/DeviceMathTest.kt', tests / 'DeviceMathTest.kt')
+    preflight_tests = target / 'app/src/test/java/com/rifsxd/ksunext/ui/preflight'
+    preflight_tests.mkdir(parents=True)
+    shutil.copy2(ASSETS / 'preview/PackagePreflightTest.kt', preflight_tests / 'PackagePreflightTest.kt')
 
 
 def main() -> None:

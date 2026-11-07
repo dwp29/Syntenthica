@@ -129,6 +129,28 @@ class Neon31Tests(unittest.TestCase):
         for forbidden in ('Build.SERIAL', 'getSerial(', 'TelephonyManager', 'ANDROID_ID', 'Manifest.permission'):
             self.assertNotIn(forbidden, device + summary)
 
+    def test_zip_preflight_is_bounded_and_not_a_security_scanner(self):
+        engine = (ASSETS / 'preflight/PackagePreflight.kt').read_text()
+        android = (ASSETS / 'preflight/AndroidZipPreflight.kt').read_text()
+        flow = (ASSETS / 'screen/FlashPreflight.kt').read_text()
+        for marker in ('512L * 1024L * 1024L', 'MAX_ENTRIES = 10_000', 'MAX_METADATA_BYTES = 64 * 1024',
+                       'PreflightProblem.UNSAFE_PATH', 'PreflightProblem.DUPLICATE_PATH',
+                       'PreflightProblem.AMBIGUOUS_TYPE', 'PreflightProblem.UNKNOWN_TYPE', 'SHA-256', 'ZipFile(file)'):
+            self.assertIn(marker, engine)
+        for marker in ('MAX_BATCH = 16', 'MAX_BATCH_BYTES = PackagePreflight.MAX_ARCHIVE_BYTES',
+                       'source.parentFile != root', 'PackagePreflight.matchesSha256(destination, expectedSha256)',
+                       'file.parentFile == root', 'STALE_MILLIS'):
+            self.assertIn(marker, android)
+        for marker in ('Dispatchers.IO', 'NonCancellable', 'AndroidZipPreflight.deleteReports',
+                       'reports.add(AndroidZipPreflight.inspect', 'dialog.awaitConfirm',
+                       'reports.map { it.sha256 }', '!request.allowAnyKernel', 'zip31_kernel_batch'):
+            self.assertIn(marker, flow)
+        for forbidden in ('Runtime.getRuntime().exec', 'ProcessBuilder', 'Shell.', 'execKsud', 'Natives.'):
+            self.assertNotIn(forbidden, engine + android + flow)
+        en = (ASSETS / 'res/values/strings_neon31.xml').read_text()
+        self.assertIn('not an antivirus, signature verification, or compatibility test', en)
+        self.assertIn('earlier modules remain installed', en)
+
     def test_translations_match_and_do_not_duplicate_keys(self):
         locales = []
         for locale in ('values', 'values-in-rID'):
@@ -161,10 +183,13 @@ class ActualPreparedSourceTests(unittest.TestCase):
             'manager/build.gradle.kts', 'manager/app/build.gradle.kts',
             'manager/app/src/main/java/com/rifsxd/ksunext/ui/MainActivity.kt',
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/screen/{name}' for name in (
-                'Home.kt', 'Customization.kt', 'Module.kt', 'ModuleRepo.kt', 'MetaModule.kt', 'DeviceCheckScreen.kt')),
+                'Home.kt', 'Customization.kt', 'Module.kt', 'ModuleRepo.kt', 'MetaModule.kt', 'DeviceCheckScreen.kt',
+                'Install.kt', 'Flash.kt', 'FlashPreflight.kt')),
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/theme/{name}' for name in (
                 'Color.kt', 'Glass.kt', 'Theme.kt', 'Type.kt', 'AppearanceControls.kt')),
             *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/device/{name}' for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt')),
+            *(f'manager/app/src/main/java/com/rifsxd/ksunext/ui/preflight/{name}' for name in ('PackagePreflight.kt', 'AndroidZipPreflight.kt')),
+            'manager/app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt',
             'manager/app/src/main/res/font/oxanium.ttf',
             'manager/app/src/main/res/values/strings_neon31.xml',
             'manager/app/src/main/res/values-in-rID/strings_neon31.xml',
@@ -195,6 +220,35 @@ class ActualPreparedSourceTests(unittest.TestCase):
             self.assertIn('LocalGlassStyle.current.isAmoled', text)
             self.assertNotIn('isSystemInDarkTheme()', text)
 
+    def test_all_zip_paths_are_preflighted_and_existing_commands_are_guarded(self):
+        ui = self.new / 'manager/app/src/main/java/com/rifsxd/ksunext/ui'
+        main = (ui / 'MainActivity.kt').read_text()
+        install = (ui / 'screen/Install.kt').read_text()
+        module = (ui / 'screen/Module.kt').read_text()
+        flash = (ui / 'screen/Flash.kt').read_text()
+        cli = (ui / 'util/KsuCli.kt').read_text()
+        for source in (main, install, module, flash):
+            self.assertNotIn('ZipUtils.isAnyKernel3Zip(', source)
+        self.assertIn('allowAnyKernel = uris.size == 1', main)
+        self.assertIn('allowAnyKernel = uris.size == 1', module)
+        self.assertIn('prepareZipInstall(context, flashIt, confirmDialog)', flash)
+        self.assertIn('pendingFlashIt = approved', flash)
+        self.assertIn('flashModulesSequentially(flashIt.uris, flashIt.approvedHashes', flash)
+        self.assertIn('flashIt.approvedHash,', flash)
+        self.assertIn('deleteApprovedZipStages(context, approved)', flash)
+        self.assertIn('resolvedFlashIt is FlashIt.FlashAnyKernel', flash)
+        self.assertIn('uris.size != approvedHashes.size', flash)
+        module_func = cli.split('fun flashModule(', 1)[1].split('fun runModuleAction(', 1)[0]
+        kernel_func = cli.split('fun flashAnyKernelZip(', 1)[1].split('fun rootAvailable(', 1)[0]
+        self.assertLess(module_func.index('copyVerified('), module_func.index('module install ${file.absolutePath}'))
+        self.assertIn('flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)', module_func)
+        self.assertLess(kernel_func.index('copyVerified('), kernel_func.index('val cmd ='))
+        self.assertLess(kernel_func.index('sha256sum -c -'), kernel_func.index('$BUSYBOX unzip -p'))
+        self.assertLess(kernel_func.index('$BUSYBOX unzip -p'), kernel_func.index('$BUSYBOX ash'))
+        self.assertNotIn('|| true', kernel_func)
+        self.assertEqual(flash.count('flashAnyKernelZip('), 1)
+        self.assertEqual(flash.count('flashModule('), 1)
+
     def test_preview_is_separate_and_shares_actual_ui_and_device_check(self):
         with tempfile.TemporaryDirectory(prefix='neon31-preview-test-') as temp:
             target = Path(temp) / 'preview'
@@ -205,6 +259,9 @@ class ActualPreparedSourceTests(unittest.TestCase):
             for name in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
                 self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/device' / name).read_bytes(),
                                  (ASSETS / 'device' / name).read_bytes())
+            for name in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
+                self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/preflight' / name).read_bytes(),
+                                 (ASSETS / 'preflight' / name).read_bytes())
             for name in ('Color.kt', 'Theme.kt', 'Glass.kt', 'Shapes.kt', 'Type.kt', 'AppearanceControls.kt'):
                 self.assertEqual((target / 'app/src/main/java/com/rifsxd/ksunext/ui/theme' / name).read_bytes(),
                                  (ASSETS / 'theme' / name).read_bytes())

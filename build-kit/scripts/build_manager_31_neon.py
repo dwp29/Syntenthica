@@ -19,6 +19,8 @@ sys.path.insert(0, str(ROOT / 'build-kit/scripts'))
 import build_manager_30_neon as previous
 
 ASSETS = ROOT / 'build-kit/ci/ksun-neon31'
+sys.path.insert(0, str(ASSETS))
+import preflight_patch as zip_patch
 VERSION_NAME = '3.1.0'
 VERSION_CODE = 41000
 APP_ID = previous.APP_ID
@@ -122,7 +124,12 @@ def copy_ui_assets(src: Path) -> None:
     device.mkdir(parents=True, exist_ok=True)
     for file in ('DeviceCheck.kt', 'DeviceMath.kt', 'DeviceSummary.kt'):
         shutil.copy2(ASSETS / 'device' / file, device / file)
+    preflight = app / 'java/com/rifsxd/ksunext/ui/preflight'
+    preflight.mkdir(parents=True, exist_ok=True)
+    for file in ('PackagePreflight.kt', 'AndroidZipPreflight.kt'):
+        shutil.copy2(ASSETS / 'preflight' / file, preflight / file)
     shutil.copy2(ASSETS / 'screen/DeviceCheckScreen.kt', app / 'java/com/rifsxd/ksunext/ui/screen/DeviceCheckScreen.kt')
+    shutil.copy2(ASSETS / 'screen/FlashPreflight.kt', app / 'java/com/rifsxd/ksunext/ui/screen/FlashPreflight.kt')
     shutil.copytree(ASSETS / 'res', app / 'res', dirs_exist_ok=True)
     shutil.copytree(ASSETS / 'assets', app / 'assets', dirs_exist_ok=True)
 
@@ -145,6 +152,11 @@ def prepare_tree(src: Path) -> None:
     patch_navigation_motion(java / 'MainActivity.kt')
     for file in ('Module.kt', 'ModuleRepo.kt', 'MetaModule.kt'):
         patch_theme_aware_banner(java / 'screen' / file)
+    zip_patch.patch_module(java / 'screen/Module.kt')
+    zip_patch.patch_install(java / 'screen/Install.kt')
+    zip_patch.patch_main(java / 'MainActivity.kt')
+    zip_patch.patch_flash(java / 'screen/Flash.kt')
+    zip_patch.patch_ksu_cli(java / 'util/KsuCli.kt')
     for locale in ('values', 'values-in-rID'):
         path = app / 'res' / locale / 'strings_synthetica.xml'
         text = path.read_text(encoding='utf-8')

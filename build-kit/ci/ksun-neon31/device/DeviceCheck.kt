@@ -124,10 +124,11 @@ private fun discoverGpuNodes(): List<GpuNode> {
         GpuNode(File("/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq"), File("/sys/class/kgsl/kgsl-3d0/devfreq/governor")),
     )
     val candidates = runCatching {
-        File("/sys/class/devfreq").listFiles()?.sortedBy { it.name }?.take(64).orEmpty()
+        File("/sys/class/devfreq").listFiles()?.filter {
+            it.name.contains("mali", true) || it.name.contains("gpu", true) || it.name.contains("kgsl", true)
+        }?.sortedBy { it.name }?.take(8).orEmpty()
     }.getOrDefault(emptyList())
-    candidates.filter { it.name.contains("mali", true) || it.name.contains("gpu", true) || it.name.contains("kgsl", true) }
-        .forEach { nodes.add(GpuNode(File(it, "cur_freq"), File(it, "governor"))) }
+    candidates.forEach { nodes.add(GpuNode(File(it, "cur_freq"), File(it, "governor"))) }
     return nodes.distinctBy { it.frequency.absolutePath }
 }
 
@@ -141,11 +142,12 @@ private fun readPerformance(nodes: List<GpuNode>): PerformanceInfo {
     for (node in nodes) {
         val hz = parseGpuFrequencyHz(readKernelLine(node.frequency))
         val gov = parseGovernor(readKernelLine(node.governor))
-        if (hz != null || gov != null) {
+        if (hz != null) {
             gpuHz = hz
             governor = gov
             break
         }
+        if (governor == null) governor = gov
     }
     fun pressure(kind: String): Double? = parsePressureAvg10(readKernelLine(File("/proc/pressure/$kind")))
     return PerformanceInfo(
