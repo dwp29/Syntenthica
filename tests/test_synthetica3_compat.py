@@ -213,6 +213,9 @@ class AuditScriptTests(unittest.TestCase):
             ('CMDLINE=/proc/cmdline', f'CMDLINE={shlex.quote(str(self.cmdline))}'),
             ('PRIMARY=/dev/block/bootdevice/by-name', f'PRIMARY={shlex.quote(str(self.base))}'),
             ('SECONDARY=/dev/block/by-name', f'SECONDARY={shlex.quote(str(self.other))}'),
+            # BusyBox ash may resolve its own applet before the fixture in PATH.
+            # Pin the test fallback explicitly; the ZIP-extraction path remains unchanged.
+            ('BB=$(command -v busybox)', f'BB={shlex.quote(str(self.bin / "busybox"))}'),
             ('[ ! -b "$BLOCK" ]', '[ ! -f "$BLOCK" ]'),
             ('[ -b "$BLOCK" ]', '[ -f "$BLOCK" ]'),
         ):
@@ -236,8 +239,10 @@ case "$1" in
 esac
 ''')
         prop.chmod(0o755)
-        self.wrapper_bb('/usr/bin/busybox')
-        self.shell = ['/usr/bin/busybox', 'ash']
+        host_busybox = shutil.which('busybox')
+        assert host_busybox
+        self.wrapper_bb(host_busybox)
+        self.shell = [host_busybox, 'ash']
 
     def wrapper_bb(self, command: str):
         wrapper = self.bin / 'busybox'
@@ -251,7 +256,7 @@ if [ "$1" = dd ] && [ "${SHORT_DTB-}" = 1 ]; then
     case "$arg" in of=*/dtb.bin) printf X > "${arg#of=}"; exit 0;; esac
   done
 fi
-exec ''' + command + ''' "$@"
+exec ''' + shlex.quote(command) + ''' "$@"
 ''')
         wrapper.chmod(0o755)
 
