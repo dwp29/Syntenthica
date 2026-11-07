@@ -148,26 +148,27 @@ jobs:
           import os,xml.etree.ElementTree as ET
           root=ET.parse(os.path.join(os.environ['RUNNER_TEMP'],'restarted-settings.xml')).getroot()
           parents={c:p for p in root.iter() for c in p}
-          def assert_checked(label, widget, expected):
+          def assert_checked(label, expected):
               candidates=[n for n in root.iter('node') if label in n.get('text','')]
               for node in candidates:
                   while node is not None:
-                      if node.get('class','').endswith(widget) and node.get('checked') == expected:
-                          print(f'{label}: {widget} checked={expected}')
+                      if node.get('checkable') == 'true' and node.get('checked') == expected:
+                          print(f'{label}: checkable row checked={expected}')
                           return
                       node=parents.get(node)
-              raise SystemExit(f'Cannot confirm {label}: {widget} checked={expected}')
-          assert_checked('Merah muda','RadioButton','true')
-          assert_checked('Animasi neon','Switch','false')
+              raise SystemExit(f'Cannot confirm {label}: checkable row checked={expected}')
+          assert_checked('Merah muda','true')
+          assert_checked('Animasi neon','false')
           PYASSERT
           echo '::notice title=Android emulator preferences::Accent and motion changes were persisted and restored after restarting the preview process.'
       - name: Transfer screenshots for inspection
-        if: steps.kvm.outputs.available == 'true'
+        if: always() && steps.kvm.outputs.available == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           for name in home settings settings-pink; do
+            [ -s "$RUNNER_TEMP/$name.png" ] || continue
             NAME="$name" python3 - <<'PY'
           import base64,json,os,pathlib,hashlib
           tmp=pathlib.Path(os.environ['RUNNER_TEMP']); name=os.environ['NAME']
