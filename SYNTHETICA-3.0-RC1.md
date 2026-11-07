@@ -16,8 +16,15 @@ sebelumnya, bukan pengujian image 3.0-rc1 yang baru.
 
 Kamera **0.6× freeze** menurut pengguna, juga pernah terjadi pada beberapa
 kernel lain. Tidak ada perubahan driver/HAL kamera atau klaim perbaikan kamera
-pada kandidat ini. Nama dan versi aplikasi kamera, perilaku pada kernel bawaan
-ROM, serta log saat freeze dibutuhkan sebelum menentukan penyebabnya.
+pada kandidat ini. Secara statis config eksperimen memuat `SPECTRA_CAMERA=y`;
+Makefile source memasukkan komponen sensor, CCI dan request manager ke jalur
+itu. Installer mempertahankan DTB boot yang ada, bukan memasang DTB baru. Pada
+perbandingan referensi yang terbatas, `cam_sensor_dev.c` identik dengan
+LineageOS `lineage-22.2@803b55865869df8558ef07f51bfb8182d95d08ed`, sedangkan
+`cam_sensor_core.c` berbeda pada pemeriksaan null dan komentar copyright saja.
+LineageOS bukan bukti source/ROM yang sedang terpasang dan perbandingan ini
+tidak menentukan penyebab freeze. Nama dan versi aplikasi kamera, perilaku pada
+kernel bawaan ROM, serta log saat freeze dibutuhkan untuk diagnosis.
 
 Konfigurasi kandidat diaudit agar sama dengan konfigurasi Neutron MGLRU-on yang
 dilaporkan boot, **kecuali `LOCALVERSION`**. Ini mempertahankan MGLRU default-on,
@@ -36,11 +43,18 @@ global semua proses. Nilai `0` berarti tidak ada filter pada thread itu, nilai
 Pada source KernelSU-Next yang dipin, `ksu_handle_setresuid()` untuk kernel di
 bawah 5.10 memang memanggil `disable_seccomp(current)` pada cabang UID Manager.
 Dalam cabang yang sama, driver FD Manager dijadwalkan melalui task work; kode JNI
-Manager yang dipin mencari FD tersebut di `/proc/self/fd`. Patch 3.0-rc1 hanya
-menghapus pematian filter pada cabang **Manager**; injeksi FD, pemeriksaan
-identitas, serta jalur root tetap tidak diubah. Patch mempertahankan filter jika
-ROM benar-benar memasangnya; patch tidak membuat filter jika belum ada, dan
-tidak memalsukan tampilan Manager.
+Manager yang dipin mencari FD tersebut di `/proc/self/fd`. Pada referensi AOSP
+Android 16 [`frameworks/base@99b01a65`](https://github.com/aosp-mirror/platform_frameworks_base/blob/99b01a65cc4c104933788b3143285ab6bae65827/core/jni/com_android_internal_os_Zygote.cpp),
+filter aplikasi dipasang sebelum `setresuid` bila security enforcement aktif.
+Pada referensi [`bionic@09a271af`](https://github.com/aosp-mirror/platform_bionic/blob/09a271af557444c9a6b3f3146d6d474156fd6cdb/libc/SECCOMP_BLOCKLIST_APP.TXT),
+`reboot` diblokir, sedangkan `ioctl`/`execve` tidak ada dalam blocklist yang
+diperiksa. Ini mendukung jalur FD, tetapi tidak membuktikan policy ROM atau
+keseluruhan perilaku Manager yang terpasang.
+
+Patch 3.0-rc1 hanya menghapus pematian filter pada cabang **Manager**; injeksi
+FD, pemeriksaan identitas, serta jalur root tetap tidak diubah. Patch
+mempertahankan filter jika ROM benar-benar memasangnya; patch tidak membuat
+filter jika belum ada, dan tidak memalsukan tampilan Manager.
 
 **Ini bukan perbaikan SECCOMP global.** Cabang untuk beberapa aplikasi yang
 sudah diizinkan root pada kernel 4.14 masih dapat mematikan filter saat

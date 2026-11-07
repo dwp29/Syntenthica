@@ -17,7 +17,7 @@ permissions:
   contents: write  # Unreferenced evidence blob only; no branch writes.
 
 concurrency:
-  group: synthetica3-rc1-${{ github.ref }}
+  group: synthetica3-rc1-${{ github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -137,6 +137,31 @@ jobs:
           echo "S3RC_EVIDENCE_DIR=$RUNNER_TEMP/s3rc-result" >> "$GITHUB_ENV"
       - name: Test candidate package reproducibility and tamper rejection
         run: python3 -m unittest discover -s tests -p 'test_synthetica3_rc_installer.py' -v
+      - name: Pre-test evidence transfer for debugging (not a flash recommendation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, zipfile
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP'])
+          out=t/'transfer.zip'
+          members=[t/'Synthetica-3.0-rc1-Neutron-MGLRU-on-TEST.zip']
+          members += [t/'s3rc-result'/n for n in ('STATUS.json','generated.config.txt','module-signing-public-cert.x509','Module.symvers','System.map')]
+          with zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for p in members:
+                  z.write(p,p.name)
+          data=out.read_bytes()
+          (t/'blob-input.json').write_text(json.dumps({'content':base64.b64encode(data).decode('ascii'),'encoding':'base64'}))
+          print('::notice title=3.0 PRETEST transfer ZIP SHA256::' + hashlib.sha256(data).hexdigest())
+          print('::notice title=3.0 PRETEST candidate ZIP SHA256::' + hashlib.sha256(members[0].read_bytes()).hexdigest())
+          PY
+          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/blob-input.json" --jq .sha)
+          test "${#blob}" = 40
+          printf "%s\n" "$blob" > "$RUNNER_TEMP/transfer-blob.sha"
+          echo "::notice title=3.0 PRETEST transfer Git blob::$blob"
+          echo '::notice title=Scope::Pre-test transfer only. Do not distribute or flash unless all later synthetic checks pass.'
       - name: Prepare ARM tools and synthetic AVB fixture tool
         env:
           GH_TOKEN: ${{ github.token }}
@@ -160,7 +185,7 @@ jobs:
           S2_ANYKERNEL: ${{ runner.temp }}/candidate-anykernel.sh
         run: |
           set +e
-          python3 -m unittest discover -s tests -p 'test_synthetica2_installer_qemu.py' -v > "$RUNNER_TEMP/qemu-test.log" 2>&1
+          timeout -k 10s 180s python3 -m unittest discover -s tests -p 'test_synthetica2_installer_qemu.py' -v > "$RUNNER_TEMP/qemu-test.log" 2>&1
           rc=$?
           set -e
           cat "$RUNNER_TEMP/qemu-test.log"
@@ -178,7 +203,7 @@ jobs:
       - name: Test actual candidate writer on a synthetic loop-backed boot
         run: |
           set +e
-          (cd tests && sudo env S2_QEMU_INTEGRATION=1 S2_LOOP_WRITER=1 \
+          (cd tests && timeout -k 10s 180s sudo env S2_QEMU_INTEGRATION=1 S2_LOOP_WRITER=1 \
             S2_IMAGE="$RUNNER_TEMP/s3rc-result/Image.gz.DO-NOT-FLASH" S2_ARM_BB="$RUNNER_TEMP/arm/busybox" \
             S2_ARM_MAGISKBOOT="$RUNNER_TEMP/arm/magiskboot" S2_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
             S2_ANYKERNEL="$RUNNER_TEMP/candidate-anykernel.sh" \
@@ -186,6 +211,10 @@ jobs:
           rc=$?
           set -e
           cat "$RUNNER_TEMP/loop-test.log"
+          if grep -Eq 'OK \(skipped=|\.\.\. skipped ' "$RUNNER_TEMP/loop-test.log"; then
+            echo '::error title=Loop writer test skipped::The candidate writer was not exercised; no verified installer will be published.'
+            rc=1
+          fi
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -208,29 +237,13 @@ jobs:
             ${{ runner.temp }}/s3rc-result/System.map
           if-no-files-found: error
           retention-days: 7
-      - name: Transfer tested package via an unreferenced Git blob
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Record verified candidate identity after all synthetic tests
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import base64, hashlib, json, os, zipfile
-          from pathlib import Path
-          t=Path(os.environ['RUNNER_TEMP'])
-          out=t/'transfer.zip'
-          members=[t/'Synthetica-3.0-rc1-Neutron-MGLRU-on-TEST.zip']
-          members += [t/'s3rc-result'/n for n in ('STATUS.json','generated.config.txt','module-signing-public-cert.x509','Module.symvers','System.map')]
-          with zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
-              for p in members:
-                  z.write(p,p.name)
-          data=out.read_bytes()
-          (t/'blob-input.json').write_text(json.dumps({'content':base64.b64encode(data).decode('ascii'),'encoding':'base64'}))
-          print('::notice title=3.0 transfer ZIP SHA256::' + hashlib.sha256(data).hexdigest())
-          print('::notice title=3.0 candidate ZIP SHA256::' + hashlib.sha256(members[0].read_bytes()).hexdigest())
-          PY
-          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/blob-input.json" --jq .sha)
+          blob=$(cat "$RUNNER_TEMP/transfer-blob.sha")
           test "${#blob}" = 40
-          echo "::notice title=3.0 transfer Git blob::$blob"
+          echo "::notice title=3.0 verified transfer Git blob::$blob"
+          sha256sum "$RUNNER_TEMP/transfer.zip" "$RUNNER_TEMP/Synthetica-3.0-rc1-Neutron-MGLRU-on-TEST.zip"
           echo '::notice title=Scope::Synthetic files and ARM emulation only. No device boot, actual root, seccomp, camera, ROM module trust or AVB validation was performed for this image.'
       - name: Preserve diagnostics on failure
         if: failure()
