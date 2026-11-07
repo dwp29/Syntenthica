@@ -101,9 +101,9 @@ private fun reportText(context: Context, report: PackageReport, total: Int): Str
     appendLine(context.getString(R.string.zip31_sha, report.sha256))
     if (report.kind == PackageKind.MODULE) {
         appendLine(context.getString(R.string.zip31_id, report.metadata["id"] ?: unavailable))
-        appendLine(context.getString(R.string.zip31_name, report.metadata["name"] ?: unavailable))
-        appendLine(context.getString(R.string.zip31_version, report.metadata["version"] ?: unavailable))
-        appendLine(context.getString(R.string.zip31_author, report.metadata["author"] ?: unavailable))
+        appendLine(context.getString(R.string.zip31_name, report.metadata["name"]?.takeIf { it.isNotBlank() } ?: unavailable))
+        appendLine(context.getString(R.string.zip31_version, report.metadata["version"]?.takeIf { it.isNotBlank() } ?: unavailable))
+        appendLine(context.getString(R.string.zip31_author, report.metadata["author"]?.takeIf { it.isNotBlank() } ?: unavailable))
     }
     appendLine()
     if (total > 1) appendLine(context.getString(R.string.zip31_batch_warning))
