@@ -35,4 +35,20 @@ jobs:
           command -v gcc
           command -v openssl
       - name: Run synthetic and public-bundle tests only
-        run: python3 -m unittest discover -s tests -p 'test_synthetica3_*.py' -v
+        run: |
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica3_*.py' -v > "$RUNNER_TEMP/host-tests.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/host-tests.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP']) / 'host-tests.log').read_text(errors='replace')[-16000:]
+          for i in range(0, len(text), 1800):
+              s = text[i:i + 1800].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=Host test diagnostics {i // 1800 + 1}::{s}')
+          PY
+          fi
+          exit "$rc"
