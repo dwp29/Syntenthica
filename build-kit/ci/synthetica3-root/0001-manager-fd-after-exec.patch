@@ -1,0 +1,64 @@
+diff --git a/fs/exec.c b/fs/exec.c
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1718,6 +1718,7 @@
+ __attribute__((hot))
+ extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
+ 			       void *argv, void *envp, int *flags);
++extern void ksu_install_manager_exec_fd(const char *filename);
+ #endif
+ 
+ static int __do_execve_file(int fd, struct filename *filename,
+@@ -1853,6 +1854,12 @@
+ 	if (retval < 0)
+ 		goto out;
+ 
++#ifdef CONFIG_KSU
++	/* CLOEXEC descriptors are gone: only the verified Manager's helper
++	 * can receive a new ordinary, close-on-exec driver fd here. */
++	ksu_install_manager_exec_fd(bprm->filename);
++#endif
++
+ 	/* execve succeeded */
+ 	current->fs->in_exec = 0;
+ 	current->in_execve = 0;
+diff --git a/KernelSU-Next/kernel/supercall/supercall.c b/KernelSU-Next/kernel/supercall/supercall.c
+--- a/KernelSU-Next/kernel/supercall/supercall.c
++++ b/KernelSU-Next/kernel/supercall/supercall.c
+@@ -6,6 +6,7 @@
+ #include <linux/kprobes.h>
+ #include <linux/pid.h>
+ #include <linux/slab.h>
++#include <linux/string.h>
+ #include <linux/syscalls.h>
+ #include <linux/task_work.h>
+ #include <linux/uaccess.h>
+@@ -102,6 +103,28 @@
+     return ksu_install_fd_with_permissions(O_CLOEXEC, KSU_DRIVER_PERMISSION_SU_SESSION);
+ }
+ 
++/*
++ * The Manager's libksud.so starts via exec, which closes the Manager's
++ * original O_CLOEXEC driver fd. Give this one recognized UID a fresh *normal*
++ * fd only after a successful helper exec. The ioctl layer still applies its
++ * existing caller checks, and this fd also closes on the next exec. Do not
++ * grant a su-session fd or change the inherited seccomp filter.
++ */
++void ksu_install_manager_exec_fd(const char *filename)
++{
++	const char *name;
++
++	if (!filename || !ksu_is_manager_appid_valid() || !is_manager())
++		return;
++
++	name = strrchr(filename, '/');
++	if (!name || strcmp(name + 1, "libksud.so"))
++		return;
++
++	if (ksu_install_fd() < 0)
++		pr_warn("ksu: could not install Manager helper fd after exec\n");
++}
++
+ bool ksu_is_su_session_fd(const struct file *filp)
+ {
+     const struct ksu_driver_context *context = filp->private_data;

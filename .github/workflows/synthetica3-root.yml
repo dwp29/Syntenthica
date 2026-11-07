@@ -1,0 +1,235 @@
+name: "Synthetica 3.0 - Manager root candidate and guarded recovery ZIP"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica3-root.yml'
+      - 'build-kit/ci/synthetica3-root/**'
+      - 'build-kit/scripts/build_synthetica3_root.py'
+      - 'build-kit/scripts/package_synthetica3_root.py'
+      - 'tests/test_synthetica3_root.py'
+      - 'tests/test_synthetica3_root_installer.py'
+      - 'tests/fixtures/synthetica3-root/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Unreferenced evidence blob only; no branch writes.
+
+concurrency:
+  group: synthetica3-root-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out triggering commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install host and synthetic recovery tools
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler \
+            cpio lz4 xz-utils zstd python3 patch openssl zip unzip rsync git curl binutils kmod \
+            busybox qemu-user-static
+      - name: Fetch pinned, user-tested 2.0 experiment config
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/d5e292c91a36c7706deedfdb9f1ca8b7a703ee3e" > "$RUNNER_TEMP/old-evidence.zip"
+          echo '742068c09eb99f6eb37d55aa3ee1bca9ee156db592d10d3d901fca738900dabc  '"$RUNNER_TEMP/old-evidence.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/old-evidence.zip" generated.config.txt > "$RUNNER_TEMP/tested.config"
+          echo 'c72503550d74446f5af3573288b4e93dc1407854c5df338d20681d1866ccb96c  '"$RUNNER_TEMP/tested.config" | sha256sum -c -
+          echo "S3RC_TESTED_CONFIG=$RUNNER_TEMP/tested.config" >> "$GITHUB_ENV"
+      - name: Download and verify pinned Neutron toolchain
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
+          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
+          test "$(stat -c %s "$archive")" = 77768187
+          mkdir "$RUNNER_TEMP/neutron"
+          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
+          "$RUNNER_TEMP/neutron/bin/clang" --version
+          "$RUNNER_TEMP/neutron/bin/ld.lld" --version
+          echo "S2X_TOOLCHAIN_BIN=$RUNNER_TEMP/neutron/bin" >> "$GITHUB_ENV"
+      - name: Run offline source, seccomp and installer guards
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica2_experimental.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_rc.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_rc_installer.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_rc_runner.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_root.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_root_installer.py' -v
+      - name: Prepare isolated 3.0 root-path candidate kit
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica3_root.py prepare --source build-kit \
+            --destination "$RUNNER_TEMP/s3rc-kit" --baseline artifacts/generated.config.txt
+      - name: Compile 3.0 Manager root-path candidate and same-build modules
+        timeout-minutes: 75
+        env:
+          SP_JOBS: '4'
+          SP_RELEASE_VERSION: '3.0'
+          SP_PROFILE: synthetica
+          SP_BUILD_NAME: synthetica
+          SP_BUILD_KVER: '3.0'
+          SP_EXPECT_RELEASE: 4.14.357-openela-synthetica-3.0
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          export SP_WORK_DIR="$RUNNER_TEMP/s3rc-work"
+          export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica3_root.py"
+          export S2X_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          if ! python3 "$RUNNER_TEMP/s3rc-kit/scripts/build_chronicle_base.py"; then
+            python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP']) / 's3rc-kit/artifacts/build.log'
+          text = log.read_text(errors='replace') if log.exists() else 'No build.log was written'
+          rows = text.splitlines()
+          matches = [i for i, row in enumerate(rows) if re.search(
+              r'error:|fatal error|undefined reference|\bFAIL\b|missing .*tool|not found|No rule to make target|refused', row, re.I)]
+          chosen = []
+          for i in matches[-12:]:
+              chosen.extend(rows[max(0, i-1):min(len(rows), i+3)])
+          text = '\n'.join(dict.fromkeys(chosen or rows[-40:]))[-12000:]
+          text = re.sub(r'https?://\S+', '<url>', text)
+          text = re.sub(r'\x1b\[[0-9;]*[A-Za-z]', '', text)
+          for part, start in enumerate(range(0, len(text), 2400), 1):
+              chunk = text[start:start+2400].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=3.0 candidate build diagnostic ' + str(part) + '::' + chunk)
+          PY
+            exit 1
+          fi
+      - name: Verify image, configuration, source, Manager and module evidence
+        run: |
+          set -euo pipefail
+          if ! python3 build-kit/scripts/build_synthetica3_root.py finish \
+            --kit "$RUNNER_TEMP/s3rc-kit" --out "$RUNNER_TEMP/s3rc-work/tree/out-synthetica" \
+            --baseline artifacts/generated.config.txt --tested-config "$S3RC_TESTED_CONFIG" \
+            --result "$RUNNER_TEMP/s3rc-result" --toolchain-bin "$S2X_TOOLCHAIN_BIN" \
+            --neutron-archive "$RUNNER_TEMP/neutron-clang-06092026.tar.zst" 2> "$RUNNER_TEMP/finish-error.txt"; then
+            cat "$RUNNER_TEMP/finish-error.txt"
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = (Path(os.environ['RUNNER_TEMP'])/'finish-error.txt').read_text(errors='replace')[-3000:]
+          print('::error title=3.0 verification diagnostic::' + text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY
+            exit 1
+          fi
+      - name: Create guarded test installer from verified evidence
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_synthetica3_root.py \
+            --result "$RUNNER_TEMP/s3rc-result" --tested-config "$S3RC_TESTED_CONFIG" \
+            --output "$RUNNER_TEMP/synthetica-3.0.zip"
+          echo "S3RC_EVIDENCE_DIR=$RUNNER_TEMP/s3rc-result" >> "$GITHUB_ENV"
+      - name: Test candidate package reproducibility and tamper rejection
+        env:
+          S3ROOT_EVIDENCE_DIR: ${{ runner.temp }}/s3rc-result
+        run: python3 -m unittest discover -s tests -p 'test_synthetica3_root_installer.py' -v
+      - name: Pre-test evidence transfer for debugging (not a flash recommendation)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, zipfile
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP'])
+          out=t/'transfer.zip'
+          members=[t/'synthetica-3.0.zip']
+          members += [t/'s3rc-result'/n for n in ('STATUS.json','generated.config.txt','module-signing-public-cert.x509','Module.symvers','System.map')]
+          with zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for p in members:
+                  z.write(p,p.name)
+          data=out.read_bytes()
+          (t/'blob-input.json').write_text(json.dumps({'content':base64.b64encode(data).decode('ascii'),'encoding':'base64'}))
+          print('::notice title=3.0 PRETEST transfer ZIP SHA256::' + hashlib.sha256(data).hexdigest())
+          print('::notice title=3.0 PRETEST candidate ZIP SHA256::' + hashlib.sha256(members[0].read_bytes()).hexdigest())
+          PY
+          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/blob-input.json" --jq .sha)
+          test "${#blob}" = 40
+          printf "%s\n" "$blob" > "$RUNNER_TEMP/transfer-blob.sha"
+          echo "::notice title=3.0 PRETEST transfer Git blob::$blob"
+          echo '::notice title=Scope::Pre-test transfer only. Do not distribute or flash unless all later synthetic checks pass.'
+      - name: Prepare ARM tools and synthetic AVB fixture tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api 'repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5' --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
+          mkdir "$RUNNER_TEMP/arm"
+          zip="$RUNNER_TEMP/synthetica-3.0.zip"
+          unzip -p "$zip" tools/busybox > "$RUNNER_TEMP/arm/busybox"
+          unzip -p "$zip" tools/magiskboot > "$RUNNER_TEMP/arm/magiskboot"
+          unzip -p "$zip" anykernel.sh > "$RUNNER_TEMP/candidate-anykernel.sh"
+          chmod 755 "$RUNNER_TEMP/arm/busybox" "$RUNNER_TEMP/arm/magiskboot"
+      - name: Test candidate boot-v2 repacking under ARM/QEMU
+        env:
+          S2_QEMU_INTEGRATION: '1'
+          S2_IMAGE: ${{ runner.temp }}/s3rc-result/Image.gz.DO-NOT-FLASH
+          S2_ARM_BB: ${{ runner.temp }}/arm/busybox
+          S2_ARM_MAGISKBOOT: ${{ runner.temp }}/arm/magiskboot
+          S2_AVBTOOL: ${{ runner.temp }}/avbtool.py
+          S2_ANYKERNEL: ${{ runner.temp }}/candidate-anykernel.sh
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/run_synthetica3_rc_qemu.py --suite repack --timeout 75 2>&1 | tee "$RUNNER_TEMP/qemu-test.log"
+      - name: Test actual candidate writer on a synthetic loop-backed boot
+        run: |
+          set -euo pipefail
+          sudo env S2_QEMU_INTEGRATION=1 S2_LOOP_WRITER=1 \
+            S2_IMAGE="$RUNNER_TEMP/s3rc-result/Image.gz.DO-NOT-FLASH" S2_ARM_BB="$RUNNER_TEMP/arm/busybox" \
+            S2_ARM_MAGISKBOOT="$RUNNER_TEMP/arm/magiskboot" S2_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
+            S2_ANYKERNEL="$RUNNER_TEMP/candidate-anykernel.sh" \
+            python3 build-kit/scripts/run_synthetica3_rc_qemu.py --suite writer --timeout 90 2>&1 | tee "$RUNNER_TEMP/loop-test.log"
+      - name: Upload candidate and compile evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica-3.0-candidate-and-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/synthetica-3.0.zip
+            ${{ runner.temp }}/s3rc-result/STATUS.json
+            ${{ runner.temp }}/s3rc-result/generated.config.txt
+            ${{ runner.temp }}/s3rc-result/module-signing-public-cert.x509
+            ${{ runner.temp }}/s3rc-result/Module.symvers
+            ${{ runner.temp }}/s3rc-result/System.map
+          if-no-files-found: error
+          retention-days: 7
+      - name: Record verified candidate identity after all synthetic tests
+        run: |
+          set -euo pipefail
+          blob=$(cat "$RUNNER_TEMP/transfer-blob.sha")
+          test "${#blob}" = 40
+          echo "::notice title=3.0 verified transfer Git blob::$blob"
+          sha256sum "$RUNNER_TEMP/transfer.zip" "$RUNNER_TEMP/synthetica-3.0.zip"
+          echo '::notice title=Scope::Synthetic files and ARM emulation only. No device boot, actual root, seccomp, camera, ROM module trust or AVB validation was performed for this image.'
+      - name: Preserve diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica-3.0-candidate-FAILED-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s3rc-kit/artifacts/build.log
+            ${{ runner.temp }}/s3rc-kit/artifacts/FAILED.txt
+            ${{ runner.temp }}/finish-error.txt
+            ${{ runner.temp }}/qemu-test.log
+            ${{ runner.temp }}/loop-test.log
+          if-no-files-found: warn
+          retention-days: 7

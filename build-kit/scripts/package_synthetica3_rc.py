@@ -102,7 +102,8 @@ Resep dan patch: https://github.com/dwp29/Syntenthica/tree/arena/96cbd65a-synten
 '''
 
 
-def collect(result: Path, tested_config: Path) -> dict[str, bytes]:
+def collect(result: Path, tested_config: Path, *,
+            expected_kind: str = 'SYNTHETICA_3_RC1_COMPILED_ONLY_DO_NOT_FLASH') -> dict[str, bytes]:
     build.check_inputs()
     if result.is_symlink() or not result.is_dir():
         raise ValueError('compile evidence must be an existing non-symlink directory')
@@ -115,7 +116,7 @@ def collect(result: Path, tested_config: Path) -> dict[str, bytes]:
     if not (8_000_000 < len(image) <= 25_000_000 and len(config) <= 1_000_000):
         raise ValueError('unexpected image or config size')
     image_sha = sha(image)
-    if (status.get('kind') != 'SYNTHETICA_3_RC1_COMPILED_ONLY_DO_NOT_FLASH'
+    if (status.get('kind') != expected_kind
             or status.get('release') != build.EXPECTED_RELEASE
             or status.get('image_sha256') != image_sha
             or status.get('config_sha256') != sha(config)
