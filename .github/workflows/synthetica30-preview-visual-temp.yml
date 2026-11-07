@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica30-neon-preview-42345128537
-          run-id: 42345128537
+          name: synthetica30-neon-preview-42347623465
+          run-id: 42347623465
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/preview-artifact
       - uses: actions/setup-java@v4
@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           APK="$RUNNER_TEMP/preview-artifact/Synthetica-3.0-Neon-PREVIEW-NOT-MANAGER.apk"
-          echo 'd7329d7807612e16a6c4477f08530ce742f1e3be5ce82cc3a92c6f5e91d391f3  '"$APK" | sha256sum -c -
+          echo 'aab692aea781154d68a8cfaedeb7236674f6e033a979b6aa5420b81757993e48  '"$APK" | sha256sum -c -
           emulator -avd neon-preview -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/emulator.log" 2>&1 &
           emulator_pid=$!
           sleep 12
@@ -97,13 +97,77 @@ jobs:
           grep -q 'Animasi neon' "$RUNNER_TEMP/settings.xml"
           adb exec-out screencap -p > "$RUNNER_TEMP/settings.png"
           echo '::notice title=Android emulator preview::API 35 preview launched and navigation to neon settings passed; root Manager was not tested.'
+      - name: Exercise accent and motion preferences across process restart
+        if: steps.kvm.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTAP'
+          import os,re,subprocess,xml.etree.ElementTree as ET
+          root=ET.parse(os.path.join(os.environ['RUNNER_TEMP'],'settings.xml')).getroot()
+          for text in ('Merah muda', 'Animasi neon'):
+              nodes=[n for n in root.iter('node') if text in n.get('text','')]
+              if not nodes: raise SystemExit(f'Settings label not found: {text}')
+              def rect(n):
+                  m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', n.get('bounds',''))
+                  if not m: raise ValueError('invalid bounds')
+                  return [int(v) for v in m.groups()]
+              # A text descendant is sufficient: tapping it bubbles to the selectable row.
+              target=min(nodes,key=lambda n:(rect(n)[2]-rect(n)[0])*(rect(n)[3]-rect(n)[1]))
+              x1,y1,x2,y2=rect(target)
+              subprocess.run(['adb','shell','input','tap',str((x1+x2)//2),str((y1+y2)//2)],check=True)
+          PYTAP
+          sleep 3
+          adb shell run-as net.ember.labs.neonpreview cat shared_prefs/settings.xml > "$RUNNER_TEMP/preferences-before-restart.xml"
+          grep -F '<string name="neon_accent">pink</string>' "$RUNNER_TEMP/preferences-before-restart.xml"
+          grep -F '<boolean name="neon_motion" value="false"' "$RUNNER_TEMP/preferences-before-restart.xml"
+          adb shell am force-stop net.ember.labs.neonpreview
+          adb shell am start -W -n 'net.ember.labs.neonpreview/com.rifsxd.ksunext.PreviewActivity'
+          sleep 4
+          adb shell uiautomator dump /sdcard/neon-restarted-home.xml > /dev/null
+          adb exec-out cat /sdcard/neon-restarted-home.xml > "$RUNNER_TEMP/restarted-home.xml"
+          python3 - <<'PYTAP'
+          import os,re,subprocess,xml.etree.ElementTree as ET
+          root=ET.parse(os.path.join(os.environ['RUNNER_TEMP'],'restarted-home.xml')).getroot()
+          nodes=[n for n in root.iter('node') if n.get('text')=='Setelan']
+          if not nodes: raise SystemExit('Settings tab not found after restart')
+          def rect(n):
+              m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',n.get('bounds',''))
+              if not m: raise ValueError('invalid bounds')
+              return [int(v) for v in m.groups()]
+          target=max(nodes,key=lambda n:rect(n)[3]); x1,y1,x2,y2=rect(target)
+          subprocess.run(['adb','shell','input','tap',str((x1+x2)//2),str((y1+y2)//2)],check=True)
+          PYTAP
+          sleep 3
+          adb shell uiautomator dump /sdcard/neon-restarted-settings.xml > /dev/null
+          adb exec-out cat /sdcard/neon-restarted-settings.xml > "$RUNNER_TEMP/restarted-settings.xml"
+          adb exec-out screencap -p > "$RUNNER_TEMP/settings-pink.png"
+          adb shell run-as net.ember.labs.neonpreview cat shared_prefs/settings.xml > "$RUNNER_TEMP/preferences-after-restart.xml"
+          grep -F '<string name="neon_accent">pink</string>' "$RUNNER_TEMP/preferences-after-restart.xml"
+          grep -F '<boolean name="neon_motion" value="false"' "$RUNNER_TEMP/preferences-after-restart.xml"
+          python3 - <<'PYASSERT'
+          import os,xml.etree.ElementTree as ET
+          root=ET.parse(os.path.join(os.environ['RUNNER_TEMP'],'restarted-settings.xml')).getroot()
+          parents={c:p for p in root.iter() for c in p}
+          def assert_checked(label, widget, expected):
+              candidates=[n for n in root.iter('node') if label in n.get('text','')]
+              for node in candidates:
+                  while node is not None:
+                      if node.get('class','').endswith(widget) and node.get('checked') == expected:
+                          print(f'{label}: {widget} checked={expected}')
+                          return
+                      node=parents.get(node)
+              raise SystemExit(f'Cannot confirm {label}: {widget} checked={expected}')
+          assert_checked('Merah muda','RadioButton','true')
+          assert_checked('Animasi neon','Switch','false')
+          PYASSERT
+          echo '::notice title=Android emulator preferences::Accent and motion changes were persisted and restored after restarting the preview process.'
       - name: Transfer screenshots for inspection
         if: steps.kvm.outputs.available == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          for name in home settings; do
+          for name in home settings settings-pink; do
             NAME="$name" python3 - <<'PY'
           import base64,json,os,pathlib,hashlib
           tmp=pathlib.Path(os.environ['RUNNER_TEMP']); name=os.environ['NAME']
@@ -123,6 +187,10 @@ jobs:
           path: |
             ${{ runner.temp }}/home.png
             ${{ runner.temp }}/settings.png
+            ${{ runner.temp }}/settings-pink.png
+            ${{ runner.temp }}/preferences-before-restart.xml
+            ${{ runner.temp }}/preferences-after-restart.xml
+            ${{ runner.temp }}/restarted-settings.xml
             ${{ runner.temp }}/home.xml
             ${{ runner.temp }}/settings.xml
             ${{ runner.temp }}/emulator.log
