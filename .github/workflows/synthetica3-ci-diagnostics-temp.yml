@@ -103,3 +103,34 @@ jobs:
           if failed:
               raise SystemExit(1)
           PY
+      - name: Exercise actual candidate writer on loop-backed synthetic boot
+        env:
+          S2_QEMU_INTEGRATION: '1'
+          S2_LOOP_WRITER: '1'
+          S2_IMAGE: ${{ runner.temp }}/image/Image.gz.DO-NOT-FLASH
+          S2_ARM_BB: ${{ runner.temp }}/arm/busybox
+          S2_ARM_MAGISKBOOT: ${{ runner.temp }}/arm/magiskboot
+          S2_AVBTOOL: ${{ runner.temp }}/avbtool.py
+          S2_ANYKERNEL: ${{ runner.temp }}/image/anykernel.sh
+        run: |
+          python3 - <<'PY'
+          import os, signal, subprocess, sys
+          names=['S2_QEMU_INTEGRATION','S2_LOOP_WRITER','S2_IMAGE','S2_ARM_BB','S2_ARM_MAGISKBOOT','S2_AVBTOOL','S2_ANYKERNEL']
+          cmd=['sudo','env']+[f'{key}={os.environ[key]}' for key in names]
+          cmd += [sys.executable,'-u','-m','unittest',
+                  'test_synthetica2_installer_qemu.SyntheticRepackTests.test_loop_backed_writer_round_trip','-v']
+          p=subprocess.Popen(cmd,cwd='tests',stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
+          try:
+              output,_=p.communicate(timeout=75)
+          except subprocess.TimeoutExpired:
+              subprocess.run(['sudo','kill','-KILL','--',f'-{p.pid}'],check=False)
+              output,_=p.communicate(timeout=10)
+              print('::error title=Loop writer timeout::Test exceeded 75 seconds.')
+              print(output)
+              raise SystemExit(1)
+          print(output)
+          clipped=output[-5000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::notice title=Candidate loop writer test::'+clipped)
+          if p.returncode != 0 or 'skipped' in output or '\nOK\n' not in output:
+              raise SystemExit(1)
+          PY
