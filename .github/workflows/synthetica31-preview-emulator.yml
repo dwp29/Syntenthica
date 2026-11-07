@@ -28,8 +28,8 @@ jobs:
     steps:
       - name: Validate input
         env:
-          BUILD_RUN_ID: ${{ inputs.build_run_id || '42367695608' }}
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '7050c11675fe2072df3a508232dda683d8e7593a59f729c333d119dea80a33f3' }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id || '42367954269' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '779203510ea167e3f835ebc091427168f4671e19768321f9623716ffa72206ae' }}
         run: |
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
@@ -37,8 +37,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica31-preview-${{ inputs.build_run_id || '42367695608' }}
-          run-id: ${{ inputs.build_run_id || '42367695608' }}
+          name: synthetica31-preview-${{ inputs.build_run_id || '42367954269' }}
+          run-id: ${{ inputs.build_run_id || '42367954269' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/preview31-artifact
       - uses: actions/setup-java@v4
@@ -75,7 +75,7 @@ jobs:
           python3 -m pip install --user --disable-pip-version-check pillow
       - name: Boot emulator and validate preview only
         env:
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '7050c11675fe2072df3a508232dda683d8e7593a59f729c333d119dea80a33f3' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '779203510ea167e3f835ebc091427168f4671e19768321f9623716ffa72206ae' }}
         run: |
           set -euo pipefail
           APK="$RUNNER_TEMP/preview31-artifact/Synthetica-3.1-Neon-PREVIEW-NOT-MANAGER.apk"
