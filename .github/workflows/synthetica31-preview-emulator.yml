@@ -28,8 +28,8 @@ jobs:
     steps:
       - name: Validate input
         env:
-          BUILD_RUN_ID: ${{ inputs.build_run_id || '42362880121' }}
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '6b75f6cb4e254f1c3f7d9d3eb163143ee6db0d4a28893a62ef713a05540249bd' }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id || '42365937487' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || 'ba7e4de90cb36a80e4aa9f1ae0f66193be2c8912e37db5d732aaa9206a558e40' }}
         run: |
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
@@ -37,8 +37,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
-          name: synthetica31-preview-${{ inputs.build_run_id || '42362880121' }}
-          run-id: ${{ inputs.build_run_id || '42362880121' }}
+          name: synthetica31-preview-${{ inputs.build_run_id || '42365937487' }}
+          run-id: ${{ inputs.build_run_id || '42365937487' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/preview31-artifact
       - uses: actions/setup-java@v4
@@ -75,7 +75,7 @@ jobs:
           python3 -m pip install --user --disable-pip-version-check pillow
       - name: Boot emulator and validate preview only
         env:
-          PREVIEW_SHA256: ${{ inputs.preview_sha256 || '6b75f6cb4e254f1c3f7d9d3eb163143ee6db0d4a28893a62ef713a05540249bd' }}
+          PREVIEW_SHA256: ${{ inputs.preview_sha256 || 'ba7e4de90cb36a80e4aa9f1ae0f66193be2c8912e37db5d732aaa9206a558e40' }}
         run: |
           set -euo pipefail
           APK="$RUNNER_TEMP/preview31-artifact/Synthetica-3.1-Neon-PREVIEW-NOT-MANAGER.apk"
@@ -90,7 +90,7 @@ jobs:
           timeout 240s bash -c 'until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
           python3 tests/run_neon31_emulator.py --serial emulator-5554 --apk "$APK" --sha256 "$PREVIEW_SHA256" \
             --output "$RUNNER_TEMP/neon31-test-output" 2>&1 | tee "$RUNNER_TEMP/neon31-test-output/test.log"
-          echo '::notice title=3.1 preview emulator::Light/dark/AMOLED/system, saved preferences and Device Check passed. Real root Manager was not tested.'
+          echo '::notice title=3.1 preview emulator::Themes, selective copy, read-only diagnostics and simulated ZIP checks passed. Real root Manager was not tested.'
       - name: Transfer emulator screenshots or test log as Git blobs
         if: always()
         env:
@@ -100,7 +100,7 @@ jobs:
           python3 - <<'PY'
           import base64,json,os,pathlib,subprocess
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'neon31-test-output'
-          for name in ('settings-light.png','settings-dark.png','settings-amoled.png','settings-system-light.png','settings-system-dark.png','device-check.png','device-check.xml','settings-light.xml','settings-dark.xml','settings-amoled.xml','home.xml','test.log'):
+          for name in ('settings-light.png','settings-dark.png','settings-amoled.png','settings-system-light.png','settings-system-dark.png','device-check.png','copy-dialog.png','zip-dialog.png','device-check.xml','copy-preview.xml','zip-module-dialog-0.xml','zip-kernel-dialog-0.xml','settings-light.xml','settings-dark.xml','settings-amoled.xml','home.xml','test.log'):
               path=root/name
               if not path.is_file(): continue
               payload=root/(name+'.json')

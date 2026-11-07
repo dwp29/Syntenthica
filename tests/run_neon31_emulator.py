@@ -67,7 +67,11 @@ class Emulator:
         return result
 
     def tap(self, label: str, dump_name: str, scroll: bool = False) -> None:
-        for attempt in range(6 if scroll else 1):
+        for attempt in range(12 if scroll else 1):
+            if scroll and attempt == 6:
+                # The previous action may have left the page at the bottom.
+                for _ in range(5):
+                    self.adb('shell', 'input', 'swipe', '540', '650', '540', '1600', '250')
             root = self.dump(f'{dump_name}-{attempt}')
             nodes = self.find(root, label)
             if nodes:
@@ -78,9 +82,29 @@ class Emulator:
                 self.adb('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
                 time.sleep(1.5)
                 return
-            self.adb('shell', 'input', 'swipe', '540', '1590', '540', '700', '450')
-            time.sleep(0.7)
+            if scroll:
+                self.adb('shell', 'input', 'swipe', '540', '1590', '540', '700', '450')
+                time.sleep(0.7)
         raise AssertionError(f'UI label not found: {label!r}')
+
+    def wait_for(self, label: str, dump_name: str, *, scroll: bool = False) -> ET.Element:
+        for attempt in range(10):
+            root = self.dump(f'{dump_name}-{attempt}')
+            if self.find(root, label):
+                return root
+            if scroll:
+                self.adb('shell', 'input', 'swipe', '540', '1550', '540', '700', '400')
+            time.sleep(0.8)
+        raise AssertionError(f'UI label did not appear: {label!r}')
+
+    @staticmethod
+    def all_text(root: ET.Element) -> str:
+        return '\n'.join(node.get('text', '') for node in root.iter('node'))
+
+    def assert_staging_empty(self) -> None:
+        files = self.adb('shell', 'run-as', PACKAGE, 'find', 'cache/neon31-preflight', '-type', 'f')
+        if files.strip():
+            raise AssertionError(f'Preview preflight staging files were not cleaned: {files}')
 
     def screenshot(self, name: str) -> Path:
         data = self.adb('exec-out', 'screencap', '-p', binary=True)
@@ -205,12 +229,101 @@ def main() -> None:
     time.sleep(4)
     root = emulator.dump('device-check')
     emulator.screenshot('device-check')
-    for label in ('Device Check', 'LIVE OVERVIEW', 'RAM in use / total'):
+    for label in ('Device Check', 'LIVE OVERVIEW', 'Copy selected device info'):
         if not emulator.find(root, label):
             raise AssertionError(f'Device Check label missing: {label}')
+
+    # The dialog starts with nothing selected and Copy disabled; choosing one
+    # section must not put other sections in the generated preview.
+    emulator.tap('Copy selected device info', 'copy-dialog-open')
+    root = emulator.wait_for('Copy', 'copy-empty')
+    copy_nodes = emulator.find(root, 'Copy')
+    if not copy_nodes or any(node.get('enabled') != 'false' for node in copy_nodes):
+        raise AssertionError('Copy was enabled before any section was selected')
+    emulator.assert_checked(root, 'Device identifiers (model and codename)', False)
+    emulator.tap('Device identifiers (model and codename)', 'copy-select-device')
+    root = emulator.dump('copy-selected')
+    emulator.assert_checked(root, 'Device identifiers (model and codename)', True)
+    if 'Codename:' not in emulator.all_text(root):
+        emulator.adb('shell', 'input', 'swipe', '540', '1440', '540', '850', '400')
+        root = emulator.dump('copy-preview')
+    text = emulator.all_text(root)
+    if 'Codename:' not in text or 'Kernel:' in text:
+        raise AssertionError('Selected-only device summary preview was missing or included system data')
+    emulator.screenshot('copy-dialog')
+    emulator.tap('Copy', 'copy-confirm')
+    time.sleep(1)
+    if emulator.find(emulator.dump('copy-complete'), 'Copy'):
+        raise AssertionError('Copy dialog did not close')
+    emulator.wait_for('GPU current frequency', 'device-performance', scroll=True)
+    emulator.wait_for('zram0 configured size', 'device-zram', scroll=True)
+    emulator.adb('shell', 'input', 'keyevent', 'KEYCODE_BACK')
+    time.sleep(2)
+
+    # This separate preview reuses the actual preflight and Manager dialog but
+    # has stub FlashIt values and no root or installer backend.
+    emulator.tap('ZIP preflight preview', 'open-zip-preview', scroll=True)
+    emulator.wait_for('Test module ZIP', 'zip-preview')
+    emulator.tap('Test module ZIP', 'zip-module')
+    root = emulator.wait_for('Module ZIP check (1/1)', 'zip-module-dialog')
+    module_text = emulator.all_text(root)
+    if 'Detected type: Module' not in module_text or not re.search(r'\b[0-9a-f]{64}\b', module_text):
+        raise AssertionError('Module confirmation omitted the detected type or SHA-256')
+    emulator.screenshot('zip-dialog')
+    emulator.tap('Cancel', 'zip-module-cancel')
+    emulator.wait_for('Blocked or canceled; no installation occurred.', 'zip-canceled', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test unknown ZIP', 'zip-unknown', scroll=True)
+    root = emulator.wait_for('ZIP cannot be installed', 'zip-unknown-dialog')
+    if 'No recognizable module or AnyKernel3 marker' not in emulator.all_text(root):
+        raise AssertionError('Unknown ZIP was not explicitly blocked')
+    emulator.tap('OK', 'zip-unknown-close')
+    emulator.wait_for('Blocked or canceled; no installation occurred.', 'zip-unknown-result', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test unexpected kernel', 'zip-mismatch', scroll=True)
+    root = emulator.wait_for('ZIP cannot be installed', 'zip-mismatch-dialog')
+    if 'This source is for modules' not in emulator.all_text(root):
+        raise AssertionError('Unexpected kernel from a module source was not blocked')
+    emulator.tap('OK', 'zip-mismatch-close')
+    emulator.wait_for('Blocked or canceled; no installation occurred.', 'zip-mismatch-result', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test changed ZIP', 'zip-tamper', scroll=True)
+    emulator.wait_for('Module ZIP check (1/1)', 'zip-tamper-dialog')
+    emulator.tap('Continue to installation', 'zip-tamper-approve')
+    emulator.wait_for('Tamper blocked; no installation occurred.', 'zip-tamper-result', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test two modules', 'zip-batch-cancel', scroll=True)
+    emulator.wait_for('Module ZIP check (1/2)', 'zip-batch-first')
+    emulator.tap('Continue to installation', 'zip-batch-first-approve')
+    emulator.wait_for('Module ZIP check (2/2)', 'zip-batch-second')
+    emulator.tap('Cancel', 'zip-batch-second-cancel')
+    emulator.wait_for('Blocked or canceled; no installation occurred.', 'zip-batch-canceled', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test two modules', 'zip-batch-confirm', scroll=True)
+    emulator.wait_for('Module ZIP check (1/2)', 'zip-batch-first-again')
+    emulator.tap('Continue to installation', 'zip-batch-approve-first')
+    emulator.wait_for('Module ZIP check (2/2)', 'zip-batch-second-again')
+    emulator.tap('Continue to installation', 'zip-batch-approve-second')
+    emulator.wait_for('Verified approved copy; no installation occurred.', 'zip-batch-success', scroll=True)
+    emulator.assert_staging_empty()
+
+    emulator.tap('Test kernel ZIP', 'zip-kernel', scroll=True)
+    root = emulator.wait_for('Kernel ZIP check (1/1)', 'zip-kernel-dialog')
+    kernel_text = emulator.all_text(root)
+    if 'AnyKernel3 kernel installer' not in kernel_text or not re.search(r'\b[0-9a-f]{64}\b', kernel_text):
+        raise AssertionError('Kernel confirmation omitted the detected type or SHA-256')
+    emulator.tap('Continue to installation', 'zip-kernel-approve')
+    emulator.wait_for('Verified approved copy; no installation occurred.', 'zip-kernel-success', scroll=True)
+    emulator.assert_staging_empty()
+
     emulator.adb('shell', 'dumpsys', 'gfxinfo', PACKAGE)
-    print('PASS: preview light, dark, AMOLED and system rendering, saved settings and Device Check on emulator.', flush=True)
-    print('The real Manager, root and physical devices were not tested.', flush=True)
+    print('PASS: preview themes, saved settings, selective copy, read-only diagnostics, ZIP confirmations and hash guard.', flush=True)
+    print('All ZIP flows were simulations. The real Manager, root, flashing and physical devices were not tested.', flush=True)
 
 
 if __name__ == '__main__':
