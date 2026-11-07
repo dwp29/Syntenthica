@@ -100,7 +100,7 @@ jobs:
           python3 - <<'PY'
           import base64,json,os,pathlib,subprocess
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'neon31-test-output'
-          for name in ('settings-light.png','settings-dark.png','device-check.png','test.log'):
+          for name in ('settings-light.png','settings-dark.png','settings-amoled.png','device-check.png','settings-light.xml','settings-dark.xml','settings-amoled.xml','home.xml','test.log'):
               path=root/name
               if not path.is_file(): continue
               payload=root/(name+'.json')
