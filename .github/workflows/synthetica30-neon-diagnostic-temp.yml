@@ -1,0 +1,62 @@
+name: Diagnose Neon Manager verification (temporary)
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica30-neon-diagnostic-temp.yml'
+permissions:
+  contents: write
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: synthetica30-neon-unsigned-42344911073
+          run-id: 42344911073
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/neon-failed
+      - name: Identify previous verification failure
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api 'repos/dwp29/Syntenthica/actions/jobs/128320452662/logs' > "$RUNNER_TEMP/manager-failed.log"
+          python3 - <<'PY'
+          import os,pathlib
+          tmp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          text=(tmp/'manager-failed.log').read_text(errors='replace')
+          lines=text.splitlines()
+          needle=[i for i,line in enumerate(lines) if 'Verify package, permissions, alignment and UAPI' in line]
+          if needle:
+              relevant='\n'.join(lines[needle[-1]:][-120:])
+          else:
+              relevant='\n'.join(lines[-130:])
+          for i in range(0,len(relevant),3500):
+              s=relevant[i:i+3500].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::notice title=Failed verification log {i//3500+1}::{s}')
+          files=tmp/'neon-failed'
+          for p in sorted(files.rglob('*')):
+              if p.is_file():
+                  print(f'::notice title=Failed output file::{p.relative_to(files)} ({p.stat().st_size} bytes)')
+          PY
+      - name: Transfer unverified compiled bytes for diagnostic-only retest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,pathlib,hashlib
+          tmp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          found=list((tmp/'neon-failed').rglob('Synthetica-Manager-3.0.0-Neon-UNSIGNED.apk'))
+          if len(found)!=1:
+              raise SystemExit(f'Expected one compiled APK, got {found}')
+          data=found[0].read_bytes()
+          print('::notice title=UNVERIFIED candidate SHA-256::'+hashlib.sha256(data).hexdigest())
+          (tmp/'diag-blob.json').write_text(json.dumps({'content':base64.b64encode(data).decode(),'encoding':'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/diag-blob.json" --jq .sha)
+          echo "::notice title=UNVERIFIED compiled candidate blob::$blob"
