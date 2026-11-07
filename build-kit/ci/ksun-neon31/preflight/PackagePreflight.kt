@@ -97,7 +97,9 @@ internal object PackagePreflight {
                     val path = normalizedPath(entry.name)
                     if (path.isEmpty()) continue
                     if (!names.add(path)) throw PreflightException(PreflightProblem.DUPLICATE_PATH)
-                    if (!entry.isDirectory) {
+                    // Installers look up these markers by exact root path.
+                    // Normalization is only for path safety and duplicate checks.
+                    if (!entry.isDirectory && entry.name == path) {
                         when (path) {
                             "module.prop" -> module = entry
                             "anykernel.sh" -> anyKernel = entry

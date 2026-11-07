@@ -80,6 +80,9 @@ class PackagePreflightTest {
         rejects(zip("readme.txt" to "hello"), PreflightProblem.UNKNOWN_TYPE)
         rejects(zip("module.prop" to "id=a", "anykernel.sh" to "x"), PreflightProblem.AMBIGUOUS_TYPE)
         rejects(zip("module.prop" to "name=no id"), PreflightProblem.INVALID_METADATA)
+        rejects(zip("./module.prop" to "id=a"), PreflightProblem.UNKNOWN_TYPE)
+        rejects(zip("./anykernel.sh" to "x", "META-INF/com/google/android/update-binary" to "x"), PreflightProblem.UNKNOWN_TYPE)
+        rejects(zip("anykernel.sh" to "x", "./META-INF/com/google/android/update-binary" to "x"), PreflightProblem.MISSING_INSTALLER)
     }
 
     @Test fun traversalDuplicatePathsAndLimitsAreRejected() {

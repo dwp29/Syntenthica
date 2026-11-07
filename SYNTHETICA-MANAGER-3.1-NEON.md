@@ -41,7 +41,8 @@ ones may already be installed: there is no batch rollback.
 The inspection is deliberately bounded: at most 16 ZIPs and 512 MiB combined,
 10,000 entries per ZIP, and 64 KiB for module metadata. It checks paths,
 duplicates, local versus central ZIP headers, special entries and marker
-metadata without unpacking the whole archive. ZIP64, split or encrypted ZIPs
+metadata without unpacking the whole archive. Recognized markers must be at
+the exact root paths expected by the installers. ZIP64, split or encrypted ZIPs
 are not supported by this preflight. These restrictions may reject otherwise
 usable archives; no installer starts for rejected ZIPs. Staged copies are
 removed on cancellation/completion where possible, and old owned stages are
