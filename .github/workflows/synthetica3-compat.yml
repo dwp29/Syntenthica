@@ -1,0 +1,148 @@
+name: "Synthetica 3.0 compatibility - synthetic safety tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica3-compat.yml'
+      - 'build-kit/ci/synthetica3-compat/**'
+      - 'build-kit/scripts/package_synthetica3_compat.py'
+      - 'build-kit/scripts/audit_synthetica3_compat_modules.py'
+      - 'build-kit/scripts/audit_synthetica3_boot.py'
+      - 'build-kit/ci/synthetica2-experimental/test-installer/**'
+      - 'tests/test_synthetica3_compat*.py'
+      - 'tests/test_synthetica3_boot.py'
+      - 'tests/test_synthetica3_root_installer.py'
+      - 'tests/test_synthetica2_installer_qemu.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    name: Read-only audit and guarded installer (no real device)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install fixture tools
+        timeout-minutes: 5
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static cpio lz4 >/dev/null
+      - name: Fetch the exact prior 3.0 ZIP and pinned AVB fixture tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/transfer.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/transfer.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer.zip" synthetica-3.0.zip > "$RUNNER_TEMP/original.zip"
+          echo '16b32f57381005c08cbee0ec684397dc91acc77f5b2ccbb4ef7f4b99a9a791e6  '"$RUNNER_TEMP/original.zip" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/evidence"
+          for name in STATUS.json generated.config.txt Module.symvers System.map module-signing-public-cert.x509; do
+            unzip -p "$RUNNER_TEMP/transfer.zip" "$name" > "$RUNNER_TEMP/evidence/$name"
+          done
+          gh api 'repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5' --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
+      - name: Build unsigned audit and unvalidated development candidate
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_synthetica3_compat.py \
+            --original "$RUNNER_TEMP/original.zip" --audit-output "$RUNNER_TEMP/audit.zip" \
+            --compat-output "$RUNNER_TEMP/compat-not-validated.zip"
+          mkdir "$RUNNER_TEMP/tools"
+          unzip -p "$RUNNER_TEMP/compat-not-validated.zip" tools/busybox > "$RUNNER_TEMP/tools/busybox"
+          unzip -p "$RUNNER_TEMP/compat-not-validated.zip" tools/magiskboot > "$RUNNER_TEMP/tools/magiskboot"
+          unzip -p "$RUNNER_TEMP/compat-not-validated.zip" anykernel.sh > "$RUNNER_TEMP/anykernel.sh"
+          unzip -p "$RUNNER_TEMP/compat-not-validated.zip" Image.gz > "$RUNNER_TEMP/Image.gz"
+          chmod 755 "$RUNNER_TEMP/tools/busybox" "$RUNNER_TEMP/tools/magiskboot"
+          echo '::notice title=Read-only audit ZIP SHA256::'"$(sha256sum "$RUNNER_TEMP/audit.zip" | cut -d ' ' -f 1)"
+          echo '::notice title=UNVALIDATED installer ZIP SHA256::'"$(sha256sum "$RUNNER_TEMP/compat-not-validated.zip" | cut -d ' ' -f 1)"
+      - name: Host fixtures, device checks and offline module comparison
+        env:
+          S3_COMPAT_ORIGINAL: ${{ runner.temp }}/original.zip
+          S3_ROOT_EVIDENCE: ${{ runner.temp }}/evidence
+        run: |
+          python3 -m unittest discover -s tests -p 'test_synthetica3_compat.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_compat_modules.py' -v
+      - name: ARM recovery-shell and MagiskBoot on synthetic boot images
+        env:
+          S3_COMPAT_QEMU: '1'
+          S3_ARM_BB: ${{ runner.temp }}/tools/busybox
+          S3_ARM_MAGISKBOOT: ${{ runner.temp }}/tools/magiskboot
+        run: |
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica3_compat_qemu.py' -v > "$RUNNER_TEMP/arm.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/arm.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'arm.log').read_text(errors='replace')[-12000:]
+          for i in range(0,len(text),1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=ARM boot-audit fixture diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
+      - name: Original strict prepare guard on synthetic boot images
+        env:
+          S2_QEMU_INTEGRATION: '1'
+          S2_IMAGE: ${{ runner.temp }}/Image.gz
+          S2_ARM_BB: ${{ runner.temp }}/tools/busybox
+          S2_ARM_MAGISKBOOT: ${{ runner.temp }}/tools/magiskboot
+          S2_AVBTOOL: ${{ runner.temp }}/avbtool.py
+          S2_ANYKERNEL: ${{ runner.temp }}/anykernel.sh
+        run: |
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica2_installer_qemu.py' -v > "$RUNNER_TEMP/repack.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/repack.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'repack.log').read_text(errors='replace')[-10000:]
+          for i in range(0,len(text),1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=Repack fixture diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
+      - name: Loop-backed read-only and strict rejection, then synthetic positive writer
+        run: |
+          set +e
+          sudo env S3_COMPAT_LOOP=1 S3_ARM_BB="$RUNNER_TEMP/tools/busybox" \
+            S3_ARM_MAGISKBOOT="$RUNNER_TEMP/tools/magiskboot" S3_IMAGE="$RUNNER_TEMP/Image.gz" \
+            S3_ANYKERNEL="$RUNNER_TEMP/anykernel.sh" S3_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
+            python3 -m unittest discover -s tests -p 'test_synthetica3_compat_loop.py' -v > "$RUNNER_TEMP/loop-reject.log" 2>&1
+          one=$?
+          (cd tests && sudo env S2_QEMU_INTEGRATION=1 S2_LOOP_WRITER=1 \
+            S2_IMAGE="$RUNNER_TEMP/Image.gz" S2_ARM_BB="$RUNNER_TEMP/tools/busybox" \
+            S2_ARM_MAGISKBOOT="$RUNNER_TEMP/tools/magiskboot" S2_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
+            S2_ANYKERNEL="$RUNNER_TEMP/anykernel.sh" \
+            python3 -m unittest test_synthetica2_installer_qemu.SyntheticRepackTests.test_loop_backed_writer_round_trip -v) > "$RUNNER_TEMP/loop-write.log" 2>&1
+          two=$?
+          set -e
+          cat "$RUNNER_TEMP/loop-reject.log" "$RUNNER_TEMP/loop-write.log"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for label in ('loop-reject.log','loop-write.log'):
+              text=(Path(os.environ['RUNNER_TEMP'])/label).read_text(errors='replace')[-6000:]
+              for i in range(0,len(text),1800):
+                  s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+                  print(f'::notice title={label} result {i//1800+1}::{s}')
+          PY
+          [ "$one" -eq 0 ] && [ "$two" -eq 0 ]
+      - name: Record limitations
+        run: |
+          echo '::notice title=Scope::Synthetic files, possible loop fixtures, ARM emulation only. Neither ZIP was run in a physical recovery. No actual ROM ABI, module trust, AVB signature, root or device boot verified.'
