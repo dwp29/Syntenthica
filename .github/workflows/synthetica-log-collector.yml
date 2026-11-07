@@ -1,0 +1,109 @@
+name: "Validate Synthetica recovery log collector"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica-log-collector.yml'
+      - 'build-kit/ci/log-collector/**'
+      - 'build-kit/scripts/package_log_collector.py'
+      - 'tests/test_synthetica_log_collector.py'
+      - 'tests/run_collector_android_emulator.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    name: Isolated fake recovery filesystems
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install BusyBox for recovery-shell testing
+        run: |
+          if ! command -v busybox >/dev/null 2>&1; then
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+            sudo apt-get -y -qq install busybox >/dev/null
+          fi
+      - name: Exercise collector and package guards
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica_log_collector.py' -v
+          python3 build-kit/scripts/package_log_collector.py --output "$RUNNER_TEMP/Synthetica-Log-Collector-1.0.zip"
+          sha256sum "$RUNNER_TEMP/Synthetica-Log-Collector-1.0.zip"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetica-log-collector-${{ github.run_id }}
+          path: ${{ runner.temp }}/Synthetica-Log-Collector-1.0.zip
+          retention-days: 14
+  emulator:
+    name: Android shell on synthetic fixture (not recovery)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Require accelerated emulator
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm || { echo '::error::KVM unavailable; Android shell test did not run.'; exit 1; }
+          sudo chmod a+rw /dev/kvm
+      - name: Install Android emulator
+        run: |
+          set -euo pipefail
+          SDK="$HOME/collector-emulator-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK/emulator" >> "$GITHUB_PATH"
+          export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK" ANDROID_AVD_HOME="$RUNNER_TEMP/collector-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64' 2>&1 | tail -12
+          echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd -f -n collectorci -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
+      - name: Run collector with fake logs and fake boot headers only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/collector-results"
+          python3 build-kit/scripts/package_log_collector.py --output "$RUNNER_TEMP/collector.zip"
+          emulator -avd collectorci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/collector-results/emulator.log" 2>&1 &
+          emulator_pid=$!
+          sleep 12
+          kill -0 "$emulator_pid" || { cat "$RUNNER_TEMP/collector-results/emulator.log"; exit 1; }
+          adb start-server
+          timeout 240s adb -s emulator-5554 wait-for-device
+          timeout 240s bash -c 'until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
+          python3 tests/run_collector_android_emulator.py --serial emulator-5554 \
+            --zip "$RUNNER_TEMP/collector.zip" --output "$RUNNER_TEMP/collector-results" \
+            > "$RUNNER_TEMP/collector-results/test.log" 2>&1 || {
+              cat "$RUNNER_TEMP/collector-results/test.log"
+              python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'collector-results/test.log'
+          text=p.read_text(errors='replace')[-8000:]
+          text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+          print('::error title=Android collector fixture failure::'+text)
+          PY
+              exit 1
+            }
+          cat "$RUNNER_TEMP/collector-results/test.log"
+          echo '::notice title=Validation scope::Android emulator shell and fake data only; no custom recovery, real crash or physical device tested.'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: synthetica-collector-android-fixture-${{ github.run_id }}
+          path: ${{ runner.temp }}/collector-results/
+          retention-days: 7
+          if-no-files-found: warn
