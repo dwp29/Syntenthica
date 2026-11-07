@@ -29,6 +29,7 @@ class PreviewIsolationTests(unittest.TestCase):
         self.assertIn('data di bawah adalah contoh', activity)
         self.assertIn('Role.Tab', activity)
         self.assertIn('Role.RadioButton', activity)
+        self.assertIn('Text(stringResource(option.label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)', activity)
         permissions = manifest.findall('uses-permission')
         self.assertEqual(len(permissions), 2)
         for permission in permissions:

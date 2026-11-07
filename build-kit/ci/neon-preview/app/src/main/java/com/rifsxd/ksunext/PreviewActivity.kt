@@ -232,7 +232,7 @@ private fun PreviewSettings(amoled: Boolean, onAmoledChange: (Boolean) -> Unit) 
             ) {
                 IosBadgeIcon(icon = Icons.Rounded.Palette, color = option.color)
                 Spacer(Modifier.width(13.dp))
-                Text(stringResource(option.label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(option.label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 RadioButton(selected = selected, onClick = null)
             }
         }

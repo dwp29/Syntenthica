@@ -172,7 +172,7 @@ def patch_customization(path: Path) -> None:
                     ) {
                         IosBadgeIcon(icon = Icons.Rounded.Palette, color = option.color)
                         Spacer(Modifier.width(13.dp))
-                        Text(text = stringResource(option.label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        Text(text = stringResource(option.label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         RadioButton(selected = selected, onClick = null)
                     }
                 }

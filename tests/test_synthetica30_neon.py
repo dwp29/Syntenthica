@@ -142,6 +142,7 @@ class ActualSourcePatchTests(unittest.TestCase):
         self.assertIn('role = Role.Tab', main)
         self.assertIn('role = Role.RadioButton', custom)
         self.assertIn('setNeonAccent(context, option.id)', custom)
+        self.assertIn('text = stringResource(option.label), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface', custom)
         self.assertIn('setNeonMotion(context, it)', custom)
         for locale in ('values', 'values-in-rID'):
             path = self.new / f'manager/app/src/main/res/{locale}/strings_synthetica.xml'
