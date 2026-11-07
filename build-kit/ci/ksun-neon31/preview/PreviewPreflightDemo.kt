@@ -38,7 +38,7 @@ import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private enum class Demo { MODULE, KERNEL, INVALID, TAMPER, BATCH, UNEXPECTED_KERNEL }
+private enum class Demo { MODULE, KERNEL, INVALID, TAMPER, BATCH, UNEXPECTED_KERNEL, MIXED_KERNEL, INVALID_BATCH, MODULE_FROM_KERNEL }
 
 /** Exercises the real preflight/confirmation/verified-copy code, never a root installer. */
 @Composable
@@ -58,9 +58,15 @@ internal fun PreviewPreflightDemo(onBack: () -> Unit) {
             try {
                 withContext(Dispatchers.IO) {
                     inputs.add(createSample(context, kind))
-                    if (kind == Demo.BATCH) inputs.add(createSample(context, Demo.MODULE))
+                    when (kind) {
+                        Demo.BATCH -> inputs.add(createSample(context, Demo.MODULE))
+                        Demo.MIXED_KERNEL -> inputs.add(createSample(context, Demo.KERNEL))
+                        Demo.INVALID_BATCH -> inputs.add(createSample(context, Demo.INVALID))
+                        else -> Unit
+                    }
                 }
-                val requested = FlashIt.FlashModules(inputs.map(Uri::fromFile), allowAnyKernel = kind != Demo.UNEXPECTED_KERNEL)
+                val requested = if (kind == Demo.MODULE_FROM_KERNEL) FlashIt.FlashAnyKernel(Uri.fromFile(inputs.single()))
+                    else FlashIt.FlashModules(inputs.map(Uri::fromFile), allowAnyKernel = kind != Demo.UNEXPECTED_KERNEL)
                 approved = prepareZipInstall(context, requested, dialog)
                 val selection = approved
                 result = if (selection == null) {
@@ -98,6 +104,9 @@ internal fun PreviewPreflightDemo(onBack: () -> Unit) {
         Button(onClick = { runDemo(Demo.TAMPER) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test changed ZIP") }
         Button(onClick = { runDemo(Demo.BATCH) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test two modules") }
         Button(onClick = { runDemo(Demo.UNEXPECTED_KERNEL) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test unexpected kernel") }
+        Button(onClick = { runDemo(Demo.MIXED_KERNEL) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test mixed kernel batch") }
+        Button(onClick = { runDemo(Demo.INVALID_BATCH) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test invalid module batch") }
+        Button(onClick = { runDemo(Demo.MODULE_FROM_KERNEL) }, enabled = !running, modifier = Modifier.fillMaxWidth()) { Text("Test module from kernel picker") }
         Text(result, style = MaterialTheme.typography.bodyMedium)
         TextButton(onClick = onBack, enabled = !running) { Text("Back to preview") }
     }

@@ -102,7 +102,7 @@
     <string name="zip31_ambiguous">ZIP memiliki penanda modul dan kernel sekaligus. Jenisnya ambigu, jadi pemasangan dihentikan.</string>
     <string name="zip31_missing_installer">Penanda AnyKernel3 atau skrip installer hilang atau kosong. Tidak ada pemasangan yang dimulai.</string>
     <string name="zip31_bad_metadata">Metadata modul tidak valid, tidak terbaca, atau tidak memiliki ID. Tidak ada pemasangan yang dimulai.</string>
-    <string name="zip31_changed">Salinan ZIP yang dikonfirmasi tidak tersedia atau SHA-256 berubah. Pemasangan dihentikan sebelum installer dijalankan.</string>
+    <string name="zip31_changed">ZIP yang dikonfirmasi tidak dapat disalin atau diverifikasi, atau SHA-256 berubah. Pemasangan dihentikan sebelum installer dijalankan.</string>
     <string name="zip31_batch_warning">Semua ZIP diperiksa dan dikonfirmasi sebelum pemasangan dimulai. Jika modul berikutnya gagal, modul sebelumnya tetap terpasang.</string>
     <string name="zip31_partial">%1$d modul sebelumnya mungkin sudah terpasang; proses ini tidak dibatalkan otomatis.</string>
     <string name="zip31_unsupported">ZIP64, ZIP terpisah, atau ZIP terenkripsi tidak didukung oleh pemeriksaan ini. Tidak ada pemasangan yang dimulai.</string>

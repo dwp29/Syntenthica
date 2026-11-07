@@ -45,7 +45,7 @@ internal object AndroidZipPreflight {
 
     /** Only an app-private staged URI can reach the existing installer. */
     fun copyVerified(context: Context, uri: Uri, destination: File, expectedSha256: String): Boolean {
-        fun fail(): Boolean { destination.delete(); return false }
+        fun fail(): Boolean { runCatching { destination.delete() }; return false }
         val root = runCatching { stageDirectory(context).canonicalFile }.getOrNull() ?: return fail()
         val path = uri.path ?: return fail()
         val source = runCatching { if (uri.scheme == "file") File(path).canonicalFile else null }
@@ -71,7 +71,7 @@ internal object AndroidZipPreflight {
             }
             PackagePreflight.matchesSha256(destination, expectedSha256)
         }.getOrDefault(false)
-        if (!copied) destination.delete()
+        if (!copied) runCatching { destination.delete() }
         return copied
     }
 
@@ -94,6 +94,13 @@ internal object AndroidZipPreflight {
         runCatching {
             stageDirectory(context).listFiles()?.forEach { file ->
                 if (file.name.startsWith(PREFIX) && file.name.endsWith(".zip") && file.isFile &&
+                    file.lastModified() in 1L until cutoff) file.delete()
+            }
+            // A process kill can leave verified installer copies, too. Do not
+            // traverse or remove work directories; only old owned ZIP files.
+            context.cacheDir.listFiles()?.forEach { file ->
+                val ownedName = file.name.startsWith("module31-") || file.name.startsWith("anykernel31-")
+                if (ownedName && file.name.endsWith(".zip") && file.isFile &&
                     file.lastModified() in 1L until cutoff) file.delete()
             }
         }

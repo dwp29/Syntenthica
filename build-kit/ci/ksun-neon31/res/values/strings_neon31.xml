@@ -102,7 +102,7 @@
     <string name="zip31_ambiguous">The ZIP has both module and kernel markers. Its type is ambiguous, so installation was stopped.</string>
     <string name="zip31_missing_installer">The AnyKernel3 marker or installer script is missing or empty. No installation was started.</string>
     <string name="zip31_bad_metadata">Module metadata is invalid, unreadable, or missing an ID. No installation was started.</string>
-    <string name="zip31_changed">The confirmed ZIP copy is unavailable or its SHA-256 changed. Installation was stopped before running the installer.</string>
+    <string name="zip31_changed">The confirmed ZIP could not be copied or verified, or its SHA-256 changed. Installation was stopped before running the installer.</string>
     <string name="zip31_batch_warning">All ZIPs are checked and confirmed before installation starts. If a later module fails, earlier modules remain installed.</string>
     <string name="zip31_partial">%1$d earlier module(s) may already be installed; this batch was not rolled back.</string>
     <string name="zip31_unsupported">ZIP64, split or encrypted ZIPs are not supported by this check. No installation was started.</string>

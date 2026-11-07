@@ -234,8 +234,8 @@ def patch_ksu_cli(path: Path) -> None:
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit
 ): FlashResult {
-    val file = File.createTempFile("module31-", ".zip", ksuApp.cacheDir)
-    if (!AndroidZipPreflight.copyVerified(ksuApp, uri, file, approvedSha256)) {
+    val file = runCatching { File.createTempFile("module31-", ".zip", ksuApp.cacheDir) }.getOrNull()
+    if (file == null || !AndroidZipPreflight.copyVerified(ksuApp, uri, file, approvedSha256)) {
         val message = ksuApp.getString(R.string.zip31_changed)
         onStderr(message)
         return FlashResult(1, message, false)
@@ -269,8 +269,8 @@ def patch_ksu_cli(path: Path) -> None:
     }
 
     val destZip = tmpFile.absolutePath'''
-    new = '''    val tmpFile = File.createTempFile("anykernel31-", ".zip", ksuApp.cacheDir)
-    if (!AndroidZipPreflight.copyVerified(ksuApp, uri, tmpFile, approvedSha256)) {
+    new = '''    val tmpFile = runCatching { File.createTempFile("anykernel31-", ".zip", ksuApp.cacheDir) }.getOrNull()
+    if (tmpFile == null || !AndroidZipPreflight.copyVerified(ksuApp, uri, tmpFile, approvedSha256)) {
         val message = ksuApp.getString(R.string.zip31_changed)
         onStderr(message)
         return FlashResult(1, message, false)

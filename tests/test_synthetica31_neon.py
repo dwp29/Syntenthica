@@ -7,9 +7,11 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import os
+import platform
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -259,6 +261,25 @@ class ActualPreparedSourceTests(unittest.TestCase):
         self.assertIn('Modifier.heightIn(max = 390.dp).verticalScroll(rememberScrollState())', dialog)
         result_flow = dialog.split('.onEach { result ->', 1)[1].split('.collect(resultCollector)', 1)[0]
         self.assertLess(result_flow.index('visible.value = false'), result_flow.index('it.resume(result)'))
+
+    def test_pinned_busybox_sha256_check_fails_closed(self):
+        arm = self.old / 'userspace/ksud/bin/aarch64/busybox'
+        self.assertIn(b'sha256sum', arm.read_bytes())
+        if platform.machine() not in ('x86_64', 'amd64'):
+            self.skipTest('x86-64 host required to execute the pinned test BusyBox')
+        with tempfile.TemporaryDirectory(prefix='neon31-busybox-test-') as temp:
+            directory = Path(temp)
+            busybox = directory / 'busybox'
+            shutil.copy2(self.old / 'userspace/ksud/bin/x86_64/busybox', busybox)
+            busybox.chmod(0o755)
+            sample = directory / 'sample.zip'
+            sample.write_bytes(b'synthetic data; no installer runs')
+            good = hashlib.sha256(sample.read_bytes()).hexdigest()
+            def verify(checksum: str):
+                return subprocess.run([str(busybox), 'sha256sum', '-c', '-'],
+                                      input=f'{checksum}  {sample}\n', text=True, capture_output=True)
+            self.assertEqual(verify(good).returncode, 0)
+            self.assertNotEqual(verify('0' * 64).returncode, 0)
 
     def test_preview_is_separate_and_shares_actual_ui_and_device_check(self):
         with tempfile.TemporaryDirectory(prefix='neon31-preview-test-') as temp:
