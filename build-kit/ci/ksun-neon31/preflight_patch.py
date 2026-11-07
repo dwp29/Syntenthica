@@ -58,11 +58,23 @@ def patch_main(path: Path) -> None:
                             component?.endsWith("FlashAnyKernel") == true && uris.size == 1 -> FlashIt.FlashAnyKernel(uris.first())
                             else -> FlashIt.FlashModules(uris, allowAnyKernel = uris.size == 1)
                         }'''
-    path.write_text(replace_once(text, old, new, 'external ZIP entry'), encoding='utf-8')
+    text = replace_once(text, old, new, 'external ZIP entry')
+    text = replace_once(text, 'import com.rifsxd.ksunext.ui.util.ZipUtils\n', '', 'unused ZIP detector import')
+    path.write_text(text, encoding='utf-8')
 
 
 def patch_flash(path: Path) -> None:
     text = path.read_text(encoding='utf-8')
+    old_metadata_start = 'data class ModuleMetadata(\n'
+    old_metadata_end = '@Parcelize\nsealed class FlashIt : Parcelable {'
+    if text.count(old_metadata_start) != 1 or text.count(old_metadata_end) != 1:
+        raise RuntimeError('old unbounded metadata scanner anchors changed')
+    start, end = text.index(old_metadata_start), text.index(old_metadata_end)
+    if start >= end:
+        raise RuntimeError('old metadata scanner anchors out of order')
+    text = text[:start] + text[end:]
+    text = replace_once(text, 'import java.io.BufferedInputStream\n', '', 'unused ZIP stream import')
+    text = replace_once(text, 'import java.util.zip.ZipInputStream\n', '', 'unused ZIP reader import')
     text = replace_once(text, 'import com.rifsxd.ksunext.R\n',
                         'import com.rifsxd.ksunext.R\nimport com.rifsxd.ksunext.ksuApp\n', 'application context import')
     text = replace_once(text, 'import kotlinx.coroutines.Dispatchers\n',

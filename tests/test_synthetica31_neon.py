@@ -241,6 +241,8 @@ class ActualPreparedSourceTests(unittest.TestCase):
         self.assertIn('endsWith("FlashAnyKernel") == true && uris.size == 1', main)
         self.assertIn('allowAnyKernel = uris.size == 1', module)
         self.assertIn('prepareZipInstall(context, flashIt, confirmDialog)', flash)
+        self.assertNotIn('getModuleMetadata(', flash)
+        self.assertNotIn('ZipInputStream(', flash)
         self.assertIn('pendingFlashIt = approved', flash)
         self.assertIn('flashModulesSequentially(flashIt.uris, flashIt.approvedHashes', flash)
         self.assertIn('flashIt.approvedHash,', flash)
