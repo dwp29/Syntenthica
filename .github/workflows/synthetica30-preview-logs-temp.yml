@@ -1,0 +1,32 @@
+name: Diagnose Neon preview emulator log (temporary)
+on:
+  push:
+    branches:
+      - arena/96cbd65a-syntenthica
+    paths:
+      - '.github/workflows/synthetica30-preview-logs-temp.yml'
+permissions:
+  actions: read
+jobs:
+  logs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: neon-preview-emulator-42345579789
+          run-id: 42345579789
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/neon-emulator
+      - name: Inspect emulator startup diagnostics
+        run: |
+          python3 - <<'PY'
+          import os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'neon-emulator'
+          for file in root.rglob('*'):
+              if file.is_file():
+                  print(f'::notice title=Output::{file.relative_to(root)} ({file.stat().st_size} bytes)')
+                  if file.suffix in ('.log','.xml','.txt'):
+                      text=file.read_text(errors='replace')[-7000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+                      print(f'::notice title={file.name}::{text}')
+          PY
