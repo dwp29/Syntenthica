@@ -49,22 +49,51 @@ membuktikan seluruh kegagalan terjadi pada guard yang sama.
 Kernel wadah yang ditunjuk adalah
 [Not-Kinesis-KSU-Miatoll-20261030-1718.zip](https://t.me/whisperersdump/778?single).
 Posting tersebut mencantumkan ukuran 16,9 MB dan SHA-1
-`ec8cc69400fd1f922e261b73e72d666e021912ba`. Ini metadata penerbit, bukan
-verifikasi lokal atau bukti autentisitas. Hingga pencatatan ini isi ZIP Telegram
-belum diperoleh/diperiksa; jangan menganggap ZIP lain atau source mirip sebagai
-identik dengan paket tersebut.
+`ec8cc69400fd1f922e261b73e72d666e021912ba`. Pengguna kemudian mengunggah ZIP
+asli ke Drive. Hash SHA-1 file yang diterima sama dengan posting, dan SHA-256-nya
+`d829e375abc3004e8a1d939ed20a115425347e9911cb53a3c13244aca6be9bfd`;
+kecocokan checksum publik bukan bukti autentisitas. ZIP asli diperiksa secara
+statis tanpa menjalankan skripnya. ZIP yang telah dimodifikasi pengguna dan
+isi partisi pada perangkat yang berhasil boot belum tersedia.
 
-Jika memakai installer lain, guard DTB di installer Synthetica tidak otomatis
-ikut dipakai; tanpa ZIP dan log installer lain kita belum tahu apakah
-DTB/DTBO, ramdisk, AVB, modul, atau partisi lain dipertahankan atau diubah.
+Temuan pada ZIP asli Not-Kinesis:
+
+- Berisi `Image.gz`, `dtb`, dan `dtbo.img`. SHA-256 DTB yang dibundel adalah
+  `f7ede104bfe633db7363b9bf9cdf357aff4c349317bb3da3fb47bcbff35908b8`,
+  berbeda dari satu-satunya hash referensi installer Synthetica 3.0. Parser
+  memeriksa struktur FDT tersebut dan menemukan empat entri di DTBO, bukan
+  memverifikasi kompatibilitas, signature atau hasil boot pada perangkat.
+- Pada jalur repack MagiskBoot, skrip memilih DTB di dalam ZIP sebelum DTB
+  hasil split, lalu menyalinnya jika komponen DTB split ada. `write_boot` juga
+  memanggil `flash_generic dtbo` yang dapat menulis `dtbo.img` bila partisinya
+  ditemukan. Jadi metode memindah **hanya Image.gz** ke ZIP itu berpotensi
+  mengubah DTB boot dan DTBO, bukan sekadar mengganti kernel. Tindakan yang
+  benar-benar terjadi pada ponsel tetap perlu log atau pemeriksaan partisi.
+- Ramdisk di-unpack dan direpack. `PATCH_VBMETA_FLAG=auto`; cabang Magisk
+  mengandung pemanggilan patch DTB. Ini tidak membuktikan cabang itu dijalankan
+  atau vbmeta diubah pada ponsel yang dilaporkan.
+- Skrip memanggil `backup_main`, tetapi pada salinan ini tidak terlihat
+  pemuatan `tools/backup.sh` yang mendefinisikannya. Jangan mengasumsikan
+  backup boot/DTBO otomatis benar-benar tersedia atau dapat dipulihkan.
+- Installer donor tidak menjalankan gerbang hash DTB Synthetica yang ditolak
+  pada log sebelumnya. Jika ponsel berhasil memakai DTB donor, itu belum
+  membuktikan semua ROM atau varian aman dengan DTB tersebut.
+
 Jangan menyimpulkan bahwa DTB sebelum dan sesudahnya identik atau meniru
-pemindahan image untuk perangkat lain sebagai solusi universal.
+pemindahan image untuk perangkat lain sebagai solusi universal. Pemeriksaan
+lanjutan memerlukan ZIP hasil modifikasi atau log sukses, serta pesan/log dari
+pengguna yang gagal. Hash DTB saat ini dan data sebelum perubahan, bila ada,
+membantu tetapi hash semata tidak membuktikan kompatibilitas/kepercayaan AVB.
 
-Untuk investigasi baca-saja, minta ZIP asli dari posting tersebut dan, bila
-ada, ZIP hasil modifikasi serta pesan/log recovery dari pengguna yang gagal.
-Periksa ZIP sebagai input tidak tepercaya tanpa menjalankan skripnya. Hash
-DTB saat ini dan data sebelum perubahan, bila tersedia, membantu tetapi hash
-semata tidak membuktikan kompatibilitas/kepercayaan AVB.
+## Versi TCP BBR pada Synthetica 3.0
+
+Source build yang dipin menggunakan implementasi keluarga **BBR generasi
+pertama (BBRv1)** di `net/ipv4/tcp_bbr.c`, dengan backport/perbaikan dari
+source dasar; file tersebut tidak mendeklarasikan nomor versi eksplisit.
+Konfigurasi image 3.0 menunjukkan `CONFIG_TCP_CONG_BBR=y`,
+`CONFIG_DEFAULT_BBR=y` dan `CONFIG_DEFAULT_TCP_CONG="bbr"`; BBR tertanam dan
+merupakan default saat build. ROM atau pengguna masih dapat mengubah algoritma
+aktif saat runtime, sehingga konfigurasi build bukan pengukuran status perangkat.
 
 ## Error 1: klasifikasi berdasarkan pesan, bukan tebakan
 
