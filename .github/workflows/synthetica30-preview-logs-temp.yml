@@ -30,12 +30,13 @@ jobs:
           def emit(title,text):
               text=text.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
               print(f'::notice title={title}::{text}',flush=True)
+          blobs={}
           for file in sorted(root.rglob('*')):
               if not file.is_file(): continue
-              emit('Output',f'{file.relative_to(root)} ({file.stat().st_size} bytes)')
               if file.name not in ('home.png','settings.png','settings-pink.png','home.xml','settings.xml','restarted-settings.xml','preferences-before-restart.xml','preferences-after-restart.xml'): continue
               body=root.parent/(file.name+'.blob.json')
               body.write_text(json.dumps({'content':base64.b64encode(file.read_bytes()).decode(),'encoding':'base64'}))
               blob=subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs",'--method','POST','--input',str(body),'--jq','.sha'],text=True).strip()
-              emit(f'Diagnostic {file.name} blob',blob)
+              blobs[file.name]=blob
+          emit('Diagnostic blobs',json.dumps(blobs,sort_keys=True))
           PY
