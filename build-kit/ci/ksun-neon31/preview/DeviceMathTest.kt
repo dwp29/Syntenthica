@@ -26,7 +26,8 @@ class DeviceMathTest {
 
     @Test fun gpuLoadZramAndPsiRejectUnavailableOrMalformedData() {
         assertNull(parseGpuFrequencyHz(null))
-        assertNull(parseGpuFrequencyHz("0"))
+        assertEquals(0L, parseGpuFrequencyHz("0")) // GPU may be powered down.
+        assertNull(parseGpuFrequencyHz("-1"))
         assertNull(parseGpuFrequencyHz("10000000001"))
         assertEquals(305_000_000L, parseGpuFrequencyHz("305000000\n"))
         assertEquals(listOf(0.2, 0.5, 1.25), parseLoadAverages("0.20 0.50 1.25 2/100 1"))

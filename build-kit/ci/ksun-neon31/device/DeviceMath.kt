@@ -19,7 +19,7 @@ internal fun validBatteryTemperatureTenths(value: Int?): Double? =
 
 /** Kernel sysfs devfreq and KGSL clock values are reported in hertz. */
 internal fun parseGpuFrequencyHz(value: String?): Long? =
-    value?.trim()?.toLongOrNull()?.takeIf { it in 1L..10_000_000_000L }
+    value?.trim()?.toLongOrNull()?.takeIf { it in 0L..10_000_000_000L }
 
 /** /proc/loadavg is a runnable-load average, never a CPU percentage. */
 internal fun parseLoadAverages(value: String?): List<Double>? {
