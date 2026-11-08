@@ -59,7 +59,7 @@ jobs:
       - name: Fetch checksum-pinned Gradle in validated ranges
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip"
+          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip" 2>&1 | tee "$RUNNER_TEMP/manager501-output/gradle-fetch.log"
           echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
       - name: Compile unsigned Manager 5.0.1
         run: |
@@ -108,7 +108,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          for log in "$RUNNER_TEMP/manager501-output/build.log" "$RUNNER_TEMP/manager501-output/host-tests.log"; do
+          for log in "$RUNNER_TEMP/manager501-output/build.log" "$RUNNER_TEMP/manager501-output/host-tests.log" "$RUNNER_TEMP/manager501-output/gradle-fetch.log"; do
             if [ -s "$log" ]; then
               LOG="$log" python3 - <<'PY'
           import base64,json,os,pathlib
@@ -163,7 +163,7 @@ jobs:
       - name: Fetch checksum-pinned Gradle in validated ranges
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip"
+          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip" 2>&1 | tee "$RUNNER_TEMP/fixture501-output/gradle-fetch.log"
           echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
       - name: Compile safe 5.0 baseline for simulated update
         run: |
@@ -227,7 +227,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          for log in "$RUNNER_TEMP/fixture501-output/build.log" "$RUNNER_TEMP/fixture501-output/baseline-build.log"; do
+          for log in "$RUNNER_TEMP/fixture501-output/build.log" "$RUNNER_TEMP/fixture501-output/baseline-build.log" "$RUNNER_TEMP/fixture501-output/gradle-fetch.log"; do
             if [ -s "$log" ]; then
               LOG="$log" python3 - <<'PY2'
           import base64,json,os,pathlib
