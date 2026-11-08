@@ -1,0 +1,161 @@
+name: "Synthetica 3.2 - conservative kernel build (not device validated)"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica32-kernel.yml'
+      - 'build-kit/scripts/build_synthetica32.py'
+      - 'tests/test_synthetica32_build.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write # Unreferenced public evidence blob; no branch writes or private keys.
+
+concurrency:
+  group: synthetica-32-kernel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install Clang 18 kernel build dependencies
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq \
+            clang-18 lld-18 llvm-18 gcc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils \
+            python3 patch openssl zip unzip rsync git curl binutils kmod
+          /usr/lib/llvm-18/bin/clang --version | head -1
+          /usr/lib/llvm-18/bin/ld.lld --version
+      - name: Test configuration, exported ABI, signing and isolation guards
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica3_build.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_modules.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica32_build.py' -v
+      - name: Prepare disposable pinned 2.0-based source recipe
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica32.py prepare \
+            --source build-kit --destination "$RUNNER_TEMP/s32-kit" \
+            --baseline artifacts/generated.config.txt
+      - name: Compile new kernel and sign selected same-build modules
+        timeout-minutes: 80
+        env:
+          SP_JOBS: '4'
+          SP_RELEASE_VERSION: '3.2'
+          SP_PROFILE: synthetica
+          SP_BUILD_NAME: synthetica
+          SP_BUILD_KVER: '3.2'
+          SP_EXPECT_RELEASE: 4.14.357-openela-synthetica-3.2
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/llvm-18/bin:$PATH"
+          export SP_WORK_DIR="$RUNNER_TEMP/s32-work"
+          export S3_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica32.py"
+          export S3_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          if ! python3 "$RUNNER_TEMP/s32-kit/scripts/build_chronicle_base.py"; then
+            python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP'])/'s32-kit/artifacts/build.log'
+          rows = (log.read_text(errors='replace') if log.exists() else 'No build log').splitlines()
+          indexes = [i for i, row in enumerate(rows) if re.search(r'error:|fatal error|undefined reference|\bFAIL\b|not found|refused', row, re.I)]
+          chosen = []
+          for i in indexes[-12:]: chosen.extend(rows[max(0, i-1):min(len(rows), i+3)])
+          text = '\n'.join(dict.fromkeys(chosen or rows[-40:]))[-12000:]
+          text = re.sub(r'https?://\S+', '<url>', text)
+          for i in range(0, len(text), 1800):
+              part = text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=3.2 compile diagnostic {i//1800+1}::{part}')
+          PY
+            exit 1
+          fi
+      - name: Check image, whole export ABI, config, certificates and module signatures
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica32.py finish \
+            --kit "$RUNNER_TEMP/s32-kit" --out "$RUNNER_TEMP/s32-work/tree/out-synthetica" \
+            --baseline artifacts/generated.config.txt --reference-image artifacts/Image.gz \
+            --reference-symvers artifacts/synthetica-3.0/Module.symvers.txt \
+            --toolchain /usr/lib/llvm-18/bin --result "$RUNNER_TEMP/s32-result" \
+            2> "$RUNNER_TEMP/s32-finish-error.txt" || {
+              cat "$RUNNER_TEMP/s32-finish-error.txt"
+              python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'s32-finish-error.txt').read_text(errors='replace')[-4000:]
+          print('::error title=3.2 verification diagnostic::'+text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY
+              exit 1
+            }
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])/'s32-result'
+          provenance = {
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'commit': os.environ['GITHUB_SHA'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'run_url': f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              'compiler_packages': subprocess.run(['dpkg-query', '-W', 'clang-18', 'lld-18', 'llvm-18'],
+                                                   check=True, stdout=subprocess.PIPE, text=True).stdout.splitlines(),
+              'limitations': 'Static compile evidence only; no physical Android 17 boot or ROM/device validation.',
+          }
+          (root/'PROVENANCE.json').write_text(json.dumps(provenance, indent=2)+'\n')
+          files = sorted(p for p in root.rglob('*') if p.is_file() and p.name != 'SHA256SUMS.txt')
+          (root/'SHA256SUMS.txt').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(root).as_posix()}\n' for p in files))
+          PY
+          (cd "$RUNNER_TEMP/s32-result" && sha256sum -c SHA256SUMS.txt)
+      - name: Upload non-flashable image and compile evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-3.2-DO-NOT-FLASH-${{ github.run_id }}
+          path: ${{ runner.temp }}/s32-result/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Transfer public compile evidence (no private keys)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, zipfile
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); root=t/'s32-result'; output=t/'s32-transfer.zip'
+          files=sorted(p for p in root.rglob('*') if p.is_file())
+          if any(p.suffix in {'.pem', '.key', '.pk8', '.p12', '.jks'} for p in files):
+              raise SystemExit('private key-like file found; refuse transfer')
+          with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for p in files: z.write(p,p.relative_to(root).as_posix())
+          data=output.read_bytes()
+          (t/'s32-blob.json').write_text(json.dumps({'content':base64.b64encode(data).decode('ascii'),'encoding':'base64'}))
+          print('::notice title=3.2 transfer SHA256::'+hashlib.sha256(data).hexdigest())
+          print('::notice title=3.2 Image SHA256::'+hashlib.sha256((root/'DO-NOT-FLASH-Synthetica-3.2-Image.gz').read_bytes()).hexdigest())
+          PY
+          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/s32-blob.json" --jq .sha)
+          test "${#blob}" = 40
+          echo "::notice title=3.2 transfer Git blob::$blob"
+          echo '::notice title=Scope::Compile evidence only; ROM integration and physical Android boot not validated.'
+      - name: Preserve build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: synthetica-3.2-build-failed-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s32-kit/artifacts/build.log
+            ${{ runner.temp }}/s32-kit/artifacts/FAILED.txt
+            ${{ runner.temp }}/s32-finish-error.txt
+          if-no-files-found: warn
+          retention-days: 7
