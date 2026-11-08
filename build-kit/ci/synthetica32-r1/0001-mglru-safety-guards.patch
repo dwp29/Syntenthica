@@ -1,0 +1,29 @@
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -4438,6 +4438,7 @@
+ 	struct pglist_data *pgdat = NODE_DATA(nid);
+ 
+ 	kvfree(pgdat->mm_walk_args);
++	pgdat->mm_walk_args = NULL;
+ }
+ 
+ /******************************************************************************
+@@ -4455,7 +4456,7 @@
+ {
+ 	int spread;
+ 
+-	if (kstrtoint(buf, 10, &spread) || spread >= MAX_NR_GENS)
++	if (kstrtoint(buf, 10, &spread) || spread < 0 || spread >= MAX_NR_GENS)
+ 		return -EINVAL;
+ 
+ 	WRITE_ONCE(lru_gen_spread, spread);
+@@ -6301,6 +6302,8 @@
+ 
+ 	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
+ 	if (IS_ERR(pgdat->kswapd)) {
++		/* The worker did not start; release its MGLRU walk buffer. */
++		lru_gen_stop_kswapd(nid);
+ 		/* failure at boot is fatal */
+ 		BUG_ON(system_state < SYSTEM_RUNNING);
+ 		pr_err("Failed to start kswapd on node %d\n", nid);

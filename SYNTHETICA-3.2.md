@@ -1,5 +1,11 @@
-# Synthetica 3.2 — kandidat kernel konservatif, belum siap flash
+# Synthetica 3.2 — eksperimen baseline lama (digantikan)
 
+> **DITARIK SEBAGAI KANDIDAT UPDATE 3.1.** Build di halaman ini kembali ke
+> basis 2.0 dan menghapus beberapa fitur/perbaikan 3.1; pengguna mengoreksi
+> bahwa itu bukan upgrade yang diminta. Arsip dipertahankan hanya sebagai
+> bukti historis, bukan rilis 3.2 yang direkomendasikan. Revisi yang mempertahankan
+> 3.1 menggunakan identitas `3.2-r1` agar ABI dan modulnya tidak tertukar.
+>
 > **JANGAN FLASH.** Kernel baru sudah dikompilasi, tetapi belum diuji boot pada
 > perangkat fisik atau ROM Android 17. ZIP di bawah adalah bukti kompilasi,
 > **bukan** installer recovery atau boot image lengkap. Tidak ada bukti bahwa
