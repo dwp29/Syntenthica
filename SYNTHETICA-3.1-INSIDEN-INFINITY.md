@@ -8,6 +8,17 @@ Menurut pelapor, perangkat **joyeuse** dengan Project Infinity 4.1 / Android 17 
 
 Sebelumnya ada laporan *lain yang tercatat* mengenai joyeuse, Infinity Project 4.1 Android 17 dan Error 1 ketika memasang **3.0**. Belum diketahui apakah perangkat atau penyebabnya sama; Error 1 saat instalasi tidak identik dengan kegagalan boot setelah installer selesai. Jangan menggabungkan kedua laporan tanpa konfirmasi.
 
+## Identitas ROM dari tautan pelapor
+
+[Posting Telegram](https://t.me/RN9ProUpdate/7313) menyebut **Project Infinity X 4.1 Official, miatoll, Android 17**, tanggal build `02/10/2026` dan catatan umum bahwa masalah custom kernel diperbaiki. Namun, [metadata perangkat resmi yang diubah pada 21 Oktober](https://github.com/ProjectInfinity-X/official_devices/commit/fc200fc5c766d9768564d8b0a47b322eca795945) mencatat **4.1** sebagai dua file berikut; di perubahan yang sama, `02.10.2026` merupakan tanggal pada nama ZIP **4.0**. Perbedaan ini bisa merupakan kekeliruan pada salah satu keterangan, tetapi identitas ROM terpasang belum dapat dipastikan dari tautan saja.
+
+| Varian yang tercatat resmi | Nama file | Ukuran byte | MD5 menurut metadata proyek |
+|---|---|---:|---|
+| GAPPS | `Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip` | 2641732377 | `6b3d41aea18311e663266489adf54307` |
+| VANILLA | `Project_Infinity-X-4.1-miatoll-21.10.2026-VANILLA-OFFICIAL.zip` | 1869490649 | `0aa6b44bcee30e4f5d348ec48cc4f1ea` |
+
+[Halaman unduhan proyek](https://projectinfinity-x.com/downloads/miatoll) juga menampilkan dua varian 4.1 tersebut dan changelog `Fixed Some Issues Regarding Custom Kernels`, tanpa rincian perbaikan atau klaim kompatibilitas Synthetica 3.1. Ini petunjuk investigasi, **bukan** bukti penyebab atau solusi untuk kasus ini. Varian/nama file pengguna serta checksum kernel 3.1 yang dipasang masih perlu dikonfirmasi. MD5 di atas adalah metadata penerbit, bukan pembuktian keaslian atau bahwa file terpasang identik; tidak ada ZIP ROM yang diunduh atau dianalisis pada tahap ini.
+
 ## Dahulukan pemulihan yang aman
 
 - Jangan ulangi flash hanya untuk memperoleh log, jangan wipe/format data, jangan menonaktifkan AVB/vbmeta, dan jangan menebak image atau slot. Jangan menjalankan installer lama di komputer atau pada perangkat untuk pengujian.
