@@ -15,6 +15,8 @@
   `cb6c953dba1515b710ff0f3d90086afa572903bd702a735aed53af7e31b6e943`
 - Build aktual: [GitHub Actions 42499760357](https://github.com/dwp29/Syntenthica/actions/runs/42499760357),
   source resep pada commit `bb7c4f3adff9866e92de983aed54f33124d7c5f6`.
+- Verifikasi ulang arsip, signature dan koreksi metadata:
+  [GitHub Actions 42501978944](https://github.com/dwp29/Syntenthica/actions/runs/42501978944).
 
 ZIP berisi image kernel, konfigurasi, `Module.symvers`, `System.map`, enam modul
 hasil build yang sama, sertifikat publik modul, checksum dan catatan provenance.
