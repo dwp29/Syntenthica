@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme50_design_title">Tema desain</string>
+    <string name="theme50_design_footer">Mengubah tata letak, panel, navigasi dan warna. Fitur dan pengaturan Manager tetap sama.</string>
+    <string name="theme50_pixel">Pixel Signal</string>
+    <string name="theme50_pixel_detail">Panel kotak, grid piksel dan navigasi datar</string>
+    <string name="theme50_cyber">Cyberpunk</string>
+    <string name="theme50_cyber_detail">Dasbor bersudut, grid industrial dan volt</string>
+    <string name="theme50_ios">iOS Glass</string>
+    <string name="theme50_ios_detail">Kartu terpusat, ikon warna dan dock kaca</string>
+    <string name="theme50_neon">Neon</string>
+    <string name="theme50_neon_detail">Garis bercahaya dan panel neon</string>
+</resources>

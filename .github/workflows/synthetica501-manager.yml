@@ -1,0 +1,209 @@
+name: "Synthetica Manager 5.0.1 — production designs and safe UI fixture"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica501-manager.yml'
+      - 'build-kit/ci/ksun-themes501/**'
+      - 'build-kit/scripts/build_manager_501*.py'
+      - 'tests/test_synthetica501*.py'
+      - 'tests/verify_synthetica501_apk.py'
+      - 'tests/verify_themes501_fixture_apk.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write # only unsigned APK, simulated fixture and test logs as unreferenced blobs
+
+jobs:
+  manager:
+    name: "Unsigned Manager 5.0.1 — pinned production backend"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch pinned source and run source regressions
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ksun-git" "$RUNNER_TEMP/ksun-fixture" "$RUNNER_TEMP/manager501-output"
+          git -C "$RUNNER_TEMP/ksun-git" init -q
+          git -C "$RUNNER_TEMP/ksun-git" remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
+          git -C "$RUNNER_TEMP/ksun-git" fetch -q --depth=1 origin ea51427ff700f73909e7e8c8717cc3241322ee1e
+          test "$(git -C "$RUNNER_TEMP/ksun-git" rev-parse FETCH_HEAD)" = ea51427ff700f73909e7e8c8717cc3241322ee1e
+          git -C "$RUNNER_TEMP/ksun-git" archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/ksun-fixture"
+          MULTITHEME50_SOURCE="$RUNNER_TEMP/ksun-fixture" PIXEL40_SOURCE="$RUNNER_TEMP/ksun-fixture" NEON_SOURCE="$RUNNER_TEMP/ksun-fixture" \
+            python3 -m unittest discover -s tests -p 'test_*.py' -v > "$RUNNER_TEMP/manager501-output/host-tests.log" 2>&1 || {
+              tail -n 120 "$RUNNER_TEMP/manager501-output/host-tests.log"; exit 1;
+            }
+          tail -n 8 "$RUNNER_TEMP/manager501-output/host-tests.log"
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk501"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'cmake;3.22.1' 2>&1 | tail -10
+      - name: Compile unsigned Manager 5.0.1
+        run: |
+          set -euo pipefail
+          SYNTHETICA_MANAGER_WORKDIR="$RUNNER_TEMP/manager501-source" \
+          SYNTHETICA_UNSIGNED_APK="$RUNNER_TEMP/manager501-output/Manager-5.0.1-UNSIGNED.apk" \
+            python3 build-kit/scripts/build_manager_501_themes.py 2>&1 | tee "$RUNNER_TEMP/manager501-output/build.log"
+      - name: Verify identity, permissions, root payload, alignment and unsigned status
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/manager501-output/Manager-5.0.1-UNSIGNED.apk"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          "$TOOLS/zipalign" -c -p 4 "$APK"
+          "$TOOLS/zipalign" -c -P 16 4 "$APK"
+          "$TOOLS/aapt" dump badging "$APK" > "$RUNNER_TEMP/manager501-output/badging.txt"
+          grep -F "name='net.ember.labs'" "$RUNNER_TEMP/manager501-output/badging.txt"
+          grep -F "versionCode='60001'" "$RUNNER_TEMP/manager501-output/badging.txt"
+          grep -F "versionName='5.0.1'" "$RUNNER_TEMP/manager501-output/badging.txt"
+          "$TOOLS/aapt" dump permissions "$APK" | grep '^uses-permission' | sort > "$RUNNER_TEMP/manager501-permissions.txt" || true
+          "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort > "$RUNNER_TEMP/reference-permissions.txt" || true
+          test -s "$RUNNER_TEMP/manager501-permissions.txt" && test -s "$RUNNER_TEMP/reference-permissions.txt"
+          diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/manager501-permissions.txt"
+          python3 tests/verify_synthetica501_apk.py "$APK" | tee "$RUNNER_TEMP/manager501-output/static-checks.txt"
+          if "$TOOLS/apksigner" verify "$APK" > "$RUNNER_TEMP/manager501-output/signature-check.txt" 2>&1; then
+            echo '::error::Expected an unsigned build'; exit 1
+          fi
+          grep -q 'DOES NOT VERIFY' "$RUNNER_TEMP/manager501-output/signature-check.txt"
+          sha=$(sha256sum "$APK" | cut -d' ' -f1)
+          echo "$sha" > "$RUNNER_TEMP/manager501-output/SHA256.txt"
+          echo "::notice title=Unsigned Manager 5.0.1 SHA256::$sha"
+      - name: Transfer unsigned Manager as Git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,pathlib
+          t=pathlib.Path(os.environ['RUNNER_TEMP']); apk=t/'manager501-output/Manager-5.0.1-UNSIGNED.apk'
+          (t/'manager501-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode(),'encoding':'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/manager501-blob.json" --jq .sha)
+          echo "::notice title=Unsigned Manager 5.0.1 blob::$blob"
+      - name: Transfer diagnostics on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for log in "$RUNNER_TEMP/manager501-output/build.log" "$RUNNER_TEMP/manager501-output/host-tests.log"; do
+            if [ -s "$log" ]; then
+              LOG="$log" python3 - <<'PY'
+          import base64,json,os,pathlib
+          p=pathlib.Path(os.environ['LOG']); t=pathlib.Path(os.environ['RUNNER_TEMP'])
+          (t/'manager501-log.json').write_text(json.dumps({'content':base64.b64encode(p.read_bytes()).decode(),'encoding':'base64'}))
+          PY
+              blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/manager501-log.json" --jq .sha)
+              echo "::notice title=Manager 5.0.1 $(basename "$log") blob::$blob"
+            fi
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: synthetica501-manager-unsigned-${{ github.run_id }}
+          path: ${{ runner.temp }}/manager501-output/
+          retention-days: 14
+          if-no-files-found: warn
+
+  fixture:
+    name: "Real Manager screens — simulated no-root/no-network fixture"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch pinned source
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ksun-git" "$RUNNER_TEMP/ksun-fixture" "$RUNNER_TEMP/fixture501-output"
+          git -C "$RUNNER_TEMP/ksun-git" init -q
+          git -C "$RUNNER_TEMP/ksun-git" remote add origin https://github.com/KernelSU-Next/KernelSU-Next.git
+          git -C "$RUNNER_TEMP/ksun-git" fetch -q --depth=1 origin ea51427ff700f73909e7e8c8717cc3241322ee1e
+          test "$(git -C "$RUNNER_TEMP/ksun-git" rev-parse FETCH_HEAD)" = ea51427ff700f73909e7e8c8717cc3241322ee1e
+          git -C "$RUNNER_TEMP/ksun-git" archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/ksun-fixture"
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk501-fixture"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.1.0' 2>&1 | tail -10
+      - name: Compile fixture and run Kotlin presentation tests
+        run: |
+          set -euo pipefail
+          THEMES501_FIXTURE_OUTPUT="$RUNNER_TEMP/fixture501-output/SIMULATED-UI-FIXTURE-NOT-MANAGER.apk" \
+            python3 build-kit/scripts/build_manager_501_fixture.py --source "$RUNNER_TEMP/ksun-fixture" 2>&1 | tee "$RUNNER_TEMP/fixture501-output/build.log"
+      - name: Verify separate identity, no network and no privileged payload
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/fixture501-output/SIMULATED-UI-FIXTURE-NOT-MANAGER.apk"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          "$TOOLS/aapt" dump badging "$APK" > "$RUNNER_TEMP/fixture501-output/badging.txt"
+          grep -F "name='net.ember.labs.fixture501'" "$RUNNER_TEMP/fixture501-output/badging.txt"
+          if "$TOOLS/aapt" dump permissions "$APK" | grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)'; then
+            echo '::error::UI fixture must not have network permission'; exit 1
+          fi
+          python3 tests/verify_themes501_fixture_apk.py "$APK" | tee "$RUNNER_TEMP/fixture501-output/static-checks.txt"
+          sha=$(sha256sum "$APK" | cut -d' ' -f1)
+          echo "$sha" > "$RUNNER_TEMP/fixture501-output/SHA256.txt"
+          echo "::notice title=Simulated 5.0.1 UI fixture SHA256::$sha"
+      - name: Transfer simulated fixture as Git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,pathlib
+          t=pathlib.Path(os.environ['RUNNER_TEMP']); apk=t/'fixture501-output/SIMULATED-UI-FIXTURE-NOT-MANAGER.apk'
+          (t/'fixture501-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode(),'encoding':'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/fixture501-blob.json" --jq .sha)
+          echo "::notice title=Simulated 5.0.1 UI fixture blob::$blob"
+      - name: Transfer diagnostics on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -s "$RUNNER_TEMP/fixture501-output/build.log" ]; then
+            python3 - <<'PY'
+          import base64,json,os,pathlib
+          t=pathlib.Path(os.environ['RUNNER_TEMP']); p=t/'fixture501-output/build.log'
+          (t/'fixture501-log.json').write_text(json.dumps({'content':base64.b64encode(p.read_bytes()).decode(),'encoding':'base64'}))
+          PY
+            blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/fixture501-log.json" --jq .sha)
+            echo "::notice title=Fixture 5.0.1 build log blob::$blob"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: synthetica501-simulated-ui-fixture-${{ github.run_id }}
+          path: ${{ runner.temp }}/fixture501-output/
+          retention-days: 7
+          if-no-files-found: warn

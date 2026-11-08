@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme50_design_title">Design theme</string>
+    <string name="theme50_design_footer">Changes layout, panels and navigation as well as colors. Manager features and settings stay the same.</string>
+    <string name="theme50_pixel">Pixel Signal</string>
+    <string name="theme50_pixel_detail">Square panels, pixel grid and flat navigation</string>
+    <string name="theme50_cyber">Cyberpunk</string>
+    <string name="theme50_cyber_detail">Angled dashboard, industrial grid and volt</string>
+    <string name="theme50_ios">iOS Glass</string>
+    <string name="theme50_ios_detail">Centered cards, colorful icons and glass dock</string>
+    <string name="theme50_neon">Neon</string>
+    <string name="theme50_neon_detail">Glowing outlines, signal bars and neon panels</string>
+</resources>
