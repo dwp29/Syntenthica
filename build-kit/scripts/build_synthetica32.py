@@ -184,7 +184,7 @@ def finish(kit: Path, out: Path, baseline: Path, reference_image: Path,
         'installer_or_boot_image_created': False,
         'checks_not_proofs': [
             'Matching every exported symbol name, owner, type and CRC is not proof of compatibility with ROM modules.',
-            'The kernel release/vermagic changed and the fresh module certificate is not the ROM module signer.',
+            'The kernel release/vermagic changed; the fresh module certificate may not match the unknown ROM module signers.',
             'The six same-build modules are signature and CRC checked, but their runtime loading is not tested.',
             'Pinned KernelSU Manager identity is present; Manager operation and root are not tested.',
             'AVB trust, boot header, ramdisk, DTB/DTBO and the target ROM are not verified.',

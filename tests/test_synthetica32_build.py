@@ -204,6 +204,8 @@ class FinishTests(unittest.TestCase):
         self.assertEqual(status['export_abi_against_2_0_based_baseline']['exported_records_compared'], 12236)
         self.assertFalse(status['installer_or_boot_image_created'])
         self.assertFalse(status['private_signing_key_exported'])
+        self.assertTrue(any('unknown ROM module signers' in line for line in status['checks_not_proofs']))
+        self.assertFalse(any('is not the ROM module signer' in line for line in status['checks_not_proofs']))
         self.assertEqual(len(status['matching_source_modules']['modules']), 6)
         self.assertEqual(status['output_sha256'][s32.IMAGE_NAME], s32.base.digest(self.result/s32.IMAGE_NAME))
         self.assertFalse((self.result/'DO-NOT-FLASH-Synthetica-3.0-Image.gz').exists())
