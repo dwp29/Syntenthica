@@ -5,6 +5,8 @@ on:
     branches: [arena/96cbd65a-syntenthica]
     paths:
       - 'build-kit/ci/synthetica501-ui-fixture-evidence.json'
+      - 'tests/run_themes501_emulator.py'
+      - '.github/workflows/synthetica501-ui-emulator.yml'
   workflow_dispatch:
 
 permissions:
