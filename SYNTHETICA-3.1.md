@@ -1,9 +1,10 @@
 # Synthetica 3.1 — kernel kompilasi ulang dengan installer 2.0
 
-> **Laporan gagal boot — Android 17 / Project Infinity 4.1.** Ada laporan
-> pengguna tidak berhasil boot terkait kernel 3.1. Model/varian, urutan flash,
-> gejala dan log belum dikonfirmasi; penyebabnya belum diketahui. Untuk
-> sementara tunda percobaan 3.1 pada kombinasi ini. Jangan wipe data,
+> **Laporan gagal boot — joyeuse, Android 17 / Project Infinity 4.1.**
+> Installer 3.1 dilaporkan selesai, tetapi perangkat tidak berhasil boot;
+> perangkat kemudian dilaporkan sudah pulih. Penyebabnya belum diketahui dan
+> detail build ROM, gejala boot, identitas ZIP serta log masih diperlukan.
+> Untuk sementara tunda percobaan 3.1 pada kombinasi ini. Jangan wipe data,
 > menonaktifkan AVB/vbmeta, atau mencoba image/slot secara acak. Lihat
 > [catatan insiden dan pengumpulan bukti](SYNTHETICA-3.1-INSIDEN-INFINITY.md).
 > Laporan ini belum membuktikan bahwa semua perangkat atau ROM Android 17 gagal.

@@ -2,9 +2,11 @@
 
 ## Status
 
-Pengguna melaporkan ada perangkat yang tidak berhasil boot terkait Synthetica 3.1 pada Project Infinity 4.1 / Android 17. **Model/codename, tanggal build ROM, tahapan kegagalan, hasil pemasangan dan log kasus ini belum tersedia.** Ini laporan yang belum diverifikasi, bukan bukti bahwa seluruh ROM Android 17 atau seluruh keluarga miatoll tidak kompatibel. Tunda percobaan 3.1 pada kombinasi tersebut sampai ada bukti dan jalur pemulihan yang sesuai.
+Menurut pelapor, perangkat **joyeuse** dengan Project Infinity 4.1 / Android 17 tidak berhasil boot setelah installer Synthetica 3.1 melaporkan selesai. Perangkat dilaporkan **sudah dapat boot kembali**, dan ada cadangan boot yang menurut pelapor cocok untuk perangkat/ROM. Belum diketahui apakah cadangan itu digunakan untuk pemulihan. Identitas file, hasil dan kondisi perangkat ini belum diverifikasi secara independen.
 
-Sebelumnya ada laporan *lain yang tercatat* mengenai joyeuse, Infinity Project 4.1 Android 17 dan Error 1 ketika memasang **3.0**. Belum diketahui apakah perangkat atau penyebabnya sama; Error 1 saat instalasi tidak identik dengan bootloop setelah instalasi. Jangan menggabungkan kedua laporan tanpa konfirmasi.
+**Tanggal/build lengkap ROM, nama/hash ZIP yang benar-benar dipasang, tahap gagal boot, root yang digunakan dan log kasus ini belum tersedia.** Laporan ini bukan bukti bahwa seluruh ROM Android 17 atau seluruh keluarga miatoll tidak kompatibel. Tunda percobaan 3.1 pada kombinasi tersebut sampai ada bukti dan jalur pemulihan yang sesuai.
+
+Sebelumnya ada laporan *lain yang tercatat* mengenai joyeuse, Infinity Project 4.1 Android 17 dan Error 1 ketika memasang **3.0**. Belum diketahui apakah perangkat atau penyebabnya sama; Error 1 saat instalasi tidak identik dengan kegagalan boot setelah installer selesai. Jangan menggabungkan kedua laporan tanpa konfirmasi.
 
 ## Dahulukan pemulihan yang aman
 
@@ -19,9 +21,9 @@ Mintalah informasi yang tersedia; jangan meminta serial, IMEI, kredensial, kunci
 
 1. Model dan codename fisik, tanggal/build lengkap Project Infinity, versi firmware/vendor jika diketahui, recovery dan versinya. Info ROM yang dibaca dari recovery dapat berbeda dari ROM yang terpasang.
 2. Sebelum kejadian apakah ROM tersebut sudah berhasil boot, kernel apa yang digunakan, bagaimana 3.1 dipasang, nama ZIP dan SHA-256, apakah ZIP dimodifikasi/dipindah ke installer lain, serta urutan ZIP/root yang digunakan.
-3. Apakah installer selesai atau menampilkan error? Jika ada foto, simpan **seluruh** pesan. Saat ini tertahan pada logo, animasi, bootloader warning, restart berulang, atau layar hitam? Apakah recovery/fastboot masih dapat dibuka? Apakah boot sudah dipulihkan?
-4. Ada backup boot dari perangkat dan ROM/build yang tepat? Apakah Magisk/KernelSU dan modul userspace pernah dipasang? Jangan mengubahnya hanya untuk diagnosis.
-5. Simpan log installer/recovery yang sudah tersedia dan, jika ada, `pstore` atau `last_kmsg` dari boot yang gagal. Log recovery saat ini bukan otomatis log panic Android; catatan boot sebelumnya bisa tidak ada atau tertimpa. Jangan reboot/flash ulang untuk membuat log. Gunakan fitur salin log recovery yang sudah tersedia terlebih dahulu.
+3. Installer dilaporkan selesai. Jika ada foto/log, simpan **seluruh** pesan. Sebelum pulih, perangkat berhenti pada logo, animasi, bootloader warning, restart berulang, atau layar hitam? Apakah recovery/fastboot dapat dibuka? Bagaimana perangkat dipulihkan?
+4. Cadangan boot yang cocok dilaporkan tersedia. Apakah Magisk/KernelSU dan modul userspace pernah dipasang, dan apakah root masih berfungsi setelah pemulihan? Jangan mengubahnya hanya untuk diagnosis.
+5. Simpan log installer/recovery yang sudah tersedia dan, jika ada, `pstore` atau `last_kmsg` dari boot yang gagal. Setelah pemulihan log lama mungkin sudah tidak ada atau tertimpa; log recovery saat ini bukan otomatis log panic Android. Jangan reboot/flash ulang untuk membuat log. Gunakan fitur salin log yang sudah tersedia terlebih dahulu.
 
 Jika recovery saat ini mendukung ADB dan file dapat dibaca, contoh **baca/salin saja** dari komputer (tidak mem-flash atau me-mount partisi):
 
