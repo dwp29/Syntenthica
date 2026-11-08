@@ -1,0 +1,8 @@
+{
+  "description": "Non-root UI-only preview; never a real Manager APK",
+  "source_commit": "8a9b64aec2b2ee753730445ee8c331465aafe5fc",
+  "build_run_id": "42450727175",
+  "git_blob": "e75516a21fb194cb371bfa06b2bd1f0b6b9b7ae7",
+  "sha256": "95a469502195452a1ec7e8ed52651e7b4cf510950278fdc45519c8017c4d59fe",
+  "application_id": "net.ember.labs.multitheme50preview"
+}
