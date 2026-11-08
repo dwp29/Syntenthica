@@ -199,8 +199,21 @@ def test_small_screen(e: FixtureEmulator, styles: list[tuple[str, str]]) -> None
             to_customize(e, 'small-open-' + style_id)
             choose(e, label, 'small-' + style_id)
             home = to_home(e, 'small-' + style_id)
-            check_home(e, home, 'small-' + style_id)
+            if 'SIMULATED UI' not in e.all_text(home) or not e.find(home, 'Synthetica Manager'):
+                raise AssertionError(f'{style_id} compact Home header missing')
             e.screenshot('home-small-' + style_id)
+            # A tall hero may legitimately extend below the viewport at 150%.
+            # Its status labels must be reachable by scrolling, without overlap.
+            status = e.wait_for('Rooted', 'small-status-' + style_id, scroll=True)
+            if not e.find(status, 'BUILT-IN'):
+                status = e.wait_for('BUILT-IN', 'small-mode-' + style_id, scroll=True)
+            rooted = one_bounds(e, status, 'Rooted')
+            built_in = one_bounds(e, status, 'BUILT-IN')
+            overlap_x = max(0, min(rooted[2], built_in[2]) - max(rooted[0], built_in[0]))
+            overlap_y = max(0, min(rooted[3], built_in[3]) - max(rooted[1], built_in[1]))
+            if overlap_x * overlap_y:
+                raise AssertionError(f'{style_id} compact status labels overlap')
+            e.screenshot('home-small-status-' + style_id)
     finally:
         e.adb('shell', 'wm', 'size', 'reset')
         e.adb('shell', 'settings', 'put', 'system', 'font_scale', '1.0')
