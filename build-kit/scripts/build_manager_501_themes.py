@@ -29,8 +29,7 @@ def pin_gradle_distribution(src: Path) -> None:
     wrapper = src / 'manager/gradle/wrapper/gradle-wrapper.properties'
     text = wrapper.read_text(encoding='utf-8')
     upstream = 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip'
-    direct = ('distributionUrl=https\\://github.com/gradle/gradle-distributions/'
-              'releases/download/v9.2.0/gradle-9.2.0-bin.zip')
+    direct = 'distributionUrl=https\\://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip'
     if text.count(upstream) != 1 or text.count('networkTimeout=10000') != 1 or 'distributionSha256Sum=' in text:
         raise ValueError('Unexpected upstream Gradle wrapper; refusing to change build tool')
     text = text.replace(upstream, direct).replace('networkTimeout=10000', 'networkTimeout=120000')

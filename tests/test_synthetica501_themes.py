@@ -51,7 +51,7 @@ class Theme501SourceTests(unittest.TestCase):
             wrapper.write_text('distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip\nnetworkTimeout=10000\n')
             app.pin_gradle_distribution(root)
             text = wrapper.read_text()
-            self.assertIn('github.com/gradle/gradle-distributions/', text)
+            self.assertIn('downloads.gradle.org/distributions/gradle-9.2.0-bin.zip', text)
             self.assertIn('networkTimeout=120000', text)
             self.assertIn('distributionSha256Sum=' + app.GRADLE_SHA256, text)
             with self.assertRaises(ValueError):
