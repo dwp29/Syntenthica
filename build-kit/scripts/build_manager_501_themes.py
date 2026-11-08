@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import os
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 import tempfile
 
@@ -23,57 +21,6 @@ ASSETS = ROOT / 'build-kit/ci/ksun-themes501'
 VERSION_NAME = '5.0.1'
 VERSION_CODE = 60001
 APP_ID = base50.APP_ID
-GRADLE_SHA256 = 'df67a32e86e3276d011735facb1535f64d0d88df84fa87521e90becc2d735444'
-
-
-def pin_gradle_distribution(src: Path) -> None:
-    """Use the official release directly, and verify it before executing Gradle."""
-    wrapper = src / 'manager/gradle/wrapper/gradle-wrapper.properties'
-    text = wrapper.read_text(encoding='utf-8')
-    upstream = 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip'
-    direct = 'distributionUrl=https\\://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip'
-    if text.count(upstream) != 1 or text.count('networkTimeout=10000') != 1 or 'distributionSha256Sum=' in text:
-        raise ValueError('Unexpected upstream Gradle wrapper; refusing to change build tool')
-    offline = os.environ.get('SYNTHETICA_GRADLE_ZIP')
-    if offline:
-        archive = Path(offline).resolve()
-        if not archive.is_file() or ROOT in archive.parents:
-            raise ValueError('Verified Gradle ZIP must be a file outside the repository')
-        with archive.open('rb') as stream:
-            actual_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
-        if actual_hash != GRADLE_SHA256:
-            raise ValueError('Supplied Gradle ZIP SHA-256 does not match the pinned distribution')
-        direct = 'distributionUrl=' + archive.as_uri().replace(':', '\\:', 1)
-    text = text.replace(upstream, direct).replace('networkTimeout=10000', 'networkTimeout=120000')
-    wrapper.write_text(text.rstrip() + f'\ndistributionSha256Sum={GRADLE_SHA256}\n', encoding='utf-8')
-
-
-def select_gradle(manager: Path) -> str:
-    """Normally use the upstream-pinned wrapper; allow one exact CI fallback."""
-    if os.environ.get('SYNTHETICA_HOST_GRADLE_982') != '1':
-        return str(manager / 'gradlew')
-    executable = shutil.which('gradle')
-    if not executable:
-        raise ValueError('Expected runner Gradle 9.8.2 is not installed')
-    result = subprocess.run([executable, '--version'], capture_output=True, text=True, check=True, timeout=120)
-    if result.stdout.splitlines().count('Gradle 9.8.2') != 1:
-        raise ValueError('Refusing a runner Gradle version other than 9.8.2')
-    print(f'Using explicitly verified CI runner Gradle 9.8.2: {executable}', flush=True)
-    return executable
-
-
-def build_release(src: Path) -> Path:
-    if os.environ.get('SYNTHETICA_HOST_GRADLE_982') != '1':
-        return base50.previous.previous.base.build_gradle(src)
-    manager = src / 'manager'
-    env = os.environ.copy()
-    env.setdefault('GRADLE_OPTS', '-Xmx4g -Dfile.encoding=UTF-8')
-    subprocess.run([select_gradle(manager), ':app:assembleRelease', '--no-daemon', '--stacktrace'],
-                   cwd=manager, env=env, check=True)
-    apks = list((manager / 'app/build/outputs/apk/release').glob('*.apk'))
-    if len(apks) != 1:
-        raise RuntimeError('Expected exactly one unsigned Manager release APK')
-    return apks[0]
 
 
 def copy_theme(main: Path) -> None:
@@ -90,9 +37,6 @@ def patch_production_dock(activity: Path) -> None:
          'import com.rifsxd.ksunext.ui.theme.LocalGlassStyle\n'
          'import com.rifsxd.ksunext.ui.theme.LocalManagerStyle\n'
          'import com.rifsxd.ksunext.ui.theme.managerDockSpec\n', '5.0.1 dock imports', 1),
-        ('import androidx.compose.ui.text.style.TextOverflow\n',
-         'import androidx.compose.ui.text.style.TextAlign\n'
-         'import androidx.compose.ui.text.style.TextOverflow\n', '5.0.1 adaptive dock label alignment', 1),
         ('    val pixelMotion = LocalPixelMotionEnabled.current\n    val navigator = navController.rememberDestinationsNavigator()',
          '    val pixelMotion = LocalPixelMotionEnabled.current\n'
          '    val dockSpec = managerDockSpec(LocalManagerStyle.current)\n'
@@ -106,31 +50,17 @@ def patch_production_dock(activity: Path) -> None:
          '.padding(horizontal = dockSpec.horizontalMargin, vertical = dockSpec.verticalMargin),\n'
          '        contentAlignment = Alignment.Center,\n    ) {\n        val dockShape = dockSpec.containerShape',
          '5.0.1 dock margins and shape', 1),
-        ('        val density = LocalDensity.current\n        val itemWidthPx = with(density) { itemWidth.toPx() }',
-         '        val density = LocalDensity.current\n'
-         '        // Preserve readable labels at large font scales or narrow widths.\n'
-         '        val wrapDockLabels = maxWidth < 320.dp || density.fontScale > 1.2f\n'
-         '        val minimumDockHeight = 22.dp + 2.dp + with(density) { 24.sp.toDp() } + 12.dp\n'
-         '        val adaptiveDockHeight = if (wrapDockLabels) dockSpec.height.coerceAtLeast(minimumDockHeight) else dockSpec.height\n'
-         '        val itemWidthPx = with(density) { itemWidth.toPx() }', '5.0.1 compact dock metrics', 1),
         ('.width(dockWidth)\n                .height(68.dp)\n                .iosGlass(',
-         '.width(dockWidth)\n                .height(adaptiveDockHeight)\n                .iosGlass(', '5.0.1 dock height', 1),
+         '.width(dockWidth)\n                .height(dockSpec.height)\n                .iosGlass(', '5.0.1 dock height', 1),
         ('val pillShape = MaterialTheme.shapes.medium', 'val pillShape = dockSpec.selectedShape', '5.0.1 dock selection', 1),
         ('text = stringResource(destination.label),\n                            fontSize = 10.5.sp,',
          'text = stringResource(destination.label).let { if (dockSpec.uppercaseLabels) it.uppercase() else it },\n'
-         '                            textAlign = TextAlign.Center,\n'
          '                            fontSize = 10.5.sp,', '5.0.1 dock labels', 1),
-        ('                            maxLines = 1,\n                            overflow = TextOverflow.Ellipsis,\n'
-         '                        )\n                    }\n                }\n            }\n        }\n    }\n}',
-         '                            maxLines = if (wrapDockLabels) 2 else 1,\n'
-         '                            overflow = TextOverflow.Ellipsis,\n'
-         '                        )\n                    }\n                }\n            }\n        }\n    }\n}', '5.0.1 wrap dock labels', 1),
     ])
 
 
 def prepare_tree(src: Path) -> None:
     base50.prepare_tree(src)
-    pin_gradle_distribution(src)
     patch = base50.previous.previous.patch_file
     patch(src / 'manager/build.gradle.kts', [
         ('val managerVersionCode by extra(60000)', f'val managerVersionCode by extra({VERSION_CODE})', '5.0.1 version code', 1),
@@ -176,7 +106,7 @@ def main() -> int:
         raise RuntimeError('Refusing unsafe Manager working directory')
     source = base.prepare_source()
     prepare_tree(source)
-    base.zipalign_apk(build_release(source))
+    base.zipalign_apk(base.build_gradle(source))
     return 0
 
 

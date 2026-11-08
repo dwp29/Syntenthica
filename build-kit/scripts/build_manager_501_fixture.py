@@ -187,7 +187,6 @@ def disable_natives(path: Path) -> None:
 def prepare(src: Path, *, baseline50: bool = False) -> None:
     if baseline50:
         app.base50.prepare_tree(src)
-        app.pin_gradle_distribution(src)
     else:
         app.prepare_tree(src)
     main = src / 'manager/app/src/main'
@@ -275,7 +274,7 @@ def main() -> None:
             print('[done] Fixture prepared; no APK built')
             return
         manager = source / 'manager'
-        subprocess.run([app.select_gradle(manager), ':app:testDebugUnitTest', ':app:assembleDebug', '--no-daemon', '--stacktrace'],
+        subprocess.run([str(manager / 'gradlew'), ':app:testDebugUnitTest', ':app:assembleDebug', '--no-daemon', '--stacktrace'],
                        cwd=manager, check=True)
         apks = list((manager / 'app/build/outputs/apk/debug').glob('*.apk'))
         if len(apks) != 1: raise RuntimeError('Expected exactly one debug UI fixture APK')

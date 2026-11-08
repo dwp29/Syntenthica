@@ -1,24 +1,18 @@
 """Regression guards for production designs and the deliberately simulated UI fixture."""
 from __future__ import annotations
 
-import hashlib
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 from pathlib import Path
-import re
 import shutil
 import sys
 import tempfile
-import threading
 import unittest
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'build-kit/scripts'))
 import build_manager_50_multitheme as old
 import build_manager_501_themes as app
 import build_manager_501_fixture as fixture
-import fetch_gradle_501 as gradle_fetch
 
 
 class Theme501SourceTests(unittest.TestCase):
@@ -48,93 +42,6 @@ class Theme501SourceTests(unittest.TestCase):
         for path in app.ASSETS.rglob('*'):
             if path.is_file():
                 self.assertNotIn(path.suffix.lower(), {'.jks', '.p12', '.keystore', '.pem', '.key'})
-
-    def test_gradle_distribution_is_exactly_pinned_and_unknown_wrapper_is_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            wrapper = root / 'manager/gradle/wrapper/gradle-wrapper.properties'
-            wrapper.parent.mkdir(parents=True)
-            wrapper.write_text('distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip\nnetworkTimeout=10000\n')
-            with mock.patch.dict(os.environ, {'SYNTHETICA_GRADLE_ZIP': ''}):
-                app.pin_gradle_distribution(root)
-            text = wrapper.read_text()
-            self.assertIn('downloads.gradle.org/distributions/gradle-9.2.0-bin.zip', text)
-            self.assertIn('networkTimeout=120000', text)
-            self.assertIn('distributionSha256Sum=' + app.GRADLE_SHA256, text)
-            with self.assertRaises(ValueError):
-                app.pin_gradle_distribution(root)
-
-    def test_gradle_ranges_and_local_checksum_fail_closed(self):
-        gradle_fetch.validate_response('HTTP/1.1 206 Partial Content\r\nContent-Range: bytes 3-6/20\r\n', 4, 3, 6, 20)
-        for header, size in (('Content-Range: bytes 0-3/20\r\n', 4), ('Content-Range: bytes 3-6/20\r\n', 3), ('', 4)):
-            with self.assertRaises(ValueError):
-                gradle_fetch.validate_response(header, size, 3, 6, 20)
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            wrapper = root / 'manager/gradle/wrapper/gradle-wrapper.properties'
-            wrapper.parent.mkdir(parents=True)
-            original = 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip\nnetworkTimeout=10000\n'
-            wrapper.write_text(original)
-            zip_file = root / 'local.zip'
-            zip_file.write_bytes(b'not-the-pinned-gradle')
-            with mock.patch.dict(os.environ, {'SYNTHETICA_GRADLE_ZIP': str(zip_file)}), self.assertRaisesRegex(ValueError, 'SHA-256'):
-                app.pin_gradle_distribution(root)
-            self.assertEqual(wrapper.read_text(), original)
-            fake_digest = hashlib.sha256(zip_file.read_bytes()).hexdigest()
-            with mock.patch.dict(os.environ, {'SYNTHETICA_GRADLE_ZIP': str(zip_file)}), mock.patch.object(app, 'GRADLE_SHA256', fake_digest):
-                app.pin_gradle_distribution(root)
-            self.assertIn('distributionUrl=file\\://', wrapper.read_text())
-            self.assertIn('distributionSha256Sum=' + fake_digest, wrapper.read_text())
-
-    def test_host_gradle_fallback_is_explicit_and_version_checked(self):
-        manager = Path('/tmp/manager')
-        with mock.patch.dict(os.environ, {'SYNTHETICA_HOST_GRADLE_982': ''}):
-            self.assertEqual(app.select_gradle(manager), str(manager / 'gradlew'))
-        with mock.patch.dict(os.environ, {'SYNTHETICA_HOST_GRADLE_982': '1'}), \
-             mock.patch.object(app.shutil, 'which', return_value='/usr/bin/gradle'), \
-             mock.patch.object(app.subprocess, 'run', return_value=mock.Mock(stdout='\nGradle 9.8.2\n')):
-            self.assertEqual(app.select_gradle(manager), '/usr/bin/gradle')
-        with mock.patch.dict(os.environ, {'SYNTHETICA_HOST_GRADLE_982': '1'}), \
-             mock.patch.object(app.shutil, 'which', return_value='/usr/bin/gradle'), \
-             mock.patch.object(app.subprocess, 'run', return_value=mock.Mock(stdout='\nGradle 9.9.0\n')):
-            with self.assertRaises(ValueError):
-                app.select_gradle(manager)
-
-    @unittest.skipUnless(shutil.which('curl'), 'curl is required for the range downloader')
-    def test_gradle_downloader_assembles_only_verified_ranges(self):
-        data = bytes(range(251)) * 40
-
-        class RangeHandler(BaseHTTPRequestHandler):
-            def log_message(self, *_args):
-                pass
-
-            def do_GET(self):
-                match = re.fullmatch(r'bytes=(\d+)-(\d+)', self.headers.get('Range', ''))
-                if not match:
-                    self.send_error(400)
-                    return
-                start, end = map(int, match.groups())
-                payload = data[start:end + 1]
-                self.send_response(206)
-                self.send_header('Content-Range', f'bytes {start}-{end}/{len(data)}')
-                self.send_header('Content-Length', str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-
-        server = HTTPServer(('127.0.0.1', 0), RangeHandler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        self.addCleanup(server.server_close)
-        self.addCleanup(server.shutdown)
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.multiple(
-            gradle_fetch, URL=f'http://127.0.0.1:{server.server_port}/gradle.zip',
-            TOTAL=len(data), PART=1024, GRADLE_SHA256=hashlib.sha256(data).hexdigest(),
-        ):
-            out = Path(tmp) / 'gradle.zip'
-            gradle_fetch.fetch(out)
-            self.assertEqual(out.read_bytes(), data)
-            with self.assertRaises(FileExistsError):
-                gradle_fetch.fetch(out)
 
 
 @unittest.skipUnless(os.environ.get('MULTITHEME50_SOURCE'), 'pinned upstream source not provided')
@@ -180,9 +87,6 @@ class PreparedTrees501Tests(unittest.TestCase):
         self.assertIn('val dockShape = dockSpec.containerShape', activity)
         self.assertIn('val pillShape = dockSpec.selectedShape', activity)
         self.assertIn('LaunchedEffect(currentRoute) { isScrollingDown.value = false }', activity)
-        self.assertIn('val wrapDockLabels = maxWidth < 320.dp || density.fontScale > 1.2f', activity)
-        self.assertIn('height(adaptiveDockHeight)', activity)
-        self.assertIn('maxLines = if (wrapDockLabels) 2 else 1', activity)
 
     def test_fixture_runs_production_screen_compositions_but_never_the_real_backend(self):
         pkg = self.pkg
