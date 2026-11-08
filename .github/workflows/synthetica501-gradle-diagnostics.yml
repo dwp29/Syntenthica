@@ -26,12 +26,13 @@ jobs:
               if [ -e "$d" ]; then ls -ld "$d"; ls "$d" | head; fi
             done
             echo '=== Official distribution availability ==='
-            for url in \
-              https://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip \
-              https://services.gradle.org/distributions/gradle-9.2.0-bin.zip \
-              https://github.com/gradle/gradle-distributions/releases/download/v9.2.0/gradle-9.2.0-bin.zip; do
-              printf '%s: ' "$url"
-              curl -fsSL --max-time 30 -r 0-1023 -o /dev/null -w '%{http_code}\n' "$url" || true
+            url=https://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip
+            for range in 0-1023 1048576-1049599 0-2097151; do
+              printf 'Range %s: ' "$range"
+              if curl -fsSL --max-time 60 -r "$range" -D "$RUNNER_TEMP/range-headers.txt" -o "$RUNNER_TEMP/range-part" -w 'HTTP %{http_code}, ' "$url?segment=${range%-*}"; then
+                printf 'bytes '; wc -c < "$RUNNER_TEMP/range-part"
+                grep -i '^content-range:' "$RUNNER_TEMP/range-headers.txt" | tr -d '\r' || true
+              else echo failed; fi
             done
           } | tee "$OUT"
           python3 - <<'PY'
