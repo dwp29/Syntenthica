@@ -1,0 +1,43 @@
+name: "Synthetica 5.0.1 — Gradle runner diagnostics"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths: ['.github/workflows/synthetica501-gradle-diagnostics.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Inspect preinstalled Gradle and official download endpoints
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          OUT="$RUNNER_TEMP/gradle-diagnostic.txt"
+          {
+            echo '=== Preinstalled Gradle ==='
+            command -v gradle || true
+            gradle --version 2>&1 | head -20 || true
+            echo '=== Gradle installations ==='
+            for d in /opt/gradle /usr/share/gradle /opt/hostedtoolcache/gradle /usr/local/gradle; do
+              if [ -e "$d" ]; then ls -ld "$d"; ls "$d" | head; fi
+            done
+            echo '=== Official distribution availability ==='
+            for url in \
+              https://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip \
+              https://services.gradle.org/distributions/gradle-9.2.0-bin.zip \
+              https://github.com/gradle/gradle-distributions/releases/download/v9.2.0/gradle-9.2.0-bin.zip; do
+              printf '%s: ' "$url"
+              curl -fsSL --max-time 30 -r 0-1023 -o /dev/null -w '%{http_code}\n' "$url" || true
+            done
+          } | tee "$OUT"
+          python3 - <<'PY'
+          import base64,json,os,pathlib,subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP']); text=(root/'gradle-diagnostic.txt').read_bytes()
+          payload=root/'diag.json';payload.write_text(json.dumps({'content':base64.b64encode(text).decode(),'encoding':'base64'}))
+          blob=subprocess.run(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs",'--method','POST','--input',str(payload),'--jq','.sha'],capture_output=True,text=True,check=True).stdout.strip()
+          print(f'::notice title=Gradle runner diagnostics blob::{blob}')
+          PY
