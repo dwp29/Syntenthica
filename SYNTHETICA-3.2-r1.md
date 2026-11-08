@@ -68,10 +68,12 @@ bahwa 3.2-r1 dapat boot pada perangkat atau ROM apa pun.
   dengan dependensi yang dimock. Tes ini bukan boot atau simulasi Android.
 
 Pembandingan config, seluruh ekspor dan enam modul tersebut lulus di CI build.
-Arsip transfer juga diperiksa ulang secara offline menggunakan
-`build-kit/scripts/verify_synthetica32_r1_evidence.py`, termasuk integritas ZIP,
-config tertanam, identitas Manager dan signature enam modul. Script itu membaca
-arsip dan referensi 3.1 secara lokal; ia tidak mengakses atau menulis perangkat.
+[Audit CI terpisah](https://github.com/dwp29/Syntenthica/actions/runs/42508685593)
+juga lulus menggunakan `build-kit/scripts/verify_synthetica32_r1_evidence.py`,
+termasuk pemeriksaan integritas ZIP, config tertanam, identitas Manager dan
+signature enam modul. Suite lokal menemukan 359 tes tanpa kegagalan; 71 tes
+dilewati karena prasyarat atau fixture tidak disediakan. Script audit hanya membaca
+arsip dan referensi 3.1; ia tidak mengakses atau menulis perangkat.
 
 Untuk mengulang pemeriksaan offline dari checkout repositori, siapkan referensi
 3.1 asli dan jalankan:
