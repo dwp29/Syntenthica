@@ -1,0 +1,20 @@
+{
+  "description": "Manager 5.0 build and separate non-root preview evidence; not a physical device test",
+  "manager_source_commit": "8a9b64aec2b2ee753730445ee8c331465aafe5fc",
+  "upstream_ksun_commit": "ea51427ff700f73909e7e8c8717cc3241322ee1e",
+  "build_run_id": "42450727175",
+  "preview_emulator_run_id": "42450977158",
+  "unsigned_manager_git_blob": "60b57ef532747f9b26a57f8ad600f5f556524cd8",
+  "unsigned_manager_sha256": "76b125554a6f989758457773f0eff7eda54047b65ede385a36201cec3985e337",
+  "signed_manager_sha256": "72322e05616313ec4b3c81ec045575c45edc2b7067833a325cb02ddc740401b6",
+  "signed_manager_bytes": 8695088,
+  "manager_certificate_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140",
+  "application_id": "net.ember.labs",
+  "version_name": "5.0.0",
+  "version_code": 60000,
+  "preview_emulator_evidence_git_blob": "3da9b5578df46be4c29dd55789644dd9954a4127",
+  "preview_emulator_evidence_sha256": "26a2fab6c8f303f5f38b43611a677eaeb18c168f2cf7346d2184c8399fad41da",
+  "drive_folder_id": "1NX6JLc8k4R9fYr80DtqV3sheb0FgCQjq",
+  "signed_manager_drive_id": "1chTB1qpJ2jzw_QJfSOGfgO02bII-rFbF",
+  "physical_device_tested": false
+}
