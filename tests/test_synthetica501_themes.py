@@ -32,6 +32,7 @@ class Theme501SourceTests(unittest.TestCase):
         self.assertIn('Build.VERSION_CODES.S', glass)
         self.assertIn('BlurEffect(', glass)
         self.assertIn('!glass.isAmoled', glass)
+        self.assertIn('LocalContentColor provides MaterialTheme.colorScheme.onSurface', glass)
         self.assertIn('FlowRow(', hero)  # statuses can wrap on small/large-font screens
         self.assertIn('role = Role.RadioButton', selector)
         self.assertEqual(app.VERSION_CODE, 60001)
@@ -85,6 +86,7 @@ class PreparedTrees501Tests(unittest.TestCase):
         self.assertIn('if (Natives.isManager) install()', activity)  # unchanged real backend startup
         self.assertIn('val dockShape = dockSpec.containerShape', activity)
         self.assertIn('val pillShape = dockSpec.selectedShape', activity)
+        self.assertIn('LaunchedEffect(currentRoute) { isScrollingDown.value = false }', activity)
 
     def test_fixture_runs_production_screen_compositions_but_never_the_real_backend(self):
         pkg = self.pkg

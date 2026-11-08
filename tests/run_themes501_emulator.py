@@ -102,7 +102,9 @@ def to_home(e: FixtureEmulator, name: str, *, settings_screenshot: bool = False)
     if settings_screenshot:
         e.screenshot('settings-' + name)
     back(e)  # Settings -> actual Home via production BackHandler
-    return e.wait_for('Synthetica Manager', f'home-{name}')
+    e.wait_for('Synthetica Manager', f'home-{name}')
+    # The dock must reappear when returning from a screen that was scrolled.
+    return e.wait_for('Home', f'home-dock-{name}')
 
 
 def brightness(path: Path) -> float:
@@ -151,6 +153,21 @@ def check_home(e: FixtureEmulator, root: ET.Element, name: str) -> dict[str, tup
         raise AssertionError(f'Status labels overlap on {name}: {a}, {b}')
     print(f'Actual Home bounds {name}: {bounds}', flush=True)
     return bounds
+
+
+def check_dark_toolbar_icons(e: FixtureEmulator, root: ET.Element, image: Path, name: str) -> None:
+    # In the original dark screenshot these interactive icons were black on black.
+    # Verify their *pixels*, not just the presence of accessibility labels.
+    with Image.open(image) as screenshot:
+        gray = screenshot.convert('L')
+        for label in ('Install', 'Reboot'):
+            box = one_bounds(e, root, label)
+            crop = gray.crop(box)
+            hist = crop.histogram()
+            visible = sum(hist[150:]) / max(1, crop.width * crop.height)
+            print(f'Toolbar {name}/{label} bright pixel ratio: {visible:.3f}', flush=True)
+            if visible < .01:
+                raise AssertionError(f'{name} toolbar {label} lacks contrast on the dark background')
 
 
 def require_hash(path: Path, expected: str) -> None:
@@ -230,6 +247,7 @@ def main() -> None:
         home = to_home(e, style_id, settings_screenshot=True)
         geometry[style_id] = check_home(e, home, style_id)
         screenshots[style_id] = e.screenshot('home-' + style_id)
+        check_dark_toolbar_icons(e, home, screenshots[style_id], style_id)
         e.tap('System & environment details', 'expand-details-' + style_id, scroll=True)
         e.wait_for('SELinux', 'expanded-selinux-' + style_id, scroll=True)
 

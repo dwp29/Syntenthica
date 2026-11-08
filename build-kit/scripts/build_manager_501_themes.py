@@ -41,6 +41,11 @@ def patch_production_dock(activity: Path) -> None:
          '    val pixelMotion = LocalPixelMotionEnabled.current\n'
          '    val dockSpec = managerDockSpec(LocalManagerStyle.current)\n'
          '    val navigator = navController.rememberDestinationsNavigator()', '5.0.1 dock geometry', 1),
+        ('                val lastValidNavbarSelection = remember { mutableStateOf(0) }\n',
+         '                val lastValidNavbarSelection = remember { mutableStateOf(0) }\n'
+         '                // Do not leave the dock hidden after returning from a scrolled screen.\n'
+         '                LaunchedEffect(currentRoute) { isScrollingDown.value = false }\n',
+         '5.0.1 restore dock on destination change', 1),
         ('.padding(horizontal = 18.dp, vertical = 12.dp),\n        contentAlignment = Alignment.Center,\n    ) {\n        val dockShape = MaterialTheme.shapes.extraLarge',
          '.padding(horizontal = dockSpec.horizontalMargin, vertical = dockSpec.verticalMargin),\n'
          '        contentAlignment = Alignment.Center,\n    ) {\n        val dockShape = dockSpec.containerShape',
