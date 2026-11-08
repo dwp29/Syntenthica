@@ -1,0 +1,65 @@
+name: "Synthetica 3.2 - offline build and module audit"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica32-audit.yml'
+      - 'build-kit/scripts/audit_synthetica32_rom_modules.py'
+      - 'build-kit/scripts/correct_synthetica32_evidence.py'
+      - 'build-kit/ci/synthetica32-build-evidence.json'
+      - 'tests/test_synthetica32_rom_modules.py'
+      - 'tests/test_synthetica32_evidence_correction.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Read the recorded compile-evidence pin
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'build-kit/scripts')
+          import audit_synthetica32_rom_modules as audit
+          p=audit.evidence_pins()
+          with Path(os.environ['GITHUB_ENV']).open('a') as f:
+              f.write('S32_TRANSFER_BLOB='+p['transfer_git_blob']+'\n')
+              f.write('S32_TRANSFER_SHA256='+p['transfer_sha256']+'\n')
+              f.write('S32_ORIGINAL_BLOB='+p['original_ci_transfer_git_blob']+'\n')
+              f.write('S32_ORIGINAL_SHA256='+p['original_ci_transfer_sha256']+'\n')
+          PY
+      - name: Download and verify public CI build evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/$S32_TRANSFER_BLOB" > "$RUNNER_TEMP/s32-evidence.zip"
+          echo "$S32_TRANSFER_SHA256  $RUNNER_TEMP/s32-evidence.zip" | sha256sum -c -
+          test "$(git hash-object "$RUNNER_TEMP/s32-evidence.zip")" = "$S32_TRANSFER_BLOB"
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/$S32_ORIGINAL_BLOB" > "$RUNNER_TEMP/s32-original.zip"
+          echo "$S32_ORIGINAL_SHA256  $RUNNER_TEMP/s32-original.zip" | sha256sum -c -
+          test "$(git hash-object "$RUNNER_TEMP/s32-original.zip")" = "$S32_ORIGINAL_BLOB"
+          echo "S32_EVIDENCE=$RUNNER_TEMP/s32-evidence.zip" >> "$GITHUB_ENV"
+          echo "S32_ORIGINAL_EVIDENCE=$RUNNER_TEMP/s32-original.zip" >> "$GITHUB_ENV"
+      - name: Verify exact image, six module signatures and synthetic comparison
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica32_build.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica32_rom_modules.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica32_evidence_correction.py' -v
+      - name: State scope
+        run: |
+          echo '::notice title=Scope::Read-only offline fixtures only. No actual ROM, runtime module load, physical Android boot, root or AVB trust was tested.'

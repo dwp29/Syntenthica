@@ -1,0 +1,19 @@
+{
+  "kind": "SYNTHETICA_3_2_COMPILE_EVIDENCE_PUBLIC_ONLY",
+  "release": "4.14.357-openela-synthetica-3.2",
+  "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "build_run": 42499760357,
+  "commit": "bb7c4f3adff9866e92de983aed54f33124d7c5f6",
+  "transfer_git_blob": "e0af6ff272653fcfd4075667586b55de3e8eba23",
+  "transfer_sha256": "7783dc7c6fa01bcc7843ddfe125c582e19889a5b891125926ed790bd127ebe26",
+  "original_ci_transfer_git_blob": "1c5903d8e306d2339a1af7272c4b715154098a27",
+  "original_ci_transfer_sha256": "7adfddedb3bacab7304e4b6d8e644451de7730515913e38e3ef54431eeb84895",
+  "correction": "STATUS.json ROM-signer wording and SHA256SUMS.txt only; binaries and all other evidence remain byte-identical to the CI transfer.",
+  "image_sha256": "cb6c953dba1515b710ff0f3d90086afa572903bd702a735aed53af7e31b6e943",
+  "config_sha256": "2683120851655f61db3c0f03cb17fb4affac14f7fd31cbbda381a57999197f4e",
+  "module_public_cert_sha256": "37a423ef945ff4d6234cf2d0ace538c4c2e9aaeaae1f0ba144754c2d0722dba2",
+  "module_symvers_sha256": "07bb866c067a4c2c0567f5eb17f51137ca7da948dd82799077d93deb82278972",
+  "system_map_sha256": "64fdbef3c64bb05385236b5979462cd174f3bd37b403c7f0bd49ae796fa35444",
+  "module_layout_crc": "0x08efcbb0",
+  "scope": "Compile and static checks only; no recovery installer, physical boot, target ROM module trust or AVB verification."
+}
