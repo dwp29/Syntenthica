@@ -7,6 +7,7 @@ on:
       - '.github/workflows/synthetica501-manager.yml'
       - 'build-kit/ci/ksun-themes501/**'
       - 'build-kit/scripts/build_manager_501*.py'
+      - 'build-kit/scripts/fetch_gradle_501.py'
       - 'tests/test_synthetica501*.py'
       - 'tests/verify_synthetica501_apk.py'
       - 'tests/verify_themes501_fixture_apk.py'
@@ -55,6 +56,11 @@ jobs:
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
             'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'cmake;3.22.1' 2>&1 | tail -10
+      - name: Fetch checksum-pinned Gradle in validated ranges
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip"
+          echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
       - name: Compile unsigned Manager 5.0.1
         run: |
           set -euo pipefail
@@ -154,6 +160,11 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.1.0' 2>&1 | tail -10
+      - name: Fetch checksum-pinned Gradle in validated ranges
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip"
+          echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
       - name: Compile safe 5.0 baseline for simulated update
         run: |
           set -euo pipefail

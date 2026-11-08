@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -32,6 +33,16 @@ def pin_gradle_distribution(src: Path) -> None:
     direct = 'distributionUrl=https\\://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip'
     if text.count(upstream) != 1 or text.count('networkTimeout=10000') != 1 or 'distributionSha256Sum=' in text:
         raise ValueError('Unexpected upstream Gradle wrapper; refusing to change build tool')
+    offline = os.environ.get('SYNTHETICA_GRADLE_ZIP')
+    if offline:
+        archive = Path(offline).resolve()
+        if not archive.is_file() or ROOT in archive.parents:
+            raise ValueError('Verified Gradle ZIP must be a file outside the repository')
+        with archive.open('rb') as stream:
+            actual_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
+        if actual_hash != GRADLE_SHA256:
+            raise ValueError('Supplied Gradle ZIP SHA-256 does not match the pinned distribution')
+        direct = 'distributionUrl=' + archive.as_uri().replace(':', '\\:', 1)
     text = text.replace(upstream, direct).replace('networkTimeout=10000', 'networkTimeout=120000')
     wrapper.write_text(text.rstrip() + f'\ndistributionSha256Sum={GRADLE_SHA256}\n', encoding='utf-8')
 
