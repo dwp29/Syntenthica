@@ -2,9 +2,10 @@
 
 > **Laporan gagal boot — joyeuse, Android 17 / Project Infinity 4.1.**
 > Installer 3.1 dilaporkan selesai, tetapi boot tertahan di logo Redmi/Mi;
-> perangkat kemudian dilaporkan sudah pulih. Sebelumnya digunakan KernelSU.
-> Penyebabnya belum diketahui; build ROM rinci, identitas ZIP dan log kejadian
-> belum tersedia untuk diperiksa. Tunda percobaan 3.1 pada kombinasi ini.
+> perangkat kemudian dilaporkan pulih dan KernelSU masih berfungsi. Varian ROM
+> yang dilaporkan adalah 4.1 GAPPS, 21.10.2026; identitas file belum diverifikasi.
+> Penyebabnya belum diketahui dan log kejadian belum tersedia untuk diperiksa.
+> Tunda percobaan 3.1 pada kombinasi ini.
 > Jangan wipe data,
 > menonaktifkan AVB/vbmeta, atau mencoba image/slot secara acak. Lihat
 > [catatan insiden dan pengumpulan bukti](SYNTHETICA-3.1-INSIDEN-INFINITY.md).

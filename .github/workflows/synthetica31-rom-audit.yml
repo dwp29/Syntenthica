@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Fetch exact public 3.1 compile evidence
+      - name: Fetch exact public 3.0 and 3.1 compile evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -34,7 +34,11 @@ jobs:
           gh api -H 'Accept: application/vnd.github.raw+json' \
             "repos/${GITHUB_REPOSITORY}/git/blobs/0f815b773d39a8f0b392a7d190be9ca1ad702ead" > "$RUNNER_TEMP/evidence31.zip"
           echo '67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847  '"$RUNNER_TEMP/evidence31.zip" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/evidence30.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/evidence30.zip" | sha256sum -c -
           echo "S31_EVIDENCE=$RUNNER_TEMP/evidence31.zip" >> "$GITHUB_ENV"
+          echo "S30_EVIDENCE=$RUNNER_TEMP/evidence30.zip" >> "$GITHUB_ENV"
       - name: Verify static audit and input/privacy guards
         run: |
           set -euo pipefail
@@ -42,4 +46,4 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_synthetica2_rom_modules.py' -v
           python3 -m unittest discover -s tests -p 'test_synthetica3_vendor.py' -v
       - name: Describe limits
-        run: echo '::notice title=Scope::Pinned build and synthetic/older-build module fixtures only. No affected ROM, real device, module loading, AVB or boot was tested.'
+        run: echo '::notice title=Scope::Pinned 3.0/3.1 build comparison and synthetic/older-build module fixtures only. No affected ROM, real device, module loading, AVB or boot was tested.'

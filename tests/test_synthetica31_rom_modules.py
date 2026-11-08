@@ -209,6 +209,56 @@ class RealEvidenceTests(unittest.TestCase):
         self.assertIn('No device', report['scope'])
         self.assertEqual(before, digest(path.read_bytes()))
 
+    @unittest.skipUnless(os.environ.get('S30_EVIDENCE'), 'pinned public 3.0 CI evidence ZIP not provided')
+    def test_pinned_30_and_31_symbol_evidence_is_identical_but_certificates_differ(self):
+        # Compare only the exact public build outputs. This is not a ROM audit
+        # or a device test, and matching symbol files are not a boot verdict.
+        raw30 = vendor.read_regular(Path(os.environ['S30_EVIDENCE']), audit.MAX_ARCHIVE)
+        self.assertEqual(digest(raw30), '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9')
+        self.assertEqual(blob_id(raw30), '8541d4a26081b94215d4d493332cc27711f2fd15')
+        with zipfile.ZipFile(io.BytesIO(raw30)) as z:
+            self.assertEqual(set(z.namelist()), {
+                'synthetica-3.0.zip', 'STATUS.json', 'generated.config.txt',
+                'module-signing-public-cert.x509', 'Module.symvers', 'System.map',
+            })
+            self.assertEqual(len(z.infolist()), 6)
+            self.assertIsNone(z.testzip())
+            files30 = {name: z.read(name) for name in z.namelist()}
+        status30 = json.loads(files30['STATUS.json'])
+        self.assertEqual(status30['kind'], 'SYNTHETICA_3_0_COMPILED_ONLY_DO_NOT_FLASH')
+        self.assertEqual(status30['release'], '4.14.357-openela-synthetica-3.0')
+        self.assertEqual(status30['base_source'], audit.evidence_pins()['source'])
+        for key, name in (
+            ('config_sha256', 'generated.config.txt'),
+            ('module_public_cert_sha256', 'module-signing-public-cert.x509'),
+            ('module_symvers_sha256', 'Module.symvers'),
+            ('system_map_sha256', 'System.map'),
+        ):
+            self.assertEqual(digest(files30[name]), status30[key])
+        with zipfile.ZipFile(io.BytesIO(files30['synthetica-3.0.zip'])) as z:
+            image30 = z.read('Image.gz')
+        self.assertEqual(digest(image30), status30['image_sha256'])
+
+        # load_candidate also verifies the pinned 3.1 archive, image, embedded
+        # config and build certificate. The 3.0 identity is cross-bound in 3.1.
+        audit.load_candidate(self.evidence)
+        files31 = audit.read_evidence(self.evidence, audit.evidence_pins())
+        status31 = json.loads(files31['STATUS.json'])
+        self.assertEqual(status31['baseline_3_0_image_sha256'], digest(image30))
+        self.assertEqual(status31['baseline_3_0_config_sha256'], digest(files30['generated.config.txt']))
+        self.assertEqual(status31['baseline_3_0_module_cert_sha256'], digest(files30['module-signing-public-cert.x509']))
+        self.assertNotEqual(digest(image30), digest(files31['Image.gz.DO-NOT-FLASH']))
+        self.assertNotEqual(files30['module-signing-public-cert.x509'], files31['module-signing-public-cert.x509'])
+        for name in ('Module.symvers', 'System.map'):
+            self.assertEqual(files30[name], files31[name])
+        self.assertEqual(len(files30['Module.symvers'].splitlines()), 12236)
+        self.assertEqual(files30['generated.config.txt'].count(b'CONFIG_LOCALVERSION="-synthetica-3.0"'), 1)
+        self.assertEqual(files30['generated.config.txt'].replace(
+            b'CONFIG_LOCALVERSION="-synthetica-3.0"', b'CONFIG_LOCALVERSION="-synthetica-3.1"', 1
+        ), files31['generated.config.txt'])
+        for key in ('clang_sha256', 'lld_sha256', 'neutron_archive_sha256'):
+            self.assertEqual(status30['compiler'][key], status31['compiler'][key])
+
     def test_cli_writes_private_report_and_refuses_overwrite(self):
         shutil.copyfile(ROOT / 'artifacts/synthetica-3.0/signed-modules/tcp_bic.ko', self.modules / 'tcp_bic.ko')
         result = self.root / 'report.json'
