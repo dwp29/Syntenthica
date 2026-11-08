@@ -26,6 +26,13 @@ base.ACTIVITY = base.PACKAGE + '/com.rifsxd.ksunext.ui.MainActivity'
 
 
 class FixtureEmulator(base.Emulator):
+    def dump(self, name: str) -> ET.Element:
+        root = super().dump(name)
+        packages = {node.get('package') for node in root.iter('node') if node.get('package')}
+        if base.PACKAGE not in packages:
+            raise AssertionError(f'Simulated Manager is not in the foreground during {name}: {packages}')
+        return root
+
     def screen_size(self) -> tuple[int, int]:
         text = self.adb('shell', 'wm', 'size')
         values = re.findall(r'(?:Physical|Override) size:\s*(\d+)x(\d+)', text)
@@ -176,6 +183,27 @@ def require_hash(path: Path, expected: str) -> None:
     verify.verify(path)
 
 
+def test_small_screen(e: FixtureEmulator, styles: list[tuple[str, str]]) -> None:
+    try:
+        e.adb('shell', 'wm', 'size', '720x1280')
+        e.adb('shell', 'settings', 'put', 'system', 'font_scale', '1.5')
+        e.adb('shell', 'am', 'force-stop', base.PACKAGE)
+        result = e.adb('shell', 'am', 'start', '-W', '-n', base.ACTIVITY)
+        print(f'Small-screen activity start: {result}', flush=True)
+        time.sleep(4)
+        e.wait_for('Synthetica Manager', 'small-start')
+        e.screenshot('home-small-start')
+        for label, style_id in styles:
+            to_customize(e, 'small-open-' + style_id)
+            choose(e, label, 'small-' + style_id)
+            home = to_home(e, 'small-' + style_id)
+            check_home(e, home, 'small-' + style_id)
+            e.screenshot('home-small-' + style_id)
+    finally:
+        e.adb('shell', 'wm', 'size', 'reset')
+        e.adb('shell', 'settings', 'put', 'system', 'font_scale', '1.0')
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--serial', required=True)
@@ -285,21 +313,7 @@ def main() -> None:
     if motion_delta > .08:
         raise AssertionError('Motion-off screen did not settle')
 
-    try:
-        e.adb('shell', 'wm', 'size', '720x1280')
-        e.adb('shell', 'settings', 'put', 'system', 'font_scale', '1.5')
-        e.adb('shell', 'am', 'force-stop', base.PACKAGE)
-        e.adb('shell', 'am', 'start', '-W', '-n', base.ACTIVITY)
-        time.sleep(4)
-        for label, style_id in styles:
-            to_customize(e, 'small-open-' + style_id)
-            choose(e, label, 'small-' + style_id)
-            home = to_home(e, 'small-' + style_id)
-            check_home(e, home, 'small-' + style_id)
-            e.screenshot('home-small-' + style_id)
-    finally:
-        e.adb('shell', 'wm', 'size', 'reset')
-        e.adb('shell', 'settings', 'put', 'system', 'font_scale', '1.0')
+    test_small_screen(e, styles)
 
     packages = e.adb('shell', 'pm', 'list', 'packages')
     if f'package:{base.PACKAGE}' not in packages or 'package:net.ember.labs\n' in packages:

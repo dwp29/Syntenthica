@@ -92,6 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/fixture501-test-output"
+          trap 'adb -s emulator-5554 logcat -d -v threadtime -t 3000 AndroidRuntime:E ActivityTaskManager:W ActivityManager:W "*:S" > "$OUT/logcat-errors.txt" 2>&1 || true' EXIT
           emulator -avd themes501 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$OUT/emulator.log" 2>&1 &
           pid=$!
           sleep 12
@@ -117,7 +118,7 @@ jobs:
           if snapshots: shutil.copy2(max(snapshots,key=lambda p:p.stat().st_mtime_ns),root/'last-ui.xml')
           bundle=root/'simulated-ui-evidence.zip'
           with zipfile.ZipFile(bundle,'w',compression=zipfile.ZIP_DEFLATED) as z:
-              for pattern in ('test.log','emulator.log','last-ui.xml','preferences-*.xml','home-*.png','settings-*.png','mode-*.png','motion-off-*.png'):
+              for pattern in ('test.log','emulator.log','logcat-errors.txt','last-ui.xml','preferences-*.xml','small-*.xml','home-*.png','settings-*.png','mode-*.png','motion-off-*.png'):
                   for p in sorted(root.glob(pattern)): z.write(p,arcname=p.name)
           payload=root/'evidence.json'
           payload.write_text(json.dumps({'content':base64.b64encode(bundle.read_bytes()).decode(),'encoding':'base64'}))
