@@ -184,8 +184,11 @@ def disable_natives(path: Path) -> None:
     path.write_text(text, encoding='utf-8')
 
 
-def prepare(src: Path) -> None:
-    app.prepare_tree(src)
+def prepare(src: Path, *, baseline50: bool = False) -> None:
+    if baseline50:
+        app.base50.prepare_tree(src)
+    else:
+        app.prepare_tree(src)
     main = src / 'manager/app/src/main'
     java = main / 'java/com/rifsxd/ksunext'
     gradle = src / 'manager/app/build.gradle.kts'
@@ -195,7 +198,8 @@ def prepare(src: Path) -> None:
     tests = src / 'manager/app/src/test/java/com/rifsxd/ksunext/ui/theme'
     tests.mkdir(parents=True, exist_ok=True)
     for test in (app.ASSETS / 'tests').glob('*.kt'):
-        shutil.copy2(test, tests / test.name)
+        if not baseline50 or test.name == 'ThemeLogic50Test.kt':
+            shutil.copy2(test, tests / test.name)
     replace_once(gradle, '''    externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
@@ -246,7 +250,8 @@ import androidx.compose.runtime.Composable
                  'subtitle = "${BuildConfig.VERSION_NAME}  •  UAPI v$managerUAPIVersion",',
                  'subtitle = "SIMULATED UI  •  NO ROOT",')
     # Integrity checks: the production UI files and dock are used, not a hand-made demo.
-    for path, marker in ((java / 'ui/MainActivity.kt', 'managerDockSpec(LocalManagerStyle.current)'),
+    dock_marker = 'val dockShape = MaterialTheme.shapes.extraLarge' if baseline50 else 'managerDockSpec(LocalManagerStyle.current)'
+    for path, marker in ((java / 'ui/MainActivity.kt', dock_marker),
                          (java / 'ui/screen/Home.kt', 'IosHeroCard('),
                          (java / 'ui/screen/Settings.kt', 'fun SettingScreen('),
                          (java / 'ui/screen/Customization.kt', 'NeonAppearanceControls(')):
@@ -258,12 +263,13 @@ import androidx.compose.runtime.Composable
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--source', type=Path, required=True, help='pinned upstream checkout, not a phone')
+    p.add_argument('--baseline50', action='store_true', help='build a safe 5.0 fixture for a simulated upgrade test')
     p.add_argument('--verify-only', action='store_true')
     args = p.parse_args()
     with tempfile.TemporaryDirectory(prefix='synthetica501-ui-fixture-') as tmp:
         source = Path(tmp) / 'source'
         shutil.copytree(args.source, source)
-        prepare(source)
+        prepare(source, baseline50=args.baseline50)
         if args.verify_only:
             print('[done] Fixture prepared; no APK built')
             return

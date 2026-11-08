@@ -124,7 +124,7 @@ jobs:
   fixture:
     name: "Real Manager screens — simulated no-root/no-network fixture"
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -154,6 +154,11 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.1.0' 2>&1 | tail -10
+      - name: Compile safe 5.0 baseline for simulated update
+        run: |
+          set -euo pipefail
+          THEMES501_FIXTURE_OUTPUT="$RUNNER_TEMP/fixture501-output/SIMULATED-5.0-BASELINE-NOT-MANAGER.apk" \
+            python3 build-kit/scripts/build_manager_501_fixture.py --baseline50 --source "$RUNNER_TEMP/ksun-fixture" 2>&1 | tee "$RUNNER_TEMP/fixture501-output/baseline-build.log"
       - name: Compile fixture and run Kotlin presentation tests
         run: |
           set -euo pipefail
@@ -170,9 +175,22 @@ jobs:
             echo '::error::UI fixture must not have network permission'; exit 1
           fi
           python3 tests/verify_themes501_fixture_apk.py "$APK" | tee "$RUNNER_TEMP/fixture501-output/static-checks.txt"
+          BASELINE="$RUNNER_TEMP/fixture501-output/SIMULATED-5.0-BASELINE-NOT-MANAGER.apk"
+          "$TOOLS/aapt" dump badging "$BASELINE" | grep -F "name='net.ember.labs.fixture501' versionCode='60000'"
+          "$TOOLS/aapt" dump badging "$APK" | grep -F "versionCode='60001'"
+          if "$TOOLS/aapt" dump permissions "$BASELINE" | grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)'; then
+            echo '::error::Baseline fixture must not have network permission'; exit 1
+          fi
+          python3 tests/verify_themes501_fixture_apk.py "$BASELINE"
+          "$TOOLS/apksigner" verify --print-certs "$BASELINE" | grep '^Signer #1 certificate SHA-256 digest:' > "$RUNNER_TEMP/baseline-fixture-cert.txt"
+          "$TOOLS/apksigner" verify --print-certs "$APK" | grep '^Signer #1 certificate SHA-256 digest:' > "$RUNNER_TEMP/updated-fixture-cert.txt"
+          diff -u "$RUNNER_TEMP/baseline-fixture-cert.txt" "$RUNNER_TEMP/updated-fixture-cert.txt"
           sha=$(sha256sum "$APK" | cut -d' ' -f1)
+          base_sha=$(sha256sum "$BASELINE" | cut -d' ' -f1)
           echo "$sha" > "$RUNNER_TEMP/fixture501-output/SHA256.txt"
+          echo "$base_sha" > "$RUNNER_TEMP/fixture501-output/BASELINE-SHA256.txt"
           echo "::notice title=Simulated 5.0.1 UI fixture SHA256::$sha"
+          echo "::notice title=Simulated 5.0 baseline fixture SHA256::$base_sha"
       - name: Transfer simulated fixture as Git blob
         env:
           GH_TOKEN: ${{ github.token }}
@@ -185,21 +203,30 @@ jobs:
           PY
           blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/fixture501-blob.json" --jq .sha)
           echo "::notice title=Simulated 5.0.1 UI fixture blob::$blob"
+          python3 - <<'PY2'
+          import base64,json,os,pathlib
+          t=pathlib.Path(os.environ['RUNNER_TEMP']); apk=t/'fixture501-output/SIMULATED-5.0-BASELINE-NOT-MANAGER.apk'
+          (t/'fixture50-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode(),'encoding':'base64'}))
+          PY2
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/fixture50-blob.json" --jq .sha)
+          echo "::notice title=Simulated 5.0 baseline fixture blob::$blob"
       - name: Transfer diagnostics on failure
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -s "$RUNNER_TEMP/fixture501-output/build.log" ]; then
-            python3 - <<'PY'
+          for log in "$RUNNER_TEMP/fixture501-output/build.log" "$RUNNER_TEMP/fixture501-output/baseline-build.log"; do
+            if [ -s "$log" ]; then
+              LOG="$log" python3 - <<'PY2'
           import base64,json,os,pathlib
-          t=pathlib.Path(os.environ['RUNNER_TEMP']); p=t/'fixture501-output/build.log'
+          p=pathlib.Path(os.environ['LOG']); t=pathlib.Path(os.environ['RUNNER_TEMP'])
           (t/'fixture501-log.json').write_text(json.dumps({'content':base64.b64encode(p.read_bytes()).decode(),'encoding':'base64'}))
-          PY
-            blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/fixture501-log.json" --jq .sha)
-            echo "::notice title=Fixture 5.0.1 build log blob::$blob"
-          fi
+          PY2
+              blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/fixture501-log.json" --jq .sha)
+              echo "::notice title=Fixture 5.0.1 $(basename "$log") blob::$blob"
+            fi
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

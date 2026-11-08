@@ -53,10 +53,12 @@ class PreparedTrees501Tests(unittest.TestCase):
         cls.a = root / 'manager50'
         cls.b = root / 'manager501'
         cls.f = root / 'fixture501'
-        for target in (cls.a, cls.b, cls.f): shutil.copytree(source, target)
+        cls.fb = root / 'fixture50'
+        for target in (cls.a, cls.b, cls.f, cls.fb): shutil.copytree(source, target)
         old.prepare_tree(cls.a)
         app.prepare_tree(cls.b)
         fixture.prepare(cls.f)
+        fixture.prepare(cls.fb, baseline50=True)
         cls.amain = cls.a / 'manager/app/src/main'
         cls.bmain = cls.b / 'manager/app/src/main'
         cls.fmain = cls.f / 'manager/app/src/main'
