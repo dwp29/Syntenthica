@@ -1,21 +1,21 @@
 {
   "description": "Separately signed, non-network simulated UI fixtures built from real 5.0/5.0.1 Manager screens; NOT Manager releases or physical root tests",
-  "source_commit": "7d79d9ae80930e2c7b4bf971748866e9071384b2",
+  "source_commit": "e6b6ae6530ab614dd9e3aa879ea7e8607c157157",
   "upstream_ksun_commit": "ea51427ff700f73909e7e8c8717cc3241322ee1e",
-  "build_run_id": "42459557493",
+  "build_run_id": "42460246310",
   "application_id": "net.ember.labs.fixture501",
   "backend": "simulated full-featured status values; root/JNI/install/startup fetch disabled; no privileged payload or network permission",
   "baseline": {
     "version_name": "5.0.0",
     "version_code": 60000,
-    "git_blob": "4fccf974bfdf2e0893df26736e6e9006312f7434",
-    "sha256": "c29f8552417e314d0a390d966414d1649359fe506c7c3baa1c9ead59a951ee5b"
+    "git_blob": "7ca0b5759a293d9479fca0bd163eaa0db104594d",
+    "sha256": "e28282e0c685a51da335d58386362bb3402aefc220e1287c71209c90bafa4500"
   },
   "updated": {
     "version_name": "5.0.1",
     "version_code": 60001,
-    "git_blob": "f612235d741149d3317b42e150afe6d0f06d687f",
-    "sha256": "565e95fb3c75af08c35e9a7b8630e27ff3e7560945a3cbc9185695f413ea1118"
+    "git_blob": "f9734c19bac379453a4d256a444698d388794798",
+    "sha256": "9264a293450eb211c79b396f904833a5cc30e34f6390fc157d5306549e5dd2cd"
   },
   "debug_signatures_match": true,
   "physical_device_tested": false
