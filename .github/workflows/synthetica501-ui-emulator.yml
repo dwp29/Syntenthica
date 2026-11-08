@@ -1,0 +1,131 @@
+name: "Synthetica 5.0.1 — actual Manager screens in simulated emulator"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - 'build-kit/ci/synthetica501-ui-fixture-evidence.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write # non-root test evidence only
+
+jobs:
+  emulator:
+    name: "Actual screen layouts and simulated package upgrade (no root)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Recover and verify separate simulated fixtures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fixture501-test-output"
+          export OUTPUT="$RUNNER_TEMP/fixture501-test-output"
+          python3 - <<'PY'
+          import json,os,pathlib,re,subprocess,hashlib
+          data=json.loads(pathlib.Path('build-kit/ci/synthetica501-ui-fixture-evidence.json').read_text())
+          for key,name in [('baseline','fixture50.apk'),('updated','fixture501.apk')]:
+              blob,digest=data[key]['git_blob'],data[key]['sha256']
+              assert re.fullmatch('[a-f0-9]{40}',blob) and re.fullmatch('[a-f0-9]{64}',digest)
+              dest=pathlib.Path(os.environ['OUTPUT'])/name
+              with dest.open('wb') as out:
+                  subprocess.run(['gh','api','-H','Accept: application/vnd.github.raw+json',
+                                  f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs/{blob}"],stdout=out,check=True)
+              if hashlib.sha256(dest.read_bytes()).hexdigest()!=digest: raise SystemExit(f'{key} fixture SHA-256 mismatch')
+              (dest.parent/f'{key}-sha.txt').write_text(digest)
+          PY
+          python3 tests/verify_themes501_fixture_apk.py "$RUNNER_TEMP/fixture501-test-output/fixture50.apk"
+          python3 tests/verify_themes501_fixture_apk.py "$RUNNER_TEMP/fixture501-test-output/fixture501.apk"
+      - name: Require an accelerated emulator
+        run: |
+          set -euo pipefail
+          if [ ! -c /dev/kvm ]; then echo '::error::KVM unavailable; runtime checks did not run'; exit 1; fi
+          sudo chmod a+rw /dev/kvm
+      - name: Install Android emulator and API 35 image
+        run: |
+          set -euo pipefail
+          SDK="$HOME/themes501-emulator-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK/emulator" >> "$GITHUB_PATH"
+          export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK" ANDROID_AVD_HOME="$RUNNER_TEMP/themes501-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platform-tools' 'emulator' 'build-tools;36.1.0' 'system-images;android-35;google_apis;x86_64' 2>&1 | tail -12
+          echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd -f -n themes501 -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
+          test -f "$ANDROID_AVD_HOME/themes501.ini"
+          python3 -m pip install --user --disable-pip-version-check pillow
+      - name: Verify debug identity, signing match and zero network permissions
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/fixture501-test-output"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          for apk in "$OUT/fixture50.apk" "$OUT/fixture501.apk"; do
+            "$TOOLS/aapt" dump badging "$apk" | grep -F "name='net.ember.labs.fixture501'"
+            if "$TOOLS/aapt" dump permissions "$apk" | grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)'; then
+              echo '::error::A simulated fixture requests network permission'; exit 1
+            fi
+          done
+          "$TOOLS/aapt" dump badging "$OUT/fixture50.apk" | grep -F "versionCode='60000'"
+          "$TOOLS/aapt" dump badging "$OUT/fixture501.apk" | grep -F "versionCode='60001'"
+          "$TOOLS/apksigner" verify --print-certs "$OUT/fixture50.apk" | grep '^Signer #1 certificate SHA-256 digest:' > "$OUT/cert50.txt"
+          "$TOOLS/apksigner" verify --print-certs "$OUT/fixture501.apk" | grep '^Signer #1 certificate SHA-256 digest:' > "$OUT/cert501.txt"
+          diff -u "$OUT/cert50.txt" "$OUT/cert501.txt"
+      - name: Boot AVD and exercise actual screens with a simulated backend
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/fixture501-test-output"
+          emulator -avd themes501 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$OUT/emulator.log" 2>&1 &
+          pid=$!
+          sleep 12
+          if ! kill -0 "$pid" 2>/dev/null; then cat "$OUT/emulator.log"; exit 1; fi
+          adb start-server
+          timeout 240s adb -s emulator-5554 wait-for-device
+          timeout 240s bash -c 'until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
+          python3 tests/run_themes501_emulator.py --serial emulator-5554 --baseline "$OUT/fixture50.apk" \
+            --baseline-sha256 "$(cat "$OUT/baseline-sha.txt")" --apk "$OUT/fixture501.apk" \
+            --sha256 "$(cat "$OUT/updated-sha.txt")" --output "$OUT" 2>&1 | tee "$OUT/test.log"
+          echo '::notice title=5.0.1 simulated production UI::Actual Manager screen compositions were tested with stubbed data. No phone, live root, or real Manager update was tested.'
+      - name: Transfer simulated diagnostic logs and screenshots as a Git blob
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,hashlib,json,os,pathlib,shutil,subprocess,zipfile
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'fixture501-test-output'
+          if not root.is_dir(): raise SystemExit(0)
+          snapshots=list(root.glob('*.xml'))
+          if snapshots: shutil.copy2(max(snapshots,key=lambda p:p.stat().st_mtime_ns),root/'last-ui.xml')
+          bundle=root/'simulated-ui-evidence.zip'
+          with zipfile.ZipFile(bundle,'w',compression=zipfile.ZIP_DEFLATED) as z:
+              for pattern in ('test.log','emulator.log','last-ui.xml','preferences-*.xml','home-*.png','settings-*.png','mode-*.png','motion-off-*.png'):
+                  for p in sorted(root.glob(pattern)): z.write(p,arcname=p.name)
+          payload=root/'evidence.json'
+          payload.write_text(json.dumps({'content':base64.b64encode(bundle.read_bytes()).decode(),'encoding':'base64'}))
+          blob=subprocess.run(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs",'--method','POST','--input',str(payload),'--jq','.sha'],capture_output=True,text=True,check=True).stdout.strip()
+          print(f'::notice title=5.0.1 simulated UI evidence blob SHA256 {hashlib.sha256(bundle.read_bytes()).hexdigest()}::{blob}')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: themes501-simulated-ui-emulator-${{ github.run_id }}
+          path: ${{ runner.temp }}/fixture501-test-output/
+          retention-days: 7
+          if-no-files-found: warn
