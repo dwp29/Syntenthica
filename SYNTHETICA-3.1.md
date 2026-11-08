@@ -58,9 +58,11 @@ dari 3.0. CRC `module_layout` sama dengan 3.0 (`0xed5659d1`), tetapi itu saja
   data tersedia, data terkunci, gagal salin ksud, dan boot tidak valid.
 - [Tes UI dan installer 2.0](https://github.com/dwp29/Syntenthica/actions/runs/42400941140)
   juga lulus. Ini bukan menjalankan `update-binary` pada TWRP fisik.
-- Pengguna melaporkan paket 3.0 + installer 2.0 sebelumnya sudah boot pada
-  seseorang yang sebelumnya mendapat Error 1. Itu **bukan** pengujian untuk
-  image 3.1 baru ini dan bukan bukti kompatibilitas semua ROM.
+- Pengguna pernah melaporkan paket 3.0 + installer 2.0 berhasil boot pada
+  seseorang yang sebelumnya mendapat Error 1. **Koreksi pelapor:** tidak ada
+  keberhasilan boot 3.0 pada Infinity 4.1; belum jelas apakah 3.0 pernah dicoba
+  pada ROM tersebut. Laporan lain itu bukan pembanding sukses pada ROM ini,
+  bukan pengujian image 3.1 dan bukan bukti kompatibilitas semua ROM.
 
 **Boot fisik 3.1, root, Manager, AVB, kamera dan kepercayaan/kompatibilitas
 modul ROM belum diuji atau dipastikan.** Karena itu paket diberi nama `TEST`.
