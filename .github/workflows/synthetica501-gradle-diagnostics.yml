@@ -27,9 +27,11 @@ jobs:
             done
             echo '=== Official distribution availability ==='
             url=https://downloads.gradle.org/distributions/gradle-9.2.0-bin.zip
-            for range in 0-1023 1048576-1049599 0-2097151; do
-              printf 'Range %s: ' "$range"
-              if curl -fsSL --max-time 60 -r "$range" -D "$RUNNER_TEMP/range-headers.txt" -o "$RUNNER_TEMP/range-part" -w 'HTTP %{http_code}, ' "$url?segment=${range%-*}"; then
+            for case in '0-2097151?segment=0' '2097152-4194303?segment=0' '2097152-4194303?segment=2097152' '0-2097151?segment=0-2097151' '4194304-6291455'; do
+              range=${case%%\?*}
+              suffix=${case#"$range"}
+              printf 'Range %s%s: ' "$range" "$suffix"
+              if curl -fsSL --max-time 45 -r "$range" -D "$RUNNER_TEMP/range-headers.txt" -o "$RUNNER_TEMP/range-part" -w 'HTTP %{http_code}, ' "$url$suffix"; then
                 printf 'bytes '; wc -c < "$RUNNER_TEMP/range-part"
                 grep -i '^content-range:' "$RUNNER_TEMP/range-headers.txt" | tr -d '\r' || true
               else echo failed; fi
