@@ -1,0 +1,45 @@
+name: "Synthetica 3.1 - offline ROM-module audit"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-rom-audit.yml'
+      - 'build-kit/ci/synthetica31-build-evidence.json'
+      - 'build-kit/scripts/audit_synthetica31_rom_modules.py'
+      - 'build-kit/scripts/audit_synthetica2_rom_modules.py'
+      - 'build-kit/scripts/audit_synthetica3_vendor.py'
+      - 'tests/test_synthetica31_rom_modules.py'
+      - 'tests/test_synthetica2_rom_modules.py'
+      - 'tests/test_synthetica3_vendor.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-audit:
+    name: Pinned evidence and module fixtures (no device)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Fetch exact public 3.1 compile evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/0f815b773d39a8f0b392a7d190be9ca1ad702ead" > "$RUNNER_TEMP/evidence31.zip"
+          echo '67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847  '"$RUNNER_TEMP/evidence31.zip" | sha256sum -c -
+          echo "S31_EVIDENCE=$RUNNER_TEMP/evidence31.zip" >> "$GITHUB_ENV"
+      - name: Verify static audit and input/privacy guards
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica31_rom_modules.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica2_rom_modules.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_vendor.py' -v
+      - name: Describe limits
+        run: echo '::notice title=Scope::Pinned build and synthetic/older-build module fixtures only. No affected ROM, real device, module loading, AVB or boot was tested.'

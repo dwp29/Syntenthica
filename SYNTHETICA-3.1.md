@@ -1,10 +1,11 @@
 # Synthetica 3.1 — kernel kompilasi ulang dengan installer 2.0
 
 > **Laporan gagal boot — joyeuse, Android 17 / Project Infinity 4.1.**
-> Installer 3.1 dilaporkan selesai, tetapi perangkat tidak berhasil boot;
-> perangkat kemudian dilaporkan sudah pulih. Penyebabnya belum diketahui dan
-> detail build ROM, gejala boot, identitas ZIP serta log masih diperlukan.
-> Untuk sementara tunda percobaan 3.1 pada kombinasi ini. Jangan wipe data,
+> Installer 3.1 dilaporkan selesai, tetapi boot tertahan di logo Redmi/Mi;
+> perangkat kemudian dilaporkan sudah pulih. Sebelumnya digunakan KernelSU.
+> Penyebabnya belum diketahui; build ROM rinci, identitas ZIP dan log kejadian
+> belum tersedia untuk diperiksa. Tunda percobaan 3.1 pada kombinasi ini.
+> Jangan wipe data,
 > menonaktifkan AVB/vbmeta, atau mencoba image/slot secara acak. Lihat
 > [catatan insiden dan pengumpulan bukti](SYNTHETICA-3.1-INSIDEN-INFINITY.md).
 > Laporan ini belum membuktikan bahwa semua perangkat atau ROM Android 17 gagal.
