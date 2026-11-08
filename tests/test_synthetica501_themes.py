@@ -43,6 +43,20 @@ class Theme501SourceTests(unittest.TestCase):
             if path.is_file():
                 self.assertNotIn(path.suffix.lower(), {'.jks', '.p12', '.keystore', '.pem', '.key'})
 
+    def test_gradle_distribution_is_exactly_pinned_and_unknown_wrapper_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wrapper = root / 'manager/gradle/wrapper/gradle-wrapper.properties'
+            wrapper.parent.mkdir(parents=True)
+            wrapper.write_text('distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip\nnetworkTimeout=10000\n')
+            app.pin_gradle_distribution(root)
+            text = wrapper.read_text()
+            self.assertIn('github.com/gradle/gradle-distributions/', text)
+            self.assertIn('networkTimeout=120000', text)
+            self.assertIn('distributionSha256Sum=' + app.GRADLE_SHA256, text)
+            with self.assertRaises(ValueError):
+                app.pin_gradle_distribution(root)
+
 
 @unittest.skipUnless(os.environ.get('MULTITHEME50_SOURCE'), 'pinned upstream source not provided')
 class PreparedTrees501Tests(unittest.TestCase):

@@ -21,6 +21,20 @@ ASSETS = ROOT / 'build-kit/ci/ksun-themes501'
 VERSION_NAME = '5.0.1'
 VERSION_CODE = 60001
 APP_ID = base50.APP_ID
+GRADLE_SHA256 = 'df67a32e86e3276d011735facb1535f64d0d88df84fa87521e90becc2d735444'
+
+
+def pin_gradle_distribution(src: Path) -> None:
+    """Use the official release directly, and verify it before executing Gradle."""
+    wrapper = src / 'manager/gradle/wrapper/gradle-wrapper.properties'
+    text = wrapper.read_text(encoding='utf-8')
+    upstream = 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.2.0-bin.zip'
+    direct = ('distributionUrl=https\\://github.com/gradle/gradle-distributions/'
+              'releases/download/v9.2.0/gradle-9.2.0-bin.zip')
+    if text.count(upstream) != 1 or text.count('networkTimeout=10000') != 1 or 'distributionSha256Sum=' in text:
+        raise ValueError('Unexpected upstream Gradle wrapper; refusing to change build tool')
+    text = text.replace(upstream, direct).replace('networkTimeout=10000', 'networkTimeout=120000')
+    wrapper.write_text(text.rstrip() + f'\ndistributionSha256Sum={GRADLE_SHA256}\n', encoding='utf-8')
 
 
 def copy_theme(main: Path) -> None:
@@ -77,6 +91,7 @@ def patch_production_dock(activity: Path) -> None:
 
 def prepare_tree(src: Path) -> None:
     base50.prepare_tree(src)
+    pin_gradle_distribution(src)
     patch = base50.previous.previous.patch_file
     patch(src / 'manager/build.gradle.kts', [
         ('val managerVersionCode by extra(60000)', f'val managerVersionCode by extra({VERSION_CODE})', '5.0.1 version code', 1),

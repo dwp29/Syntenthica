@@ -187,6 +187,7 @@ def disable_natives(path: Path) -> None:
 def prepare(src: Path, *, baseline50: bool = False) -> None:
     if baseline50:
         app.base50.prepare_tree(src)
+        app.pin_gradle_distribution(src)
     else:
         app.prepare_tree(src)
     main = src / 'manager/app/src/main'
