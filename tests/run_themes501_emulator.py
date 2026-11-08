@@ -252,8 +252,8 @@ def main() -> None:
         e.wait_for('SELinux', 'expanded-selinux-' + style_id, scroll=True)
         # The production disclosure uses rememberSaveable across theme changes.
         # Close it again so the next style starts from the same known state.
-        e.swipe(down=True)
-        e.swipe(down=True)
+        e.swipe(down_page=False)
+        e.swipe(down_page=False)
         e.tap('System & environment details', 'collapse-details-' + style_id, scroll=True)
 
     for style_id in ('cyberpunk', 'ios_glass', 'neon'):

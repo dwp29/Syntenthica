@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/synthetica501-ui-smoke.yml'
       - 'tests/smoke_themes501_emulator.py'
+      - 'build-kit/ci/synthetica501-ui-fixture-evidence.json'
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,14 +21,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Recover verified isolated fixture from build 42453254203
+      - name: Recover verified isolated fixture for the current production build
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/smoke501"
-          gh api -H 'Accept: application/vnd.github.raw+json' "repos/${GITHUB_REPOSITORY}/git/blobs/fd90891809488a20b51d33efdb5ad3d2007618c3" > "$RUNNER_TEMP/smoke501/fixture.apk"
-          echo 'f46e2f874cf717ab41be3acc5f97fc84823bf9355bf9e8be1597d4277ff9f0b7  '"$RUNNER_TEMP/smoke501/fixture.apk" | sha256sum -c -
+          blob=$(python3 -c 'import json; print(json.load(open("build-kit/ci/synthetica501-ui-fixture-evidence.json"))["updated"]["git_blob"])')
+          digest=$(python3 -c 'import json; print(json.load(open("build-kit/ci/synthetica501-ui-fixture-evidence.json"))["updated"]["sha256"])')
+          [[ "$blob" =~ ^[0-9a-f]{40}$ && "$digest" =~ ^[0-9a-f]{64}$ ]]
+          gh api -H 'Accept: application/vnd.github.raw+json' "repos/${GITHUB_REPOSITORY}/git/blobs/${blob}" > "$RUNNER_TEMP/smoke501/fixture.apk"
+          echo "$digest  $RUNNER_TEMP/smoke501/fixture.apk" | sha256sum -c -
+          echo "$digest" > "$RUNNER_TEMP/smoke501/fixture-sha.txt"
           python3 tests/verify_themes501_fixture_apk.py "$RUNNER_TEMP/smoke501/fixture.apk"
       - name: Install accelerated API 35 emulator
         run: |
@@ -62,7 +67,7 @@ jobs:
           timeout 240s adb -s emulator-5554 wait-for-device
           timeout 240s bash -c 'until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 3; done'
           python3 tests/smoke_themes501_emulator.py --serial emulator-5554 --apk "$OUT/fixture.apk" \
-            --sha256 f46e2f874cf717ab41be3acc5f97fc84823bf9355bf9e8be1597d4277ff9f0b7 --output "$OUT" 2>&1 | tee "$OUT/test.log"
+            --sha256 "$(cat "$OUT/fixture-sha.txt")" --output "$OUT" 2>&1 | tee "$OUT/test.log"
       - name: Transfer simulated UI evidence
         if: always()
         env:

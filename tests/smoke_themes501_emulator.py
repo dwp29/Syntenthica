@@ -3,7 +3,7 @@
 import argparse
 import time
 from pathlib import Path
-from run_themes501_emulator import (FixtureEmulator, base, check_home, choose, difference,
+from run_themes501_emulator import (FixtureEmulator, base, check_dark_toolbar_icons, check_home, choose, difference,
                                     require_hash, to_customize, to_home)
 
 
@@ -26,6 +26,7 @@ def main():
         home = to_home(e, 'smoke-' + style, settings_screenshot=True)
         check_home(e, home, style)
         shots[style] = e.screenshot('smoke-home-' + style)
+        check_dark_toolbar_icons(e, home, shots[style], style)
     for style in ('cyberpunk', 'ios_glass', 'neon'):
         delta = difference(shots['pixel'], shots[style])
         print(f'Actual Home difference pixel/{style}={delta:.2f}', flush=True)
