@@ -275,7 +275,7 @@ def main() -> None:
             print('[done] Fixture prepared; no APK built')
             return
         manager = source / 'manager'
-        subprocess.run([str(manager / 'gradlew'), ':app:testDebugUnitTest', ':app:assembleDebug', '--no-daemon', '--stacktrace'],
+        subprocess.run([app.select_gradle(manager), ':app:testDebugUnitTest', ':app:assembleDebug', '--no-daemon', '--stacktrace'],
                        cwd=manager, check=True)
         apks = list((manager / 'app/build/outputs/apk/debug').glob('*.apk'))
         if len(apks) != 1: raise RuntimeError('Expected exactly one debug UI fixture APK')

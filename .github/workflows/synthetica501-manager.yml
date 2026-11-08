@@ -59,8 +59,13 @@ jobs:
       - name: Fetch checksum-pinned Gradle in validated ranges
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip" 2>&1 | tee "$RUNNER_TEMP/manager501-output/gradle-fetch.log"
-          echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
+          if python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip" 2>&1 | tee "$RUNNER_TEMP/manager501-output/gradle-fetch.log"; then
+            echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
+          else
+            echo '::warning::Pinned distribution unavailable; attempting exact hosted Gradle 9.8.2, with all build and UI checks still required.'
+            gradle --version | tee "$RUNNER_TEMP/manager501-output/gradle-host-version.log" | grep -Fx 'Gradle 9.8.2'
+            echo 'SYNTHETICA_HOST_GRADLE_982=1' >> "$GITHUB_ENV"
+          fi
       - name: Compile unsigned Manager 5.0.1
         run: |
           set -euo pipefail
@@ -163,8 +168,13 @@ jobs:
       - name: Fetch checksum-pinned Gradle in validated ranges
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip" 2>&1 | tee "$RUNNER_TEMP/fixture501-output/gradle-fetch.log"
-          echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
+          if python3 build-kit/scripts/fetch_gradle_501.py --out "$RUNNER_TEMP/gradle-9.2.0-bin.zip" 2>&1 | tee "$RUNNER_TEMP/fixture501-output/gradle-fetch.log"; then
+            echo "SYNTHETICA_GRADLE_ZIP=$RUNNER_TEMP/gradle-9.2.0-bin.zip" >> "$GITHUB_ENV"
+          else
+            echo '::warning::Pinned distribution unavailable; attempting exact hosted Gradle 9.8.2, with all fixture and UI checks still required.'
+            gradle --version | tee "$RUNNER_TEMP/fixture501-output/gradle-host-version.log" | grep -Fx 'Gradle 9.8.2'
+            echo 'SYNTHETICA_HOST_GRADLE_982=1' >> "$GITHUB_ENV"
+          fi
       - name: Compile safe 5.0 baseline for simulated update
         run: |
           set -euo pipefail

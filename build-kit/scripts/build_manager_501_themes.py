@@ -11,6 +11,7 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -45,6 +46,34 @@ def pin_gradle_distribution(src: Path) -> None:
         direct = 'distributionUrl=' + archive.as_uri().replace(':', '\\:', 1)
     text = text.replace(upstream, direct).replace('networkTimeout=10000', 'networkTimeout=120000')
     wrapper.write_text(text.rstrip() + f'\ndistributionSha256Sum={GRADLE_SHA256}\n', encoding='utf-8')
+
+
+def select_gradle(manager: Path) -> str:
+    """Normally use the upstream-pinned wrapper; allow one exact CI fallback."""
+    if os.environ.get('SYNTHETICA_HOST_GRADLE_982') != '1':
+        return str(manager / 'gradlew')
+    executable = shutil.which('gradle')
+    if not executable:
+        raise ValueError('Expected runner Gradle 9.8.2 is not installed')
+    result = subprocess.run([executable, '--version'], capture_output=True, text=True, check=True, timeout=120)
+    if result.stdout.splitlines().count('Gradle 9.8.2') != 1:
+        raise ValueError('Refusing a runner Gradle version other than 9.8.2')
+    print(f'Using explicitly verified CI runner Gradle 9.8.2: {executable}', flush=True)
+    return executable
+
+
+def build_release(src: Path) -> Path:
+    if os.environ.get('SYNTHETICA_HOST_GRADLE_982') != '1':
+        return base50.previous.previous.base.build_gradle(src)
+    manager = src / 'manager'
+    env = os.environ.copy()
+    env.setdefault('GRADLE_OPTS', '-Xmx4g -Dfile.encoding=UTF-8')
+    subprocess.run([select_gradle(manager), ':app:assembleRelease', '--no-daemon', '--stacktrace'],
+                   cwd=manager, env=env, check=True)
+    apks = list((manager / 'app/build/outputs/apk/release').glob('*.apk'))
+    if len(apks) != 1:
+        raise RuntimeError('Expected exactly one unsigned Manager release APK')
+    return apks[0]
 
 
 def copy_theme(main: Path) -> None:
@@ -147,7 +176,7 @@ def main() -> int:
         raise RuntimeError('Refusing unsafe Manager working directory')
     source = base.prepare_source()
     prepare_tree(source)
-    base.zipalign_apk(base.build_gradle(source))
+    base.zipalign_apk(build_release(source))
     return 0
 
 

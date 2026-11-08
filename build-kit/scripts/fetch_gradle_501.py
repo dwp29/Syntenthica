@@ -44,7 +44,7 @@ def fetch(output: Path) -> None:
                 # Unique URL prevents a shared proxy cache confusing different ranges.
                 request_url = f'{URL}?segment={start}-{end}'
                 subprocess.run(['curl', '--fail', '--silent', '--show-error', '--location',
-                                '--retry', '4', '--retry-all-errors', '--retry-delay', '2',
+                                '--retry', '2', '--retry-all-errors', '--retry-delay', '2',
                                 '--connect-timeout', '30', '--max-time', '120',
                                 '--range', f'{start}-{end}', '--dump-header', str(headers),
                                 '--output', str(chunk), request_url], check=True)

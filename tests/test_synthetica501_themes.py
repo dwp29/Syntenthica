@@ -86,6 +86,20 @@ class Theme501SourceTests(unittest.TestCase):
             self.assertIn('distributionUrl=file\\://', wrapper.read_text())
             self.assertIn('distributionSha256Sum=' + fake_digest, wrapper.read_text())
 
+    def test_host_gradle_fallback_is_explicit_and_version_checked(self):
+        manager = Path('/tmp/manager')
+        with mock.patch.dict(os.environ, {'SYNTHETICA_HOST_GRADLE_982': ''}):
+            self.assertEqual(app.select_gradle(manager), str(manager / 'gradlew'))
+        with mock.patch.dict(os.environ, {'SYNTHETICA_HOST_GRADLE_982': '1'}), \
+             mock.patch.object(app.shutil, 'which', return_value='/usr/bin/gradle'), \
+             mock.patch.object(app.subprocess, 'run', return_value=mock.Mock(stdout='\nGradle 9.8.2\n')):
+            self.assertEqual(app.select_gradle(manager), '/usr/bin/gradle')
+        with mock.patch.dict(os.environ, {'SYNTHETICA_HOST_GRADLE_982': '1'}), \
+             mock.patch.object(app.shutil, 'which', return_value='/usr/bin/gradle'), \
+             mock.patch.object(app.subprocess, 'run', return_value=mock.Mock(stdout='\nGradle 9.9.0\n')):
+            with self.assertRaises(ValueError):
+                app.select_gradle(manager)
+
     @unittest.skipUnless(shutil.which('curl'), 'curl is required for the range downloader')
     def test_gradle_downloader_assembles_only_verified_ranges(self):
         data = bytes(range(251)) * 40
