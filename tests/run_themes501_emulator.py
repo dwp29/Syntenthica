@@ -250,6 +250,11 @@ def main() -> None:
         check_dark_toolbar_icons(e, home, screenshots[style_id], style_id)
         e.tap('System & environment details', 'expand-details-' + style_id, scroll=True)
         e.wait_for('SELinux', 'expanded-selinux-' + style_id, scroll=True)
+        # The production disclosure uses rememberSaveable across theme changes.
+        # Close it again so the next style starts from the same known state.
+        e.swipe(down=True)
+        e.swipe(down=True)
+        e.tap('System & environment details', 'collapse-details-' + style_id, scroll=True)
 
     for style_id in ('cyberpunk', 'ios_glass', 'neon'):
         delta = difference(screenshots['pixel'], screenshots[style_id])
