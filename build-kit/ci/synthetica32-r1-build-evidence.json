@@ -1,0 +1,16 @@
+{
+  "kind": "SYNTHETICA_3_2_R1_COMPILE_EVIDENCE_PUBLIC_ONLY",
+  "release": "4.14.357-openela-synthetica-3.2-r1",
+  "source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "build_run": 42507696077,
+  "commit": "955fa867f2f2a22fda90e51e694e7ea3eddeaa7e",
+  "transfer_git_blob": "e04df0c0f681f7b008c2ca245aa328c7bd98db9e",
+  "transfer_sha256": "c8ad9e1d5848242e2570990dc4350bad065d5a9bc35f38d3f2116b8671d1a38f",
+  "image_sha256": "e3502ae4e00c729e83efe4997dac3e202f5320be34a440974471cdc6727ec03a",
+  "config_sha256": "94458f6ea94d29dd6f22791b011cbeb05c77c729dbf2d15cd80c6246b64b7192",
+  "module_public_cert_sha256": "26e96f827915312dd3db1a07d715ccf074280d441ec9c32ab8cf759b0bb1b15b",
+  "module_symvers_sha256": "1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3",
+  "system_map_sha256": "b7774ad7b42f8eec495d838373acaaba4e4a77071a7ad3414ab373375c407baf",
+  "module_layout_crc": "0xed5659d1",
+  "scope": "Compile and static checks only; no recovery installer, physical boot, target ROM module trust or AVB verification."
+}

@@ -1,0 +1,50 @@
+name: "Synthetica 3.2-r1 - offline compile evidence verification"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica32-r1-audit.yml'
+      - 'build-kit/scripts/verify_synthetica32_r1_evidence.py'
+      - 'build-kit/ci/synthetica32-r1-build-evidence.json'
+      - 'tests/test_synthetica32_r1_evidence.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out code and evidence pins
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Obtain pinned 3.1 references and r1 public evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/0f815b773d39a8f0b392a7d190be9ca1ad702ead" > "$RUNNER_TEMP/reference31.zip"
+          echo '67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847  '"$RUNNER_TEMP/reference31.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/reference31.zip" generated.config.txt > "$RUNNER_TEMP/config31"
+          unzip -p "$RUNNER_TEMP/reference31.zip" Module.symvers > "$RUNNER_TEMP/symvers31"
+          echo '4b53a2cb030e9aa55ff798a3ee5c773c0eb50e56cd36430d2874adcb56fa236d  '"$RUNNER_TEMP/config31" | sha256sum -c -
+          echo '1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3  '"$RUNNER_TEMP/symvers31" | sha256sum -c -
+          blob=$(python3 -c 'import json; print(json.load(open("build-kit/ci/synthetica32-r1-build-evidence.json"))["transfer_git_blob"])')
+          [[ "$blob" =~ ^[0-9a-f]{40}$ ]]
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/$blob" > "$RUNNER_TEMP/r1-evidence.zip"
+          echo "S31_EXACT_CONFIG=$RUNNER_TEMP/config31" >> "$GITHUB_ENV"
+          echo "S31_EXACT_SYMVERS=$RUNNER_TEMP/symvers31" >> "$GITHUB_ENV"
+          echo "S32R1_EVIDENCE=$RUNNER_TEMP/r1-evidence.zip" >> "$GITHUB_ENV"
+      - name: Test defensive verifier and verify real built kernel and modules
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica32_r1_evidence.py' -v
+          python3 build-kit/scripts/verify_synthetica32_r1_evidence.py \
+            --evidence "$S32R1_EVIDENCE" --config31 "$S31_EXACT_CONFIG" --symvers31 "$S31_EXACT_SYMVERS"
+          echo '::notice title=Scope::Offline compile evidence only; no phone, ROM, AVB, root, module loading or physical boot was tested.'
