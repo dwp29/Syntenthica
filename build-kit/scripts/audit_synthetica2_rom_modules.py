@@ -98,7 +98,9 @@ def module_paths(directory: Path) -> tuple[list[Path], list[str]]:
                 skipped.append(str(path.relative_to(directory)))
             elif name.endswith(".ko"):
                 paths.append(path)
-            elif re.search(r"\.ko\.(gz|xz|zst)$", name):
+            elif re.search(r"\.ko\.[^/]+$", name):
+                # Compressed or otherwise suffixed modules are not parsed. Do
+                # not silently omit uncommon suffixes such as .ko.lz4.
                 skipped.append(str(path.relative_to(directory)))
             if len(paths) + len(skipped) > MAX_MODULES:
                 raise ValueError("module input exceeds the bounded inventory")

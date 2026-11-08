@@ -38,10 +38,12 @@ class InputAndInventoryTests(unittest.TestCase):
         nested.mkdir()
         (nested / "real.ko").write_bytes(b"test")
         (nested / "compressed.ko.gz").write_bytes(b"test")
+        (nested / "compressed.ko.lz4").write_bytes(b"test")
         (nested / "link.ko").symlink_to(nested / "real.ko")
         paths, skipped = audit.module_paths(self.modules)
         self.assertEqual([p.name for p in paths], ["real.ko"])
-        self.assertEqual(len(skipped), 2)
+        self.assertEqual(len(skipped), 3)
+        self.assertTrue(any(path.endswith("compressed.ko.lz4") for path in skipped))
 
     def test_synthetic_errors_are_not_counted_as_compatible(self):
         (self.modules / "broken.ko").write_bytes(b"not ELF")
