@@ -42,7 +42,9 @@ class FixtureEmulator(base.Emulator):
 
     def swipe(self, *, down_page: bool) -> None:
         w, h = self.screen_size()
-        y1, y2 = (int(h * .80), int(h * .32)) if down_page else (int(h * .32), int(h * .80))
+        # Start well inside the scrolling content. On a short viewport the
+        # floating dock's touch target extends above its visible top edge.
+        y1, y2 = (int(h * .68), int(h * .32)) if down_page else (int(h * .32), int(h * .68))
         self.adb('shell', 'input', 'swipe', str(w // 2), str(y1), str(w // 2), str(y2), '350')
         time.sleep(.4)
 

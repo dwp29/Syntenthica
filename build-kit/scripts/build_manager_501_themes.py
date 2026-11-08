@@ -37,6 +37,9 @@ def patch_production_dock(activity: Path) -> None:
          'import com.rifsxd.ksunext.ui.theme.LocalGlassStyle\n'
          'import com.rifsxd.ksunext.ui.theme.LocalManagerStyle\n'
          'import com.rifsxd.ksunext.ui.theme.managerDockSpec\n', '5.0.1 dock imports', 1),
+        ('import androidx.compose.ui.text.style.TextOverflow\n',
+         'import androidx.compose.ui.text.style.TextAlign\n'
+         'import androidx.compose.ui.text.style.TextOverflow\n', '5.0.1 adaptive dock label alignment', 1),
         ('    val pixelMotion = LocalPixelMotionEnabled.current\n    val navigator = navController.rememberDestinationsNavigator()',
          '    val pixelMotion = LocalPixelMotionEnabled.current\n'
          '    val dockSpec = managerDockSpec(LocalManagerStyle.current)\n'
@@ -50,12 +53,25 @@ def patch_production_dock(activity: Path) -> None:
          '.padding(horizontal = dockSpec.horizontalMargin, vertical = dockSpec.verticalMargin),\n'
          '        contentAlignment = Alignment.Center,\n    ) {\n        val dockShape = dockSpec.containerShape',
          '5.0.1 dock margins and shape', 1),
+        ('        val density = LocalDensity.current\n        val itemWidthPx = with(density) { itemWidth.toPx() }',
+         '        val density = LocalDensity.current\n'
+         '        // Preserve readable labels at large font scales or narrow widths.\n'
+         '        val wrapDockLabels = maxWidth < 320.dp || density.fontScale > 1.2f\n'
+         '        val minimumDockHeight = 22.dp + 2.dp + with(density) { 24.sp.toDp() } + 12.dp\n'
+         '        val adaptiveDockHeight = if (wrapDockLabels) dockSpec.height.coerceAtLeast(minimumDockHeight) else dockSpec.height\n'
+         '        val itemWidthPx = with(density) { itemWidth.toPx() }', '5.0.1 compact dock metrics', 1),
         ('.width(dockWidth)\n                .height(68.dp)\n                .iosGlass(',
-         '.width(dockWidth)\n                .height(dockSpec.height)\n                .iosGlass(', '5.0.1 dock height', 1),
+         '.width(dockWidth)\n                .height(adaptiveDockHeight)\n                .iosGlass(', '5.0.1 dock height', 1),
         ('val pillShape = MaterialTheme.shapes.medium', 'val pillShape = dockSpec.selectedShape', '5.0.1 dock selection', 1),
         ('text = stringResource(destination.label),\n                            fontSize = 10.5.sp,',
          'text = stringResource(destination.label).let { if (dockSpec.uppercaseLabels) it.uppercase() else it },\n'
+         '                            textAlign = TextAlign.Center,\n'
          '                            fontSize = 10.5.sp,', '5.0.1 dock labels', 1),
+        ('                            maxLines = 1,\n                            overflow = TextOverflow.Ellipsis,\n'
+         '                        )\n                    }\n                }\n            }\n        }\n    }\n}',
+         '                            maxLines = if (wrapDockLabels) 2 else 1,\n'
+         '                            overflow = TextOverflow.Ellipsis,\n'
+         '                        )\n                    }\n                }\n            }\n        }\n    }\n}', '5.0.1 wrap dock labels', 1),
     ])
 
 

@@ -87,6 +87,9 @@ class PreparedTrees501Tests(unittest.TestCase):
         self.assertIn('val dockShape = dockSpec.containerShape', activity)
         self.assertIn('val pillShape = dockSpec.selectedShape', activity)
         self.assertIn('LaunchedEffect(currentRoute) { isScrollingDown.value = false }', activity)
+        self.assertIn('val wrapDockLabels = maxWidth < 320.dp || density.fontScale > 1.2f', activity)
+        self.assertIn('height(adaptiveDockHeight)', activity)
+        self.assertIn('maxLines = if (wrapDockLabels) 2 else 1', activity)
 
     def test_fixture_runs_production_screen_compositions_but_never_the_real_backend(self):
         pkg = self.pkg
