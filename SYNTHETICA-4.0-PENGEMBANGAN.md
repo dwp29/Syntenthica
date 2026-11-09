@@ -256,7 +256,9 @@ Dalam model dengan resolver palsu yang menyuntikkan `ENOENT`, `EIO`, `EACCES`
 dan `ENOMEM`, worker menerbitkan bitmap kosong; setter juga mengembalikan sukses
 untuk `EIO` yang disimulasikan. Ini bukan reproduksi fault filesystem asli,
 tetapi alasan penting untuk membedakan package yang benar-benar hilang dari
-kegagalan sementara sebelum mengubah kebijakan retry atau port. Audit credential,
+kegagalan sementara sebelum mengubah kebijakan retry atau port. Model dan
+injeksi fault ini lulus di [CI 42558992809](https://github.com/dwp29/Syntenthica/actions/runs/42558992809).
+Audit credential,
 namespace, urutan memori, lifetime worker dan perilaku saat alokasi gagal tetap
 harus dilakukan; workqueue pun tidak otomatis aman sebagai pengganti kthread.
 
@@ -283,8 +285,10 @@ mengulang kedua varian awal dengan Neutron yang dipin dan lulus pada
 [CI 42554605698](https://github.com/dwp29/Syntenthica/actions/runs/42554605698).
 Ketiga varian, termasuk pending, juga lulus CI terpisah dengan Neutron
 [42555885345](https://github.com/dwp29/Syntenthica/actions/runs/42555885345);
-kompilasi tidak menutup celah gagal-start yang telah dimodelkan. CI untuk
-varian stalled tambahan perlu diperiksa terpisah. Tidak ada dispatcher SUSFS, link kernel penuh,
+kompilasi tidak menutup celah gagal-start yang telah dimodelkan. Keempat
+varian juga lulus kompilasi objek dan partial link pada
+[CI 42558992815](https://github.com/dwp29/Syntenthica/actions/runs/42558992815);
+itu tidak menguji runtime atau retry otomatis. Tidak ada dispatcher SUSFS, link kernel penuh,
 modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti
