@@ -35,8 +35,9 @@ def collect(out: Path, modules: Path, nm: Path, destination: Path, provenance: d
     if destination.exists() or destination.is_symlink():
         raise ValueError("Evidence destination already exists")
     actual = s40.parse_config(out / ".config")
-    for key in ("CONFIG_KSU", "CONFIG_NOMOUNT", "CONFIG_KPROBES", "CONFIG_MODULE_SIG_FORCE",
-                "CONFIG_MODULE_SIG_ALL", "CONFIG_MODULE_SIG_SHA512", "CONFIG_SECURITY_SELINUX",
+    for key in ("CONFIG_KSU", "CONFIG_NOMOUNT", "CONFIG_KPROBES", "CONFIG_FTRACE_SYSCALLS",
+                "CONFIG_TRACEPOINTS", "CONFIG_MODULE_SIG_FORCE", "CONFIG_MODULE_SIG_ALL",
+                "CONFIG_MODULE_SIG_SHA512", "CONFIG_SECURITY_SELINUX",
                 "CONFIG_SECCOMP_FILTER", "CONFIG_STACKPROTECTOR_STRONG", "CONFIG_LRU_GEN_ENABLED"):
         if actual.get(key) != "y":
             raise ValueError(f"Required build configuration not enabled: {key}")

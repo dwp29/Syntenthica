@@ -95,18 +95,28 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/s40-inputs/nomount/userspace/src"
-          clang --target=aarch64-linux-gnu -fuse-ld=lld -Oz -mcmodel=tiny -static \
-            -nostdlib -ffreestanding -fno-unwind-tables -fno-ident \
-            -Wno-invalid-noreturn -mllvm -enable-machine-outliner=always \
-            -Wl,--entry=_start nm.c -o "$RUNNER_TEMP/nm-arm64"
-          readelf -h "$RUNNER_TEMP/nm-arm64" | grep -F AArch64
+          {
+            clang --target=aarch64-linux-gnu -fuse-ld=lld -Oz -mcmodel=tiny -static \
+              -nostdlib -ffreestanding -fno-unwind-tables -fno-ident \
+              -Wno-invalid-noreturn -mllvm -enable-machine-outliner=always \
+              -Wl,--entry=_start nm.c -o "$RUNNER_TEMP/nm-arm64" &&
+            readelf -h "$RUNNER_TEMP/nm-arm64" | grep -F AArch64
+          } 2>&1 | tee "$RUNNER_TEMP/s40-nm.log" || {
+            python3 "$GITHUB_WORKSPACE/build-kit/scripts/annotate_synthetica40_failure.py" 'NoMount userspace' "$RUNNER_TEMP/s40-nm.log"
+            exit 1
+          }
       - name: Validate and collect non-flashable evidence
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/collect_synthetica40.py \
-            --out "$RUNNER_TEMP/s40-work/out" --modules "$RUNNER_TEMP/s40-modules" \
-            --nm "$RUNNER_TEMP/nm-arm64" --destination "$RUNNER_TEMP/s40-evidence"
-          (cd "$RUNNER_TEMP/s40-evidence" && sha256sum -c SHA256SUMS.txt)
+          {
+            python3 build-kit/scripts/collect_synthetica40.py \
+              --out "$RUNNER_TEMP/s40-work/out" --modules "$RUNNER_TEMP/s40-modules" \
+              --nm "$RUNNER_TEMP/nm-arm64" --destination "$RUNNER_TEMP/s40-evidence" &&
+            (cd "$RUNNER_TEMP/s40-evidence" && sha256sum -c SHA256SUMS.txt)
+          } 2>&1 | tee "$RUNNER_TEMP/s40-collect.log" || {
+            python3 build-kit/scripts/annotate_synthetica40_failure.py '6.18 evidence validation' "$RUNNER_TEMP/s40-collect.log"
+            exit 1
+          }
       - name: Upload evidence only (never flash)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -145,6 +155,8 @@ jobs:
           path: |
             ${{ runner.temp }}/s40-prepare.log
             ${{ runner.temp }}/s40-build.log
+            ${{ runner.temp }}/s40-nm.log
+            ${{ runner.temp }}/s40-collect.log
             ${{ runner.temp }}/s40-work/out/.config
           if-no-files-found: ignore
           retention-days: 7

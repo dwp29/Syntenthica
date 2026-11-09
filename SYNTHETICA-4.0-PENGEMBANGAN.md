@@ -46,6 +46,24 @@ permintaan konfigurasi efektif diperiksa setelah `olddefconfig`. Resep:
 | zRAM / filesystem | LZO, LZ4, LZ4HC dan ZSTD serta default LZO diminta; ZRAM_DEDUP milik baseline belum dipertahankan. EROFS, F2FS, fscrypt, verity, overlayfs dan inline encryption diminta. `DM_DEFAULT_KEY` vendor serta wrapped-key/FBE ROM belum terbukti tersedia/kompatibel. Opsi sama tidak berarti data lama bisa didekripsi. |
 | Keamanan modul / SELinux | Konfigurasi meminta SELinux, seccomp, stack protector, modversions dan signature enforcement SHA-512. Modul contoh bertanda tangan dengan **kunci sementara build**, bukan kunci ROM; tidak membuktikan modul vendor dapat dimuat atau dipercaya. Perbedaan ABI/security policy tetap menjadi blocker. |
 
+## Kemajuan validasi awal
+
+- Konfigurasi lokal hasil gabungan lolos **599 permintaan efektif**. Tracepoint
+  `sys_enter` yang dibutuhkan KernelSU kini benar-benar diaktifkan, bukan hanya
+  mengandalkan `HAVE_SYSCALL_TRACEPOINTS`.
+- Driver NoMount dan KernelSU-Next serta SELinux berhasil dikompilasi menjadi
+  objek ARM64 secara lokal. Resep sekarang membangun SELinux terlebih dahulu
+  untuk menghindari race pada header yang dihasilkan. Ini **belum** kompilasi
+  kernel penuh atau uji boot. Kompilasi awal menggunakan LLVM 23.1.5 dan shim
+  `m4` lokal yang belum tervalidasi; bukan bukti build Neutron/release.
+- Sembilan uji source/parser dan lima uji guard/alur build lulus secara lokal,
+  termasuk simulasi urutan dan kegagalan prebuild SELinux. Uji parser
+  menjalankan kode C yang diadaptasi dengan I/O dan kripto simulasi; ini tidak
+  membuktikan bahwa APK diterima oleh kernel nyata.
+- CI [42545132387](https://github.com/dwp29/Syntenthica/actions/runs/42545132387)
+  menggunakan commit sebelumnya, sebelum perbaikan tracepoint dan urutan
+  SELinux. Hasilnya tidak boleh dianggap bukti untuk resep yang diperbarui.
+
 ## Interpretasi bukti
 
 Jika CI berhasil, arsip buktinya hanya berisi image dan DTB dengan nama

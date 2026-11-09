@@ -55,6 +55,9 @@ if [[ ! $jobs =~ ^[1-9][0-9]*$ || $jobs -gt 64 ]]; then
   echo 'S40_JOBS must be a positive integer <= 64.' >&2
   exit 1
 fi
+# KernelSU includes generated SELinux headers from another Kbuild directory.
+# Build that directory first so parallel compilation cannot race the headers.
+make "${make_args[@]}" -j"$jobs" security/selinux/
 make "${make_args[@]}" -j"$jobs" Image dtbs modules
 # Module signing uses a freshly generated build key. Never export this key or
 # assume the target ROM trusts it. Keep installation output in scratch only.
