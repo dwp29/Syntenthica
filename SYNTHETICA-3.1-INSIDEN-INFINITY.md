@@ -382,3 +382,25 @@ Report audit JSON blob `c8cbc247f4a096dd49fce83b2e03da10dc16cf24`.
 Ini data dari ROM publik, bukan image/backup pribadi pengguna. Reproduksi statis
 bukan pengujian fisik. Belum ada kernel perbaikan siap flash; jangan flash
 control1 atau menonaktifkan pemeriksaan keamanan untuk menghindari audit.
+
+## Pair build kernel dan modul 3.1 baru (bukan installer)
+
+[CI 42573566006](https://github.com/dwp29/Syntenthica/actions/runs/42573566006)
+berhasil membangun ulang kernel 3.1 **bersama** keenam modul konfigurasinya.
+Collector memverifikasi signature terhadap sertifikat yang tertanam di image,
+vermagic, semua CRC `__versions` terhadap `Module.symvers` dan dependencies;
+semua enam lulus. Audit ulang lokal pada berkas yang ditransfer juga lulus.
+Ketiga modul yang bernama sama dengan modul vendor ROM (`gspca_main`,
+`rmnet_perf`, `rmnet_shs`) memiliki deklarasi `parmtype` yang sama dengan modul
+ROM; kesamaan metadata bukan jaminan perilaku driver yang sama. Kernel baru
+mempunyai sertifikat build baru, sehingga jangan mencampurnya dengan kernel
+atau modul 3.1 build lama.
+
+Bahan kerja nonflashable blob `a21dc0d874635ae707d54a642d6b61db4f4e5d72`,
+ZIP SHA-256 `5a62a957ed38b947d446a1c3e5a48db6ae1a9cbcc37060db94d95462abdacd86`,
+kernel SHA-256 `6b74f662e6b8055529eb427dffba56863e7ffe3ad4120507daea1d1e702a9ac0`.
+Tidak ada kunci privat dalam bahan tersebut. **Jangan flash atau pasang**:
+belum ada jalur distribusi/pemuatan modul vendor yang aman dan tervalidasi,
+belum ada tes boot/fungsi, dan penyebab bootloop masih belum pasti. Temuan ini
+menyelesaikan pembuatan pair yang konsisten secara statis, bukan keseluruhan
+perbaikan perangkat.
