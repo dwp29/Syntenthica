@@ -23,6 +23,7 @@ spec.loader.exec_module(fixture)
 
 PUBLIC_BOOT_SHA = 'd33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f'
 IMAGE_SHA = '650d5f1e9e73788babeb67e5a21a30e565babd059f8cd908c318531464a74287'
+fixture.IMAGE_SHA = IMAGE_SHA
 
 @unittest.skipUnless(os.environ.get('S31_INFINITY_OFFLINE') == '1', 'public ROM and QEMU test opt-in')
 class PublicROMInstallerTest(unittest.TestCase):
