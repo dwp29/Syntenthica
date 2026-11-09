@@ -232,8 +232,10 @@ gagal setelah permintaan lain menandai pending; reset state ke idle menyebabkan
 permintaan tersebut hilang. Permintaan independen sesudahnya dapat memulihkan
 bitmap dalam model, tetapi tidak dijamin terjadi. Hasil ini hanya jadwal host
 dengan shim, bukan bukti memory ordering Linux, RCU, filesystem, SELinux,
-kthread sungguhan atau perangkat. Jangan integrasikan kandidat ini sebagai
-perbaikan kernel; SUSFS 2.4 tetap nonaktif dan belum terintegrasi.
+kthread sungguhan atau perangkat. Pengujian model dan counterexample juga lulus
+pada [CI 42555885358](https://github.com/dwp29/Syntenthica/actions/runs/42555885358).
+Jangan integrasikan kandidat ini sebagai perbaikan kernel; SUSFS 2.4 tetap
+nonaktif dan belum terintegrasi.
 
 ### Kompilasi terisolasi priority filter
 
@@ -255,8 +257,9 @@ belum tervalidasi, bukan build release. CI terpisah
 [`s40-susfs-priority-compile.yml`](.github/workflows/s40-susfs-priority-compile.yml)
 mengulang kedua varian awal dengan Neutron yang dipin dan lulus pada
 [CI 42554605698](https://github.com/dwp29/Syntenthica/actions/runs/42554605698).
-CI untuk varian pending tambahan perlu diperiksa terpisah; kompilasi tidak menutup
-celah gagal-start yang telah dimodelkan. Tidak ada dispatcher SUSFS, link kernel penuh,
+Ketiga varian, termasuk pending, juga lulus CI terpisah dengan Neutron
+[42555885345](https://github.com/dwp29/Syntenthica/actions/runs/42555885345);
+kompilasi tidak menutup celah gagal-start yang telah dimodelkan. Tidak ada dispatcher SUSFS, link kernel penuh,
 modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti
