@@ -12,6 +12,7 @@ on:
       - 'build-kit/scripts/annotate_synthetica40_failure.py'
       - 'tests/test_synthetica40.py'
       - 'tests/test_s40_guard.py'
+      - 'tests/test_s40_apk_guard.py'
   workflow_dispatch:
 
 permissions:
@@ -60,7 +61,9 @@ jobs:
               --work "$RUNNER_TEMP/s40-work" &&
             S40_TEST_PREPARED="$RUNNER_TEMP/s40-work/kernel" \
               python3 -m unittest discover -s tests -p 'test_synthetica40.py' -v &&
-            python3 -m unittest discover -s tests -p 'test_s40_guard.py' -v
+            python3 -m unittest discover -s tests -p 'test_s40_guard.py' -v &&
+            S40_TEST_PREPARED="$RUNNER_TEMP/s40-work/kernel" \
+              python3 -m unittest discover -s tests -p 'test_s40_apk_guard.py' -v
           } 2>&1 | tee "$RUNNER_TEMP/s40-prepare.log" || {
             python3 build-kit/scripts/annotate_synthetica40_failure.py '6.18 preparation' "$RUNNER_TEMP/s40-prepare.log"
             exit 1

@@ -1,0 +1,129 @@
+name: "Synthetica 4.0 - Manager UAPI 5 development checks"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/s40-manager-uapi5-dev.yml'
+      - 'build-kit/ci/manager-uapi5-dev/**'
+      - 'build-kit/scripts/prepare_s40_manager_uapi5.py'
+      - 'build-kit/scripts/verify_s40_manager_uapi5_apk.py'
+      - 'tests/test_s40_manager_uapi5.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prototype:
+    name: "Unsigned, non-installable UAPI 5 prototype checks"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Fetch and verify pinned source and published ksud
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-manager"
+          mkdir -p "$t"/{old,new,reports}
+          curl --fail --location --retry 3 -o "$t/old.tar.gz" \
+            https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/ea51427ff700f73909e7e8c8717cc3241322ee1e
+          curl --fail --location --retry 3 -o "$t/new.tar.gz" \
+            https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af
+          python3 build-kit/scripts/prepare_s40_manager_uapi5.py verify-archives --old "$t/old.tar.gz" --new "$t/new.tar.gz"
+          tar -xzf "$t/old.tar.gz" -C "$t/old" --strip-components=1
+          tar -xzf "$t/new.tar.gz" -C "$t/new" --strip-components=1
+          curl --fail --location --retry 3 -o "$t/ksud" \
+            https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/ksud-aarch64-linux-android
+          echo "2771a2ae989b522b5d70f3288ad5a2f379488962d09c1fe11e13a745eba89362  $t/ksud" | sha256sum -c -
+          test "$(stat -c %s "$t/ksud")" = 7059592
+          python3 - "$t/ksud" <<'PY'
+          import sys
+          sys.path.insert(0, 'build-kit/scripts')
+          import prepare_s40_manager_uapi5 as migration
+          migration.verify_daemon(__import__('pathlib').Path(sys.argv[1]))
+          print('Published UAPI 5 ksud: pinned size, SHA-256 and arm64 ELF verified (not source-reproduced).')
+          PY
+      - name: Exercise source migration and negative checks
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-manager"
+          S40_MANAGER_OLD="$t/old" S40_MANAGER_NEW="$t/new" \
+            python3 -m unittest discover -s tests -p 'test_s40_manager_uapi5.py' -v \
+              2>&1 | tee "$t/reports/source-tests.log" || {
+                python3 build-kit/scripts/annotate_synthetica40_failure.py 'UAPI 5 source checks' "$t/reports/source-tests.log"
+                exit 1
+              }
+      - name: Install Android SDK for an unsigned development compile
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk-uapi5-dev"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' \
+            'ndk;29.0.14206865' 'cmake;3.22.1' 2>&1 | tail -10
+      - name: Prepare and compile unsigned prototype in scratch only
+        timeout-minutes: 40
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-manager"
+          python3 build-kit/scripts/prepare_s40_manager_uapi5.py prepare \
+            --old "$t/old" --new "$t/new" --daemon "$t/ksud" --work "$t/work" --build-unsigned \
+            2>&1 | tee "$t/reports/build.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'UAPI 5 prototype build' "$t/reports/build.log"
+              exit 1
+            }
+      - name: Validate identity, ABI, payload and unsigned state
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-manager"
+          APK="$t/work/result/Manager-UAPI5-UNSIGNED-DO-NOT-INSTALL.apk"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          {
+            "$TOOLS/zipalign" -c -p 4 "$APK" &&
+            "$TOOLS/zipalign" -c -P 16 4 "$APK" &&
+            "$TOOLS/aapt" dump badging "$APK" > "$t/reports/badging.txt" &&
+            grep -F "name='net.ember.labs'" "$t/reports/badging.txt" &&
+            grep -F "versionCode='60002'" "$t/reports/badging.txt" &&
+            grep -F "versionName='5.0.1-uapi5-dev'" "$t/reports/badging.txt" &&
+            python3 build-kit/scripts/verify_s40_manager_uapi5_apk.py "$APK" > "$t/reports/static.json" &&
+            "$TOOLS/aapt" dump permissions "$APK" | grep '^uses-permission' | sort > "$t/reports/permissions.txt" &&
+            "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort > "$t/reference-permissions.txt" &&
+            test -s "$t/reports/permissions.txt" &&
+            diff -u "$t/reference-permissions.txt" "$t/reports/permissions.txt"
+          } 2>&1 | tee "$t/reports/validation.log" || {
+            python3 build-kit/scripts/annotate_synthetica40_failure.py 'UAPI 5 prototype validation' "$t/reports/validation.log"
+            exit 1
+          }
+          if "$TOOLS/apksigner" verify "$APK" > "$t/reports/signature.txt" 2>&1; then
+            echo '::error::Prototype unexpectedly signed; refusing output.'
+            exit 1
+          fi
+          grep -q 'DOES NOT VERIFY' "$t/reports/signature.txt"
+          echo '::notice title=Development only::Unsigned prototype passed static checks; no APK, key or installable release is exported. Kernel v3-signing and runtime gates remain closed.'
+      - name: Upload diagnostic metadata only, never the APK
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-UAPI5-DEV-DIAGNOSTICS-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s40-manager/reports/
+            ${{ runner.temp }}/s40-manager/work/PROTOTYPE.json
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,42 @@
+{
+  "scope": "unsigned development-only Manager source migration; not a release or installable update",
+  "old_manager": {
+    "repository": "https://github.com/KernelSU-Next/KernelSU-Next",
+    "commit": "ea51427ff700f73909e7e8c8717cc3241322ee1e",
+    "archive_url": "https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/ea51427ff700f73909e7e8c8717cc3241322ee1e",
+    "archive_sha256": "4d6774a2c476c7adb944c199720ac283bc4ac62f71c2eca9e7add7bca01532a9",
+    "sentinels": {
+      "uapi/supercall.h": "4de4c3810e1789965d63e296644da8101c70717a5e5fdc79afed48648b697058",
+      "uapi/feature.h": "5ffc7567a68b6d127dd3094d9b209024518946ceadbedf5d54e19f4fd436a99f",
+      "manager/app/src/main/cpp/ksu.cc": "4a8d83e6a11349a3dd6db3b0313945af91835666905723e1286223740ee5d8d7"
+    }
+  },
+  "new_backend": {
+    "repository": "https://github.com/KernelSU-Next/KernelSU-Next",
+    "commit": "4c706b5938665866ebe16944a481a7b91e3396af",
+    "tag": "v3.4.2",
+    "archive_url": "https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af",
+    "archive_sha256": "f693c13d195ca1cd99865a3990393aae76ea4e577d17ca4bb8c81b14c5b10784",
+    "uapi": 5,
+    "sentinels": {
+      "uapi/supercall.h": "7d1ac24a0ccf2214d5868a5183e74372e824e0507f1529290716883e90c47c45",
+      "uapi/feature.h": "179d5bcd4384f5553ae581936c6b6ef9cabd89e7aff9deb40afd8177984af194",
+      "manager/app/src/main/cpp/ksu.cc": "55536a13c7b0fb75cb66291889a71bf9afb7154dd82d25031791c6f9fc9248a8"
+    }
+  },
+  "ksud_arm64": {
+    "origin": "KernelSU-Next v3.4.2 published release asset (not reproduced from source)",
+    "url": "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/ksud-aarch64-linux-android",
+    "github_asset_id": 638398910,
+    "sha256": "2771a2ae989b522b5d70f3288ad5a2f379488962d09c1fe11e13a745eba89362",
+    "bytes": 7059592
+  },
+  "prototype": {
+    "package": "net.ember.labs",
+    "version_name": "5.0.1-uapi5-dev",
+    "version_code": 60002,
+    "signed": false,
+    "installable_release": false,
+    "runtime_tested": false
+  }
+}

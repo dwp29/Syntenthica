@@ -30,7 +30,9 @@ permintaan konfigurasi efektif diperiksa setelah `olddefconfig`. Resep:
 - [`build_synthetica40.py`](build-kit/scripts/build_synthetica40.py)
 - [`build_synthetica40_kernel.sh`](build-kit/scripts/build_synthetica40_kernel.sh)
 - [`synthetica40-kernel-dev.yml`](.github/workflows/synthetica40-kernel-dev.yml)
-- [`test_synthetica40.py`](tests/test_synthetica40.py)
+- [`test_synthetica40.py`](tests/test_synthetica40.py),
+  [`test_s40_guard.py`](tests/test_s40_guard.py), dan
+  [`test_s40_apk_guard.py`](tests/test_s40_apk_guard.py)
 
 ## Fitur yang sedang dikerjakan dan hambatannya
 
@@ -38,7 +40,7 @@ permintaan konfigurasi efektif diperiksa setelah `olddefconfig`. Resep:
 | --- | --- |
 | KernelSU-Next | Source 3.4.2 UAPI **5** diintegrasikan ke resep. UAPI 5 tidak otomatis cocok dengan Manager dan `ksud` Synthetica 5.0.1 UAPI **4**; migrasi ketiganya dan uji root masih diperlukan. |
 | Identitas Manager | Paket dan digest sertifikat publik lama dipin. Parser tanda tangan KSUN diadaptasi untuk sertifikat 1.381-byte dengan batas dan pemeriksaan hash tetap aktif; tidak menerima sembarang sertifikat. **Sertifikat sama saja tidak membuat UAPI cocok.** Parser 3.4.2 juga menolak blok signing tambahan yang tidak dikenal; APK referensi lama mempunyai blok v3 selain v2. Kompatibilitas APK nyata masih harus ditangani dengan aman dan diuji; pemeriksaan tidak dilonggarkan. |
-| Manager 5.0.1 | Multi-tema, Device Check, profil, modul/WebUI dan Control/Boost tetap ada pada resep lama, **belum dimigrasikan** ke backend UAPI 5. Upgrade in-place tetap membutuhkan kunci penandatangan asli dan versionCode yang lebih tinggi. |
+| Manager 5.0.1 | Resep dan APK lama tetap UAPI 4. Prototipe **source-only/unsigned** mempertahankan overlay multi-tema dan memasang JNI/header serta `ksud` UAPI 5 yang dipin; ini belum membuktikan migrasi runtime, fitur, kompatibilitas APK, atau kemampuan upgrade. Upgrade in-place tetap membutuhkan kunci penandatangan asli dan versionCode yang lebih tinggi. |
 | SUSFS 2.4.0 | **Belum terintegrasi.** Patch resmi `a2165b6f` memang versi 2.4.0, tetapi patch kernel 6.1 dan glue KSU-nya gagal `git apply --check` pada 6.18 dan KSUN 3.4.2 yang dipin. Harus di-port dan diuji, termasuk UID priority filter `0x60030`, hook VFS, `ksu_susfs`, SELinux dan interaksi root/NoMount. Mengubah label versi atau memasang LKM GKI bukan solusinya. |
 | NoMount | Source NoMount 2.2.0 dipin dan dihubungkan built-in, dengan tool `nm` dari commit yang sama. Enum perintah, struktur payload dan magic kernel/userspace dibandingkan; protokolnya **22**, berbeda dari protokol 20 r1. Flag upstream `-fno-stack-protector` untuk driver dihapus agar tidak mengurangi proteksi stack build. Konfigurasi dan kompilasi bukan bukti bahwa redirection, UID isolation atau WebUI bekerja. Modul/metamodule userspace belum dipaketkan sebagai release. |
 | MGLRU / UCLAMP | MGLRU default aktif dan UCLAMP diminta pada source 6.18. Ini bukan jaminan bahwa implementasi, antarmuka tuning atau perilaku patch MGLRU 3.1/r1 identik. |
@@ -57,12 +59,42 @@ permintaan konfigurasi efektif diperiksa setelah `olddefconfig`. Resep:
   kernel penuh atau uji boot. Kompilasi awal menggunakan LLVM 23.1.5 dan shim
   `m4` lokal yang belum tervalidasi; bukan bukti build Neutron/release.
 - Sembilan uji source/parser dan lima uji guard/alur build lulus secara lokal,
-  termasuk simulasi urutan dan kegagalan prebuild SELinux. Uji parser
-  menjalankan kode C yang diadaptasi dengan I/O dan kripto simulasi; ini tidak
-  membuktikan bahwa APK diterima oleh kernel nyata.
+  termasuk simulasi urutan dan kegagalan prebuild SELinux. Satu uji tambahan
+  menjalankan parser C KSUN yang disiapkan terhadap layout APK referensi 2.0:
+  parser **menolak** APK tersebut yang memiliki blok v2 dan v3. Fixture yang
+  blok v3-nya dibuang hanya untuk pengujian dapat melewati parser, tetapi sudah
+  berubah dan **bukan APK bertanda tangan valid**; jangan dipasang. I/O dan
+  fungsi hash pada uji ini disimulasikan. Ini bukan pengujian penerimaan APK
+  di kernel/Android nyata, dan tidak membenarkan pelonggaran parser keamanan.
 - CI [42545132387](https://github.com/dwp29/Syntenthica/actions/runs/42545132387)
-  menggunakan commit sebelumnya, sebelum perbaikan tracepoint dan urutan
-  SELinux. Hasilnya tidak boleh dianggap bukti untuk resep yang diperbarui.
+  gagal pada tracepoint di commit sebelumnya. Run tersebut menggunakan resep
+  sebelum perbaikan tracepoint dan urutan SELinux; hasilnya tidak boleh dianggap
+  bukti untuk resep yang diperbarui.
+
+## Prototipe migrasi Manager UAPI 5
+
+[`prepare_s40_manager_uapi5.py`](build-kit/scripts/prepare_s40_manager_uapi5.py)
+menyalin source UAPI 4 yang dipin ke scratch, menerapkan overlay Manager 5.0.1,
+kemudian mengganti dua header UAPI dan JNI `ksu.cc` dengan source KSUN 3.4.2.
+`ksud` arm64 berasal dari **aset release upstream**, bukan hasil build source
+lokal; ukuran dan SHA-256 `2771a2ae989b522b5d70f3288ad5a2f379488962d09c1fe11e13a745eba89362`
+dipin sebelum disalin. Daftar pin dan provenance ada di
+[`inputs.json`](build-kit/ci/manager-uapi5-dev/inputs.json). Resep membuat
+hanya source dan, bila diminta, APK **unsigned** di scratch. CI
+[`s40-manager-uapi5-dev.yml`](.github/workflows/s40-manager-uapi5-dev.yml)
+mengekspor diagnostik saja, bukan APK atau kunci.
+
+Uji lokal membandingkan source 5.0.1 dengan prototipe: hanya delapan file yang
+diperbolehkan berubah (dua header, JNI, daemon, dua file versi/output dan dua
+label), sedangkan gate `kernelUAPIVersion == managerUAPIVersion` tetap utuh.
+Uji kompilasi host menjalankan fungsi JNI baru dengan flag support simulasi;
+ini bukan pengujian ioctl atau root perangkat. `EVENT_SERVICES` dan flag
+feature UAPI 5 memerlukan `ksud` yang sesuai dan pengujian runtime. Source
+`ksud` 3.4.2 juga secara eksplisit menolak blok v3/v3.1; mengganti daemon saja
+**tidak** menyelesaikan blocker penandatanganan APK. Prototipe belum signed,
+belum dapat dipasang sebagai update, dan belum terbukti kompatibel dengan kernel
+lama maupun kernel baru. Jangan pasang dan jangan gunakan kunci produksi untuk
+memaksakan pengujian ini.
 
 ## Interpretasi bukti
 
