@@ -10,7 +10,9 @@ on:
       - 'build-kit/scripts/build_synthetica40.py'
       - 'build-kit/scripts/annotate_synthetica40_failure.py'
       - 'build-kit/scripts/audit_s40_susfs_abi.py'
+      - 'build-kit/scripts/probe_s40_susfs_priority.py'
       - 'tests/test_s40_susfs_abi.py'
+      - 'tests/test_s40_susfs_priority.py'
   workflow_dispatch:
 
 permissions:
@@ -29,11 +31,13 @@ jobs:
       - name: Ensure arm64-capable host compiler
         run: |
           set -euo pipefail
-          if ! command -v clang >/dev/null; then
+          if ! command -v clang >/dev/null || ! command -v gcc >/dev/null; then
             sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
-            sudo apt-get install -y -qq clang
+            sudo apt-get install -y -qq clang gcc
           fi
+          command -v git
           clang --version | head -1
+          gcc --version | head -1
       - name: Fetch and verify exact kernel, KSUN and SUSFS archives
         timeout-minutes: 15
         run: |
@@ -73,6 +77,22 @@ jobs:
             }
           cat "$t/reports/audit.json"
           echo '::notice title=Research only::SUSFS 2.4 is not integrated; no syscalls, modules, device testing or flash.'
+      - name: Model priority-filter stale publication and research-only guard
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-susfs-abi"
+          S40_ABI_SUSFS="$t/susfs" python3 -m unittest discover -s tests -p 'test_s40_susfs_priority.py' -v \
+            2>&1 | tee "$t/reports/priority-tests.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'SUSFS priority host model' "$t/reports/priority-tests.log"
+              exit 1
+            }
+          python3 build-kit/scripts/probe_s40_susfs_priority.py --susfs "$t/susfs" \
+            > "$t/reports/priority-model.json" 2> "$t/reports/priority-model.log" || {
+              cat "$t/reports/priority-model.log"
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'SUSFS priority model' "$t/reports/priority-model.log"
+              exit 1
+            }
+          cat "$t/reports/priority-model.json"
       - name: Upload source-only report, no binaries or APKs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

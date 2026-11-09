@@ -156,8 +156,9 @@ di perangkat, keamanan otorisasi root, atau kompatibilitas ROM dan perangkat.
 
 Audit sumber [`audit_s40_susfs_abi.py`](build-kit/scripts/audit_s40_susfs_abi.py)
 memeriksa source yang dipin dan mengompilasi **deklarasi struct yang diekstrak**
-untuk target arm64 kernel dan Android, tanpa syscall atau memuat modul. Hasil
-lokal: 16 command aktif `ksu_susfs` 2.4 cocok dengan nomor dan daftar dispatcher
+untuk target arm64 kernel dan Android, tanpa syscall atau memuat modul. Audit
+lulus lokal dan pada [CI 42549978945](https://github.com/dwp29/Syntenthica/actions/runs/42549978945):
+16 command aktif `ksu_susfs` 2.4 cocok dengan nomor dan daftar dispatcher
 patch kernel 2.4; ukuran, alignment dan offset 13 payload cocok; 12 bit KSTAT dan
 lima nilai `UID_SCHEME` cocok. Payload UID priority `0x60030` berukuran 65.540
 byte pada arm64, dengan `err` di offset 65.536. Ini memeriksa ABI deklarasi,
@@ -172,6 +173,24 @@ bukan otomatis dinyatakan pasti gagal. LKM dan KSUN juga menargetkan simbol
 reboot arm64 yang sama, meski magic keduanya berbeda; interaksi hook dan NoMount
 belum diuji. Karena itu source LKM ini **bukan pengganti SUSFS 2.4** dan tidak
 boleh dipasang atau sekadar diganti nomor versinya.
+
+### Race priority filter yang perlu ditangani sebelum port
+
+Model host [`probe_s40_susfs_priority.py`](build-kit/scripts/probe_s40_susfs_priority.py)
+menjalankan fungsi setter, worker, parser dan lookup yang diekstrak dari source
+2.4 yang dipin. Pada interleaving terjadwal, worker mengambil snapshot daftar
+lama, setter menerbitkan daftar baru, lalu worker menimpa bitmap baru dengan
+hasil lama. Daftar nama yang tersimpan dan bitmap dapat berbeda sampai refresh
+berikutnya. I/O packages list, credential, user copy dan RCU disimulasikan;
+ini **bukan** reproduksi pada kernel atau ponsel.
+
+Kandidat [`research-only-priority-generation.patch`](build-kit/ci/s40-susfs-abi/research-only-priority-generation.patch)
+menolak publikasi snapshot yang generasinya sudah usang dan lolos interleaving
+yang sama dalam model lokal. Patch hanya diterapkan ke salinan scratch untuk
+pengujian, **belum** menjadi bagian kernel 4.0. Guard sempit itu belum membuktikan
+seluruh perilaku konkurensi/RCU, fault, keamanan SELinux, atau bahwa refresh
+instalasi/uninstall tidak terlewat saat perubahan konfigurasi berulang; semua
+itu tetap perlu dirancang dan diuji sebelum port dipakai.
 
 ## Interpretasi bukti
 

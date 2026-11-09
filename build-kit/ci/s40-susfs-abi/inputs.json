@@ -39,5 +39,10 @@
       "ksu_susfs/jni/features/sus_mount.c": "46eab0b93082a2d1e38c2d0d4591bca80cc5f25b8dc3781e568b95da78655b32",
       "ksu_susfs/jni/features/sus_path.c": "b409f8ddfe30dbe6a4d3960d24efc8b514fabb64e3d09333be5f6105454bacae"
     }
+  },
+  "research_priority_guard": {
+    "scope": "unintegrated research-only candidate; host-model validation, no kernel/runtime approval",
+    "patch_sha256": "7ee1ca18dbb4db6b08d45eb6ba0fb101f3ec4d9a558192062a062d8101263ed2",
+    "guarded_susfs_c_sha256": "9e8c26ea3cfa72e59421ea38bb703b28fc9b353a81184bb01dfd47ae04191824"
   }
 }

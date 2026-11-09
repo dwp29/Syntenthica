@@ -1,0 +1,17 @@
+--- a/fs/susfs.c
++++ b/fs/susfs.c
+@@ -1405,0 +1406,2 @@
++/* Read and updated only while holding susfs_mutex_lock_priority_uid_filter. */
++static u64 susfs_priority_config_generation;
+@@ -1671,0 +1674 @@
++	susfs_priority_config_generation++;
+@@ -1706,0 +1710 @@
++	u64 snapshot_generation;
+@@ -1719,0 +1724 @@
++	snapshot_generation = susfs_priority_config_generation;
+@@ -1744,0 +1750,5 @@
++	/* Do not replace a newer command's bitmap with an obsolete snapshot. */
++	if (snapshot_generation != susfs_priority_config_generation) {
++		mutex_unlock(&susfs_mutex_lock_priority_uid_filter);
++		goto out_restore_creds;
++	}
