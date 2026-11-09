@@ -17,7 +17,7 @@ Menurut pelapor, perangkat **joyeuse** dengan Project Infinity X **4.1 GAPPS, 21
 | GAPPS | `Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip` | 2641732377 | `6b3d41aea18311e663266489adf54307` |
 | VANILLA | `Project_Infinity-X-4.1-miatoll-21.10.2026-VANILLA-OFFICIAL.zip` | 1869490649 | `0aa6b44bcee30e4f5d348ec48cc4f1ea` |
 
-[Halaman unduhan proyek](https://projectinfinity-x.com/downloads/miatoll) juga menampilkan dua varian 4.1 tersebut dan changelog `Fixed Some Issues Regarding Custom Kernels`, tanpa rincian perbaikan atau klaim kompatibilitas Synthetica 3.1. Ini petunjuk investigasi, **bukan** bukti penyebab atau solusi untuk kasus ini. Pelapor memilih **4.1 GAPPS, 21.10.2026** dan menyatakan checksum ZIP kernel 3.1 cocok; nama/hash ZIP ROM dan file yang dipasang belum diverifikasi secara independen. MD5 di atas adalah metadata penerbit, bukan pembuktian keaslian atau bahwa file terpasang identik; tidak ada ZIP ROM yang diunduh atau dianalisis pada tahap ini.
+[Halaman unduhan proyek](https://projectinfinity-x.com/downloads/miatoll) juga menampilkan dua varian 4.1 tersebut dan changelog `Fixed Some Issues Regarding Custom Kernels`, tanpa rincian perbaikan atau klaim kompatibilitas Synthetica 3.1. Ini petunjuk investigasi, **bukan** bukti penyebab atau solusi untuk kasus ini. Pelapor memilih **4.1 GAPPS, 21.10.2026** dan menyatakan checksum ZIP kernel 3.1 cocok; nama/hash ZIP ROM dan file yang dipasang belum diverifikasi secara independen. MD5 di atas adalah metadata penerbit, bukan pembuktian keaslian atau bahwa file terpasang identik; pada saat pencatatan awal itu ZIP ROM belum dianalisis; audit berikutnya dijelaskan di bawah.
 
 ## Dahulukan pemulihan yang aman
 
@@ -404,3 +404,33 @@ belum ada jalur distribusi/pemuatan modul vendor yang aman dan tervalidasi,
 belum ada tes boot/fungsi, dan penyebab bootloop masih belum pasti. Temuan ini
 menyelesaikan pembuatan pair yang konsisten secara statis, bukan keseluruhan
 perbaikan perangkat.
+
+## Uji installer 3.1 pada boot ROM publik — offline
+
+[CI 42577225988](https://github.com/dwp29/Syntenthica/actions/runs/42577225988)
+mengunduh ZIP ROM publik dengan SHA-256 dan ukuran yang dipin, lalu menjalankan
+installer 3.1 yang direkonstruksi deterministik dalam QEMU pada salinan file
+biasa dari `boot.img`. Path penulisan dan data dialihkan ke direktori sementara,
+`dd` dilindungi agar tidak dapat menulis device block, dan mount di-mock. Uji
+dilakukan sebagai pengguna biasa serta sebagai root; **bukan OrangeFox, bukan
+perangkat, bukan boot fisik**.
+
+- Pada kedua uji, installer berakhir sukses; kernel keluaran cocok dengan image
+  3.1 dan DTB, recovery DTBO, second dan field header yang dibandingkan cocok.
+  Ramdisk LZ4 berubah byte karena repack; perbandingan isi CPIO menunjukkan
+  isi file dan mode pada nama yang dibandingkan sama. Uji root mencatat UID/GID
+  yang sama untuk entri bersama. Waktu/link dan entri direktori `.` berubah.
+  Pada uji non-root UID/GID berubah karena batas emulasi host: jangan menarik
+  kesimpulan bahwa hal yang sama terjadi di recovery nyata.
+- Input memiliki embedded AVB algorithm `NONE`: panjang descriptor dan
+  `original_image_size` sama-sama 50.405.376 byte, digest cocok. Output memiliki
+  `original_image_size` 16.404.480 byte, tetapi descriptor masih mencakup
+  50.405.376 byte; penghitungan digest terhadap descriptor menghasilkan
+  **tidak cocok**. Ini mereproduksi inkonsistensi AVB embedded hasil repack
+  dalam fixture, bahkan ketika installer melaporkan selesai.
+- Descriptor `NONE` bukan signature, dan pengujian ini tidak memeriksa apakah
+  bootloader perangkat memeriksa metadata embedded itu atau memakai vbmeta
+  eksternal; tidak membuktikan bahwa inilah penyebab bootloop yang dilaporkan.
+  Repack control1 yang menghitung ulang hash diuji offline sebelumnya, tetapi
+  **tetap jangan flash**: kesesuaian modul, trust eksternal, dan boot tidak
+  terbukti. Jangan menonaktifkan verifikasi atau mengasumsikan gejala selesai.

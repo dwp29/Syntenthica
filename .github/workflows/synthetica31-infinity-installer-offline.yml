@@ -176,11 +176,4 @@ jobs:
                   print('::notice title=Root public boot installer output::'+line.split('INFINITY_OFFLINE_RESULT=',1)[1].replace('%','%25'))
           PY2
       - name: State the test scope
-        run: echo '::notice title=Scope::QEMU used synthetic regular boot files and redirected paths, not a phone or physical TWRP. Boot, root, AVB, ROM modules and camera remain unverified.'
-      - name: Upload recovery ZIP and checksum
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: synthetica-3.1-installer20-${{ github.run_id }}
-          path: ${{ runner.temp }}/release/
-          if-no-files-found: error
-          retention-days: 14
+        run: echo '::notice title=Scope::QEMU and redirected regular files only. Public Infinity boot, no physical recovery or boot; external AVB, module loading and cause of reported bootloop remain unverified.'
