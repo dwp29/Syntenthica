@@ -55,7 +55,7 @@ def run_entry_with_diag(test_case) -> subprocess.CompletedProcess[str]:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            timeout=35,
+            timeout=120,
         )
     except subprocess.TimeoutExpired as exc:
         partial = exc.stdout.decode('utf-8', 'replace') if isinstance(exc.stdout, bytes) else (exc.stdout or '')

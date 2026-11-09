@@ -1,0 +1,238 @@
+{
+  "kind": "SYNTHETICA_3_2_RELEASE_BUILD_FROM_PROVEN_3_1",
+  "release": "4.14.357-openela-synthetica-3.2",
+  "base_source": "Saamitk/kernel_xiaomi_sm6250-switchoff@c1e6f795b557b7bf92220c91f05a42b456de7a74",
+  "compiler": {
+    "kind": "neutron",
+    "clang_version": "Neutron clang version 24.0.0git (https://github.com/llvm/llvm-project.git f42c87ba2c70219b1f4ad1f031a5b6a1ea6603fb)\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /home/runner/work/_temp/neutron/bin",
+    "lld_version": "Neutron LLD 24.0.0 (https://github.com/llvm/llvm-project.git f42c87ba2c70219b1f4ad1f031a5b6a1ea6603fb) (compatible with GNU linkers)",
+    "clang_sha256": "5ddad56ef3504ccc39da055c897ecbed28b5bfa548a8e6db9faf76c95f287438",
+    "lld_sha256": "42ea0eca8ce4c977ad90d631a31808f16f20b3622ccc3866fe645a75680e8a62",
+    "auxiliary_size_tool": {
+      "path": "/usr/bin/aarch64-linux-gnu-size",
+      "sha256": "1844b095c5c24ea635c5eb1d015feda938e7cd1860ce457e684d62c566af7699"
+    },
+    "neutron_archive_sha256": "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30"
+  },
+  "image_sha256": "7ebbe4b263adad8cb780025fab7dc8f7faf9de2e671eaafa14c6081a9d40813e",
+  "config_sha256": "72be909960649924ad36eb21ed45efe0f8c064d8c668d940aea2b0c027e44430",
+  "module_symvers_sha256": "1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3",
+  "system_map_sha256": "d505b872733137313fd040dc9b5fb8363fbeea973ebb79f3eebcaef26de84d7b",
+  "module_public_cert_sha256": "8d32632bc1ee4c3103142436be0b1ef1a163aeb75ab3b4d655b9b346b6f8edb3",
+  "changes_from_saved_2_0_config": {
+    "LOCALVERSION": {
+      "2.0": "\"-Synthetica-2.0\"",
+      "experiment": "\"-synthetica-3.2\""
+    },
+    "LRU_GEN": {
+      "2.0": "n",
+      "experiment": "y"
+    },
+    "LRU_GEN_ENABLED": {
+      "2.0": "n",
+      "experiment": "y"
+    },
+    "NR_LRU_GENS": {
+      "2.0": "n",
+      "experiment": "7"
+    },
+    "TIERS_PER_GEN": {
+      "2.0": "n",
+      "experiment": "4"
+    },
+    "UCLAMP_BUCKETS_COUNT": {
+      "2.0": "n",
+      "experiment": "5"
+    },
+    "UCLAMP_TASK": {
+      "2.0": "n",
+      "experiment": "y"
+    },
+    "UCLAMP_TASK_GROUP": {
+      "2.0": "n",
+      "experiment": "y"
+    }
+  },
+  "walt_and_schedtune": "compiled in; runtime interaction not tested",
+  "uclamp": "compiled in; neutral defaults; runtime interaction not tested",
+  "mglru": {
+    "compiled": true,
+    "enabled_by_default": true,
+    "variant": "on",
+    "runtime_tested": false
+  },
+  "manager": {
+    "package": "net.ember.labs",
+    "cert_der_bytes": 1381,
+    "cert_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140",
+    "apk_sha256": "7bded761808c560fa5511acf32d3ce728adedce663002820815d00176526b567",
+    "apk_sign_object_sha256": "3d3727cbfa50771153e535d784c00cad555167f6c68415145b58894ee18d8f21",
+    "audit_objdump_sha256": "d3310c4f50e6c265f691e7b2d55a2fbf4eba5785993ae5c70e9cc3949bf73c28",
+    "package_comparison": "object uses strncmp; identity literals present in object and image",
+    "runtime_pairing_tested": false
+  },
+  "module_layout_crc": "0xed5659d1",
+  "same_build_modules_static_checks": {
+    "tcp_bic": {
+      "name": "tcp_bic",
+      "bytes": 11865,
+      "sha256": "ec89466060cc932923c468cd6100e0b3f1d0da32e34ba57e805ad3ab95a81246",
+      "vermagic": "4.14.357-openela-synthetica-3.2 SMP preempt mod_unload modversions aarch64",
+      "dependencies": [],
+      "module_layout_crc": "0xed5659d1",
+      "version_records_verified": 8,
+      "signature_verified_with_embedded_certificate": true
+    },
+    "tcp_westwood": {
+      "name": "tcp_westwood",
+      "bytes": 8017,
+      "sha256": "9d2751a41f52fbbca0a38e7ac53cb294ed481150ba558b994d2b33b94bab6f73",
+      "vermagic": "4.14.357-openela-synthetica-3.2 SMP preempt mod_unload modversions aarch64",
+      "dependencies": [],
+      "module_layout_crc": "0xed5659d1",
+      "version_records_verified": 9,
+      "signature_verified_with_embedded_certificate": true
+    },
+    "tcp_htcp": {
+      "name": "tcp_htcp",
+      "bytes": 10593,
+      "sha256": "fc3d9987773bdd61177f4d742bf58bf181550c5da724a50683d886f6e4407323",
+      "vermagic": "4.14.357-openela-synthetica-3.2 SMP preempt mod_unload modversions aarch64",
+      "dependencies": [],
+      "module_layout_crc": "0xed5659d1",
+      "version_records_verified": 8,
+      "signature_verified_with_embedded_certificate": true
+    },
+    "gspca_main": {
+      "name": "gspca_main",
+      "bytes": 59705,
+      "sha256": "9962a5541c065865b4e5766d18b12316195c96e8344e53ed94f58095c279ae2c",
+      "vermagic": "4.14.357-openela-synthetica-3.2 SMP preempt mod_unload modversions aarch64",
+      "dependencies": [],
+      "module_layout_crc": "0xed5659d1",
+      "version_records_verified": 65,
+      "signature_verified_with_embedded_certificate": true
+    },
+    "rmnet_perf": {
+      "name": "rmnet_perf",
+      "bytes": 69721,
+      "sha256": "0b5458c10da9acbe908f56e7142cc1643814702c9464e3a2720a58f3409d07c5",
+      "vermagic": "4.14.357-openela-synthetica-3.2 SMP preempt mod_unload modversions aarch64",
+      "dependencies": [],
+      "module_layout_crc": "0xed5659d1",
+      "version_records_verified": 55,
+      "signature_verified_with_embedded_certificate": true
+    },
+    "rmnet_shs": {
+      "name": "rmnet_shs",
+      "bytes": 232033,
+      "sha256": "8e813cfd5125b8cbd069aa59bf291d148d097b9d396abf43477d48d383d7ad24",
+      "vermagic": "4.14.357-openela-synthetica-3.2 SMP preempt mod_unload modversions aarch64",
+      "dependencies": [],
+      "module_layout_crc": "0xed5659d1",
+      "version_records_verified": 101,
+      "signature_verified_with_embedded_certificate": true
+    }
+  },
+  "rom_vendor_module_abi_and_trust": "NOT VERIFIED",
+  "physical_boot_root_thermal_battery_suspend_charging_tests": "NOT RUN",
+  "installer_created": false,
+  "private_key_exported": false,
+  "candidate": "3.1 recompiled kernel; physical boot and ROM compatibility NOT VERIFIED",
+  "tested_2_0_experiment_image_sha256": "3a9f39f8f7ea79c9251a896050dfeb60395f1194a064f91a85a8fe8ae38adaea",
+  "tested_2_0_experiment_config_sha256": "c72503550d74446f5af3573288b4e93dc1407854c5df338d20681d1866ccb96c",
+  "tested_2_0_experiment_module_public_cert_sha256": "3a9abf2050e245223eed64e346365b99b0085f54ff0d5b845fa3ce8e5ff17a2a",
+  "config_comparison": {
+    "changes_from_saved_2_0": {
+      "LOCALVERSION": {
+        "2.0": "\"-Synthetica-2.0\"",
+        "experiment": "\"-synthetica-3.2\""
+      },
+      "LRU_GEN": {
+        "2.0": "n",
+        "experiment": "y"
+      },
+      "LRU_GEN_ENABLED": {
+        "2.0": "n",
+        "experiment": "y"
+      },
+      "NR_LRU_GENS": {
+        "2.0": "n",
+        "experiment": "7"
+      },
+      "TIERS_PER_GEN": {
+        "2.0": "n",
+        "experiment": "4"
+      },
+      "UCLAMP_BUCKETS_COUNT": {
+        "2.0": "n",
+        "experiment": "5"
+      },
+      "UCLAMP_TASK": {
+        "2.0": "n",
+        "experiment": "y"
+      },
+      "UCLAMP_TASK_GROUP": {
+        "2.0": "n",
+        "experiment": "y"
+      }
+    },
+    "changes_from_user_tested_experiment": {
+      "LOCALVERSION": {
+        "tested_2.0_exp": "\"-Synthetica-2.0-exp\"",
+        "3.0_rc1": "\"-synthetica-3.2\""
+      }
+    }
+  },
+  "manager_seccomp_patch_sha256": "b28e7233d31973b268ed3063f1402f443b5dfa1475e000b03bc39832bfe77123",
+  "setuid_hook_object": {
+    "sha256": "3bd36a6308072a6b8c4d3df91ba211393078931a8cbae5fc4c8f5dc3c00e02ab",
+    "symbol": "ksu_handle_setresuid",
+    "note": "object and source verified statically; execution on device not tested"
+  },
+  "seccomp_scope": "Preserve Manager's inherited filter on kernel 4.14; no UI spoof. Other root-allowed UIDs and the root escape retain their existing behavior.",
+  "seccomp_on_device": "NOT TESTED; depends on ROM filter and actual calling thread",
+  "camera_0_6x": "User reports freeze with 2.0 experiment; no camera change or fix in this candidate",
+  "previous_2_0_experiment_user_report": "Booted; user reports MGLRU enabled=1 and features generally work except camera 0.6x",
+  "device_tests_for_this_image": "NOT RUN",
+  "module_public_cert_note": "A fresh build uses a fresh auto-generated public certificate; trust of installed ROM modules is unknown.",
+  "manager_exec_fd_patch_sha256": "88ca9b4439c5250cb23f1d83bb3e7709eaecca5a19f495733eef75889032f97d",
+  "manager_exec_fd_objects": {
+    "fs_exec_sha256": "d772aad4651aabf9021651334aeb56c4c9177464dd0c8b0d5617adf35da87c49",
+    "ksu_supercall_sha256": "68de9c3942c6cffb19b2f81fe70debda36fcf4e0d4a0f3b90fff281365b2ebe4",
+    "symbol": "ksu_install_manager_exec_fd",
+    "note": "static compiled-object check, not Android/device execution"
+  },
+  "manager_exec_fd_scope": "After successful libksud.so exec by the recognized Manager UID, install an ordinary O_CLOEXEC driver fd. Existing ioctl authorization and inherited Manager seccomp remain unchanged; no su-session fd and no filter bypass.",
+  "manager_root_cause": "HYPOTHESIS based on rc1 source and upstream helper; installed APK/ROM and on-device logs not verified",
+  "root_after_patch": "NOT DEVICE TESTED; other failure causes remain possible",
+  "baseline_3_0_image_sha256": "92316b2d52af2a29ec2a5da48cbc18b9b33cebc5727ecb1b3c21ef27b9029deb",
+  "baseline_3_0_config_sha256": "253a89a338e8c5b71da71b698a0160d9fb361468cfac3a3bfc7fae2c52f4af2d",
+  "baseline_3_0_module_cert_sha256": "fccecddc68e8828ff42c59be08f3aca01baf1f07e9caf8369ce69e8fad4bd062",
+  "changes_from_original_3_0_config": {
+    "LOCALVERSION": {
+      "3.0": "\"-synthetica-3.0\"",
+      "3.1": "\"-synthetica-3.2\""
+    }
+  },
+  "previous_3_0_2_0_installer_report": "User reports a previously Error 1-affected user now boots; ROM, installed bytes and broad compatibility not independently verified.",
+  "physical_boot_test_this_3_1_image": "NOT RUN",
+  "module_cert_note": "New compilation creates a different auto-generated module signing certificate; ROM module trust must not be assumed.",
+  "version": "3.2",
+  "proven_3_1_image_sha256": "650d5f1e9e73788babeb67e5a21a30e565babd059f8cd908c318531464a74287",
+  "proven_3_1_config_sha256": "4b53a2cb030e9aa55ff798a3ee5c773c0eb50e56cd36430d2874adcb56fa236d",
+  "proven_3_1_module_cert_sha256": "6d8ab0c34f5052d098c801841d34976a75ef9c3fed53e3630376dc2b0f93b72e",
+  "changes_from_proven_3_1_config": {
+    "LOCALVERSION": {
+      "3.1": "\"-synthetica-3.1\"",
+      "3.2": "\"-synthetica-3.2\""
+    }
+  },
+  "export_abi_against_proven_3_1": {
+    "reference_3_1_symvers_sha256": "1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3",
+    "generated_3_2_symvers_sha256": "1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3",
+    "exported_symbol_count": 12236,
+    "module_layout_crc": "0xed5659d1"
+  },
+  "proven_3_1_device_validation": "User verified normal boot and Manager APK operation on Project Infinity X 4.1 (Android 17) and Lunaris 3.13 (Android 16) with unsigned embedded AVB repair."
+}
