@@ -4,7 +4,7 @@
 
 Menurut pelapor, perangkat **joyeuse** dengan Project Infinity X **4.1 GAPPS, 21.10.2026 / Android 17** tertahan di **logo Redmi/Mi, sebelum animasi ROM**, setelah installer Synthetica 3.1 melaporkan selesai. Perangkat dilaporkan **sudah dapat boot kembali dan KernelSU masih berfungsi**; varian/versi KernelSU belum diketahui. Ada cadangan boot yang menurut pelapor cocok untuk perangkat/ROM, tetapi belum diketahui apakah cadangan itu digunakan untuk pemulihan. Identitas file, hasil dan kondisi perangkat ini belum diverifikasi secara independen.
 
-**Nama/hash ZIP ROM dan log kejadian belum tersedia untuk diperiksa.** Pelapor menyatakan SHA-256 ZIP kernel 3.1 yang dipakai cocok dengan rilis terdokumentasi, tetapi file yang dipasang belum diperiksa secara independen. Tertahan di logo dapat terjadi pada beberapa tahap, termasuk kernel awal atau init, sehingga gejala ini saja tidak menetapkan penyebab. Root yang berfungsi setelah pemulihan juga tidak membuktikan penyebab kegagalan atau bahwa installer tidak mengubah `ksud`. Laporan ini bukan bukti bahwa seluruh ROM Android 17 atau seluruh keluarga miatoll tidak kompatibel. Tunda percobaan 3.1 pada kombinasi tersebut sampai ada bukti dan jalur pemulihan yang sesuai.
+**Identitas ROM terpasang dan log kejadian belum tersedia untuk diperiksa.** ZIP ROM resmi telah diunduh dan diaudit offline, serta boot image yang diberikan pengguna cocok byte demi byte dengan boot di ZIP resmi tersebut; hal itu belum membuktikan ROM yang terpasang saat insiden identik. Pelapor menyatakan SHA-256 ZIP kernel 3.1 yang dipakai cocok dengan rilis terdokumentasi, tetapi file yang dipasang belum diperiksa secara independen. Tertahan di logo dapat terjadi pada beberapa tahap, termasuk kernel awal atau init, sehingga gejala ini saja tidak menetapkan penyebab. Root yang berfungsi setelah pemulihan juga tidak membuktikan penyebab kegagalan atau bahwa installer tidak mengubah `ksud`. Laporan ini bukan bukti bahwa seluruh ROM Android 17 atau seluruh keluarga miatoll tidak kompatibel. Tunda percobaan 3.1 pada kombinasi tersebut sampai ada bukti dan jalur pemulihan yang sesuai.
 
 **Koreksi pelapor:** Synthetica 3.0 belum pernah berhasil boot pada ROM Infinity 4.1. Belum jelas apakah 3.0 pernah dicoba pada ROM tersebut; tidak ada pembanding boot 3.0 yang berhasil pada ROM ini. Sebelumnya ada laporan yang tercatat mengenai joyeuse, Infinity Project 4.1 Android 17 dan Error 1 ketika memasang **3.0**. Belum diketahui apakah perangkat atau penyebabnya sama; Error 1 saat instalasi tidak identik dengan kegagalan boot setelah installer selesai. Jangan menggabungkan kedua laporan tanpa konfirmasi.
 
@@ -74,10 +74,11 @@ Pengguna menyediakan `Infinity4.1-boot.img` melalui ZIP. SHA-256 ZIP
 dengan metadata Drive; arsip teruji dan hanya berisi satu `boot.img`. Setelah
 ekstraksi offline, image berukuran 134.217.728 byte dengan SHA-256
 `d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f`,
-cocok dengan metadata file image terpisah di Drive. Kecocokan ini hanya
-mengaitkan kedua unggahan, **bukan membuktikan asal atau keaslian ROM**. Belum
-ada konfirmasi apakah image berasal dari ZIP ROM atau backup perangkat, atau
-apakah pernah dipatch root.
+cocok dengan metadata file image terpisah di Drive. Pada tahap tersebut kecocokan
+hanya mengaitkan kedua unggahan; kemudian image juga dibandingkan dengan boot
+dalam ZIP ROM resmi dan cocok byte demi byte (lihat bagian audit ROM resmi).
+Kesamaan file tidak menetapkan ROM/boot yang terpasang saat insiden atau apakah
+installer 3.1 menulis bytes yang benar.
 
 Pemeriksaan offline `audit_synthetica3_boot.inspect_boot` menemukan header
 Android boot v2, page 4096, kernel ARM64 tidak terkompresi sepanjang 48.535.576
@@ -334,3 +335,50 @@ bawaan dianalisis offline. Uji lokal menggunakan ketiga arsip yang sebenarnya
 serta tiga fixture sintetis lulus. Tidak ada ZIP baru atau rekomendasi flash
 berdasarkan temuan ini. ZIP control1 yang sebelumnya dibagikan tetap **jangan
 flash**: perubahan MGLRU belum dihubungkan ke penyebab oleh bukti.
+
+## Audit ROM resmi Infinity 4.1 GAPPS dan modul vendor
+
+[CI 42572106400](https://github.com/dwp29/Syntenthica/actions/runs/42572106400)
+mengunduh arsip resmi `Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip`
+berukuran 2.641.732.377 byte; MD5 cocok metadata penerbit
+`6b3d41aea18311e663266489adf54307`, SHA-256 arsip yang terukur
+`dc107bce866c6d2ba60d0c0f77578ac1b3de8dca04428ecafb06a4b11f9f648a`.
+MD5 pencocokan dengan metadata penerbit bukan autentikasi kriptografis.
+`boot.img` di ZIP resmi cocok SHA-256 **dan ukuran** dengan file yang diberikan
+pengguna (`d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f`,
+134.217.728 byte). Ini memverifikasi kesamaan file, bukan bahwa ROM itu terpasang
+ketika insiden atau bahwa instalasi 3.1 menghasilkan boot image yang benar.
+
+Vendor direkonstruksi dari full block OTA read-only dan diperiksa menggunakan
+`debugfs`, tanpa mount atau menjalankan script ROM. Di `/vendor/lib/modules`
+ada tiga `.ko`: `gspca_main`, `rmnet_perf`, dan `rmnet_shs`; `modules.load`
+kosong. Audit CI dan audit ulang lokal yang independen menghasilkan report JSON
+yang **identik**. Semua tiga modul memiliki `module_layout=0x231665f1`,
+berbeda dengan ekspor 3.1 `0xed5659d1`; sejumlah CRC simbol lain juga berbeda
+(berturut-turut 35, 31 dan 36 rekaman). Ketiganya bertanda tangan yang valid
+terhadap sertifikat publik yang diekstrak dari kernel boot ROM, tetapi tidak
+terverifikasi terhadap sertifikat build 3.1. Ini adalah ketidakcocokan statis
+nyata untuk modul vendor tersebut, bukan sekadar perbedaan nama sertifikat.
+
+Kontrol tambahan: signature yang sama juga **tidak terverifikasi** dengan
+sertifikat tunggal yang diekstrak dari Chronicle/Critical; klaim boot luas
+referensi itu tidak menjadikan ketidakcocokan ini bukti penyebab bootloop.
+3.1 mengaktifkan pemeriksaan versi/signature, tetapi keyring runtime, perilaku
+modprobe dan modul yang benar-benar diperlukan/dimuat belum diamati. Tidak ada
+kesimpulan apakah kegagalan memuat modul menyebabkan berhenti di logo.
+
+Walau `modules.load` kosong, audit 74 file `.rc` vendor menemukan perintah
+`modprobe` untuk `rmnet_shs`/`rmnet_perf` pada trigger properti tertentu;
+status properti runtime dan apakah trigger tersebut berjalan belum diketahui.
+Dua path modul di system yang diperiksa (`/system/lib/modules` dan
+`/lib/modules` pada image system) tidak ditemukan; ini tidak membuktikan tidak
+ada modul di seluruh partisi ROM. Android init lebih luas dan log boot belum
+tersedia.
+
+Evidence publik terbatas vendor dan init tersimpan sebagai Git blob
+`8c52eec6c12d8d97862544c2127f6672df6f8db2`, ZIP SHA-256
+`31c337f274c15119fdd9f6ef57d9a3add4982a8c1c7c52834e305a60044ed141`.
+Report audit JSON blob `c8cbc247f4a096dd49fce83b2e03da10dc16cf24`.
+Ini data dari ROM publik, bukan image/backup pribadi pengguna. Reproduksi statis
+bukan pengujian fisik. Belum ada kernel perbaikan siap flash; jangan flash
+control1 atau menonaktifkan pemeriksaan keamanan untuk menghindari audit.
