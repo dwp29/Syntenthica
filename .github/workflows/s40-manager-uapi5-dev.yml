@@ -6,9 +6,15 @@ on:
     paths:
       - '.github/workflows/s40-manager-uapi5-dev.yml'
       - 'build-kit/ci/manager-uapi5-dev/**'
+      - 'build-kit/ci/synthetica40/inputs.json'
+      - 'build-kit/scripts/build_synthetica40.py'
       - 'build-kit/scripts/prepare_s40_manager_uapi5.py'
       - 'build-kit/scripts/verify_s40_manager_uapi5_apk.py'
+      - 'build-kit/scripts/probe_s40_apk_signing.py'
+      - 'build-kit/scripts/annotate_synthetica40_failure.py'
+      - 'tests/test_s40_apk_guard.py'
       - 'tests/test_s40_manager_uapi5.py'
+      - 'tests/test_s40_signing_probe.py'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +22,7 @@ permissions:
 
 jobs:
   prototype:
-    name: "Unsigned, non-installable UAPI 5 prototype checks"
+    name: "UAPI 5 prototype and disposable-signature host checks"
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
@@ -29,6 +35,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Install host parser-test prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq gcc libssl-dev
+          if ! command -v rustc >/dev/null; then sudo apt-get install -y -qq rustc; fi
+          rustc --version
+          gcc --version | head -1
       - name: Fetch and verify pinned source and published ksud
         timeout-minutes: 15
         run: |
@@ -117,6 +131,29 @@ jobs:
           fi
           grep -q 'DOES NOT VERIFY' "$t/reports/signature.txt"
           echo '::notice title=Development only::Unsigned prototype passed static checks; no APK, key or installable release is exported. Kernel v3-signing and runtime gates remain closed.'
+      - name: Check host parser helpers against pinned KSUN source
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-manager"
+          S40_TEST_KSUN="$t/new" python3 -m unittest discover -s tests -p 'test_s40_signing_probe.py' -v \
+            2>&1 | tee "$t/reports/signing-tests.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'Manager signing host tests' "$t/reports/signing-tests.log"
+              exit 1
+            }
+      - name: Probe actual prototype with disposable keys in scratch
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-manager"
+          APK="$t/work/result/Manager-UAPI5-UNSIGNED-DO-NOT-INSTALL.apk"
+          python3 build-kit/scripts/probe_s40_apk_signing.py --derive-from-ksun \
+            --ksun "$t/new" --android-sdk "$ANDROID_SDK_ROOT" --unsigned-manager "$APK" \
+            > "$t/reports/signing-policy.json" 2> "$t/reports/signing-policy.log" || {
+              cat "$t/reports/signing-policy.log"
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'Manager disposable-signature probe' "$t/reports/signing-policy.log"
+              exit 1
+            }
+          cat "$t/reports/signing-policy.json"
+          echo '::notice title=Disposable key only::The actual pinned kernel rejects this temporary identity. No key or signed APK is exported or installed.'
       - name: Upload diagnostic metadata only, never the APK
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

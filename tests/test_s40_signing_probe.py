@@ -9,6 +9,8 @@ import struct
 import sys
 import tempfile
 import unittest
+import warnings
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'build-kit/scripts'))
@@ -59,6 +61,52 @@ class SigningFixtureHelperTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'symlinked'):
                 probe.checked_source(link, digest)
 
+    def test_derived_parser_rejects_unpinned_upstream(self):
+        with tempfile.TemporaryDirectory(prefix='s40-source-derive-bad-') as temp:
+            root = Path(temp)
+            upstream = root / 'ksun/kernel/manager/apk_sign.c'
+            upstream.parent.mkdir(parents=True)
+            upstream.write_text('not the pinned source')
+            with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch'):
+                probe.derive_prepared_parser(root / 'ksun', root)
+            self.assertFalse((root / 'derived-prepared-parser').exists())
+
+    def test_signing_payload_comparison_detects_changed_entries(self):
+        with tempfile.TemporaryDirectory(prefix='s40-zip-payload-test-') as temp:
+            before, after = Path(temp) / 'before.zip', Path(temp) / 'after.zip'
+            def write(path, files):
+                with zipfile.ZipFile(path, 'w') as archive:
+                    for name, data in files:
+                        archive.writestr(name, data)
+            files = [('AndroidManifest.xml', b'original'), ('classes.dex', b'code')]
+            write(before, files)
+            write(after, files)
+            probe.verify_same_zip_payload(before, after)
+            write(after, [('AndroidManifest.xml', b'modified'), ('classes.dex', b'code')])
+            with self.assertRaisesRegex(ValueError, 'changed APK payload'):
+                probe.verify_same_zip_payload(before, after)
+            write(after, files + [('extra', b'x')])
+            with self.assertRaisesRegex(ValueError, 'entry set'):
+                probe.verify_same_zip_payload(before, after)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', UserWarning)
+                write(after, files + [('classes.dex', b'code')])
+            with self.assertRaisesRegex(ValueError, 'entry set'):
+                probe.verify_same_zip_payload(before, after)
+
+    def test_derived_parser_matches_real_prepared_source(self):
+        ksun = os.environ.get('S40_TEST_KSUN')
+        if not ksun:
+            self.skipTest('S40_TEST_KSUN required')
+        with tempfile.TemporaryDirectory(prefix='s40-source-derive-') as temp:
+            root = probe.derive_prepared_parser(Path(ksun), Path(temp))
+            signer = root / 'drivers/kernelsu/manager/apk_sign.c'
+            self.assertEqual(hashlib.sha256(signer.read_bytes()).hexdigest(), probe.PREPARED_PARSER_SHA256)
+            prepared = os.environ.get('S40_TEST_PREPARED')
+            if prepared:
+                self.assertEqual(signer.read_bytes(),
+                                 (Path(prepared) / 'drivers/kernelsu/manager/apk_sign.c').read_bytes())
+
 
 @unittest.skipUnless(shutil.which('gcc'), 'gcc required')
 class RealPreparedParserTests(unittest.TestCase):
@@ -80,6 +128,7 @@ class RealPreparedParserTests(unittest.TestCase):
             exe = probe.compile_kernel_probe(Path(prepared), work)
             probe.kernel_probe(exe, altered, cert, True)
             probe.kernel_probe(exe, altered, cert, False, digest='0' * 64)
+            probe.kernel_probe(exe, altered, cert, False, size=len(cert) + 1)
             probe.kernel_probe(exe, ROOT / 'release/Synthetica-2.0.apk', cert, False)
 
 

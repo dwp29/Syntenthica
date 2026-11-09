@@ -6,7 +6,10 @@ on:
     paths:
       - '.github/workflows/s40-signing-fixture.yml'
       - 'build-kit/ci/synthetica40/inputs.json'
+      - 'build-kit/ci/manager-uapi5-dev/**'
       - 'build-kit/scripts/build_synthetica40.py'
+      - 'build-kit/scripts/prepare_s40_manager_uapi5.py'
+      - 'build-kit/scripts/verify_s40_manager_uapi5_apk.py'
       - 'build-kit/scripts/annotate_synthetica40_failure.py'
       - 'build-kit/scripts/probe_s40_apk_signing.py'
       - 'tests/test_s40_apk_guard.py'

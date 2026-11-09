@@ -152,6 +152,13 @@ atau Android yang berjalan. Kunci dan APK fixture tidak diekspor; CI menyimpan
 laporan saja. Hasilnya tidak membuktikan upgrade Manager lama, penerimaan APK
 di perangkat, keamanan otorisasi root, atau kompatibilitas ROM dan perangkat.
 
+Pengujian berikutnya memperluas fixture tersebut ke prototipe Manager UAPI 5
+hasil build yang sebenarnya: APK unsigned diperiksa dahulu, lalu ditandatangani
+dengan kunci sementara **di scratch** untuk menguji v2/v3, payload dan alignment.
+Hasilnya baru dapat diklaim setelah CI selesai; kunci sementara tidak cocok
+dengan identitas yang dipin pada kernel dan tidak dapat menjadi upgrade in-place
+atas Manager lama. Tidak ada APK atau kunci yang akan diekspor.
+
 ## Pemetaan ABI SUSFS 2.4
 
 Audit sumber [`audit_s40_susfs_abi.py`](build-kit/scripts/audit_s40_susfs_abi.py)
@@ -182,7 +189,8 @@ menjalankan fungsi setter, worker, parser dan lookup yang diekstrak dari source
 lama, setter menerbitkan daftar baru, lalu worker menimpa bitmap baru dengan
 hasil lama. Daftar nama yang tersimpan dan bitmap dapat berbeda sampai refresh
 berikutnya. I/O packages list, credential, user copy dan RCU disimulasikan;
-ini **bukan** reproduksi pada kernel atau ponsel.
+ini **bukan** reproduksi pada kernel atau ponsel. Model dan pengujian guard
+lulus pada [CI 42550360156](https://github.com/dwp29/Syntenthica/actions/runs/42550360156).
 
 Kandidat [`research-only-priority-generation.patch`](build-kit/ci/s40-susfs-abi/research-only-priority-generation.patch)
 menolak publikasi snapshot yang generasinya sudah usang dan lolos interleaving

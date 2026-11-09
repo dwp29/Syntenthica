@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Probe APK v2/v3 policy with throwaway keys and host-compiled source only.
 
-Creates an isolated, minimal no-code fixture. It never uses a production key,
-never installs an APK, and exports neither the key nor the signed fixtures.
-This is not an Android update, device, root, or kernel-runtime test.
+Uses an isolated no-code fixture or a verified unsigned development Manager.
+It never uses a production key, installs an APK, or exports the key or signed
+fixtures. This is not an Android update, device, root, or kernel-runtime test.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'build-kit/scripts'))
 import build_synthetica40 as s40
+import verify_s40_manager_uapi5_apk as manager_guard
 
 V2 = 0x7109871A
 V3 = 0xF05368C0
@@ -190,9 +191,44 @@ def compile_kernel_probe(prepared: Path, directory: Path) -> Path:
     return output
 
 
-def kernel_probe(executable: Path, apk: Path, certificate: bytes, expected: bool, *, digest: str | None = None) -> None:
+def derive_prepared_parser(ksun: Path, directory: Path) -> Path:
+    """Recreate just the pinned build's parser for host tests, not a kernel tree."""
+    upstream = ksun / 'kernel/manager/apk_sign.c'
+    source = checked_source(upstream, s40.PINS['ksun']['sentinels']['kernel/manager/apk_sign.c'])
+    root = directory / 'derived-prepared-parser'
+    target = root / 'drivers/kernelsu/manager/apk_sign.c'
+    target.parent.mkdir(parents=True)
+    target.write_text(source)
+    # Mirrors prepare() in build_synthetica40.py. Verify the entire result
+    # against the exact prepared parser hash before compiling the host shim.
+    s40.replace_once(target, '#define CERT_MAX_LENGTH 1024\n', '#define CERT_MAX_LENGTH 2048\n')
+    s40.replace_once(target,
+        '\tchar cert[CERT_MAX_LENGTH];\n'
+        '\tif (!read_exact(fp, cert, certificate_size, pos, certificates_end))\n'
+        '\t\treturn false;\n\n'
+        '\tunsigned char digest[SHA256_DIGEST_SIZE];\n'
+        '\tif (ksu_sha256(cert, certificate_size, digest)) {\n',
+        '\tunsigned char digest[SHA256_DIGEST_SIZE];\n'
+        '\tchar *cert = kmalloc(certificate_size, GFP_KERNEL);\n'
+        '\tint digest_result;\n'
+        '\tif (!cert)\n'
+        '\t\treturn false;\n'
+        '\tif (!read_exact(fp, cert, certificate_size, pos, certificates_end)) {\n'
+        '\t\tkfree(cert);\n'
+        '\t\treturn false;\n'
+        '\t}\n'
+        '\tdigest_result = ksu_sha256(cert, certificate_size, digest);\n'
+        '\tkfree(cert);\n'
+        '\tif (digest_result) {\n')
+    checked_source(target, PREPARED_PARSER_SHA256)
+    return root
+
+
+def kernel_probe(executable: Path, apk: Path, certificate: bytes, expected: bool, *,
+                 digest: str | None = None, size: int | None = None) -> None:
     expected_hash = digest if digest is not None else hashlib.sha256(certificate).hexdigest()
-    run([str(executable), str(apk), str(len(certificate)), expected_hash, '1' if expected else '0'])
+    expected_size = len(certificate) if size is None else size
+    run([str(executable), str(apk), str(expected_size), expected_hash, '1' if expected else '0'])
 
 
 ANYHOW_STUB = r'''
@@ -255,7 +291,28 @@ def ksud_probe(executable: Path, apk: Path, certificate: bytes, expected: bool) 
          '1' if expected else '0'])
 
 
-def generate_and_probe(prepared: Path, ksun: Path, sdk: Path) -> dict:
+def verify_same_zip_payload(original: Path, signed: Path) -> None:
+    """Check every decompressed entry; APK signing must not alter app payload."""
+    with zipfile.ZipFile(original) as before, zipfile.ZipFile(signed) as after:
+        names = before.namelist()
+        if len(names) != len(set(names)) or set(names) != set(after.namelist()) or len(names) != len(after.namelist()):
+            raise ValueError('Signing changed the APK entry set')
+        for name in names:
+            if before.getinfo(name).file_size != after.getinfo(name).file_size:
+                raise ValueError(f'Signing changed APK entry size: {name}')
+            hashes = []
+            for archive in (before, after):
+                digest = hashlib.sha256()
+                with archive.open(name) as entry:
+                    for block in iter(lambda: entry.read(1024 * 1024), b''):
+                        digest.update(block)
+                hashes.append(digest.digest())
+            if hashes[0] != hashes[1]:
+                raise ValueError(f'Signing changed APK payload: {name}')
+
+
+def generate_and_probe(prepared: Path | None, ksun: Path, sdk: Path,
+                       unsigned_manager: Path | None = None) -> dict:
     tools = sdk / 'build-tools/36.1.0'
     aapt, align, signer = (tools / name for name in ('aapt', 'zipalign', 'apksigner'))
     android_jar = sdk / 'platforms/android-36/android.jar'
@@ -269,11 +326,28 @@ def generate_and_probe(prepared: Path, ksun: Path, sdk: Path) -> dict:
         env = os.environ.copy()
         env['S40_FIXTURE_PASSWORD'] = 'temporary-fixture-only'
         keystore, cert_file = work / 'temporary-fixture.p12', work / 'fixture-cert.der'
-        manifest = work / 'AndroidManifest.xml'
-        manifest.write_text('''<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="net.invalid.s40sigfixture">
+        aligned = work / 'aligned.apk'
+        manager_static = None
+        if unsigned_manager is not None:
+            if not unsigned_manager.is_file() or unsigned_manager.is_symlink() or unsigned_manager.stat().st_size > MAX_APK:
+                raise ValueError('Missing, symlinked or oversized unsigned Manager prototype')
+            manager_static = manager_guard.verify(unsigned_manager)
+            badging = run([str(aapt), 'dump', 'badging', str(unsigned_manager)]).stdout
+            if not re.search(r"^package: name='net\.ember\.labs' versionCode='60002' versionName='5\.0\.1-uapi5-dev'", badging, re.M):
+                raise ValueError('Unexpected Manager prototype package or version')
+            run([str(align), '-c', '-P', '16', '4', str(unsigned_manager)])
+            unsigned_result = run([str(signer), 'verify', str(unsigned_manager)], expect_success=False)
+            if 'DOES NOT VERIFY' not in (unsigned_result.stdout + unsigned_result.stderr):
+                raise ValueError('Manager prototype is not in the expected unsigned state')
+            shutil.copyfile(unsigned_manager, aligned)
+        else:
+            manifest, unsigned = work / 'AndroidManifest.xml', work / 'unsigned.apk'
+            manifest.write_text('''<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="net.invalid.s40sigfixture">
   <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
   <application android:label="TEMPORARY SIGNATURE TEST ONLY" android:hasCode="false" />
 </manifest>\n''')
+            run([str(aapt), 'package', '-f', '-M', str(manifest), '-I', str(android_jar), '-F', str(unsigned)])
+            run([str(align), '-f', '4', str(unsigned), str(aligned)])
         run([keytool, '-genkeypair', '-alias', 'fixture', '-keyalg', 'RSA', '-keysize', '4096',
              '-sigalg', 'SHA256withRSA', '-validity', '1', '-dname',
              'CN=Temporary Signature Fixture Only,OU=No Production Key,O=S40 Test,L=Test,ST=Test,C=US',
@@ -284,9 +358,6 @@ def generate_and_probe(prepared: Path, ksun: Path, sdk: Path) -> dict:
         certificate = cert_file.read_bytes()
         if not 1024 < len(certificate) <= 2048 or hashlib.sha256(certificate).hexdigest() == s40.CERT_HASH:
             raise ValueError('Fixture certificate must exercise the enlarged cap and not be the production identity')
-        unsigned, aligned = work / 'unsigned.apk', work / 'aligned.apk'
-        run([str(aapt), 'package', '-f', '-M', str(manifest), '-I', str(android_jar), '-F', str(unsigned)])
-        run([str(align), '-f', '4', str(unsigned), str(aligned)])
         fixtures = {}
         for name, v3 in (('v2-only', False), ('v2-v3', True)):
             apk = work / (name + '.apk')
@@ -308,12 +379,18 @@ def generate_and_probe(prepared: Path, ksun: Path, sdk: Path) -> dict:
             if (parsed_cert != certificate or ids.count(V2) != 1 or ids.count(V3) != int(v3) or
                     ids.count(PADDING) > 1 or set(ids) - {V2, V3, PADDING}):
                 raise ValueError('Signed fixture block/certificate differs from intended schemes')
+            verify_same_zip_payload(aligned, apk)
+            if manager_static is not None:
+                run([str(align), '-c', '-P', '16', '4', str(apk)])
             fixtures[name] = apk
-        kernel_exe = compile_kernel_probe(prepared, work)
+        parser_source = prepared if prepared is not None else derive_prepared_parser(ksun, work)
+        kernel_exe = compile_kernel_probe(parser_source, work)
         daemon_exe = compile_ksud_probe(ksun, work)
         kernel_probe(kernel_exe, fixtures['v2-only'], certificate, True)
         kernel_probe(kernel_exe, fixtures['v2-v3'], certificate, False)
         kernel_probe(kernel_exe, fixtures['v2-only'], certificate, False, digest='0' * 64)
+        kernel_probe(kernel_exe, fixtures['v2-only'], certificate, False,
+                     digest=s40.CERT_HASH, size=s40.CERT_SIZE)
         ksud_probe(daemon_exe, fixtures['v2-only'], certificate, True)
         ksud_probe(daemon_exe, fixtures['v2-v3'], certificate, False)
 
@@ -334,17 +411,20 @@ def generate_and_probe(prepared: Path, ksun: Path, sdk: Path) -> dict:
         if 'DOES NOT VERIFY' not in (rejected.stdout + rejected.stderr):
             raise ValueError('Tampered fixture failed for an unexpected reason')
         kernel_probe(kernel_exe, damaged, certificate, True)
-        return {
-            'kind': 'TEMPORARY_SIGNING_FIXTURE_HOST_TEST_ONLY',
+        report = {
+            'kind': ('TEMPORARY_SIGNED_MANAGER_PROTOTYPE_HOST_TEST_ONLY' if manager_static is not None
+                     else 'TEMPORARY_SIGNING_FIXTURE_HOST_TEST_ONLY'),
             'prepared_kernel_parser_sha256': PREPARED_PARSER_SHA256,
             'upstream_ksud_parser_sha256': KSUD_PARSER_SHA256,
             'fixture_cert_bytes': len(certificate),
             'production_key_used': False,
             'fixture_installed': False,
             'v2_only_and_v2_v3_verified_by_apksigner': True,
-            'host_prepared_kernel_parser_accepts_v2_only': True,
+            'all_zip_entry_payloads_unchanged_by_signing': True,
+            'host_prepared_kernel_parser_accepts_v2_only_with_temporary_cert_pin': True,
             'host_prepared_kernel_parser_rejects_v2_v3': True,
             'host_prepared_kernel_parser_rejects_wrong_cert_hash': True,
+            'host_parser_rejects_temporary_cert_with_production_kernel_pin': True,
             'host_ksud_parser_accepts_v2_only': True,
             'host_ksud_parser_rejects_v2_v3': True,
             'modified_fixture_rejected_by_apksigner': True,
@@ -352,15 +432,27 @@ def generate_and_probe(prepared: Path, ksun: Path, sdk: Path) -> dict:
             'android_update_or_kernel_runtime_tested': False,
             'flashable_or_release': False,
         }
+        if manager_static is not None:
+            report.update({
+                'input_unsigned_manager_sha256': manager_static['apk_sha256'],
+                'pinned_ksud_sha256': manager_static['ksud_sha256'],
+                'manager_16k_alignment_preserved': True,
+            })
+        return report
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--prepared', required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--prepared', type=Path, help='Full prepared kernel tree')
+    source.add_argument('--derive-from-ksun', action='store_true',
+                        help='Recreate and pin-check only the host parser from the upstream KSUN source')
     parser.add_argument('--ksun', required=True, type=Path)
     parser.add_argument('--android-sdk', required=True, type=Path)
+    parser.add_argument('--unsigned-manager', type=Path,
+                        help='Verified unsigned UAPI-5 development prototype; never exported or installed')
     args = parser.parse_args()
-    print(json.dumps(generate_and_probe(args.prepared, args.ksun, args.android_sdk), indent=2))
+    print(json.dumps(generate_and_probe(args.prepared, args.ksun, args.android_sdk, args.unsigned_manager), indent=2))
     return 0
 
 
