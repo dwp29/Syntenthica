@@ -1,5 +1,11 @@
 # Syntenthica
 
+## Pengembangan Synthetica 4.0
+
+[Eksperimen Linux 6.18](SYNTHETICA-4.0-PENGEMBANGAN.md) sedang dikerjakan.
+**Jangan flash:** integrasi SUSFS, Manager/UAPI dan kompatibilitas Joyeuse/ROM
+belum lengkap atau divalidasi.
+
 ## Kernel Synthetica 3.2-r1
 
 Kandidat ini dikompilasi dari basis **3.1** dengan fitur-fiturnya dipertahankan

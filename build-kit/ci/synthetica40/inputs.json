@@ -1,0 +1,70 @@
+{
+  "scope": "experimental 6.18 source build; not a boot image or flashable release",
+  "kernel": {
+    "repository": "https://github.com/7829hw/linux-miatoll-6.18",
+    "commit": "76e733e54156ad08cef3926e46c5ad25e2a5cc52",
+    "archive_url": "https://codeload.github.com/7829hw/linux-miatoll-6.18/tar.gz/76e733e54156ad08cef3926e46c5ad25e2a5cc52",
+    "archive_sha256": "296ef1ffb0466668685e574740569360340b4b7f1d9557daa1ee221af63e514b",
+    "version": "6.18.58",
+    "sentinels": {
+      "Makefile": "046a7891e279dd5efa9743287872ae5f03a6a26e34920817bca10041803cd6b8",
+      "miatoll/build.sh": "91b92fa8ba56b255f7cbf447a99be78d1ab9d25f2536838402364e28875ae387",
+      "miatoll/configs/miatoll.config": "3f3ff65e2679700a274bd066b25fd2560a809249bb304eb53c3d005a686ff2ed",
+      "miatoll/configs/lineage1.config": "66bbf9c68a521a7be14bc46657bf8da2ea7c6501819fb85499cad12776913432",
+      "arch/arm64/boot/dts/qcom/sm7125-xiaomi-joyeuse.dtsi": "87431807ae2d582366674f568a89648d3b50926a4fcd42846173cfe4251cb50c"
+    }
+  },
+  "ksun": {
+    "repository": "https://github.com/KernelSU-Next/KernelSU-Next",
+    "commit": "4c706b5938665866ebe16944a481a7b91e3396af",
+    "tag": "v3.4.2",
+    "version_code": 33355,
+    "uapi": 5,
+    "archive_url": "https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af",
+    "archive_sha256": "f693c13d195ca1cd99865a3990393aae76ea4e577d17ca4bb8c81b14c5b10784",
+    "sentinels": {
+      "kernel/Kbuild": "16c95cdd4e8f11ada112e1589370774ddfbda93e0ef304dd1f6621e979343a8d",
+      "kernel/Kconfig": "411ed68b70d4757fd8ee8cd74769942ae92dda4699d78247ed1f526506cdca73",
+      "kernel/manager/apk_sign.c": "7eefc0b47390332b6a78cb77b582df8b88078f3bf6d621b459996a6e772760a7",
+      "uapi/supercall.h": "7d1ac24a0ccf2214d5868a5183e74372e824e0507f1529290716883e90c47c45"
+    }
+  },
+  "nomount": {
+    "repository": "https://github.com/maxsteeel/nomount",
+    "commit": "bf1847f98fed382369c43bfd652cd93774b9b8e3",
+    "tag": "v2.2.0",
+    "protocol": 22,
+    "archive_url": "https://codeload.github.com/maxsteeel/nomount/tar.gz/bf1847f98fed382369c43bfd652cd93774b9b8e3",
+    "archive_sha256": "17504abc7dc1567858754de05021ede4fbad5be75e60c8e79f6ce80ab0e09ca3",
+    "sentinels": {
+      "kernel/src/Makefile": "1191fe9ef8e2f3549419fd90a118fbe3d11fc02a04b6353bae0e81be27e03e62",
+      "kernel/src/nomount.c": "25452d96684d066446fbd1b433f4fdeab1c5b0ade11701d9b46bb8dfb5acfc1b",
+      "kernel/src/nomount.h": "8f15ffcb4b998d8a05219b793cf22c0e25a383296376fc49a331e07bc7c93766",
+      "userspace/src/nm.c": "988dcd8d4ea67992d4aca2268cfa987965a1a5b1caa66069da4fb827db0f43f7",
+      "userspace/src/nm.h": "b0e9b551a3545f6fcbd1d2bf57bb0333d08b9ee5a1f8aece7ff4353d9ed847e6"
+    }
+  },
+  "susfs_research_only": {
+    "repository": "https://github.com/Trijal08/susfs4ksu",
+    "commit": "a2165b6f875b73e2f87d3c6f12814efac8de061d",
+    "version": "2.4.0",
+    "archive_url": "https://codeload.github.com/Trijal08/susfs4ksu/tar.gz/a2165b6f875b73e2f87d3c6f12814efac8de061d",
+    "archive_sha256": "43917daeecb719140c2eda8560dd796c963c5332f4d0c79fa71138058ccbe365",
+    "included_in_kernel": false,
+    "reason": "The upstream 6.1 patch and its KSU glue do not apply to the pinned 6.18 tree or KernelSU-Next 3.4.2."
+  },
+  "manager_identity": {
+    "package": "net.ember.labs",
+    "certificate_der_bytes": 1381,
+    "certificate_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140",
+    "existing_uapi": 4,
+    "existing_version_code": 60001,
+    "compatible_with_experimental_kernel": false
+  },
+  "toolchain": {
+    "name": "Neutron Clang 24.0.0git",
+    "archive_url": "https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst",
+    "archive_sha256": "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30",
+    "archive_bytes": 77768187
+  }
+}

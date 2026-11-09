@@ -1,0 +1,138 @@
+name: "Synthetica 4.0 - Linux 6.18 experimental compile evidence"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica40-kernel-dev.yml'
+      - 'build-kit/ci/synthetica40/**'
+      - 'build-kit/scripts/build_synthetica40.py'
+      - 'build-kit/scripts/build_synthetica40_kernel.sh'
+      - 'build-kit/scripts/collect_synthetica40.py'
+      - 'tests/test_synthetica40.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write # Only unreferenced, public compile-evidence blob; no private keys.
+
+jobs:
+  experimental-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout this exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install kernel build prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq gcc make bc flex bison libssl-dev libelf-dev \
+            device-tree-compiler cpio lz4 xz-utils zstd python3 patch openssl \
+            zip unzip rsync git curl binutils kmod
+      - name: Download pinned sources and check archive hashes before extracting
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/s40-inputs"/{kernel,ksun,nomount}
+          t="$RUNNER_TEMP/s40-inputs"
+          curl --fail --location --retry 3 -o "$t/kernel.tar.gz" \
+            https://codeload.github.com/7829hw/linux-miatoll-6.18/tar.gz/76e733e54156ad08cef3926e46c5ad25e2a5cc52
+          curl --fail --location --retry 3 -o "$t/ksun.tar.gz" \
+            https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af
+          curl --fail --location --retry 3 -o "$t/nomount.tar.gz" \
+            https://codeload.github.com/maxsteeel/nomount/tar.gz/bf1847f98fed382369c43bfd652cd93774b9b8e3
+          python3 build-kit/scripts/build_synthetica40.py verify-archives \
+            --kernel "$t/kernel.tar.gz" --ksun "$t/ksun.tar.gz" --nomount "$t/nomount.tar.gz"
+          tar -xzf "$t/kernel.tar.gz" -C "$t/kernel" --strip-components=1
+          tar -xzf "$t/ksun.tar.gz" -C "$t/ksun" --strip-components=1
+          tar -xzf "$t/nomount.tar.gz" -C "$t/nomount" --strip-components=1
+      - name: Prepare isolated source and test ABI/security guards
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-inputs"
+          python3 build-kit/scripts/build_synthetica40.py prepare \
+            --kernel "$t/kernel" --ksun "$t/ksun" --nomount "$t/nomount" \
+            --work "$RUNNER_TEMP/s40-work"
+          S40_TEST_PREPARED="$RUNNER_TEMP/s40-work/kernel" \
+            python3 -m unittest discover -s tests -p 'test_synthetica40.py' -v
+      - name: Download and verify same Neutron toolchain as 3.1/r1
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
+          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
+          test "$(stat -c %s "$archive")" = 77768187
+          mkdir -p "$RUNNER_TEMP/neutron"
+          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
+          echo "$RUNNER_TEMP/neutron/bin" >> "$GITHUB_PATH"
+      - name: Compile experimental kernel, DTBs and signed same-build modules
+        timeout-minutes: 90
+        env:
+          S40_SOURCE: ${{ runner.temp }}/s40-work/kernel
+          S40_OUT: ${{ runner.temp }}/s40-work/out
+          S40_MODULES: ${{ runner.temp }}/s40-modules
+          S40_JOBS: '4'
+        run: |
+          set -euo pipefail
+          clang --version | head -2
+          bash build-kit/scripts/build_synthetica40_kernel.sh 2>&1 | tee "$RUNNER_TEMP/s40-build.log"
+      - name: Compile matching NoMount protocol 22 userspace
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/s40-inputs/nomount/userspace/src"
+          clang --target=aarch64-linux-gnu -fuse-ld=lld -Oz -mcmodel=tiny -static \
+            -nostdlib -ffreestanding -fno-unwind-tables -fno-ident \
+            -Wno-invalid-noreturn -mllvm -enable-machine-outliner=always \
+            -Wl,--entry=_start nm.c -o "$RUNNER_TEMP/nm-arm64"
+          readelf -h "$RUNNER_TEMP/nm-arm64" | grep -F AArch64
+      - name: Validate and collect non-flashable evidence
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/collect_synthetica40.py \
+            --out "$RUNNER_TEMP/s40-work/out" --modules "$RUNNER_TEMP/s40-modules" \
+            --nm "$RUNNER_TEMP/nm-arm64" --destination "$RUNNER_TEMP/s40-evidence"
+          (cd "$RUNNER_TEMP/s40-evidence" && sha256sum -c SHA256SUMS.txt)
+      - name: Upload evidence only (never flash)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-4.0-6.18-DO-NOT-FLASH-${{ github.run_id }}
+          path: ${{ runner.temp }}/s40-evidence/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Transfer whitelisted public evidence without build private key
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, zipfile
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); root=t/'s40-evidence'; output=t/'s40-transfer.zip'
+          files=sorted(p for p in root.rglob('*') if p.is_file())
+          if any(p.is_symlink() or p.suffix in {'.pem','.key','.pk8','.p12','.jks'} for p in files):
+              raise SystemExit('refusing to export symlinks or possible private keys')
+          with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+              for p in files: z.write(p,p.relative_to(root).as_posix())
+          raw=output.read_bytes()
+          (t/'s40-blob.json').write_text(json.dumps({'content':base64.b64encode(raw).decode('ascii'),'encoding':'base64'}))
+          print('::notice title=Experimental evidence ZIP SHA256::'+hashlib.sha256(raw).hexdigest())
+          print('::notice title=Experimental compressed Image SHA256::'+hashlib.sha256((root/'Image.gz.DO-NOT-FLASH').read_bytes()).hexdigest())
+          PY
+          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/s40-blob.json" --jq .sha)
+          test "${#blob}" = 40
+          echo "::notice title=Experimental evidence Git blob::$blob"
+          echo '::notice title=Scope::Compile-only, SUSFS 2.4 not included, Manager UAPI migration and Joyeuse/ROM/runtime validation incomplete.'
+      - name: Upload compiler diagnostics after failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-4.0-6.18-diagnostics-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s40-build.log
+            ${{ runner.temp }}/s40-work/out/.config
+          if-no-files-found: ignore
+          retention-days: 7
