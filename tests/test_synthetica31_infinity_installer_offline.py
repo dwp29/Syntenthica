@@ -61,7 +61,21 @@ def avb_descriptor_size(image, report):
     tag, following, image_size, algorithm, namelen, saltlen, digestlen, flags, reserved = avb.HASH_DESC.unpack_from(desc)
     if tag != 2 or desc[avb.HASH_DESC.size:avb.HASH_DESC.size+namelen] != b'boot':
         raise ValueError('unexpected AVB descriptor')
-    return {'descriptor_image_size': image_size, 'footer_original_image_size': footer['original_image_size']}
+    algo = algorithm.rstrip(b'\0').decode('ascii')
+    start = avb.HASH_DESC.size + namelen
+    salt = desc[start:start+saltlen]
+    expected = desc[start+saltlen:start+saltlen+digestlen]
+    if algo not in ('sha256','sha512') or digestlen != hashlib.new(algo).digest_size:
+        raise ValueError('unexpected AVB hash algorithm')
+    digest = hashlib.new(algo); digest.update(salt)
+    with image.open('rb') as f:
+        remaining = image_size
+        while remaining:
+            block = f.read(min(1048576, remaining))
+            if not block: raise ValueError('descriptor exceeds file')
+            digest.update(block); remaining -= len(block)
+    return {'descriptor_image_size': image_size, 'footer_original_image_size': footer['original_image_size'],
+            'raw_descriptor_hash_matches': digest.digest() == expected, 'algorithm_type': header[5]}
 
 @unittest.skipUnless(os.environ.get('S31_INFINITY_OFFLINE') == '1', 'public ROM and QEMU test opt-in')
 class PublicROMInstallerTest(unittest.TestCase):
@@ -96,7 +110,13 @@ class PublicROMInstallerTest(unittest.TestCase):
         result = {'scope': 'Emulated installer on public ROM regular file, no recovery or physical boot; external AVB not verified.',
                   'installer_completed': True, 'boot_comparison': comparison,
                   'ramdisk_formats': [before['ramdisk_format_guess'], after['ramdisk_format_guess']],
-                  'ramdisk_entry_counts': [len(old), len(new)], 'ramdisk_differences': differences,
+                  'ramdisk_entry_counts': [len(old), len(new)],
+                  'ramdisk_changed_entries': sorted(differences),
+                  'ramdisk_content_changes': sorted(name for name in old.keys() | new.keys()
+                    if name != '.' and (name not in old or name not in new or old[name]['sha256'] != new[name]['sha256'])),
+                  'ramdisk_mode_changes': sorted(name for name in old.keys() & new.keys() if old[name]['mode'] != new[name]['mode']),
+                  'ramdisk_uid_gid_changes': sorted(name for name in old.keys() & new.keys() if (old[name]['uid'],old[name]['gid']) != (new[name]['uid'],new[name]['gid'])),
+                  'harness_euid': os.geteuid(),
                   'input_avb_sizes': avb_descriptor_size(source, before), 'output_avb_sizes': avb_descriptor_size(self.boot, after)}
         try:
             result['output_embedded_avb'] = avb.inspect(self.boot)
@@ -106,7 +126,10 @@ class PublicROMInstallerTest(unittest.TestCase):
         self.assertTrue(comparison['candidate_kernel_equals_bundle_image'])
         self.assertTrue(all(comparison['stable_header_fields_match'].values()))
         self.assertTrue(all(value for name, value in comparison['non_kernel_sections_match'].items() if name != 'ramdisk'))
-        self.assertEqual(differences, {}, 'ramdisk content or metadata changed')
+        self.assertEqual(result['ramdisk_content_changes'], [], 'ramdisk contents changed')
+        self.assertEqual(result['ramdisk_mode_changes'], [], 'ramdisk mode changed')
+        self.assertTrue(result['input_avb_sizes']['raw_descriptor_hash_matches'])
+        self.assertFalse(result['output_avb_sizes']['raw_descriptor_hash_matches'])
         self.assertTrue(comparison['candidate_legacy_boot_id_matches'])
 
 if __name__ == '__main__':

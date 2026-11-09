@@ -152,7 +152,29 @@ jobs:
               s=s[-10000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
               print('::error title=Offline fixture diagnostic::'+s)
           PY2
-          exit "$rc"
+          test "$rc" = 0
+          # Root better models recovery ownership than the unprivileged runner.
+          # The test writes only to its temporary directory and its dd wrapper rejects block devices.
+          sudo --preserve-env=S31_INFINITY_OFFLINE,S3_INSTALLER20_ZIP,S31_PUBLIC_BOOT \
+            python3 -m unittest discover -s tests -p 'test_synthetica31_infinity_installer_offline.py' -v > "$RUNNER_TEMP/infinity-root.log" 2>&1 || {
+              cat "$RUNNER_TEMP/infinity-root.log"
+              python3 - <<'PY2'
+          import os
+          from pathlib import Path
+          s=(Path(os.environ['RUNNER_TEMP'])/'infinity-root.log').read_text()[-10000:]
+          print('::error title=Root fixture diagnostic::'+s.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY2
+              exit 1
+          }
+          cat "$RUNNER_TEMP/infinity-root.log"
+          python3 - <<'PY2'
+          import os
+          from pathlib import Path
+          s=(Path(os.environ['RUNNER_TEMP'])/'infinity-root.log').read_text()
+          for line in s.splitlines():
+              if 'INFINITY_OFFLINE_RESULT=' in line:
+                  print('::notice title=Root public boot installer output::'+line.split('INFINITY_OFFLINE_RESULT=',1)[1].replace('%','%25'))
+          PY2
       - name: State the test scope
         run: echo '::notice title=Scope::QEMU used synthetic regular boot files and redirected paths, not a phone or physical TWRP. Boot, root, AVB, ROM modules and camera remain unverified.'
       - name: Upload recovery ZIP and checksum
