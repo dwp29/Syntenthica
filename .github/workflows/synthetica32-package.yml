@@ -72,9 +72,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api -H 'Accept: application/vnd.github.raw+json' \
-            "repos/${GITHUB_REPOSITORY}/git/blobs/a18c4a1b9cf90c2053d7304642d05471fb04ac19" > "$RUNNER_TEMP/avbtool.py"
-          echo "d2aa3fb6fb4bbd5fd2dc5bcabfaad81fb6fa62b5fa0bf7c19ef42da0f114b3c0  $RUNNER_TEMP/avbtool.py" | sha256sum -c -
+          gh api repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5 --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
           chmod +x "$RUNNER_TEMP/avbtool.py" "$RUNNER_TEMP/s32-result/tools/fix-avb"
           S31_FIX_AVB="$RUNNER_TEMP/s32-result/tools/fix-avb" S31_FIX_PREFIX=qemu-arm-static \
             S31_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
