@@ -55,6 +55,31 @@ jobs:
           n=$(find "$RUNNER_TEMP/mods" -type f -name '*.ko' | wc -l)
           echo "::notice title=Vendor uncompressed .ko count::$n"
           test "$n" -gt 0
+          python3 - <<'PY'
+          import json,os,sys,struct
+          from pathlib import Path
+          sys.path.insert(0,'build-kit/scripts')
+          import audit_chronicle_s31 as ca
+          import verify_synthetica3_modules as vm
+          t=Path(os.environ['RUNNER_TEMP']); image=t/'rom-extracted/boot.img'
+          with image.open('rb') as f:
+              head=f.read(4096); size=struct.unpack_from('<I',head,8)[0]
+              if size<=0 or size>100000000: raise ValueError('unexpected kernel size')
+              kernel=f.read(size)
+          certs=ca.certs(kernel); assert len(certs)==1
+          cert_hash,cert=next(iter(certs.items()))
+          assert cert_hash=='af3673e410a81247e88bffdb44cac8e642b140cb7caaedc342cdb3170aa5600a'
+          root=t/'mods/modules'; loaded=(root/'modules.load').read_text().splitlines()
+          checks={}
+          for p in sorted(root.glob('*.ko')):
+              payload,sig=vm.split_signature(p.read_bytes())
+              try: vm.verify_pkcs7(payload,sig,cert); ok=True
+              except ValueError: ok=False
+              checks[p.name]={'verified_by_rom_boot_cert':ok,'listed_in_modules_load':p.name in {Path(s.strip()).name for s in loaded if s.strip() and not s.lstrip().startswith('#')}}
+          print('::notice title=ROM module load list::'+json.dumps(loaded,separators=(',',':')))
+          print('::notice title=ROM module signature controls::'+json.dumps(checks,separators=(',',':')))
+          (t/'rom-module-controls.json').write_text(json.dumps({'rom_boot_cert_sha256':cert_hash,'modules_load':loaded,'modules':checks},indent=2))
+          PY
       - name: Fetch 3.1 evidence and audit ROM modules
         env:
           GH_TOKEN: ${{ github.token }}
