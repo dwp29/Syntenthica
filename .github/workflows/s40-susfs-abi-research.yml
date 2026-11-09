@@ -1,0 +1,83 @@
+name: "Synthetica 4.0 - SUSFS arm64 source ABI research"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/s40-susfs-abi-research.yml'
+      - 'build-kit/ci/s40-susfs-abi/**'
+      - 'build-kit/ci/synthetica40/inputs.json'
+      - 'build-kit/scripts/build_synthetica40.py'
+      - 'build-kit/scripts/annotate_synthetica40_failure.py'
+      - 'build-kit/scripts/audit_s40_susfs_abi.py'
+      - 'tests/test_s40_susfs_abi.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  abi-research:
+    name: "Compare pinned declarations, not kernel runtime"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Ensure arm64-capable host compiler
+        run: |
+          set -euo pipefail
+          if ! command -v clang >/dev/null; then
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+            sudo apt-get install -y -qq clang
+          fi
+          clang --version | head -1
+      - name: Fetch and verify exact kernel, KSUN and SUSFS archives
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-susfs-abi"
+          mkdir -p "$t"/{ksun,susfs,reports} "$t/kernel/include/uapi/linux"
+          curl --fail --location --retry 3 -o "$t/kernel.tar.gz" \
+            https://codeload.github.com/7829hw/linux-miatoll-6.18/tar.gz/76e733e54156ad08cef3926e46c5ad25e2a5cc52
+          curl --fail --location --retry 3 -o "$t/ksun.tar.gz" \
+            https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af
+          curl --fail --location --retry 3 -o "$t/susfs.tar.gz" \
+            https://codeload.github.com/Trijal08/susfs4ksu/tar.gz/a2165b6f875b73e2f87d3c6f12814efac8de061d
+          python3 build-kit/scripts/audit_s40_susfs_abi.py verify-archives \
+            --kernel "$t/kernel.tar.gz" --ksun "$t/ksun.tar.gz" --susfs "$t/susfs.tar.gz"
+          tar -xzf "$t/ksun.tar.gz" -C "$t/ksun" --strip-components=1
+          tar -xzf "$t/susfs.tar.gz" -C "$t/susfs" --strip-components=1
+          # Only one kernel UAPI header is needed. The complete archive was verified first.
+          tar -xOzf "$t/kernel.tar.gz" \
+            linux-miatoll-6.18-76e733e54156ad08cef3926e46c5ad25e2a5cc52/include/uapi/linux/utsname.h \
+            > "$t/kernel/include/uapi/linux/utsname.h"
+      - name: Test guards and cross-compile extracted source declarations
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-susfs-abi"
+          export S40_ABI_KERNEL="$t/kernel" S40_ABI_KSUN="$t/ksun" S40_ABI_SUSFS="$t/susfs"
+          python3 -m unittest discover -s tests -p 'test_s40_susfs_abi.py' -v \
+            2>&1 | tee "$t/reports/tests.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'SUSFS ABI research tests' "$t/reports/tests.log"
+              exit 1
+            }
+          python3 build-kit/scripts/audit_s40_susfs_abi.py audit \
+            --kernel "$t/kernel" --ksun "$t/ksun" --susfs "$t/susfs" \
+            > "$t/reports/audit.json" 2> "$t/reports/audit.log" || {
+              cat "$t/reports/audit.log"
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'SUSFS ABI research' "$t/reports/audit.log"
+              exit 1
+            }
+          cat "$t/reports/audit.json"
+          echo '::notice title=Research only::SUSFS 2.4 is not integrated; no syscalls, modules, device testing or flash.'
+      - name: Upload source-only report, no binaries or APKs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-SUSFS-ABI-RESEARCH-${{ github.run_id }}
+          path: ${{ runner.temp }}/s40-susfs-abi/reports/
+          if-no-files-found: ignore
+          retention-days: 7

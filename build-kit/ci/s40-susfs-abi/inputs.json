@@ -1,0 +1,43 @@
+{
+  "scope": "source-only, arm64 ABI research; no SUSFS integration or runtime claim",
+  "kernel_commit": "76e733e54156ad08cef3926e46c5ad25e2a5cc52",
+  "ksun_commit": "4c706b5938665866ebe16944a481a7b91e3396af",
+  "susfs_commit": "a2165b6f875b73e2f87d3c6f12814efac8de061d",
+  "archive_digests": "build-kit/ci/synthetica40/inputs.json",
+  "sources": {
+    "kernel": {
+      "include/uapi/linux/utsname.h": "e6a7aeffebf22a2d74b5e671ab5ff8bb99b0655cefb544bfca0acc22aa396c2a"
+    },
+    "ksun": {
+      "kernel/Kbuild": "16c95cdd4e8f11ada112e1589370774ddfbda93e0ef304dd1f6621e979343a8d",
+      "kernel/Kconfig": "411ed68b70d4757fd8ee8cd74769942ae92dda4699d78247ed1f526506cdca73",
+      "kernel/include/arch.h": "21951ac6769665243ce5962a8e55a54d01c9738eff1c3d3babbdd6dd8563cbb9",
+      "kernel/susfs/Makefile": "42f37f3804e611ed0f54e07fce07f854a99555174bb3e3f2dba3d90f06641cfd",
+      "kernel/susfs/susfs_abi.h": "de302b8fef5620628ad5bcd19878e0190c2472f7cf3b71dfaa32d44e4a6f710a",
+      "kernel/susfs/susfs_supercall.c": "1b6c444a9610e34c7f9d9416e5ee60f63c0d604cfcf095defd91f14304c14111",
+      "kernel/susfs/susfs.h": "126719ffdd79bf7cf21277d2069aa9a1a6d44688a8b7abbfe9d39e782cebb9d7",
+      "kernel/supercall/supercall.c": "056e1c276b06570dfebb254cfca9df3d077bb3f1ca79f4986e40d12b47a66c0c",
+      "uapi/supercall.h": "7d1ac24a0ccf2214d5868a5183e74372e824e0507f1529290716883e90c47c45"
+    },
+    "susfs": {
+      "kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch": "56a2b26dbbd0549f46516f7d45485fbbcc32374068da5fd87ed83d03b1ecbaa2",
+      "kernel_patches/fs/susfs.c": "eb192f62a9ec70b0c00b0e800d5734a7e51f357bb3d001e10d1e3be9f76e9b0d",
+      "kernel_patches/include/linux/susfs.h": "1dbe8e9d31211bf07eacf5c28054b7f3bb27d034565b88f1ddff371c356c4dd6",
+      "kernel_patches/include/linux/susfs_def.h": "cb441cb566d009bce20c1f4ce43fa10ce3472daafd0f37e144cdf1be87b3f88e",
+      "ksu_susfs/jni/Application.mk": "a25a74b525bcd7a9bca126fe8619f4fdd75790630c514199a9224ab1a740590a",
+      "ksu_susfs/jni/includes/susfs_defs.h": "b77b9d1408135d46be7ffe443c6a4363e7513f30ca74a797e46995acdb1c16d4",
+      "ksu_susfs/jni/main.c": "5810031a5888cd0865f5704253ac37cd5750c2bb9fbd278b8b62c2777788f73f",
+      "ksu_susfs/jni/features/avc_log_spoofing.c": "7dabf0a21f3b8f2f3dbf4d1767d5a9305ba5feb0ab372ad6d4043c7a1d0f473b",
+      "ksu_susfs/jni/features/enable_log.c": "016c3017c219ede4fc1863f54c1d1d20ce1ab8ba9cac1b95c594ccc16b22a96c",
+      "ksu_susfs/jni/features/open_redirect.c": "d63ee209cad81650b6dd8fbc63e0406d246b0c80fdbf0363ab9172ad9b57ac2a",
+      "ksu_susfs/jni/features/priority_uid_filter.c": "eb7a42dd5de526505064d82b5d60f4977fac2554d8bdac9ae14ab07ef9bccfb9",
+      "ksu_susfs/jni/features/show.c": "3b671db2a0fb2cd4b8093df6312f6bb99665ef90f2ea51575acb1a583b1a234e",
+      "ksu_susfs/jni/features/spoof_cmdline_or_bootconfig.c": "8faec7780a399afa51b64e2266446e7b96f24bb4ddbe808fd6d2025224307d2e",
+      "ksu_susfs/jni/features/spoof_uname.c": "1f221f83c6df17eab286fe0bfc78ebc0276407824e3a9945a73441045519d05d",
+      "ksu_susfs/jni/features/sus_kstat.c": "b08830b58e09a7ddc11c29b5630e1635a5447cdc1d653ce751e7277ea5b45ce4",
+      "ksu_susfs/jni/features/sus_map.c": "63de418f38998e400af572da1aa5c4994e5d99428bbce40fe51ffacfc21d5cb2",
+      "ksu_susfs/jni/features/sus_mount.c": "46eab0b93082a2d1e38c2d0d4591bca80cc5f25b8dc3781e568b95da78655b32",
+      "ksu_susfs/jni/features/sus_path.c": "b409f8ddfe30dbe6a4d3960d24efc8b514fabb64e3d09333be5f6105454bacae"
+    }
+  }
+}

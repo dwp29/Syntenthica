@@ -138,14 +138,40 @@ byte daemon; CI berikutnya
 `ksud`, alignment, izin dan status unsigned. CI hanya menyimpan diagnostik,
 bukan APK. Hasil ini tetap bukan uji instalasi atau runtime.
 
-Eksperimen [`probe_s40_apk_signing.py`](build-kit/scripts/probe_s40_apk_signing.py)
-disiapkan untuk membuat APK **fixture sintetis** dengan kunci sementara,
-memverifikasinya memakai `apksigner`, dan menjalankan parser C kernel serta
-parser Rust `ksud` yang dipin dalam harness host. Kunci dan APK fixture tidak
-diekspor; workflow hanya mengunggah laporan. Hasilnya belum terbukti sampai
-CI eksperimen selesai. Sekalipun lulus, ini tidak membuktikan upgrade Manager
-lama, penerimaan Android, keamanan otorisasi root, atau kompatibilitas ROM dan
-perangkat.
+CI fixture [42549101585](https://github.com/dwp29/Syntenthica/actions/runs/42549101585)
+lulus untuk [`probe_s40_apk_signing.py`](build-kit/scripts/probe_s40_apk_signing.py).
+APK **sintetis** v2-only dan v2+v3 ditandatangani dengan kunci sementara dan
+keduanya lolos verifikasi `apksigner`. Parser C kernel yang disiapkan dan parser
+Rust `ksud` masing-masing menerima v2-only dan menolak v2+v3; parser C juga
+menolak hash sertifikat yang salah. Pada fixture yang isinya diubah, `apksigner`
+menolak tanda tangan, tetapi parser sertifikat C masih menerimanya: parser ini
+**bukan verifikator integritas APK** dan bergantung pada pemeriksaan Android.
+
+Ini harness **host**, dengan shim I/O/crypto dan sertifikat uji, bukan kernel
+atau Android yang berjalan. Kunci dan APK fixture tidak diekspor; CI menyimpan
+laporan saja. Hasilnya tidak membuktikan upgrade Manager lama, penerimaan APK
+di perangkat, keamanan otorisasi root, atau kompatibilitas ROM dan perangkat.
+
+## Pemetaan ABI SUSFS 2.4
+
+Audit sumber [`audit_s40_susfs_abi.py`](build-kit/scripts/audit_s40_susfs_abi.py)
+memeriksa source yang dipin dan mengompilasi **deklarasi struct yang diekstrak**
+untuk target arm64 kernel dan Android, tanpa syscall atau memuat modul. Hasil
+lokal: 16 command aktif `ksu_susfs` 2.4 cocok dengan nomor dan daftar dispatcher
+patch kernel 2.4; ukuran, alignment dan offset 13 payload cocok; 12 bit KSTAT dan
+lima nilai `UID_SCHEME` cocok. Payload UID priority `0x60030` berukuran 65.540
+byte pada arm64, dengan `err` di offset 65.536. Ini memeriksa ABI deklarasi,
+bukan implementasi, kondisi compiler aktual, atau perilaku runtime.
+
+Arsip KSUN 3.4.2 memang membawa source **LKM terpisah** beridentitas 2.3.0,
+tetapi parent Kbuild KSUN yang dipakai resep tidak membangunnya. Dispatcher LKM
+itu tidak menangani command priority 2.4, dan field `is_statically` pada payload
+KSTAT-nya adalah `int` 4 byte, sedangkan source userspace/kernel 2.4 memakai
+`bool` 1 byte. Offset field berikutnya tetap sama; perbedaan ini perlu diuji,
+bukan otomatis dinyatakan pasti gagal. LKM dan KSUN juga menargetkan simbol
+reboot arm64 yang sama, meski magic keduanya berbeda; interaksi hook dan NoMount
+belum diuji. Karena itu source LKM ini **bukan pengganti SUSFS 2.4** dan tidak
+boleh dipasang atau sekadar diganti nomor versinya.
 
 ## Interpretasi bukti
 
