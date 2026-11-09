@@ -29,18 +29,29 @@ class FixTests(unittest.TestCase):
             self.desc=self.vb+256+h[3]+h[14]
             f.seek(self.desc); d=avb.HASH_DESC.unpack(f.read(avb.HASH_DESC.size))
         self.dlen=self.desc+avb.HASH_DESC.size+d[4]+d[5]
-    def run_fix(self, file=None, busybox=None):
+    def run_fix(self, file=None, busybox=None, if_unsigned=False):
         prefix=os.environ.get('S31_FIX_PREFIX','').split()
-        return subprocess.run(prefix+[os.environ['S31_FIX_AVB'],str(file or self.img),busybox or shutil.which('busybox')],capture_output=True)
+        extra=['--if-unsigned'] if if_unsigned else []
+        return subprocess.run(prefix+[os.environ['S31_FIX_AVB']]+extra+[str(file or self.img),busybox or shutil.which('busybox')],capture_output=True)
     def test_repairs_stale_descriptor_digest_and_length(self):
-        data=bytearray(self.img.read_bytes()); data[self.desc+16:self.desc+24]=struct.pack('>Q',800000);data[self.dlen:self.dlen+32]=b'X'*32
-        self.img.write_bytes(data)
-        p=self.run_fix();self.assertEqual(p.returncode,0,p.stderr)
-        result=avb.inspect(self.img);self.assertTrue(result['embedded_boot_hash']['digest_matches'])
-        self.assertEqual(result['embedded_boot_hash']['image_bytes'],self.foot['original_image_size'])
-        after=bytearray(self.img.read_bytes());after[self.desc+16:self.desc+24]=data[self.desc+16:self.desc+24];after[self.dlen:self.dlen+32]=data[self.dlen:self.dlen+32]
-        self.assertEqual(data,after)
-        subprocess.run([sys.executable,os.environ['S31_AVBTOOL'],'verify_image','--image',str(self.img)],check=True,capture_output=True)
+        for if_unsigned in (False, True):
+            with self.subTest(if_unsigned=if_unsigned):
+                data=bytearray(self.img.read_bytes()); data[self.desc+16:self.desc+24]=struct.pack('>Q',800000);data[self.dlen:self.dlen+32]=b'X'*32
+                self.img.write_bytes(data)
+                p=self.run_fix(if_unsigned=if_unsigned);self.assertEqual(p.returncode,0,p.stderr)
+                result=avb.inspect(self.img);self.assertTrue(result['embedded_boot_hash']['digest_matches'])
+                self.assertEqual(result['embedded_boot_hash']['image_bytes'],self.foot['original_image_size'])
+                after=bytearray(self.img.read_bytes());after[self.desc+16:self.desc+24]=data[self.desc+16:self.desc+24];after[self.dlen:self.dlen+32]=data[self.dlen:self.dlen+32]
+                self.assertEqual(data,after)
+                subprocess.run([sys.executable,os.environ['S31_AVBTOOL'],'verify_image','--image',str(self.img)],check=True,capture_output=True)
+    def test_if_unsigned_passes_through_no_avb_and_signed_avb_untouched(self):
+        plain=self.dir/'plain.img';plain_bytes=b'ANDROID!'+b'B'*8184;plain.write_bytes(plain_bytes)
+        p=self.run_fix(file=plain,if_unsigned=True);self.assertEqual(p.returncode,0,p.stderr)
+        self.assertEqual(plain.read_bytes(),plain_bytes)
+        signed=bytearray(self.img.read_bytes());signed[self.vb+28:self.vb+32]=b'\0\0\0\1'
+        self.img.write_bytes(signed)
+        p2=self.run_fix(if_unsigned=True);self.assertEqual(p2.returncode,0,p2.stderr)
+        self.assertEqual(self.img.read_bytes(),signed)
     def test_refuses_signed_or_malformed_without_writing(self):
         original=self.img.read_bytes()
         for off,val in ((self.vb+28,b'\0\0\0\1'),(self.vb,b'BAD!'),(self.desc+24,b'md5xxx')):

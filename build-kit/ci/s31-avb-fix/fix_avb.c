@@ -1,7 +1,10 @@
-/* Repair unsigned AVB boot descriptor in an already-repacked scratch file.
- * Only invoked for the exact pinned Infinity 4.1 input, never on a block device.
- * SHA-256 is computed by the installer's bundled BusyBox (no key material).
- * Refuse signed, unexpected or ambiguous metadata; never downgrade protection.
+/* Inspect or repair unsigned embedded AVB boot descriptor in a scratch file.
+ * - If no AVBf footer is present, or AVB0 algorithm_type != 0 (signed AVB),
+ *   exits 0 without opening for write (unless --require-repair is passed).
+ * - If an AVBf footer with unsigned AVB0 (algorithm_type == 0) is present,
+ *   validates bounds/descriptors and updates image_size + sha256 digest in-place.
+ * - Any malformed AVBf/unsigned-AVB0 or I/O failure returns non-zero so the
+ *   installer aborts before touching the boot partition.
  */
 #define _FILE_OFFSET_BITS 64
 #define _POSIX_C_SOURCE 200809L
@@ -45,15 +48,34 @@ static int hash_with_busybox(int image,const char *bb,const unsigned char *salt,
     return err;
 }
 int main(int argc,char **argv) {
-    int fd=-1,rc=1; struct stat st; unsigned char footer[64],header[256],desc[132],digest[32],sizebe[8],*salt=NULL;
-    uint64_t size,original,voff,vsize,auth,aux,doff,dlen,pos,end,match=0,mdigest=0,mlength=0; uint32_t saltlen=0;
-    if(argc!=3) {fprintf(stderr,"usage: fix_avb scratch-image busybox\n");return 2;}
-    fd=open(argv[1],O_RDWR|O_NOFOLLOW);if(fd<0||fstat(fd,&st)||!S_ISREG(st.st_mode)||st.st_nlink!=1||st.st_size<320||(uint64_t)st.st_size>LIMIT)goto done;
+    int fd=-1,rc=1,require_repair=1; struct stat st;
+    unsigned char footer[64],header[256],desc[132],digest[32],sizebe[8],*salt=NULL;
+    uint64_t size,original,voff,vsize,auth,aux,doff,dlen,pos,end,match=0,mdigest=0,mlength=0; uint32_t saltlen=0,algo=0;
+    const char *imgpath=NULL,*bbpath=NULL;
+    if(argc==3) { imgpath=argv[1]; bbpath=argv[2]; require_repair=1; }
+    else if(argc==4 && !strcmp(argv[1],"--if-unsigned")) { imgpath=argv[2]; bbpath=argv[3]; require_repair=0; }
+    else { fprintf(stderr,"usage: fix_avb [--if-unsigned] scratch-image busybox\n"); return 2; }
+
+    fd=open(imgpath,O_RDONLY|O_NOFOLLOW);
+    if(fd<0||fstat(fd,&st)||!S_ISREG(st.st_mode)||st.st_nlink!=1||st.st_size<320||(uint64_t)st.st_size>LIMIT)goto done;
     size=(uint64_t)st.st_size;
-    if(readat(fd,footer,64,size-64)||memcmp(footer,"AVBf",4)||u32(footer+4)!=1)goto done;
+    if(readat(fd,footer,64,size-64))goto done;
+    if(memcmp(footer,"AVBf",4)) {
+        if(!require_repair){close(fd);return 0;}
+        goto done;
+    }
+    if(u32(footer+4)!=1)goto done;
     original=u64(footer+12);voff=u64(footer+20);vsize=u64(footer+28);
     if(!original||original>voff||voff>size-64||vsize<256||vsize>4*1024*1024||vsize>size-64-voff)goto done;
-    if(readat(fd,header,256,voff)||memcmp(header,"AVB0",4)||u32(header+28)!=0)goto done;
+    if(readat(fd,header,256,voff)||memcmp(header,"AVB0",4))goto done;
+    algo=u32(header+28);
+    if(algo!=0) {
+        if(!require_repair){close(fd);return 0;}
+        goto done;
+    }
+    close(fd); fd=-1;
+    fd=open(imgpath,O_RDWR|O_NOFOLLOW);
+    if(fd<0||fstat(fd,&st)||!S_ISREG(st.st_mode)||st.st_nlink!=1||(uint64_t)st.st_size!=size)goto done;
     auth=u64(header+12);aux=u64(header+20);doff=u64(header+96);dlen=u64(header+104);
     if(auth!=0||aux!=vsize-256||doff>aux||dlen>aux-doff)goto done;
     pos=voff+256+doff;end=pos+dlen;
@@ -77,10 +99,10 @@ int main(int argc,char **argv) {
     }
     if(pos!=end||!match)goto done;
     salt=malloc(saltlen?saltlen:1);if(!salt||readat(fd,salt,saltlen,match+132+4))goto done;
-    if(hash_with_busybox(fd,argv[2],salt,saltlen,original,digest))goto done;
+    if(hash_with_busybox(fd,bbpath,salt,saltlen,original,digest))goto done;
     set64(sizebe,original);
     if(writeat(fd,sizebe,8,mlength)||writeat(fd,digest,32,mdigest)||fsync(fd))goto done;
-    fprintf(stderr,"Unsigned embedded AVB boot hash repaired; external AVB and device boot are not verified.\n");rc=0;
+    fprintf(stderr,"Unsigned embedded AVB boot hash repaired.\n");rc=0;
 done:
     if(rc)fprintf(stderr,"Refused AVB repair: unexpected image or I/O error; boot was not flashed.\n");
     free(salt);if(fd>=0)close(fd);return rc;
