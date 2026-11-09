@@ -81,7 +81,10 @@ fun splashTagForStyle(style: ManagerStyle): String = when (style) {
 fun rememberStylePhase(): State<Float> {
     val context = LocalContext.current
     remember(context) {
-        syncNeonPrefs(context)
+        runCatching {
+            val prefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+            ManagerStyleState.value = ManagerStyle.fromId(prefs.getString("manager_visual_style", ManagerStyle.PIXEL.id))
+        }
         true
     }
     val motionEnabled = LocalPixelMotionEnabled.current
