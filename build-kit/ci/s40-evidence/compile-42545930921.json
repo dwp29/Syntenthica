@@ -1,0 +1,26 @@
+{
+  "scope": "non-flashable experimental compile evidence; no ROM or device/runtime compatibility claim",
+  "workflow_run": 42545930921,
+  "workflow_commit": "c9d2248bda9d376da9a92748415b590017eacc20",
+  "evidence_git_blob": "58356f0b1d671d93a1f9f8ee5a42c4ea4c3868a8",
+  "archive_sha256": "a39cb458c55b22d89d3e0981fd2834eafdbdce7c114671d242e1fccce67f16a2",
+  "image_gzip_sha256": "20ee0d55f52a6333fbf45df9165d2a30739fca711a209e31cff58378f047635c",
+  "image_sha256": "9bac7d528a206204ba83a59c23d7b24a21810f46ff0cde13fb39cbcd19547608",
+  "image_bytes": 35592200,
+  "image_runtime_size_bytes": 38273024,
+  "config_sha256": "f778920c614664b047513d37fe4e0151e3bf8777755bb964d6ec01be449f5edf",
+  "inputs_sha256": "882fcaf0477fa454a7811468a206c492355d6f2e84d524edbc15953f47c80ebc",
+  "module_signing_public_cert_sha256": "7a3759d1c13848e6dc220448c3d5ce8943d53382cb4f6ad057528114eba872bc",
+  "module_layout_crc": "0xdd02b758",
+  "ci_installed_module_count": 200,
+  "sample_modules": {
+    "tcp_bic": "f5229a9614cd465e886ea8b6c53689b600d0e17b5785daf410b518653ac9af24",
+    "tcp_htcp": "968b8db8fc332b53ababce9bca399fb8886eb8dd775ce81041110a8678f87e83",
+    "tcp_westwood": "0afe7bdf53cb3eaa93d992e63610f78d1e851a969981c8bf570067554e473a68"
+  },
+  "kernelrelease": "6.18.58-synthetica-4.0-dev0",
+  "kernel_source": "76e733e54156ad08cef3926e46c5ad25e2a5cc52",
+  "ksun_source": "4c706b5938665866ebe16944a481a7b91e3396af",
+  "nomount_source": "bf1847f98fed382369c43bfd652cd93774b9b8e3",
+  "manager_certificate_sha256": "fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140"
+}

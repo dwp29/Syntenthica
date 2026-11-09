@@ -1,0 +1,61 @@
+name: "Synthetica 4.0 - independent compile evidence audit"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/s40-evidence-audit.yml'
+      - 'build-kit/ci/s40-evidence/**'
+      - 'build-kit/scripts/verify_s40_compile_evidence.py'
+      - 'build-kit/scripts/verify_synthetica3_modules.py'
+      - 'tests/test_s40_compile_evidence.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Retrieve exact non-flashable evidence blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/s40-audit"
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/58356f0b1d671d93a1f9f8ee5a42c4ea4c3868a8" \
+            > "$RUNNER_TEMP/s40-audit/evidence.zip"
+          echo "a39cb458c55b22d89d3e0981fd2834eafdbdce7c114671d242e1fccce67f16a2  $RUNNER_TEMP/s40-audit/evidence.zip" | sha256sum -c -
+      - name: Test archive, signature, CRC and failure guards
+        run: |
+          set -euo pipefail
+          S40_EVIDENCE_ZIP="$RUNNER_TEMP/s40-audit/evidence.zip" \
+            python3 -m unittest discover -s tests -p 'test_s40_compile_evidence.py' -v \
+              2>&1 | tee "$RUNNER_TEMP/s40-audit/tests.log" || {
+                python3 build-kit/scripts/annotate_synthetica40_failure.py '6.18 evidence audit tests' "$RUNNER_TEMP/s40-audit/tests.log"
+                exit 1
+              }
+      - name: Audit pinned compile evidence independently
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/verify_s40_compile_evidence.py "$RUNNER_TEMP/s40-audit/evidence.zip" \
+            > "$RUNNER_TEMP/s40-audit/report.json"
+          cat "$RUNNER_TEMP/s40-audit/report.json"
+          echo '::notice title=Scope::Three example module signatures and same-build CRCs checked; no device, runtime, or ROM trust is established.'
+      - name: Upload audit results only, not Image or modules
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-4.0-NON-FLASHABLE-AUDIT-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s40-audit/tests.log
+            ${{ runner.temp }}/s40-audit/report.json
+          if-no-files-found: ignore
+          retention-days: 7

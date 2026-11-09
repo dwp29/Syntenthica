@@ -71,6 +71,35 @@ permintaan konfigurasi efektif diperiksa setelah `olddefconfig`. Resep:
   sebelum perbaikan tracepoint dan urutan SELinux; hasilnya tidak boleh dianggap
   bukti untuk resep yang diperbarui.
 
+## Bukti kompilasi 6.18.58
+
+CI [42545930921](https://github.com/dwp29/Syntenthica/actions/runs/42545930921)
+berhasil untuk commit `c9d2248bda9d376da9a92748415b590017eacc20`: Image,
+empat DTB curtana/Joyeuse, 200 modul yang terpasang ke scratch, dan CLI NoMount
+arm64 dikompilasi dengan Neutron yang dipin. CI memeriksa arsitektur, vermagic,
+dan trailer tanda tangan 200 modul; itu **bukan** verifikasi kriptografi
+terhadap semua 200 modul atau uji pemuatan.
+
+| Bukti, bukan artefak flash | SHA-256 / nilai |
+| --- | --- |
+| ZIP `DO-NOT-FLASH` | `a39cb458c55b22d89d3e0981fd2834eafdbdce7c114671d242e1fccce67f16a2` |
+| Image gzip | `20ee0d55f52a6333fbf45df9165d2a30739fca711a209e31cff58378f047635c` |
+| Image tanpa kompresi | `9bac7d528a206204ba83a59c23d7b24a21810f46ff0cde13fb39cbcd19547608` |
+| `module_layout` / simbol | `0xdd02b758` / 15.001 simbol ekspor |
+
+Audit offline [`verify_s40_compile_evidence.py`](build-kit/scripts/verify_s40_compile_evidence.py)
+memeriksa whitelist ZIP, manifest, provenance, konfigurasi, struktur Image/DTB,
+CLI, sertifikat publik di Image, serta **tanda tangan PKCS#7 dan CRC simbol tiga
+modul contoh** `tcp_bic`, `tcp_htcp`, `tcp_westwood`. Tes negatif juga menolak
+modul yang diubah meskipun checksum luar diperbarui. Sertifikat ini dibuat untuk
+build tersebut, bukan bukti bahwa ROM mempercayainya. Audit tidak memverifikasi
+kriptografi 197 modul lain dan tidak membuktikan kompatibilitas ABI vendor.
+Pin dan hash bukti tersimpan di
+[`compile-42545930921.json`](build-kit/ci/s40-evidence/compile-42545930921.json).
+Artefak CI disimpan tujuh hari; blob Git yang tidak direferensikan juga tidak
+dijamin disimpan permanen. Tidak ada `boot.img`, installer, ramdisk, atau private
+key dalam bukti.
+
 ## Prototipe migrasi Manager UAPI 5
 
 [`prepare_s40_manager_uapi5.py`](build-kit/scripts/prepare_s40_manager_uapi5.py)
@@ -95,6 +124,15 @@ feature UAPI 5 memerlukan `ksud` yang sesuai dan pengujian runtime. Source
 belum dapat dipasang sebagai update, dan belum terbukti kompatibel dengan kernel
 lama maupun kernel baru. Jangan pasang dan jangan gunakan kunci produksi untuk
 memaksakan pengujian ini.
+
+CI Manager [42546928237](https://github.com/dwp29/Syntenthica/actions/runs/42546928237)
+berhasil mengompilasi prototipe tetapi **gagal** saat verifikasi: Android Gradle
+mengubah ukuran `ksud` saat packaging. Perbaikan `keepDebugSymbols` mempertahankan
+byte daemon; CI berikutnya
+[42547583829](https://github.com/dwp29/Syntenthica/actions/runs/42547583829)
+**berhasil** membangun dan memeriksa identitas paket, versionCode, ABI, hash
+`ksud`, alignment, izin dan status unsigned. CI hanya menyimpan diagnostik,
+bukan APK. Hasil ini tetap bukan uji instalasi atau runtime.
 
 ## Interpretasi bukti
 
