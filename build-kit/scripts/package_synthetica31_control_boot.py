@@ -82,7 +82,8 @@ def package(reference:Path, candidate:Path, output:Path):
                 if build.sha(z.read(name))!=build.sha(data): raise ValueError('ZIP member mismatch')
     except BaseException:
         output.unlink(missing_ok=True);raise
-    return {'path':str(output),'bytes':output.stat().st_size,'sha256':hashlib.file_digest(output.open('rb'),'sha256').hexdigest(),'candidate_sha256':CANDIDATE}
+    with output.open('rb') as f: digest=hashlib.file_digest(f,'sha256').hexdigest()
+    return {'path':str(output),'bytes':output.stat().st_size,'sha256':digest,'candidate_sha256':CANDIDATE}
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)

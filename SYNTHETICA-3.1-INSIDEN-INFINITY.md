@@ -172,10 +172,9 @@ tertanam dalam image cocok. `Image.gz` baru SHA-256
 
 Kernel baru menggunakan sertifikat modul baru dan identitas release baru;
 ABI dan kepercayaan modul ROM, AVB dan boot fisik masih belum diketahui.
-Bukti kompilasi bukan boot image atau ZIP recovery; **jangan flash**. Installer
-lama mempunyai risiko yang dijelaskan di atas dan belum diadaptasi untuk
-kandidat ini. Tahap selanjutnya adalah merancang dan memverifikasi integrasi
-installer/boot, bukan menyebut compile evidence sebagai file flash siap pakai.
+Bukti kompilasi tersebut bukan boot image atau ZIP recovery; **jangan flash
+arsip bukti**. Untuk kandidat ZIP uji terpisah dan batasannya, lihat bagian
+"ZIP uji recovery" di bawah.
 
 ### Kendala AVB yang ditemukan selama integrasi
 
@@ -209,3 +208,44 @@ ROM/modules tetap belum diverifikasi. Tes unit pemeriksa hash menggunakan
 fixture sintetis dan `avbtool`, tanpa ponsel; script hanya membaca input dan
 tidak menandatangani, memodifikasi, atau mem-flash. [CI audit 42565273307](https://github.com/dwp29/Syntenthica/actions/runs/42565273307)
 lulus pada fixture sintetis; image pengguna tetap privat.
+
+### ZIP uji recovery terikat boot referensi
+
+ZIP uji eksperimental terpisah dibuat dengan kernel control1 dan image yang
+diberikan pengguna. **Belum ada uji OrangeFox/perangkat fisik dan bukan fix
+bootloop terbukti**. Jangan memasang pada Android 16 saat ini; targetnya Infinity
+4.1, setelah pengguna memastikan ROM/boot yang tepat, bootloader/recovery, dan
+backup boot yang benar serta cara memulihkannya. Asal image awal masih belum
+diverifikasi; keberadaan hash tidak membuktikan image itu cocok dengan ROM yang
+kelak terpasang. Jika ragu soal asal/backup, jangan flash.
+
+- [ZIP uji recovery privat](https://drive.google.com/file/d/1NcOYMrd-Gzw5t-owRb6fEtej3PAGY5mv/view?usp=drivesdk)
+- [Checksum ZIP](https://drive.google.com/file/d/1nYn02s5XiPv_z4ickjyxF5O2fHerNbVg/view?usp=drivesdk)
+- ZIP 16.805.234 byte; SHA-256 `75f3075a047b75d3ae342550a3ba6eae451338dbe632b5dfa0b20fcd75ea7423`.
+- Boot referensi SHA-256 `d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f`;
+  kandidat `5b772f4a8b8cc24c84ff57d619c63cd0710ff95858687aa4382350339f75564b`.
+
+Installer tidak membuat backup dan memerlukan SHA-256 seluruh partisi boot saat
+ini **identik** dengan boot referensi, bukan sekadar DTB serupa. Berbagai keadaan
+termasuk root patch, build lain, atau padding berbeda dapat menyebabkan penolakan.
+Jangan mengganti boot hanya untuk melewati guard. Installer hanya menulis boot
+setelah memeriksa ukuran, unlocked, petunjuk slot, hash asli dan hash kandidat;
+setelah itu byte dibaca ulang. Tidak menulis `ksud`, modul, vbmeta, dtbo atau
+partisi lain, tidak mount, dan tidak reboot otomatis. Jika penulisan/readback
+gagal, jangan reboot; pulihkan backup boot yang tepat melalui recovery.
+
+Image lengkap dibuat offline dari boot referensi dan kernel; ramdisk, DTB dan
+header yang stabil dibandingkan, legacy ID diperbarui, hash descriptor AVB
+embedded `NONE` dihitung ulang. Pemeriksaan `avbtool` membuktikan hanya konsistensi
+hash descriptor embedded, **bukan** signature, vbmeta eksternal atau bootloader.
+Tidak ada vbmeta eksternal diubah atau pemeriksaan AVB dinonaktifkan. ROM module
+ABI/trust, runtime root dan fungsi hardware belum diverifikasi. Installer belum
+diuji pada OrangeFox fisik; tidak ada jaminan sukses atau keselamatan perangkat.
+
+[CI 42566309998](https://github.com/dwp29/Syntenthica/actions/runs/42566309998)
+lulus fixture repack sintetis dan writer file biasa, termasuk BusyBox ARM yang
+diemulasikan. Secara lokal, ZIP aktual menjalani pemeriksaan hash/struktur dan
+penulisan ke **salinan file biasa** dengan blockdev palsu dan host BusyBox;
+source boot tidak diubah. Ini bukan pengujian block device, recovery atau boot
+fisik. ZIP dibuat dua kali dan identik; checksum upload Drive cocok. File boot
+pengguna dan ZIP yang mengandungnya tidak diunggah ke repositori publik.

@@ -102,3 +102,30 @@ export AK_TEST_BB="$WORK/busybox"'''
     def test_arm_busybox_runs_sha_dd_cmp_and_rejections(self):
         p=self.run_installer();self.assertEqual(p.returncode,0,p.stdout)
         self.assertEqual(self.block.read_bytes(),self.candidate)
+
+@unittest.skipUnless(os.environ.get('S31_PRIVATE_BOOT') and os.environ.get('S31_PRIVATE_PACKAGE') and shutil.which('busybox'), 'private boot/package not provided')
+class ActualPrivatePackageTest(unittest.TestCase):
+    def test_actual_package_writes_only_scratch_copy_with_host_busybox(self):
+        original=Path(os.environ['S31_PRIVATE_BOOT']); archive=Path(os.environ['S31_PRIVATE_PACKAGE'])
+        with tempfile.TemporaryDirectory() as tmp:
+            t=Path(tmp);bin=t/'bin';bin.mkdir();target=t/'synthetic-boot-file';shutil.copyfile(original,target)
+            with zipfile.ZipFile(archive) as z: entry=z.read('META-INF/com/google/android/update-binary').decode()
+            expected='BLOCK=/dev/block/bootdevice/by-name/boot'
+            self.assertEqual(entry.count(expected),1);entry=entry.replace(expected,'BLOCK="'+str(target)+'"',1)
+            self.assertEqual(entry.count('[ -b "$BLOCK" ]'),1);entry=entry.replace('[ -b "$BLOCK" ]','[ -f "$BLOCK" ]',1)
+            script=t/'entry';script.write_text(entry)
+            (bin/'getprop').write_text('#!/bin/sh\ncase "$1" in ro.product.device) echo joyeuse;; ro.build.ab_update) echo false;; ro.boot.flash.locked) echo 0;; esac\n')
+            (bin/'unzip').write_text('#!/bin/sh\nif [ "$3" = tools/busybox ]; then cat "'+str(t/'fakebusy')+'"; else exec /usr/bin/unzip "$@"; fi\n')
+            (t/'fakebusy').write_text('''#!/bin/sh
+if [ "$1" = blockdev ]; then
+  case "$2" in --getsize64) echo 134217728; exit 0;; --getro) echo 0; exit 0;; esac
+fi
+exec /usr/bin/busybox "$@"
+''')
+            (bin/'getprop').chmod(0o755);(bin/'unzip').chmod(0o755)
+            p=subprocess.run(['busybox','ash',str(script),'3','1',str(archive)],env=os.environ|{'PATH':str(bin)+':'+os.environ['PATH']},text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=120)
+            self.assertEqual(p.returncode,0,p.stdout);self.assertIn('readback selesai',p.stdout)
+            with target.open('rb') as f: h=hashlib.file_digest(f,'sha256').hexdigest()
+            self.assertEqual(h,'5b772f4a8b8cc24c84ff57d619c63cd0710ff95858687aa4382350339f75564b')
+            with original.open('rb') as f: h=hashlib.file_digest(f,'sha256').hexdigest()
+            self.assertEqual(h,'d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f')
