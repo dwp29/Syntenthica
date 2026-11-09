@@ -114,6 +114,8 @@ import com.rifsxd.ksunext.ui.theme.IosRow
 import com.rifsxd.ksunext.ui.theme.IosTeal
 import com.rifsxd.ksunext.ui.theme.IosTile
 import com.rifsxd.ksunext.ui.theme.iosGlass
+import com.rifsxd.ksunext.ui.util.RootChannel
+import com.rifsxd.ksunext.ui.util.detectRootChannel
 import com.rifsxd.ksunext.ui.util.getMetaModule
 import com.rifsxd.ksunext.ui.util.getModuleCount
 import com.rifsxd.ksunext.ui.util.getSELinuxStatus
@@ -188,9 +190,13 @@ fun HomeScreen(navigator: DestinationsNavigator) {
     }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var universalRoot by remember { mutableStateOf(false) }
+    // Only shown when the kernel is foreign, so the user can see *why* a feature
+    // is unavailable instead of a status that silently lies.
+    var rootChannel by remember { mutableStateOf(RootChannel.NONE) }
     LaunchedEffect(isManager) {
         if (!isManager) {
             universalRoot = probeUniversalRoot60()
+            rootChannel = detectRootChannel()
         }
     }
 
@@ -415,10 +421,14 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                         icon = Icons.Rounded.Hub,
                         badgeColor = if (universalRoot) IosCyanDark else IosOrangeDark,
                         title = stringResource(R.string.manager60_universal_mode),
-                        subtitle = if (universalRoot) {
-                            stringResource(R.string.manager60_bridge_row_sub)
-                        } else {
-                            stringResource(R.string.pixel40_root_required)
+                        subtitle = when {
+                            universalRoot && rootChannel == RootChannel.SU ->
+                                stringResource(R.string.manager60_bridge_row_sub_su)
+                            universalRoot -> stringResource(R.string.manager60_bridge_row_sub)
+                            // No root: name the exact layer that failed instead of
+                            // telling the user to install a kernel that may already
+                            // be installed but signed for another manager.
+                            else -> stringResource(R.string.manager60_no_root_reason)
                         },
                         pill = stringResource(
                             if (universalRoot) R.string.manager60_bridge_active

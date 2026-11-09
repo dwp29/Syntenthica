@@ -19,6 +19,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.DeveloperBoard
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Security
@@ -33,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +50,8 @@ import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.rifsxd.ksunext.BuildConfig
 import com.rifsxd.ksunext.Natives
 import com.rifsxd.ksunext.R
+import com.rifsxd.ksunext.ui.component.BrandIconRow
+import com.rifsxd.ksunext.ui.component.rememberSafeLinkOpener
 import com.rifsxd.ksunext.ui.theme.GlassTopBar
 import com.rifsxd.ksunext.ui.theme.LocalManagerStyle
 import com.rifsxd.ksunext.ui.theme.ManagerStyle
@@ -57,14 +63,16 @@ import com.rifsxd.ksunext.ui.theme.IosGroup
 import com.rifsxd.ksunext.ui.theme.IosGroupDivider
 import com.rifsxd.ksunext.ui.theme.IosIndigoDark
 import com.rifsxd.ksunext.ui.theme.IosPill
+import com.rifsxd.ksunext.ui.theme.IosPinkDark
 import com.rifsxd.ksunext.ui.theme.IosPurpleDark
 import com.rifsxd.ksunext.ui.theme.IosRow
 import com.rifsxd.ksunext.ui.theme.iosGlass
+import com.rifsxd.ksunext.ui.util.AppCredit60
 
 @Destination<RootGraph>
 @Composable
 fun AboutScreen(navigator: DestinationsNavigator) {
-    val uriHandler = LocalUriHandler.current
+    val openLink = rememberSafeLinkOpener()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val uname = Os.uname()
     val isManager = Natives.isManager
@@ -161,6 +169,105 @@ fun AboutScreen(navigator: DestinationsNavigator) {
                 )
             }
 
+            // Who built this APK. The Telegram row is the only contact channel and
+            // opens the profile directly in the Telegram app.
+            IosGroup(title = stringResource(R.string.about_author_group)) {
+                IosRow(
+                    icon = Icons.Rounded.Person,
+                    badgeColor = IosBlueDark,
+                    title = stringResource(R.string.about_author_name),
+                    subtitle = stringResource(R.string.about_author_role),
+                )
+                IosGroupDivider()
+                BrandIconRow(
+                    drawableRes = R.drawable.ic_telegram,
+                    badgeColor = IosCyanDark,
+                    title = AppCredit60.TELEGRAM_HANDLE,
+                    subtitle = stringResource(R.string.about_author_tg_sub),
+                    showChevron = true,
+                    onClick = {
+                        openLink(AppCredit60.TELEGRAM_URL, R.string.about_link_failed)
+                    },
+                )
+            }
+
+            IosGroup(title = stringResource(R.string.about_source_group)) {
+                BrandIconRow(
+                    drawableRes = R.drawable.ic_github,
+                    badgeColor = IosIndigoDark,
+                    title = stringResource(R.string.about_source_repo),
+                    subtitle = stringResource(R.string.about_source_repo_sub),
+                    value = "dwp29/Syntenthica",
+                    showChevron = true,
+                    onClick = {
+                        openLink(AppCredit60.SOURCE_URL, R.string.about_link_failed)
+                    },
+                )
+                IosGroupDivider()
+                IosRow(
+                    icon = Icons.Rounded.Folder,
+                    badgeColor = IosPurpleDark,
+                    title = stringResource(R.string.about_source_manager),
+                    subtitle = stringResource(R.string.about_source_manager_sub),
+                    showChevron = true,
+                    onClick = {
+                        openLink(AppCredit60.SOURCE_MANAGER_URL, R.string.about_link_failed)
+                    },
+                )
+                IosGroupDivider()
+                IosRow(
+                    icon = Icons.Rounded.Code,
+                    badgeColor = IosPurpleDark,
+                    title = stringResource(R.string.about_source_upstream),
+                    subtitle = stringResource(R.string.about_source_upstream_sub),
+                    showChevron = true,
+                    onClick = {
+                        openLink(AppCredit60.UPSTREAM_URL, R.string.about_link_failed)
+                    },
+                )
+            }
+
+            // Licence. GPL-3.0 is not decoration: this APK is a derivative of
+            // KernelSU-Next, so the source offer has to be one tap away.
+            IosGroup(title = stringResource(R.string.about_license)) {
+                IosRow(
+                    icon = Icons.Rounded.Gavel,
+                    badgeColor = IosGreenDark,
+                    title = AppCredit60.LICENSE_NAME,
+                    subtitle = stringResource(R.string.about_license_sub),
+                    pill = AppCredit60.LICENSE_SPDX,
+                    pillColor = IosGreenDark,
+                )
+                IosGroupDivider()
+                IosRow(
+                    icon = Icons.Rounded.Description,
+                    badgeColor = IosGreenDark,
+                    title = stringResource(R.string.about_license_open),
+                    subtitle = "gnu.org/licenses/gpl-3.0.txt",
+                    showChevron = true,
+                    onClick = {
+                        openLink(AppCredit60.LICENSE_URL, R.string.about_link_failed)
+                    },
+                )
+            }
+
+            // Donation slot: reserved on purpose, disabled on purpose. No wallet
+            // and no provider is invented while the author has not chosen one.
+            IosGroup(
+                title = stringResource(R.string.about_donate_group),
+                footer = stringResource(R.string.about_donate_sub_empty),
+            ) {
+                IosRow(
+                    icon = Icons.Rounded.Favorite,
+                    badgeColor = IosPinkDark,
+                    title = stringResource(R.string.about_donate),
+                    subtitle = stringResource(R.string.about_donate_sub_empty),
+                    pill = stringResource(R.string.about_donate_soon),
+                    pillColor = IosPinkDark,
+                    enabled = false,
+                )
+            }
+
             IosGroup(
                 title = stringResource(R.string.synthetica_about_credits_group),
                 footer = stringResource(R.string.synthetica_about_credits_sub),
@@ -171,7 +278,9 @@ fun AboutScreen(navigator: DestinationsNavigator) {
                     title = "KernelSU-Next & SuSFS",
                     subtitle = "github.com/KernelSU-Next/KernelSU-Next • GPL-3.0",
                     showChevron = true,
-                    onClick = { uriHandler.openUri("https://github.com/KernelSU-Next/KernelSU-Next") },
+                    onClick = {
+                        openLink(AppCredit60.UPSTREAM_URL, R.string.about_link_failed)
+                    },
                 )
             }
         }

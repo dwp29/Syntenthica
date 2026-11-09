@@ -40,6 +40,66 @@ private fun getKsuDaemonPath(): String {
     return ksuApp.applicationInfo.nativeLibraryDir + File.separator + "libksud.so"
 }
 
+/**
+ * Which chain of commands produced the root shell. Kept as an enum so callers
+ * (diagnostics, UI) can show the truth instead of guessing.
+ */
+enum class RootChannel {
+    /** /system/bin/su — KernelSU family (BakaSU, SukiSU, APatch), Magisk. */
+    SU,
+
+    /** Synthetica's own libksud.so, UAPI 4. */
+    KSUD,
+
+    /** Nothing granted root; the shell is a plain uid 2000 shell. */
+    NONE,
+}
+
+/**
+ * Root shell for BOTH ecosystems, built as an explicit fallback chain.
+ *
+ * `su` comes first: on every KernelSU-family kernel /system/bin/su is the
+ * kernel's own entry point — the request the user approves in the kernel's
+ * manager, and the only one guaranteed to be wired to the driver.
+ *
+ * `libksud.so debug su` is second and only runs when `su` failed. That binary
+ * ships inside our APK regardless of the kernel, so it must never be tried
+ * first, or a foreign ksud would shadow a perfectly good su. In ksud's clap
+ * definition `global_mnt` takes both `-g` and `--global-mnt`; the long form is
+ * used here so an unrelated `-g GROUP` meaning cannot be picked up later.
+ *
+ * A plain `sh` tail keeps an unrooted device usable; it never claims root.
+ */
+fun createRootShellBuilder(globalMnt: Boolean = false): Shell.Builder {
+    return Shell.Builder.create().run {
+        val ksud = getKsuDaemonPath()
+        val cmd = buildString {
+            // Mount-master is requested first but must not take `su` down with
+            // it: Magisk rejects --mount-master, and then the plain su below
+            // still has to run in this same process.
+            if (globalMnt) {
+                append("su --mount-master || ")
+            }
+            append("su || ")
+            append("$ksud debug su")
+            if (globalMnt) append(" --global-mnt")
+            append(" || sh")
+        }
+        setCommands("sh", "-c", cmd)
+    }
+}
+
+/**
+ * Which layer is answering, derived from facts only:
+ * a live UID-0 `su` means the kernel's own root channel, otherwise the KSU
+ * driver tells us whether our libksud can be used, otherwise there is nothing.
+ */
+fun detectRootChannel(): RootChannel = when {
+    probeSuRoot() -> RootChannel.SU
+    runCatching { Natives.isManager }.getOrDefault(false) -> RootChannel.KSUD
+    else -> RootChannel.NONE
+}
+
 data class FlashResult(val code: Int, val err: String, val showReboot: Boolean) {
     constructor(result: Shell.Result, showReboot: Boolean) : this(result.code, result.err.joinToString("\n"), showReboot)
     constructor(result: Shell.Result) : this(result, result.isSuccess)
@@ -64,14 +124,28 @@ fun Uri.getFileName(context: Context): String? {
     return fileName
 }
 
+/**
+ * Root shell for BOTH ecosystems.
+ *
+ * Order matters. `su` first, because on KernelSU-family kernels (BakaSU,
+ * SukiSU, ReSukiSU, APatch, official KSU) /system/bin/su is a symlink that the
+ * kernel resolves straight to its own su daemon — it is the only path that
+ * works, and it is what the user approves in the kernel's own manager.
+ *
+ * `ksud debug su` is tried second: only Synthetica's native kernel ships a
+ * libksud.so we may call, and its --mount-master flag is spelled -M.
+ *
+ * The bare `sh` fallback stays last so a plain unrooted device still gets a
+ * usable (non-root) shell instead of an exception.
+ */
 fun createRootShellBuilder(globalMnt: Boolean = false): Shell.Builder {
     return Shell.Builder.create().run {
         val cmd = buildString {
-            append("${getKsuDaemonPath()} debug su")
-            if (globalMnt) append(" -g")
-            append(" || ")
             append("su")
             if (globalMnt) append(" --mount-master")
+            append(" || ")
+            append("${getKsuDaemonPath()} debug su")
+            if (globalMnt) append(" -M")
             append(" || ")
             append("sh")
         }
@@ -478,6 +552,45 @@ fun flashAnyKernelZip(
 }
 
 fun rootAvailable() = Shell.isAppGrantedRoot() == true
+
+/**
+ * True only when a root shell is reachable AND it is really UID 0.
+ *
+ * The old version trusted the exit code of the whole `... || sh` chain; because
+ * `sh` always succeeds, every device looked rooted and helpers silently ran as
+ * uid 2000. libsu already classifies the shell for us (it runs `id` once at
+ * startup and only reports ROOT_SHELL on `uid=0`), so `isRoot` is the answer —
+ * the explicit `id -u` is kept as a second, cheap confirmation for the case
+ * where the shell was built before that check completed.
+ */
+fun probeSuRoot(): Boolean {
+    if (rootAvailable()) return true
+    return runCatching {
+        createRootShell(false).use { shell ->
+            if (shell.isRoot) return@use true
+            val out = ArrayList<String>()
+            val job = shell.newJob().add("id -u").to(out, null).exec()
+            job.isSuccess && out.firstOrNull()?.trim() == "0"
+        }
+    }.getOrDefault(false)
+}
+
+/**
+ * Same probe, mount-master variant. Kept separate because a global mount
+ * namespace is required for module helpers but is not offered by every su
+ * (Magisk hides it, APatch accepts it); a failure here must fall back to the
+ * normal namespace instead of declaring root missing.
+ */
+fun probeSuRootGlobal(): Boolean {
+    return runCatching {
+        createRootShell(true).use { shell ->
+            if (shell.isRoot) return@use true
+            val out = ArrayList<String>()
+            val job = shell.newJob().add("id -u").to(out, null).exec()
+            job.isSuccess && out.firstOrNull()?.trim() == "0"
+        }
+    }.getOrDefault(false)
+}
 
 fun isInitBoot(): Boolean {
     return !Os.uname().release.contains("android12-")

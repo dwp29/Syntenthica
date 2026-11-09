@@ -31,6 +31,11 @@ DEX_MARKERS = (
     b"manager_anim_speed",
     b"synthetica-manager-6.0.0",
     b"manager_visual_style",
+    # About page: author identity, source offer, licence and the donation slot.
+    b"Pure_Saturday",
+    b"https://t.me/Pure_Saturday",
+    b"https://github.com/dwp29/Syntenthica",
+    b"GPL-3.0-only",
 )
 
 
@@ -101,6 +106,14 @@ def verify(apk: Path) -> None:
                     b"manager60_universal_bridge_title", b"manager60_export_json", b"manager60_bridge_native"):
             if key not in arsc and not any(key.decode() in n for n in names):
                 raise ValueError(f"resource string missing from APK: {key!r}")
+        for key in (b"about_author_group", b"about_source_repo", b"about_license",
+                    b"about_donate_sub_empty"):
+            if key not in arsc:
+                raise ValueError(f"About-page resource string missing: {key!r}")
+        for glyph in ("res/drawable/ic_telegram", "res/drawable/ic_github"):
+            # Compiled drawables become res/xx.xml; match the resource name instead.
+            if glyph.rsplit("/", 1)[1].encode() not in arsc:
+                raise ValueError(f"About-page brand glyph missing: {glyph}")
         for emblem in ("ic_emblem_pixel", "ic_emblem_cyberpunk", "ic_emblem_ios_glass", "ic_emblem_neon"):
             if emblem.encode() not in arsc and not any(emblem in n for n in names):
                 raise ValueError(f"theme PNG emblem missing from APK: {emblem}")
@@ -115,6 +128,7 @@ def verify(apk: Path) -> None:
     print("  Universal Root Bridge, telemetry, .ko loader and diag markers in DEX")
     print("  4 PNG emblems, 4 splash tags, localized manager60_* strings")
     print("  installer scripts unchanged from the 2.0 baseline")
+    print("  About page: author @Pure_Saturday, source offer, GPL-3.0-only, donation placeholder")
     print("Not verified: Android install, live su/root, real module loading or boot behaviour.")
 
 

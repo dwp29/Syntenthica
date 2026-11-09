@@ -1,0 +1,48 @@
+Synthetica Manager
+==================
+
+Author of this build
+--------------------
+Pure_Saturday  —  Telegram @Pure_Saturday
+https://t.me/Pure_Saturday
+
+Full source (kernel, modules, documentation, this Manager)
+----------------------------------------------------------
+https://github.com/dwp29/Syntenthica
+Manager sources: https://github.com/dwp29/Syntenthica/tree/main/synthetica-manager
+
+Licence
+-------
+GNU General Public License, version 3 (GPL-3.0-only).
+The full text is in LICENSE next to this file; a copy is also at
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+Because this APK is distributed as a binary, GPL-3.0 section 6 requires the
+complete corresponding source to be available from the same place the binary
+is distributed. The repository above is that source offer.
+
+Upstream and third-party components
+-----------------------------------
+This Manager is a heavily modified derivative of KernelSU-Next's manager
+(GPL-3.0): https://github.com/KernelSU-Next/KernelSU-Next
+KernelSU-Next itself derives from KernelSU (GPL-3.0) by weishu and contributors.
+
+Additional runtime components keep their own licences:
+
+  * libsu (com.github.topjohnwu.libsu) — Apache-2.0, Copyright topjohnwu
+  * AndroidX / Jetpack Compose / Material 3 — Apache-2.0, Copyright Google
+  * Kotlin, kotlinx.coroutines — Apache-2.0, Copyright JetBrains
+  * Coil image loader — Apache-2.0, Copyright Coil contributors
+  * OkHttp — Apache-2.0, Copyright Square
+  * Simple Icons glyphs (ic_telegram, ic_github drawables) — CC0-1.0
+  * Bundled shell helpers (assets/synthetica-*.sh) — GPL-3.0, part of this project
+
+No warranty: this software is provided "as is", without even the implied
+warranty of merchantability or fitness for a particular purpose. See the GPL
+text for the full disclaimer. Flashing a kernel or granting root can brick a
+device; you do so at your own risk.
+
+Donations
+---------
+No donation address is configured in this build. The About page reserves a slot
+for it and shows it as a disabled placeholder until the author publishes one.

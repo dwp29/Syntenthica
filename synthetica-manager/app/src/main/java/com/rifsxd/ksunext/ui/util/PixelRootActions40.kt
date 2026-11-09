@@ -14,16 +14,17 @@ private val pixelActionMutex40 = Mutex()
 fun canActImmediate60(): Boolean =
     (Natives.isManager && Natives.isFullFeatured()) || rootAvailable()
 
+/**
+ * One bounded root check, shared by every screen. Never reports success just
+ * because a shell was spawned: the shell must actually be UID 0.
+ */
 suspend fun probeUniversalRoot60(): Boolean = withContext(Dispatchers.IO) {
-    if (canActImmediate60()) return@withContext true
-    runCatching {
-        createRootShell(true).use { shell ->
-            val out = ArrayList<String>()
-            val res = shell.newJob().add("id -u").to(out, null).exec()
-            res.isSuccess && out.firstOrNull()?.trim() == "0"
-        }
-    }.getOrDefault(false)
+    probeSuRoot()
 }
+
+/** Shown when a helper is blocked: names the missing layer, not a guess. */
+fun rootDeniedHint60(): String =
+    "Root tidak tersedia: su menolak atau tidak ada. Universal Bridge butuh UID 0."
 
 suspend fun runPixelAction40(context: Context, kind: String, action: String): PixelActionResult40 =
     pixelActionMutex40.withLock {

@@ -69,13 +69,62 @@ class StandaloneTreeTests(unittest.TestCase):
     def test_universal_root_bridge_falls_back_to_su(self) -> None:
         actions = read("app/src/main/java/com/rifsxd/ksunext/ui/util/PixelRootActions40.kt")
         self.assertIn("fun canActImmediate60()", actions)
+        # The probe must be the shared, UID-0-verified one; a local copy is how
+        # the "|| sh always succeeds" false positive came back last time.
         self.assertIn("fun probeUniversalRoot60()", actions)
-        self.assertIn("createRootShell(true)", actions)
-        self.assertIn("id -u", actions)
+        self.assertIn("probeSuRoot()", actions)
+        self.assertNotIn("id -u", actions)
         home = read("app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt")
         self.assertIn("probeUniversalRoot60()", home)
         self.assertIn("UNIVERSAL ROOT", home)
         self.assertIn("manager60_universal_bridge_title", home)
+        self.assertIn("detectRootChannel()", home)
+        self.assertIn("RootChannel.SU", home)
+
+    def test_root_shell_tries_su_before_the_bundled_ksud(self) -> None:
+        cli = read("app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt")
+        # A phone with a real, kernel-provided su must never be shadowed by our
+        # own libksud.so, which exists in every install regardless of kernel.
+        chain_start = cli.index("fun createRootShellBuilder(")
+        chain = cli[chain_start:cli.index("setCommands", chain_start)]
+        self.assertLess(chain.index('append("su'), chain.index("debug su"))
+        self.assertIn("--global-mnt", chain)
+        self.assertNotIn('debug su -g', chain)
+        # libsu reports ROOT_SHELL only after `id` printed uid=0; the exit code of
+        # the whole `|| sh` chain is meaningless, so it must not be trusted alone.
+        probe_start = cli.index("fun probeSuRoot()")
+        probe = cli[probe_start:cli.index("fun probeSuRootGlobal()")]
+        self.assertIn("shell.isRoot", probe)
+
+    def test_about_page_credits_author_source_licence_and_donation_slot(self) -> None:
+        credit = read("app/src/main/java/com/rifsxd/ksunext/ui/util/AppCredit60.kt")
+        self.assertIn('AUTHOR = "Pure_Saturday"', credit)
+        self.assertIn('TELEGRAM_URL = "https://t.me/Pure_Saturday"', credit)
+        self.assertIn('SOURCE_URL = "https://github.com/dwp29/Syntenthica"', credit)
+        self.assertIn('LICENSE_SPDX = "GPL-3.0-only"', credit)
+        # The donation slot stays empty on purpose until the author publishes one.
+        self.assertIn('DONATE_URL = ""', credit)
+        self.assertIn("donateConfigured", credit)
+
+        about = read("app/src/main/java/com/rifsxd/ksunext/ui/screen/About.kt")
+        for marker in ("AppCredit60.TELEGRAM_HANDLE", "R.drawable.ic_telegram",
+                       "R.drawable.ic_github", "AppCredit60.SOURCE_URL",
+                       "AppCredit60.LICENSE_SPDX", "R.string.about_donate",
+                       "rememberSafeLinkOpener()"):
+            self.assertIn(marker, about)
+        # Disabled placeholder, not a dead link the user can tap.
+        donate_block = about[about.index("R.string.about_donate_group"):]
+        self.assertIn("enabled = false", donate_block)
+
+        for drawable in ("ic_telegram", "ic_github", "ic_donate_placeholder"):
+            path = TREE / f"app/src/main/res/drawable/{drawable}.xml"
+            self.assertTrue(path.is_file(), f"missing drawable {drawable}")
+            self.assertIn("<vector", path.read_text(encoding="utf-8"))
+        notice = (TREE / "NOTICE").read_text(encoding="utf-8")
+        self.assertIn("Pure_Saturday", notice)
+        self.assertIn("GPL-3.0", notice)
+        offer = (TREE / "SOURCE-OFFER.md").read_text(encoding="utf-8")
+        self.assertIn("synthetica-manager/", offer)
 
     def test_animation_speed_and_json_backup_restore_are_wired(self) -> None:
         visual = read("app/src/main/java/com/rifsxd/ksunext/ui/theme/VisualStyles.kt")
