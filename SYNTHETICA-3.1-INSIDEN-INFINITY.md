@@ -454,3 +454,34 @@ diuji pengguna dengan backup, **bukan perbaikan bootloop yang terbukti**: belum
 diuji pada perangkat, external AVB belum diverifikasi, tiga modul ROM masih
 mismatch, dan tidak dipastikan bootloader memeriksa descriptor embedded. Jangan
 flash control1 lama. Output boot/ZIP disimpan privat, bukan di Git.
+
+## Paket installer 3.1 dengan perbaikan AVB sasaran (tanpa mengunci lintas ROM)
+
+Menindaklanjuti penolakan pembatasan satu-ROM, dibangun paket
+`/home/user/Synthetica-3.1-AVB-Fix-TEST.zip` (21.754.546 byte, SHA-256
+`dfaf4fcd3d4d2b92ca8bddba3fa36687efb9ef28132a775ad236de34a5793187`) berbasis
+ZIP `Synthetica-3.1-Installer-2.0-TEST.zip` (`1ffe861ceaa2775e4f75bc9f7ecd4b7c56cf9c146f1690eb941c8dd2e5200d4a`):
+
+- `Image.gz` (`650d5f1e9e73788babeb67e5a21a30e565babd059f8cd908c318531464a74287`),
+  `ksud` (`52ba3da465459bfbac98dd25c53f8d31f93ee5a8ee89d84f67a28fe0d18cdef2`),
+  `anykernel.sh`, dan `META-INF/com/google/android/update-binary` tetap sama
+  dengan 3.1 asli.
+- Pada `tools/ak3-core.sh`, jalur installer untuk boot image lain tetap sama
+  seperti 3.1 sebelumnya. Hanya ketika SHA-256 `BOOTIMG` cocok dengan boot stock
+  resmi Project Infinity X 4.1 GAPPS (`d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f`),
+  helper ARM statis `tools/fix-avb` (blob `10c55e422d776e5fc94c8ea00f2ecf3c93d875d6`,
+  SHA-256 `dce88cfbc61a1d1c54aa21a6654e9974581cc21d478c1675b2fecfeb1b1ba5ca`)
+  memperbarui `image_size` dan digest descriptor AVB embedded `NONE` (`sha256`,
+  partisi `boot`) pada `boot-new.img` sebelum penulisan ke partisi. Jika
+  validasi atau perbaikan gagal, installer membatalkan sebelum menulis boot.
+- Diverifikasi di [CI 42579621549](https://github.com/dwp29/Syntenthica/actions/runs/42579621549):
+  uji unit host + ARM (`test_synthetica31_avb_fix.py`), uji jalur AnyKernel
+  sintetis lintas boot (`test_synthetica31_package_qemu.py`), serta uji penuh
+  installer di atas salinan `boot.img` publik Infinity 4.1 GAPPS
+  (`test_synthetica31_avbfix_infinity_qemu.py`) lulus verifikasi hash AVB
+  embedded.
+- Batasan jujur: ini memperbaiki inkonsistensi hash AVB embedded `NONE` hasil
+  repack yang terbukti secara offline, **bukan bukti pasti perbaikan bootloop
+  di perangkat fisik**. Boot fisik, recovery nyata, rantai AVB/vbmeta eksternal,
+  dan efek runtime ketidakcocokan tiga modul vendor ROM (`gspca_main.ko`,
+  `rmnet_perf.ko`, `rmnet_shs.ko`) belum diuji pada perangkat.
