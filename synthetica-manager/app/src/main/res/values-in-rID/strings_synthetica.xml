@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation Bar (APK 1.16 Menu Layout) -->
+    <string name="ios_nav_home">Beranda</string>
+    <string name="ios_nav_apps">Aplikasi root</string>
+    <string name="ios_nav_modules">Modul</string>
+    <string name="ios_nav_settings">Setelan</string>
+
+    <!-- Home Screen -->
+    <string name="ios_home_active_kernel">Kernel yang aktif</string>
+    <string name="ios_home_rooted">Ada root</string>
+    <string name="ios_home_tap_install">Ketuk untuk pasang</string>
+    <string name="ios_home_status">Status</string>
+    <string name="ios_home_kernel">Kernel</string>
+    <string name="ios_home_manager">Manajer</string>
+    <string name="ios_home_root_access">Akses root</string>
+    <string name="ios_home_yes">Aktif</string>
+    <string name="ios_home_no">Nonaktif</string>
+    <string name="ios_home_hiding">Dukungan kernel SuSFS</string>
+    <string name="ios_home_hiding_sub">Hanya fitur yang dilaporkan; penyembunyian aktif belum diverifikasi</string>
+    <string name="ios_home_on">Aktif</string>
+    <string name="ios_home_off">Standar</string>
+    <string name="ios_home_system_details">Detail sistem &amp; lingkungan</string>
+    <string name="ios_home_metamodule">Metamodule</string>
+    <string name="ios_home_zygisk">Zygisk</string>
+    <string name="ios_home_selinux">SELinux</string>
+    <string name="ios_home_android_sdk">Android</string>
+    <string name="ios_home_abi">Arsitektur</string>
+
+    <!-- Home 2x2 Menu Tiles -->
+    <string name="ios_tile_modules">Modul</string>
+    <string name="ios_tile_modules_sub">Systemless &amp; OverlayFS</string>
+    <string name="ios_tile_apps">Aplikasi root</string>
+    <string name="ios_tile_apps_sub">Superuser &amp; profil</string>
+    <string name="ios_tile_install">Pasang kernel</string>
+    <string name="ios_tile_install_sub">Boot image atau AnyKernel3</string>
+    <string name="ios_tile_settings">Setelan</string>
+    <string name="ios_tile_settings_sub">Fitur, Boost &amp; alat</string>
+    <string name="ios_items_fmt">%1$d aktif</string>
+
+    <!-- Quick Utilities -->
+    <string name="ios_quick_utilities">Alat cepat</string>
+    <string name="ios_boost_title">Synthetica Boost</string>
+    <string name="ios_boost_sub">Optimasi latensi Wi-Fi TCP &amp; penguat suara</string>
+    <string name="ios_metamodule_sub">Kelola implementasi mount modul</string>
+
+    <!-- Settings Screen Groups -->
+    <string name="ios_group_kernel_root">Kernel &amp; Root</string>
+    <string name="ios_group_tools">Alat &amp; Modul</string>
+    <string name="ios_group_app">Tampilan &amp; Aplikasi</string>
+    <string name="ios_sulog_viewer">Riwayat SU Log</string>
+    <string name="ios_sulog_viewer_sub">Lihat catatan akses &amp; perintah superuser</string>
+    <string name="ios_customization_sub">Bahasa, tema, AMOLED dan navigasi</string>
+    <string name="ios_developer_sub">Opsi diagnostik lanjutan &amp; WebUI</string>
+    <string name="ios_export_sub">Simpan atau bagikan arsip log diagnostik</string>
+    <string name="ios_about_title">Tentang Synthetica</string>
+    <string name="ios_about_sub">Manager 6.0.0 Mandiri, UAPI v4 dan Universal Kernel Bridge</string>
+
+    <!-- Synthetica Boost Screen -->
+    <string name="synthetica_boost_network_group">Jaringan</string>
+    <string name="synthetica_boost_wifi_title">Wi-Fi &amp; TCP Boost</string>
+    <string name="synthetica_boost_wifi_sub">Optimasi buffer soket TCP, Fast Open, fq_codel &amp; matikan jeda hemat daya Wi-Fi</string>
+    <string name="synthetica_boost_tcp_cong">Kongesti TCP</string>
+    <string name="synthetica_boost_wifi_ps">Hemat daya Wi-Fi</string>
+    <string name="synthetica_boost_network_footer">Tuning runtime opsional dan tergantung perangkat.</string>
+    <string name="synthetica_boost_audio_group">Audio</string>
+    <string name="synthetica_boost_sound_title">Penguat Gain Audio</string>
+    <string name="synthetica_boost_sound_sub">Meningkatkan gain volume digital RX ALSA Qualcomm via tinymix</string>
+    <string name="synthetica_boost_sound_level">Target gain digital</string>
+    <string name="synthetica_boost_audio_footer">Gain bawaan berbeda tiap perangkat. Gain tinggi dapat merusak pendengaran.</string>
+    <string name="synthetica_boost_root_required">Akses root diperlukan untuk mengaktifkan skrip Synthetica Boost.</string>
+
+    <!-- Customization Screen -->
+    <string name="synthetica_custom_glass_group">Tampilan</string>
+    <string name="synthetica_amoled_glass_title">Hitam AMOLED</string>
+    <string name="synthetica_amoled_glass_sub">Gunakan latar OLED hitam</string>
+    <string name="synthetica_custom_layout_group">Antarmuka &amp; Tata Letak</string>
+
+    <!-- About Screen -->
+    <string name="synthetica_about_tagline">Manajer kernel &amp; root dengan banyak tema</string>
+    <string name="synthetica_about_build_group">Informasi Rilis</string>
+    <string name="synthetica_about_platform">Platform target</string>
+    <string name="synthetica_about_platform_val">Qualcomm Snapdragon 720G (miatoll)</string>
+    <string name="synthetica_about_protocol">Protokol KernelSU</string>
+    <string name="synthetica_about_credits_group">Fondasi Sumber Terbuka</string>
+    <string name="synthetica_about_credits_sub">Dibangun di atas KernelSU-Next &amp; SuSFS berlisensi GNU GPLv3</string>
+
+    <string name="neon_back">Kembali</string>
+    <string name="neon_manager_title">Synthetica Manager</string>
+    <string name="neon_quick_actions">AKSES CEPAT</string>
+    <string name="neon_motion_title">Animasi tampilan</string>
+    <string name="neon_motion_subtitle">Animasi aksen dan navigasi; mengikuti pengaturan sistem</string>
+    <string name="neon_accent_group">Aksen</string>
+    <string name="neon_accent_cyan">Bawaan tema</string>
+    <string name="neon_accent_pink">Alternatif A</string>
+    <string name="neon_accent_violet">Alternatif B</string>
+    <string name="neon_accent_lime">Alternatif C</string>
+    <string name="neon_seccomp_title">SECCOMP (utas UI)</string>
+    <string name="neon_seccomp_subtitle">Hanya utas Manager ini, bukan status global</string>
+    <string name="neon_seccomp_filter">Filter</string>
+    <string name="neon_seccomp_strict">Ketat</string>
+    <string name="neon_seccomp_disabled">Nonaktif</string>
+    <string name="neon_seccomp_unavailable">Tidak tersedia</string>
+    <string name="neon_seccomp_unknown">Tidak diketahui</string>
+</resources>

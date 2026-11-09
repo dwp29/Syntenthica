@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation Bar (APK 1.16 Menu Layout) -->
+    <string name="ios_nav_home">Home</string>
+    <string name="ios_nav_apps">Root apps</string>
+    <string name="ios_nav_modules">Modules</string>
+    <string name="ios_nav_settings">Settings</string>
+
+    <!-- Home Screen -->
+    <string name="ios_home_active_kernel">Active kernel</string>
+    <string name="ios_home_rooted">Rooted</string>
+    <string name="ios_home_tap_install">Tap to install</string>
+    <string name="ios_home_status">Status</string>
+    <string name="ios_home_kernel">Kernel</string>
+    <string name="ios_home_manager">Manager</string>
+    <string name="ios_home_root_access">Root access</string>
+    <string name="ios_home_yes">Active</string>
+    <string name="ios_home_no">Inactive</string>
+    <string name="ios_home_hiding">SuSFS kernel support</string>
+    <string name="ios_home_hiding_sub">Reported features only; active hiding is unverified</string>
+    <string name="ios_home_on">On</string>
+    <string name="ios_home_off">Standard</string>
+    <string name="ios_home_system_details">System &amp; environment details</string>
+    <string name="ios_home_metamodule">Metamodule</string>
+    <string name="ios_home_zygisk">Zygisk</string>
+    <string name="ios_home_selinux">SELinux</string>
+    <string name="ios_home_android_sdk">Android</string>
+    <string name="ios_home_abi">Architecture</string>
+
+    <!-- Home 2x2 Menu Tiles -->
+    <string name="ios_tile_modules">Modules</string>
+    <string name="ios_tile_modules_sub">Systemless &amp; OverlayFS</string>
+    <string name="ios_tile_apps">Root apps</string>
+    <string name="ios_tile_apps_sub">Superuser &amp; profiles</string>
+    <string name="ios_tile_install">Install kernel</string>
+    <string name="ios_tile_install_sub">Boot image or AnyKernel3</string>
+    <string name="ios_tile_settings">Settings</string>
+    <string name="ios_tile_settings_sub">Features, Boost &amp; tools</string>
+    <string name="ios_items_fmt">%1$d active</string>
+
+    <!-- Quick Utilities -->
+    <string name="ios_quick_utilities">Quick tools</string>
+    <string name="ios_boost_title">Synthetica Boost</string>
+    <string name="ios_boost_sub">Wi-Fi TCP low-latency &amp; audio codec gain</string>
+    <string name="ios_metamodule_sub">Manage mount implementation</string>
+
+    <!-- Settings Screen Groups -->
+    <string name="ios_group_kernel_root">Kernel &amp; Root</string>
+    <string name="ios_group_tools">Tools &amp; Modules</string>
+    <string name="ios_group_app">Appearance &amp; App</string>
+    <string name="ios_sulog_viewer">SU Log Viewer</string>
+    <string name="ios_sulog_viewer_sub">Inspect superuser grant &amp; command history</string>
+    <string name="ios_customization_sub">Language, themes, AMOLED and navigation</string>
+    <string name="ios_developer_sub">Advanced diagnostics &amp; WebUI options</string>
+    <string name="ios_export_sub">Save or share system diagnostic archive</string>
+    <string name="ios_about_title">About Synthetica</string>
+    <string name="ios_about_sub">Manager 6.0.0 Standalone, UAPI v4 and Universal Kernel Bridge</string>
+
+    <!-- Synthetica Boost Screen -->
+    <string name="synthetica_boost_network_group">Network</string>
+    <string name="synthetica_boost_wifi_title">Wi-Fi &amp; TCP Boost</string>
+    <string name="synthetica_boost_wifi_sub">Optimizes TCP socket buffers, Fast Open, fq_codel &amp; disables Wi-Fi power-save latency spikes</string>
+    <string name="synthetica_boost_tcp_cong">TCP congestion</string>
+    <string name="synthetica_boost_wifi_ps">Wi-Fi power save</string>
+    <string name="synthetica_boost_network_footer">Runtime tuning is optional and hardware-dependent.</string>
+    <string name="synthetica_boost_audio_group">Audio</string>
+    <string name="synthetica_boost_sound_title">Codec Gain Booster</string>
+    <string name="synthetica_boost_sound_sub">Raises Qualcomm ALSA digital RX volume gain via tinymix</string>
+    <string name="synthetica_boost_sound_level">Target digital gain</string>
+    <string name="synthetica_boost_audio_footer">Mixer defaults vary by device. High gain can damage hearing.</string>
+    <string name="synthetica_boost_root_required">Root access is required to apply Synthetica Boost scripts.</string>
+
+    <!-- Customization Screen -->
+    <string name="synthetica_custom_glass_group">Appearance</string>
+    <string name="synthetica_amoled_glass_title">AMOLED black</string>
+    <string name="synthetica_amoled_glass_sub">Use a black OLED background</string>
+    <string name="synthetica_custom_layout_group">Interface &amp; Layout</string>
+
+    <!-- About Screen -->
+    <string name="synthetica_about_tagline">Multi-theme kernel &amp; root manager</string>
+    <string name="synthetica_about_build_group">Release Information</string>
+    <string name="synthetica_about_platform">Target platform</string>
+    <string name="synthetica_about_platform_val">Qualcomm Snapdragon 720G (miatoll)</string>
+    <string name="synthetica_about_protocol">KernelSU protocol</string>
+    <string name="synthetica_about_credits_group">Open-Source Foundation</string>
+    <string name="synthetica_about_credits_sub">Built upon KernelSU-Next &amp; SuSFS under GNU GPLv3</string>
+
+    <string name="neon_back">Back</string>
+    <string name="neon_manager_title">Synthetica Manager</string>
+    <string name="neon_quick_actions">QUICK ACCESS</string>
+    <string name="neon_motion_title">Appearance motion</string>
+    <string name="neon_motion_subtitle">Animated accents and navigation; respects system animation settings</string>
+    <string name="neon_accent_group">Accent</string>
+    <string name="neon_accent_cyan">Theme default</string>
+    <string name="neon_accent_pink">Alternative A</string>
+    <string name="neon_accent_violet">Alternative B</string>
+    <string name="neon_accent_lime">Alternative C</string>
+    <string name="neon_seccomp_title">SECCOMP (UI thread)</string>
+    <string name="neon_seccomp_subtitle">This Manager thread only; not a global status</string>
+    <string name="neon_seccomp_filter">Filter</string>
+    <string name="neon_seccomp_strict">Strict</string>
+    <string name="neon_seccomp_disabled">Disabled</string>
+    <string name="neon_seccomp_unavailable">Unavailable</string>
+    <string name="neon_seccomp_unknown">Unknown</string>
+</resources>

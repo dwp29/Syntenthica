@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme50_design_title">Tema desain</string>
+    <string name="theme50_design_footer">Mengubah tata letak, animasi, ikon PNG, splash screen, panel, navigasi dan warna. Fitur dan pengaturan Manager tetap sama.</string>
+    <string name="theme50_pixel">Pixel Signal</string>
+    <string name="theme50_pixel_detail">Panel dot-matrix kotak, ikon PNG piksel, splash LED matrix dan dock datar</string>
+    <string name="theme50_cyber">Cyberpunk</string>
+    <string name="theme50_cyber_detail">Dasbor cyberbrutal bersudut, Solari split-flap, scanline dan HUD volt</string>
+    <string name="theme50_ios">iOS Glass</string>
+    <string name="theme50_ios_detail">Pedestal liquid-glass terpusat, ikon PNG kaca 3D, aurora blur dan dock kapsul</string>
+    <string name="theme50_neon">Neon</string>
+    <string name="theme50_neon_detail">Grid siber neon ganda, ikon PNG neon 3D, pulsa laser dan dock HUD</string>
+    <string name="theme50_preview_splash">Pratinjau splash screen</string>
+    <string name="theme50_preview_splash_sub">Tampilkan ulang animasi splash screen dan ikon PNG tema aktif</string>
+
+    <string name="manager60_telemetry_group">Telemetri hardware &amp; kernel real-time</string>
+    <string name="manager60_telemetry_title">Baca status CPU, GPU, suhu, RAM &amp; MGLRU</string>
+    <string name="manager60_telemetry_sub">Snapshot universal seluruh klaster CPU, suhu baterai, ZRAM/Swap, TCP &amp; I/O</string>
+    <string name="manager60_profiles_group">Profil daya &amp; termal (sysfs universal)</string>
+    <string name="manager60_control_battery">Profil Hemat Baterai / Efisiensi</string>
+    <string name="manager60_control_battery_sub">Batas maks frekuensi 80%, schedutil, level GPU terendah, swappiness 80</string>
+    <string name="manager60_control_cooldown">Profil Pendinginan / Charging</string>
+    <string name="manager60_control_cooldown_sub">Batas maks frekuensi 70% dan redaman panas cepat saat pengisian daya</string>
+
+    <string name="manager60_kmod_group">Modul kernel ekstra Synthetica 3.2 (.ko)</string>
+    <string name="manager60_kmod_footer">Memuat modul kernel bertanda tangan dari /data/adb/modules/synthetica_extra atau /vendor/lib/modules bila tersedia pada kernel aktif.</string>
+    <string name="manager60_kmod_status">Periksa status modul aktif (lsmod)</string>
+    <string name="manager60_kmod_status_sub">Lihat status modul ntfs, wireguard, zsmalloc, lz4_compress dan zstd_compress</string>
+    <string name="manager60_kmod_ntfs">Muat modul filesystem NTFS</string>
+    <string name="manager60_kmod_wireguard">Muat modul VPN WireGuard</string>
+    <string name="manager60_kmod_zsmalloc">Muat modul alokator zsmalloc</string>
+    <string name="manager60_kmod_lz4">Muat modul kompresi LZ4</string>
+    <string name="manager60_kmod_zstd">Muat modul kompresi ZSTD</string>
+
+    <string name="manager60_universal_bridge_title">Jembatan kernel &amp; root universal</string>
+    <string name="manager60_universal_mode">Mode eksekusi kernel aktif</string>
+    <string name="manager60_universal_mode_sub">Mendukung Native Synthetica UAPI v4 serta Universal Root Bridge (su) di kernel lain</string>
+    <string name="manager60_log_viewer_group">Pembaca log kernel, pstore &amp; audit boot</string>
+    <string name="manager60_diag_dmesg">Baca ring buffer kernel (dmesg)</string>
+    <string name="manager60_diag_dmesg_sub">Ambil 80 baris terakhir log kernel dmesg berjalan</string>
+    <string name="manager60_diag_pstore">Baca log crash / reboot (pstore / ramoops)</string>
+    <string name="manager60_diag_pstore_sub">Periksa /sys/fs/pstore console-ramoops pasca reboot mendadak</string>
+    <string name="manager60_diag_boot">Baca audit boot, slot, AVB &amp; cmdline</string>
+    <string name="manager60_diag_boot_sub">Periksa uname -a, status SELinux, properti Verified Boot dan /proc/cmdline</string>
+    <string name="manager60_diag_copy">Salin hasil diagnostik ke papan klip</string>
+    <string name="manager60_diag_copy_sub">Salin isi log atau hasil audit yang ditampilkan</string>
+
+    <string name="manager60_anim_speed_normal">Kecepatan animasi: Normal (1.0x)</string>
+    <string name="manager60_anim_speed_turbo">Kecepatan animasi: Turbo (1.8x)</string>
+    <string name="manager60_anim_speed_reduced">Kecepatan animasi: Hemat / Halus (0.5x)</string>
+    <string name="manager60_backup_group">Cadangkan &amp; pulihkan konfigurasi (JSON)</string>
+    <string name="manager60_backup_footer">Ekspor atau impor pengaturan tema, mode gelap, aksen, kilau dan kecepatan animasi dalam format JSON lewat papan klip.</string>
+    <string name="manager60_export_json">Ekspor JSON konfigurasi ke papan klip</string>
+    <string name="manager60_export_json_sub">Salin pengaturan tampilan Synthetica Manager 6.0.0 saat ini</string>
+    <string name="manager60_import_json">Impor JSON konfigurasi dari papan klip</string>
+    <string name="manager60_import_json_sub">Terapkan konfigurasi JSON yang telah disalin sebelumnya</string>
+    <string name="manager60_export_ok">JSON konfigurasi berhasil disalin ke papan klip.</string>
+    <string name="manager60_import_ok">JSON konfigurasi berhasil diimpor dan diterapkan.</string>
+    <string name="manager60_import_fail">Papan klip tidak berisi JSON konfigurasi Synthetica yang valid.</string>
+    <string name="manager60_bridge_active">AKTIF</string>
+    <string name="manager60_bridge_inactive">SIAGA</string>
+    <string name="manager60_bridge_native">NATIF</string>
+    <string name="manager60_bridge_row_sub">Kernel pihak ketiga terdeteksi: Control, Boost, pemuat .ko dan pembaca log berjalan lewat su</string>
+    <string name="manager60_bridge_row_sub_native">Kernel Synthetica: aksi istimewa memakai backend natif UAPI v4</string>
+</resources>

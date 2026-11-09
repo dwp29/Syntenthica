@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme50_design_title">Design theme</string>
+    <string name="theme50_design_footer">Changes layout, animations, PNG emblem, splash screen, panels and navigation. Manager features and settings stay the same.</string>
+    <string name="theme50_pixel">Pixel Signal</string>
+    <string name="theme50_pixel_detail">Square dot-matrix panels, pixel emblem, LED matrix splash and flat dock</string>
+    <string name="theme50_cyber">Cyberpunk</string>
+    <string name="theme50_cyber_detail">Chamfered cyberbrutal deck, Solari split-flap, scanline beam and volt HUD</string>
+    <string name="theme50_ios">iOS Glass</string>
+    <string name="theme50_ios_detail">Centered liquid-glass pedestal, 3D glass emblem, aurora blur and capsule dock</string>
+    <string name="theme50_neon">Neon</string>
+    <string name="theme50_neon_detail">Dual-neon cyber grid, glowing 3D neon emblem, laser pulse and HUD dock</string>
+    <string name="theme50_preview_splash">Preview boot splash</string>
+    <string name="theme50_preview_splash_sub">Replay the selected theme\'s animated splash screen and PNG emblem</string>
+
+    <string name="manager60_telemetry_group">Live hardware &amp; kernel telemetry</string>
+    <string name="manager60_telemetry_title">Read live CPU, GPU, thermal, RAM &amp; MGLRU state</string>
+    <string name="manager60_telemetry_sub">Universal snapshot across all CPU policies, battery temp, ZRAM/Swap, TCP &amp; I/O</string>
+    <string name="manager60_profiles_group">Power &amp; thermal profiles (universal sysfs)</string>
+    <string name="manager60_control_battery">Battery / Efficiency profile</string>
+    <string name="manager60_control_battery_sub">80% max frequency cap, schedutil, lowest GPU floor, swappiness 80</string>
+    <string name="manager60_control_cooldown">Cool-down / Charging profile</string>
+    <string name="manager60_control_cooldown_sub">70% max frequency cap and low thermal dissipation for fast cooling</string>
+
+    <string name="manager60_kmod_group">Synthetica 3.2 extra kernel modules (.ko)</string>
+    <string name="manager60_kmod_footer">Loads signed external kernel modules from /data/adb/modules/synthetica_extra or /vendor/lib/modules when present on the active kernel.</string>
+    <string name="manager60_kmod_status">Inspect loaded module status (lsmod)</string>
+    <string name="manager60_kmod_status_sub">Check ntfs, wireguard, zsmalloc, lz4_compress and zstd_compress state</string>
+    <string name="manager60_kmod_ntfs">Load NTFS filesystem module</string>
+    <string name="manager60_kmod_wireguard">Load WireGuard VPN module</string>
+    <string name="manager60_kmod_zsmalloc">Load zsmalloc allocator module</string>
+    <string name="manager60_kmod_lz4">Load LZ4 compression module</string>
+    <string name="manager60_kmod_zstd">Load ZSTD compression module</string>
+
+    <string name="manager60_universal_bridge_title">Universal kernel &amp; root bridge</string>
+    <string name="manager60_universal_mode">Active kernel mode</string>
+    <string name="manager60_universal_mode_sub">Supports Native Synthetica UAPI v4 and Universal Root Bridge (su) on other kernels</string>
+    <string name="manager60_log_viewer_group">In-app kernel log, pstore &amp; boot audit viewer</string>
+    <string name="manager60_diag_dmesg">Read live kernel ring buffer (dmesg)</string>
+    <string name="manager60_diag_dmesg_sub">Fetch the latest 80 lines of kernel dmesg output</string>
+    <string name="manager60_diag_pstore">Read crash / reboot logs (pstore / ramoops)</string>
+    <string name="manager60_diag_pstore_sub">Inspect /sys/fs/pstore console-ramoops after unexpected reboots</string>
+    <string name="manager60_diag_boot">Read boot, slot, AVB &amp; cmdline audit</string>
+    <string name="manager60_diag_boot_sub">Inspect uname -a, SELinux state, Verified Boot props and /proc/cmdline</string>
+    <string name="manager60_diag_copy">Copy diagnostic output to clipboard</string>
+    <string name="manager60_diag_copy_sub">Copy the fetched log or audit snapshot for sharing</string>
+
+    <string name="manager60_anim_speed_normal">Animation speed: Normal (1.0x)</string>
+    <string name="manager60_anim_speed_turbo">Animation speed: Turbo (1.8x)</string>
+    <string name="manager60_anim_speed_reduced">Animation speed: Eco / Gentle (0.5x)</string>
+    <string name="manager60_backup_group">Configuration backup &amp; restore (JSON)</string>
+    <string name="manager60_backup_footer">Export or import your theme, dark mode, accent, glow and animation speed settings as JSON via clipboard.</string>
+    <string name="manager60_export_json">Export theme config JSON to clipboard</string>
+    <string name="manager60_export_json_sub">Copy current Synthetica Manager 6.0.0 UI configuration</string>
+    <string name="manager60_import_json">Import theme config JSON from clipboard</string>
+    <string name="manager60_import_json_sub">Apply a previously exported JSON configuration</string>
+    <string name="manager60_export_ok">Configuration JSON copied to clipboard.</string>
+    <string name="manager60_import_ok">Configuration JSON imported and applied.</string>
+    <string name="manager60_import_fail">Clipboard does not contain a valid Synthetica JSON configuration.</string>
+    <string name="manager60_bridge_active">ACTIVE</string>
+    <string name="manager60_bridge_inactive">STANDBY</string>
+    <string name="manager60_bridge_native">NATIVE</string>
+    <string name="manager60_bridge_row_sub">Third-party kernel detected: Control, Boost, .ko loader and log viewer run through su</string>
+    <string name="manager60_bridge_row_sub_native">Synthetica kernel: privileged actions use the native UAPI v4 backend</string>
+</resources>
