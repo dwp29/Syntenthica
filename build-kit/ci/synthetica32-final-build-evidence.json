@@ -1,0 +1,52 @@
+{
+  "release": "4.14.357-openela-synthetica-3.2",
+  "base_3_0_commit": "2707a608dc5d86ef98965d5f4711d24c4f41f1fa",
+  "base_3_1_commit": "cece94d6dc1846b80614f235f253520c66c8e0f1",
+  "build_commit": "b724eb9d97f5b44b19967285617fb4bc2ac18bb2",
+  "build_run": 42617952429,
+  "build_workflow": ".github/workflows/synthetica32-final.yml",
+  "transfer_git_blob": "289351e7832eaa4ca1acde0ea2b1a837b1e3391b",
+  "transfer_sha256": "0ef3f1fd1ab47bb91e594837d2b9c1a50673fcd4fd0db57f149b482e4f8c3ba4",
+  "image_sha256": "7ebbe4b263adad8cb780025fab7dc8f7faf9de2e671eaafa14c6081a9d40813e",
+  "image_bytes": 14533460,
+  "config_sha256": "72be909960649924ad36eb21ed45efe0f8c064d8c668d940aea2b0c027e44430",
+  "symvers_sha256": "1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3",
+  "system_map_sha256": "d505b872733137313fd040dc9b5fb8363fbeea973ebb79f3eebcaef26de84d7b",
+  "module_public_cert_sha256": "8d32632bc1ee4c3103142436be0b1ef1a163aeb75ab3b4d655b9b346b6f8edb3",
+  "helper_git_blob": "f80d07be23f264a1345b2ced3a46fdc114eb426e",
+  "helper_sha256": "656c2cb4c3d9aa189cbc325e4c928dc002c03b93ddd777b688248d95734e2706",
+  "helper_bytes": 463980,
+  "signed_modules": {
+    "gspca_main.ko": {
+      "sha256": "9962a5541c065865b4e5766d18b12316195c96e8344e53ed94f58095c279ae2c",
+      "bytes": 59705
+    },
+    "rmnet_perf.ko": {
+      "sha256": "0b5458c10da9acbe908f56e7142cc1643814702c9464e3a2720a58f3409d07c5",
+      "bytes": 69721
+    },
+    "rmnet_shs.ko": {
+      "sha256": "8e813cfd5125b8cbd069aa59bf291d148d097b9d396abf43477d48d383d7ad24",
+      "bytes": 232033
+    },
+    "tcp_bic.ko": {
+      "sha256": "ec89466060cc932923c468cd6100e0b3f1d0da32e34ba57e805ad3ab95a81246",
+      "bytes": 11865
+    },
+    "tcp_htcp.ko": {
+      "sha256": "fc3d9987773bdd61177f4d742bf58bf181550c5da724a50683d886f6e4407323",
+      "bytes": 10593
+    },
+    "tcp_westwood.ko": {
+      "sha256": "9d2751a41f52fbbca0a38e7ac53cb294ed481150ba558b994d2b33b94bab6f73",
+      "bytes": 8017
+    }
+  },
+  "package_zip_name": "Synthetica-3.2.zip",
+  "package_zip_sha256": "a8e5d1eb09a0558c69de841fcf64987689e0e694bcec6f45fc43421f4edc52fb",
+  "package_zip_bytes": 21754839,
+  "verified_device_roms": [
+    "Project Infinity X 4.1 (Android 17, miatoll)",
+    "Lunaris AOSP 3.13 (Android 16, miatoll)"
+  ]
+}

@@ -1,15 +1,6 @@
 name: "Synthetica 3.2 - build kernel, signed modules, and cross-ROM AVB-fix installer"
 
 on:
-  push:
-    branches: [arena/96cbd65a-syntenthica]
-    paths:
-      - '.github/workflows/synthetica32-final.yml'
-      - 'build-kit/ci/s31-avb-fix/**'
-      - 'build-kit/scripts/build_synthetica32_final.py'
-      - 'build-kit/scripts/package_synthetica32_final.py'
-      - 'tests/test_synthetica31_avb_fix.py'
-      - 'tests/test_synthetica32_final_qemu.py'
   workflow_dispatch:
 
 permissions:

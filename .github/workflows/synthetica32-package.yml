@@ -1,0 +1,130 @@
+name: "Synthetica 3.2 - verify compile evidence, package ZIP, and run ARM QEMU tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica32-package.yml'
+      - 'build-kit/ci/synthetica32-final-build-evidence.json'
+      - 'build-kit/scripts/package_synthetica32_final.py'
+      - 'tests/test_synthetica31_avb_fix.py'
+      - 'tests/test_synthetica32_final_qemu.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install ARM fixture tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static gcc-arm-linux-gnueabi >/dev/null
+      - name: Fetch and verify 2.0-exp, 3.0, 3.1, and 3.2 build evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/transfer30.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/transfer30.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer30.zip" generated.config.txt > "$RUNNER_TEMP/config30"
+          echo '253a89a338e8c5b71da71b698a0160d9fb361468cfac3a3bfc7fae2c52f4af2d  '"$RUNNER_TEMP/config30" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/d5e292c91a36c7706deedfdb9f1ca8b7a703ee3e" > "$RUNNER_TEMP/transfer20.zip"
+          echo '742068c09eb99f6eb37d55aa3ee1bca9ee156db592d10d3d901fca738900dabc  '"$RUNNER_TEMP/transfer20.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer20.zip" generated.config.txt > "$RUNNER_TEMP/config20exp"
+          echo 'c72503550d74446f5af3573288b4e93dc1407854c5df338d20681d1866ccb96c  '"$RUNNER_TEMP/config20exp" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/0f815b773d39a8f0b392a7d190be9ca1ad702ead" > "$RUNNER_TEMP/transfer31.zip"
+          echo '67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847  '"$RUNNER_TEMP/transfer31.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer31.zip" generated.config.txt > "$RUNNER_TEMP/config31"
+          echo '4b53a2cb030e9aa55ff798a3ee5c773c0eb50e56cd36430d2874adcb56fa236d  '"$RUNNER_TEMP/config31" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/289351e7832eaa4ca1acde0ea2b1a837b1e3391b" > "$RUNNER_TEMP/transfer32.zip"
+          echo '0ef3f1fd1ab47bb91e594837d2b9c1a50673fcd4fd0db57f149b482e4f8c3ba4  '"$RUNNER_TEMP/transfer32.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/s32-result"
+          unzip -q "$RUNNER_TEMP/transfer32.zip" -d "$RUNNER_TEMP/s32-result"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          ev = json.loads(Path('build-kit/ci/synthetica32-final-build-evidence.json').read_text())
+          res = Path(os.environ['RUNNER_TEMP']) / 's32-result'
+          def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
+          assert sha(res/'Image.gz.DO-NOT-FLASH') == ev['image_sha256']
+          assert sha(res/'generated.config.txt') == ev['config_sha256']
+          assert sha(res/'Module.symvers') == ev['symvers_sha256']
+          assert sha(res/'System.map') == ev['system_map_sha256']
+          assert sha(res/'module-signing-public-cert.x509') == ev['module_public_cert_sha256']
+          assert sha(res/'tools/fix-avb') == ev['helper_sha256']
+          for name, meta in ev['signed_modules'].items():
+              p = res / 'signed-modules' / name
+              assert sha(p) == meta['sha256'] and p.stat().st_size == meta['bytes'], name
+          PY
+      - name: Run synthetic AVB unit tests on compiled ARM helper
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/a18c4a1b9cf90c2053d7304642d05471fb04ac19" > "$RUNNER_TEMP/avbtool.py"
+          echo "d2aa3fb6fb4bbd5fd2dc5bcabfaad81fb6fa62b5fa0bf7c19ef42da0f114b3c0  $RUNNER_TEMP/avbtool.py" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/avbtool.py" "$RUNNER_TEMP/s32-result/tools/fix-avb"
+          S31_FIX_AVB="$RUNNER_TEMP/s32-result/tools/fix-avb" S31_FIX_PREFIX=qemu-arm-static \
+            S31_AVBTOOL="$RUNNER_TEMP/avbtool.py" \
+            python3 -m unittest discover -s tests -p 'test_synthetica31_avb_fix.py' -v
+      - name: Package deterministic Synthetica-3.2.zip and verify SHA-256
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_synthetica32_final.py \
+            --result "$RUNNER_TEMP/s32-result" \
+            --tested20 "$RUNNER_TEMP/config20exp" \
+            --baseline30 "$RUNNER_TEMP/config30" \
+            --baseline31 "$RUNNER_TEMP/config31" \
+            --helper "$RUNNER_TEMP/s32-result/tools/fix-avb" \
+            --helper-sha256 656c2cb4c3d9aa189cbc325e4c928dc002c03b93ddd777b688248d95734e2706 \
+            --output "$RUNNER_TEMP/Synthetica-3.2.zip"
+          echo 'a8e5d1eb09a0558c69de841fcf64987689e0e694bcec6f45fc43421f4edc52fb  '"$RUNNER_TEMP/Synthetica-3.2.zip" | sha256sum -c -
+          echo "::notice title=Synthetica-3.2.zip SHA256::a8e5d1eb09a0558c69de841fcf64987689e0e694bcec6f45fc43421f4edc52fb"
+      - name: Download public Infinity 4.1 boot.img and run ARM QEMU cross-ROM + upgrade tests
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 2 --connect-timeout 30 --max-time 1300 \
+            --output "$RUNNER_TEMP/rom.zip" 'https://mirror.tejas101k.workers.dev/0:/Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip'
+          test "$(stat -c %s "$RUNNER_TEMP/rom.zip")" = 2641732377
+          echo "dc107bce866c6d2ba60d0c0f77578ac1b3de8dca04428ecafb06a4b11f9f648a  $RUNNER_TEMP/rom.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import os, shutil, zipfile
+          from pathlib import Path
+          t = Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(t/'rom.zip') as z:
+              with z.open('boot.img') as src, (t/'public-boot.img').open('xb') as dst:
+                  shutil.copyfileobj(src, dst)
+          PY
+          rm -f "$RUNNER_TEMP/rom.zip"
+          echo "d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f  $RUNNER_TEMP/public-boot.img" | sha256sum -c -
+          set +e
+          S32_FINAL_QEMU=1 S32_ZIP="$RUNNER_TEMP/Synthetica-3.2.zip" \
+            S32_IMAGE_SHA=7ebbe4b263adad8cb780025fab7dc8f7faf9de2e671eaafa14c6081a9d40813e \
+            S31_PUBLIC_BOOT="$RUNNER_TEMP/public-boot.img" \
+            python3 -m unittest discover -s tests -p 'test_synthetica32_final_qemu.py' -v > "$RUNNER_TEMP/qemu.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/qemu.log"
+          if [ "$rc" != 0 ]; then
+            python3 - <<'PY2'
+          import os
+          from pathlib import Path
+          s=(Path(os.environ['RUNNER_TEMP'])/'qemu.log').read_text(errors='replace')[-9000:]
+          print('::error title=3.2 QEMU diagnostic::'+s.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY2
+            exit "$rc"
+          fi
+          echo "::notice title=Synthetica 3.2 QEMU verification::All 5 cross-ROM, Infinity 4.1, and upgrade tests passed"

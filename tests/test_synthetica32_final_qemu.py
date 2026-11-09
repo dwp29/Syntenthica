@@ -5,6 +5,7 @@ import importlib.util
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import unittest
 import zipfile
@@ -38,8 +39,45 @@ def wrap_fix_avb(test_case):
     wrapper.chmod(0o755)
 
 
+def run_entry_with_diag(test_case) -> subprocess.CompletedProcess[str]:
+    env = os.environ | {
+        'AKHOME': str(test_case.home),
+        'OUTFD': '1',
+        'PATH': str(test_case.bin) + ':' + os.environ['PATH'],
+        'FIXTURE_ROOT': str(test_case.root),
+        'FIXTURE_BOOT': str(test_case.boot),
+    }
+    try:
+        return subprocess.run(
+            ['busybox', 'ash', 'anykernel.sh'],
+            cwd=test_case.home,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=35,
+        )
+    except subprocess.TimeoutExpired as exc:
+        partial = exc.stdout.decode('utf-8', 'replace') if isinstance(exc.stdout, bytes) else (exc.stdout or '')
+        try:
+            trace = subprocess.run(
+                ['busybox', 'ash', '-x', 'anykernel.sh'],
+                cwd=test_case.home,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=10,
+            ).stdout
+        except subprocess.TimeoutExpired as exc2:
+            trace = exc2.stdout.decode('utf-8', 'replace') if isinstance(exc2.stdout, bytes) else (exc2.stdout or '')
+        test_case.fail(f'anykernel.sh timed out; partial={partial[-3000:]!r}\ntrace={trace[-4000:]!r}')
+
+
 @unittest.skipUnless(ENABLED, 'Synthetica 3.2 QEMU integration is opt-in')
 class Synthetica32CrossRomSyntheticTests(s31_qemu.NewInstallerTests):
+    run_entry = run_entry_with_diag
+
     def setUp(self):
         super().setUp()
         wrap_fix_avb(self)
@@ -47,7 +85,7 @@ class Synthetica32CrossRomSyntheticTests(s31_qemu.NewInstallerTests):
 
 @unittest.skipUnless(ENABLED and os.environ.get('S31_PUBLIC_BOOT'), 'public Infinity ROM boot required')
 class Synthetica32InfinityAndUpgradeTests(unittest.TestCase):
-    run_entry = s31_qemu.old.OriginalAnyKernelTests.run_entry
+    run_entry = run_entry_with_diag
 
     def setUp(self):
         s31_qemu.old.OriginalAnyKernelTests.setUp(self)
