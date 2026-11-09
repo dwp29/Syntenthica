@@ -9,7 +9,9 @@ on:
       - 'build-kit/scripts/build_synthetica40.py'
       - 'build-kit/scripts/build_synthetica40_kernel.sh'
       - 'build-kit/scripts/collect_synthetica40.py'
+      - 'build-kit/scripts/annotate_synthetica40_failure.py'
       - 'tests/test_synthetica40.py'
+      - 'tests/test_s40_guard.py'
   workflow_dispatch:
 
 permissions:
@@ -52,11 +54,17 @@ jobs:
         run: |
           set -euo pipefail
           t="$RUNNER_TEMP/s40-inputs"
-          python3 build-kit/scripts/build_synthetica40.py prepare \
-            --kernel "$t/kernel" --ksun "$t/ksun" --nomount "$t/nomount" \
-            --work "$RUNNER_TEMP/s40-work"
-          S40_TEST_PREPARED="$RUNNER_TEMP/s40-work/kernel" \
-            python3 -m unittest discover -s tests -p 'test_synthetica40.py' -v
+          {
+            python3 build-kit/scripts/build_synthetica40.py prepare \
+              --kernel "$t/kernel" --ksun "$t/ksun" --nomount "$t/nomount" \
+              --work "$RUNNER_TEMP/s40-work" &&
+            S40_TEST_PREPARED="$RUNNER_TEMP/s40-work/kernel" \
+              python3 -m unittest discover -s tests -p 'test_synthetica40.py' -v &&
+            python3 -m unittest discover -s tests -p 'test_s40_guard.py' -v
+          } 2>&1 | tee "$RUNNER_TEMP/s40-prepare.log" || {
+            python3 build-kit/scripts/annotate_synthetica40_failure.py '6.18 preparation' "$RUNNER_TEMP/s40-prepare.log"
+            exit 1
+          }
       - name: Download and verify same Neutron toolchain as 3.1/r1
         timeout-minutes: 15
         run: |
@@ -79,7 +87,10 @@ jobs:
         run: |
           set -euo pipefail
           clang --version | head -2
-          bash build-kit/scripts/build_synthetica40_kernel.sh 2>&1 | tee "$RUNNER_TEMP/s40-build.log"
+          bash build-kit/scripts/build_synthetica40_kernel.sh 2>&1 | tee "$RUNNER_TEMP/s40-build.log" || {
+            python3 build-kit/scripts/annotate_synthetica40_failure.py '6.18 compiler' "$RUNNER_TEMP/s40-build.log"
+            exit 1
+          }
       - name: Compile matching NoMount protocol 22 userspace
         run: |
           set -euo pipefail
@@ -132,6 +143,7 @@ jobs:
         with:
           name: Synthetica-4.0-6.18-diagnostics-${{ github.run_id }}
           path: |
+            ${{ runner.temp }}/s40-prepare.log
             ${{ runner.temp }}/s40-build.log
             ${{ runner.temp }}/s40-work/out/.config
           if-no-files-found: ignore

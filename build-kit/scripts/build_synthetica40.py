@@ -98,10 +98,13 @@ def check_nomount_protocol(nomount: Path) -> None:
 
 def check_work_directory(work: Path, source_paths: list[Path]) -> None:
     resolved = work.resolve()
-    protected = [ROOT.resolve(), Path.home().resolve(), *(p.resolve() for p in source_paths)]
-    # Disallow a workspace inside this checkout, inside any input, or an ancestor
-    # of one. Never remove/reuse existing directories, even if they look empty.
-    if any(resolved == p or resolved in p.parents or p in resolved.parents for p in protected):
+    home = Path.home().resolve()
+    protected = [ROOT.resolve(), *(p.resolve() for p in source_paths)]
+    # The CI runner's scratch directory is normally *inside* its home, so only
+    # reject home itself or an ancestor of home. Still reject a path inside or
+    # above the checkout and every input tree. Never reuse an existing path.
+    if (resolved == home or resolved in home.parents or
+            any(resolved == p or resolved in p.parents or p in resolved.parents for p in protected)):
         raise ValueError(f"Refusing unsafe work directory: {work}")
     if work.exists() or work.is_symlink():
         raise ValueError(f"Work directory already exists: {work}")
