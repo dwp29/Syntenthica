@@ -143,7 +143,7 @@ Arsip evidence harus cocok SHA-256 dan Git blob yang dipin; tidak perlu mengekst
 
 Pengujian host tersedia pada `tests/test_synthetica31_rom_modules.py` dan workflow `.github/workflows/synthetica31-rom-audit.yml`. [CI 42480474040](https://github.com/dwp29/Syntenthica/actions/runs/42480474040) lulus 42 tes host, termasuk perbandingan evidence 3.0/3.1 yang dipin dan fixture lama/sintetis, **bukan** modul pengguna, pengujian load, atau boot fisik.
 
-## Kandidat kontrol 3.1-control1 (sedang dibangun)
+## Kandidat kontrol 3.1-control1 (hasil kompilasi)
 
 Kandidat ini menggunakan resep dan patch source 3.1, bukan rollback 2.0.
 Perubahan yang diizinkan dari config 3.1 hanya suffix release dan
@@ -158,7 +158,21 @@ MGLRU menyebabkan masalah.
 memeriksa config aktual terhadap evidence 3.1 terpin dan meminta seluruh
 12.236 ekspor tetap cocok; toolchain, source, Manager dan modul satu build
 juga diperiksa oleh guard turunan. Workflow
-`.github/workflows/synthetica31-control-kernel.yml` mencoba kompilasi dan
-menghasilkan bukti saja, bukan installer. Kernel baru akan menggunakan
-sertifikat modul baru dan identitas release baru; ABI dan kepercayaan modul
-ROM, AVB dan boot fisik masih belum diketahui. Jangan flash bukti kompilasi.
+`.github/workflows/synthetica31-control-kernel.yml` menghasilkan bukti
+kompilasi saja, bukan installer. [CI 42563877678](https://github.com/dwp29/Syntenthica/actions/runs/42563877678)
+lulus pada commit `590c51c2970638934fec36c7eecf5b145e907715`. Lima tes lokal
+melewati config referensi sebenarnya; CI memverifikasi config, patch, toolchain,
+six same-build modules dan seluruh 12.236 ekspor terhadap 3.1. Hasilnya cocok
+untuk seluruh ekspor, termasuk `module_layout=0xed5659d1`; ini bukan audit modul
+ROM. Transfer evidence Git blob `32b910e3de03358bf29cd00dc2c5a1f2880c656c`
+ber-SHA-256 `8b01dde5c65234654634d5dc9cbc97a071ba3dc0f5c3061bb3ec02c9ab15867c`
+telah diunduh dan diperiksa: integritas ZIP, sembilan hash manifest, dan config
+tertanam dalam image cocok. `Image.gz` baru SHA-256
+`bb0f98da58541cdc7eb8131d60860d006e35efc56a8ca1b33ebe3cc7d003e226`.
+
+Kernel baru menggunakan sertifikat modul baru dan identitas release baru;
+ABI dan kepercayaan modul ROM, AVB dan boot fisik masih belum diketahui.
+Bukti kompilasi bukan boot image atau ZIP recovery; **jangan flash**. Installer
+lama mempunyai risiko yang dijelaskan di atas dan belum diadaptasi untuk
+kandidat ini. Tahap selanjutnya adalah merancang dan memverifikasi integrasi
+installer/boot, bukan menyebut compile evidence sebagai file flash siap pakai.
