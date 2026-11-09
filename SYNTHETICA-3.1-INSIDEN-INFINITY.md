@@ -67,6 +67,49 @@ Konfigurasi 3.1 pada bukti build ber-SHA terverifikasi mengaktifkan `PSTORE`,
 `PSTORE_CONSOLE`, `PSTORE_PMSG`, dan `PSTORE_RAM`; ini bukan bukti perangkat,
 DTB, recovery atau boot gagal benar-benar menyimpan record yang dapat dibaca.
 
+## Pemeriksaan image yang diberikan pengguna
+
+Pengguna menyediakan `Infinity4.1-boot.img` melalui ZIP. SHA-256 ZIP
+`6dc75bcdfc1ba403f927fa7ce6b4a7c1b8d71dda11a887658ba52a0601853e35` cocok
+dengan metadata Drive; arsip teruji dan hanya berisi satu `boot.img`. Setelah
+ekstraksi offline, image berukuran 134.217.728 byte dengan SHA-256
+`d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f`,
+cocok dengan metadata file image terpisah di Drive. Kecocokan ini hanya
+mengaitkan kedua unggahan, **bukan membuktikan asal atau keaslian ROM**. Belum
+ada konfirmasi apakah image berasal dari ZIP ROM atau backup perangkat, atau
+apakah pernah dipatch root.
+
+Pemeriksaan offline `audit_synthetica3_boot.inspect_boot` menemukan header
+Android boot v2, page 4096, kernel ARM64 tidak terkompresi sepanjang 48.535.576
+byte, ramdisk berformat awal LZ4 legacy dan satu DTB yang lolos pemeriksaan
+struktur. Legacy boot ID cocok dan footer AVB ditemukan, **tanpa verifikasi
+signature atau trust AVB**. Kernel berisi string versi
+`4.14.357-openela-perf-ge84700282bb0`, build 21 Oktober 2026, serta embedded
+config yang dapat diekstrak. Nama file dan string tersebut tidak membuktikan
+image berasal dari ROM target yang belum diinspeksi.
+
+Config image itu dan config bukti 3.1 sama-sama mengaktifkan
+`CONFIG_MODVERSIONS`, `CONFIG_MODULE_SIG` dan `CONFIG_MODULE_SIG_FORCE`.
+Config 3.1 mengaktifkan `CONFIG_LRU_GEN`, `CONFIG_LRU_GEN_ENABLED`,
+`CONFIG_UCLAMP_TASK`, `CONFIG_KSU`, `CONFIG_KSU_SUSFS` dan `CONFIG_NOMOUNT`;
+simbol tersebut tidak ditemukan dalam config image pengguna. Ketidakhadiran
+simbol dapat berarti perbedaan source/Kconfig, bukan sekadar opsi dinonaktifkan.
+Sebanyak 383 entri berbeda termasuk simbol yang hanya ada pada salah satu
+config; perbandingan ini bukan bukti perbedaan fungsi runtime atau penyebab
+bootloop. Modul ROM, kecocokan CRC dan kepercayaan keyring belum diverifikasi.
+Ramdisk juga berhasil didekompresi dan struktur CPIO diperiksa secara offline:
+terdapat sembilan entri sebelum trailer, tanpa file `.ko` atau `modules.load`.
+Nama-nama entri tidak menunjukkan Magisk, KernelSU atau APatch; hal ini **tidak
+membuktikan image tidak dipatch**. `fstab.qcom` mencantumkan antara lain ext4
+untuk `/system` dan `/vendor`, serta f2fs untuk `/data`; ini bukan bukti
+partisi aktual sudah terpasang atau kompatibel. Ketiadaan modul di ramdisk
+bukan bukti bahwa ROM tidak menggunakan modul di partisi lain. Pencarian commit
+`e84700282bb0` pada repositori source yang dipin 3.1 tidak menemukannya; ini
+belum mengidentifikasi source image atau membuktikan keduanya tidak terkait.
+
+Image pengguna tidak dimasukkan ke repositori dan tidak ditulis ke perangkat.
+Belum ada kandidat perbaikan baru yang siap diuji.
+
 ## Fakta statis yang perlu dibedakan dari diagnosis
 
 Pemeriksaan dilakukan **offline**, bukan pada perangkat pengguna. Bukti build CI 3.1 dan konfigurasi ditarik dari Git blob publik dan diverifikasi hash; ZIP 3.1 direkonstruksi dari input yang dipin dan SHA-256-nya cocok dengan rilis yang terdokumentasi, `1ffe861ceaa2775e4f75bc9f7ecd4b7c56cf9c146f1690eb941c8dd2e5200d4a`. Pelapor menyatakan checksum ZIP yang digunakan cocok, tetapi file itu sendiri belum diperiksa secara independen.
@@ -99,3 +142,23 @@ python3 build-kit/scripts/audit_synthetica31_rom_modules.py \
 Arsip evidence harus cocok SHA-256 dan Git blob yang dipin; tidak perlu mengekstrak atau menjalankan image kernel di dalamnya. Hanya `.ko` reguler tak terkompresi yang diperiksa; symlink dan file berakhiran `.ko.*` seperti `.ko.gz`, `.ko.xz`, `.ko.zst` atau `.ko.lz4` dilewati dan dicatat. Hasil mencakup signature terhadap **satu sertifikat build**, CRC simbol, `module_layout`, dan perbandingan vermagic; hasil tersebut tidak membuktikan keyring runtime, modul mana yang dimuat, asal ROM terpasang, maupun penyebab kegagalan boot. ROM aktual dan log kasus ini belum dianalisis.
 
 Pengujian host tersedia pada `tests/test_synthetica31_rom_modules.py` dan workflow `.github/workflows/synthetica31-rom-audit.yml`. [CI 42480474040](https://github.com/dwp29/Syntenthica/actions/runs/42480474040) lulus 42 tes host, termasuk perbandingan evidence 3.0/3.1 yang dipin dan fixture lama/sintetis, **bukan** modul pengguna, pengujian load, atau boot fisik.
+
+## Kandidat kontrol 3.1-control1 (sedang dibangun)
+
+Kandidat ini menggunakan resep dan patch source 3.1, bukan rollback 2.0.
+Perubahan yang diizinkan dari config 3.1 hanya suffix release dan
+`CONFIG_LRU_GEN_ENABLED` dari `y` ke `n`: MGLRU tetap dikompilasi tetapi
+nonaktif secara default. UCLAMP, KernelSU, SUSFS, NoMount dan pemeriksaan
+keamanan tetap diwajibkan oleh guard konfigurasi. Ini eksperimen terkontrol,
+**bukan diagnosis atau perbaikan bootloop yang terbukti**. Config image yang
+diberikan tidak mengandung simbol MGLRU, tetapi itu saja tidak menetapkan bahwa
+MGLRU menyebabkan masalah.
+
+`build-kit/scripts/build_synthetica31_control.py` menyiapkan tree terisolasi,
+memeriksa config aktual terhadap evidence 3.1 terpin dan meminta seluruh
+12.236 ekspor tetap cocok; toolchain, source, Manager dan modul satu build
+juga diperiksa oleh guard turunan. Workflow
+`.github/workflows/synthetica31-control-kernel.yml` mencoba kompilasi dan
+menghasilkan bukti saja, bukan installer. Kernel baru akan menggunakan
+sertifikat modul baru dan identitas release baru; ABI dan kepercayaan modul
+ROM, AVB dan boot fisik masih belum diketahui. Jangan flash bukti kompilasi.
