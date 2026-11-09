@@ -195,9 +195,17 @@ terpisah. Ini bukan eksekusi installer, bukan boot perangkat, dan bukan bukti
 mengapa 3.1 sebelumnya bootloop. Hasil ini menunjukkan mengapa kesamaan bytes
 metadata AVB saja bukan syarat cukup untuk melepas kandidat baru.
 
-Jangan memakai fixture sebagai image untuk flash. Installer lama belum lolos
-pemeriksaan AVB ini; belum ada keputusan untuk mengganti footer atau menonaktifkan
-verifikasi. Signature, vbmeta eksternal, state runtime dan ROM/modules tetap
-belum diverifikasi. Tes unit pemeriksa hash menggunakan fixture sintetis dan
-`avbtool`, tanpa ponsel; script hanya membaca input dan tidak menandatangani,
-memodifikasi, atau mem-flash.
+Pada **salinan fixture privat lain**, hanya 32 byte digest descriptor yang
+sudah ada dihitung ulang, tanpa mengubah flags, ukuran, atau vbmeta eksternal;
+audit dan `avbtool` kemudian menyatakan hash embedded cocok. Karena algorithm
+vbmeta embedded `NONE`, ini konsistensi hash tak bertanda tangan, **bukan**
+otentikasi, validasi chain atau bukti boot. Ini uji manual offline untuk
+menilai kelayakan teknis, bukan perubahan installer atau perintah flash.
+
+Jangan memakai kedua fixture sebagai image untuk flash. Installer lama belum
+lolos pemeriksaan AVB ini; belum ada keputusan untuk mengganti footer atau
+menonaktifkan verifikasi. Signature, vbmeta eksternal, state runtime dan
+ROM/modules tetap belum diverifikasi. Tes unit pemeriksa hash menggunakan
+fixture sintetis dan `avbtool`, tanpa ponsel; script hanya membaca input dan
+tidak menandatangani, memodifikasi, atau mem-flash. [CI audit 42565273307](https://github.com/dwp29/Syntenthica/actions/runs/42565273307)
+lulus pada fixture sintetis; image pengguna tetap privat.
