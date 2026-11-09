@@ -53,6 +53,13 @@ class Synthetica32InfinityAndUpgradeTests(unittest.TestCase):
         s31_qemu.old.OriginalAnyKernelTests.setUp(self)
         wrap_fix_avb(self)
 
+    def clean_akhome_between_flashes(self):
+        for d in ('split_img', 'ramdisk', 'rdtmp', 'vrdtmp'):
+            shutil.rmtree(self.home / d, ignore_errors=True)
+        for f in list(self.home.glob('boot*.img')) + list(self.home.glob('*ramdisk*')):
+            if f.is_file():
+                f.unlink()
+
     def test_fresh_infinity_and_direct_reflashing_upgrade(self):
         source = Path(os.environ['S31_PUBLIC_BOOT'])
         image_sha = os.environ['S32_IMAGE_SHA']
@@ -73,6 +80,9 @@ class Synthetica32InfinityAndUpgradeTests(unittest.TestCase):
         self.assertTrue(rep1['vbmeta_algorithm_none'])
         self.assertTrue(rep1['embedded_boot_hash']['digest_matches'])
         self.assertEqual(rep1['embedded_boot_hash']['image_bytes'], after1['avb']['original_image_size'])
+
+        # Simulate update-binary fresh /tmp/anykernel extraction before second flash
+        self.clean_akhome_between_flashes()
 
         # Stage 2: direct re-flash / upgrade over already-flashed Synthetica boot image
         p2 = self.run_entry()

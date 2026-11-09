@@ -110,31 +110,6 @@ jobs:
             --toolchain-bin "$S2X_TOOLCHAIN_BIN" \
             --neutron-archive "$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
           echo "S32_IMAGE_SHA=$(sha256sum "$RUNNER_TEMP/s32-result/Image.gz.DO-NOT-FLASH" | cut -d' ' -f1)" >> "$GITHUB_ENV"
-      - name: Package Synthetica-3.2.zip and verify cross-ROM + Infinity 4.1 + upgrade in ARM QEMU
-        timeout-minutes: 25
-        run: |
-          set -euo pipefail
-          python3 build-kit/scripts/package_synthetica32_final.py \
-            --result "$RUNNER_TEMP/s32-result" --tested20 "$S3RC_TESTED_CONFIG" \
-            --baseline30 "$S31_BASELINE_CONFIG" --baseline31 "$S32_BASELINE31_CONFIG" \
-            --helper "$RUNNER_TEMP/fix-avb-arm" --helper-sha256 "$S32_HELPER_SHA" \
-            --output "$RUNNER_TEMP/Synthetica-3.2.zip"
-          curl --fail --location --retry 2 --connect-timeout 30 --max-time 1300 \
-            --output "$RUNNER_TEMP/rom.zip" 'https://mirror.tejas101k.workers.dev/0:/Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip'
-          test "$(stat -c %s "$RUNNER_TEMP/rom.zip")" = 2641732377
-          echo "dc107bce866c6d2ba60d0c0f77578ac1b3de8dca04428ecafb06a4b11f9f648a  $RUNNER_TEMP/rom.zip" | sha256sum -c -
-          python3 - <<'PY'
-          import os, shutil, zipfile
-          from pathlib import Path
-          t = Path(os.environ['RUNNER_TEMP'])
-          with zipfile.ZipFile(t/'rom.zip') as z:
-              with z.open('boot.img') as src, (t/'public-boot.img').open('xb') as dst:
-                  shutil.copyfileobj(src, dst)
-          PY
-          echo "d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f  $RUNNER_TEMP/public-boot.img" | sha256sum -c -
-          S32_FINAL_QEMU=1 S32_ZIP="$RUNNER_TEMP/Synthetica-3.2.zip" S32_IMAGE_SHA="$S32_IMAGE_SHA" \
-            S31_PUBLIC_BOOT="$RUNNER_TEMP/public-boot.img" \
-            python3 -m unittest discover -s tests -p 'test_synthetica32_final_qemu.py' -v
       - name: Publish verified 3.2 compile evidence, signed modules, and ARM helper as Git blob
         env:
           GH_TOKEN: ${{ github.token }}
@@ -154,9 +129,47 @@ jobs:
           (t/'s32-blob.json').write_text(json.dumps({'content':base64.b64encode(data).decode('ascii'),'encoding':'base64'}))
           print('::notice title=3.2 transfer SHA256::'+hashlib.sha256(data).hexdigest())
           print('::notice title=3.2 Image SHA256::'+hashlib.sha256((r/'Image.gz.DO-NOT-FLASH').read_bytes()).hexdigest())
-          print('::notice title=3.2 ZIP SHA256::'+hashlib.sha256((t/'Synthetica-3.2.zip').read_bytes()).hexdigest())
           print('::notice title=3.2 Helper SHA256::'+hashlib.sha256((t/'fix-avb-arm').read_bytes()).hexdigest())
           PY
           blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/s32-blob.json" --jq .sha)
           test "${#blob}" = 40
           echo "::notice title=3.2 transfer Git blob::$blob"
+      - name: Package Synthetica-3.2.zip and verify cross-ROM + Infinity 4.1 + upgrade in ARM QEMU
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_synthetica32_final.py \
+            --result "$RUNNER_TEMP/s32-result" --tested20 "$S3RC_TESTED_CONFIG" \
+            --baseline30 "$S31_BASELINE_CONFIG" --baseline31 "$S32_BASELINE31_CONFIG" \
+            --helper "$RUNNER_TEMP/fix-avb-arm" --helper-sha256 "$S32_HELPER_SHA" \
+            --output "$RUNNER_TEMP/Synthetica-3.2.zip"
+          echo "::notice title=3.2 ZIP SHA256::$(sha256sum "$RUNNER_TEMP/Synthetica-3.2.zip" | cut -d' ' -f1)"
+          curl --fail --location --retry 2 --connect-timeout 30 --max-time 1300 \
+            --output "$RUNNER_TEMP/rom.zip" 'https://mirror.tejas101k.workers.dev/0:/Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip'
+          test "$(stat -c %s "$RUNNER_TEMP/rom.zip")" = 2641732377
+          echo "dc107bce866c6d2ba60d0c0f77578ac1b3de8dca04428ecafb06a4b11f9f648a  $RUNNER_TEMP/rom.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import os, shutil, zipfile
+          from pathlib import Path
+          t = Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(t/'rom.zip') as z:
+              with z.open('boot.img') as src, (t/'public-boot.img').open('xb') as dst:
+                  shutil.copyfileobj(src, dst)
+          PY
+          echo "d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f  $RUNNER_TEMP/public-boot.img" | sha256sum -c -
+          set +e
+          S32_FINAL_QEMU=1 S32_ZIP="$RUNNER_TEMP/Synthetica-3.2.zip" S32_IMAGE_SHA="$S32_IMAGE_SHA" \
+            S31_PUBLIC_BOOT="$RUNNER_TEMP/public-boot.img" \
+            python3 -m unittest discover -s tests -p 'test_synthetica32_final_qemu.py' -v > "$RUNNER_TEMP/qemu.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/qemu.log"
+          if [ "$rc" != 0 ]; then
+            python3 - <<'PY2'
+          import os
+          from pathlib import Path
+          s=(Path(os.environ['RUNNER_TEMP'])/'qemu.log').read_text(errors='replace')[-9000:]
+          print('::error title=3.2 QEMU diagnostic::'+s.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY2
+            exit "$rc"
+          fi
