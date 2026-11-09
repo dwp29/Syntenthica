@@ -1,0 +1,94 @@
+--- a/fs/susfs.c
++++ b/fs/susfs.c
+@@ -1405,7 +1405,10 @@
+ static char *susfs_priority_app_strings = NULL;
+ /* Read and updated only while holding susfs_mutex_lock_priority_uid_filter. */
+ static u64 susfs_priority_config_generation;
+-/* Ensures that there is only one resolving thread running at the same time */
++/* Research-only state machine: a request during a pass makes another pass pending. */
++#define SUSFS_PRIORITY_REFRESH_IDLE 0
++#define SUSFS_PRIORITY_REFRESH_RUNNING 1
++#define SUSFS_PRIORITY_REFRESH_PENDING 2
+ static atomic_t susfs_priority_app_strings_running = ATOMIC_INIT(0);
+ 
+ /*
+@@ -1701,7 +1704,7 @@
+  * so that the filter stays up to date when the apps are installed or
+  * uninstalled, because the uid of an app changes when it is reinstalled.
+  */
+-static int susfs_priority_app_strings_worker(void *data) {
++static int susfs_priority_app_strings_worker_once(void *data) {
+ 	struct susfs_priority_uid_filter_bitmap *new_bitmap = NULL;
+ 	struct susfs_priority_uid_filter_bitmap *old_bitmap = NULL;
+ 	struct cred *orig_cred = NULL;
+@@ -1769,9 +1772,28 @@
+ 		kfree(new_bitmap);
+ 	if (app_strings)
+ 		kvfree(app_strings);
+-	atomic_set(&susfs_priority_app_strings_running, 0);
+ 
+ 	return ret;
++}
++
++/* A successful 1->0 transition linearizes worker completion. Requests racing
++ * with it either mark 1->2 first or observe 0 and start a new worker. */
++static int susfs_priority_app_strings_worker(void *data) {
++	int ret;
++
++	for (;;) {
++		ret = susfs_priority_app_strings_worker_once(data);
++		if (atomic_cmpxchg(&susfs_priority_app_strings_running,
++				SUSFS_PRIORITY_REFRESH_RUNNING, SUSFS_PRIORITY_REFRESH_IDLE) ==
++				SUSFS_PRIORITY_REFRESH_RUNNING)
++			return ret;
++		if (atomic_cmpxchg(&susfs_priority_app_strings_running,
++				SUSFS_PRIORITY_REFRESH_PENDING, SUSFS_PRIORITY_REFRESH_RUNNING) !=
++				SUSFS_PRIORITY_REFRESH_PENDING) {
++			SUSFS_LOGE("unexpected priority refresh state\n");
++			return -EINVAL;
++		}
++	}
+ }
+ 
+ /*
+@@ -1780,13 +1802,34 @@
+  * which must not be applied to the calling process.
+  */
+ void susfs_parse_priority_app_strings(void) {
+-	/* do not spawn a new thread if there is already one running */
+-	if (atomic_cmpxchg(&susfs_priority_app_strings_running, 0, 1))
++	int state;
++
++	for (;;) {
++		state = atomic_read(&susfs_priority_app_strings_running);
++		if (state == SUSFS_PRIORITY_REFRESH_PENDING)
++			return;
++		if (state == SUSFS_PRIORITY_REFRESH_RUNNING) {
++			if (atomic_cmpxchg(&susfs_priority_app_strings_running,
++					SUSFS_PRIORITY_REFRESH_RUNNING, SUSFS_PRIORITY_REFRESH_PENDING) ==
++					SUSFS_PRIORITY_REFRESH_RUNNING)
++				return;
++			continue;
++		}
++		if (state != SUSFS_PRIORITY_REFRESH_IDLE) {
++			SUSFS_LOGE("unexpected priority refresh state\n");
++			return;
++		}
++		if (atomic_cmpxchg(&susfs_priority_app_strings_running,
++				SUSFS_PRIORITY_REFRESH_IDLE, SUSFS_PRIORITY_REFRESH_RUNNING) !=
++				SUSFS_PRIORITY_REFRESH_IDLE)
++			continue;
++		/* TODO: concurrent requests during a failed kthread_run can still be
++		 * lost. This state machine is research-only and is not a port. */
++		if (IS_ERR(kthread_run(susfs_priority_app_strings_worker, NULL, "susfs_gpsp_appstr"))) {
++			atomic_set(&susfs_priority_app_strings_running, SUSFS_PRIORITY_REFRESH_IDLE);
++			SUSFS_LOGE("failed to create the thread susfs_priority_app_strings\n");
++		}
+ 		return;
+-
+-	if (IS_ERR(kthread_run(susfs_priority_app_strings_worker, NULL, "susfs_gpsp_appstr"))) {
+-		atomic_set(&susfs_priority_app_strings_running, 0);
+-		SUSFS_LOGE("failed to create the thread susfs_priority_app_strings\n");
+ 	}
+ }
+ 

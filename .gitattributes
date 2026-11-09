@@ -6,3 +6,5 @@ build-kit/ci/synthetica3-root/*.patch whitespace=-blank-at-eol,-space-before-tab
 
 # Preserve the upstream Silkscreen OFL license byte-for-byte.
 build-kit/ci/ksun-pixel40/assets/licenses/Silkscreen-OFL.txt whitespace=-blank-at-eol
+# Unified-diff context intentionally contains upstream blank lines and tab-indented C.
+build-kit/ci/s40-susfs-abi/*.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

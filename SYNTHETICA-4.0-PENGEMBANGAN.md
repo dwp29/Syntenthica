@@ -212,32 +212,51 @@ Fungsi request upstream yang diekstrak mengabaikan permintaan itu karena flag
 `running`; worker kemudian menerbitkan UID lama. Ini terjadi dalam model baik
 pada source asli maupun kandidat generation guard, karena daftar nama tidak
 berubah. Permintaan terpisah berikutnya memulihkan UID baru dalam model. Hasil
-ini lokal sementara CI baru belum selesai; ini **bukan** reproduksi packages.list,
+ini juga lulus pada [CI 42554605513](https://github.com/dwp29/Syntenthica/actions/runs/42554605513); ini **bukan** reproduksi packages.list,
 fsnotify atau race pada perangkat. Guard yang ada saja belum cukup untuk
 menjamin refresh tidak terlewat, dan juga belum membuktikan seluruh konkurensi,
 RCU, fault atau keamanan SELinux. Port memerlukan rancangan refresh yang dapat
 menangani event saat worker sibuk, serta uji kernel dan perangkat.
+
+### Kandidat pending: masih ada counterexample
+
+Kandidat kedua [`research-only-priority-pending.patch`](build-kit/ci/s40-susfs-abi/research-only-priority-pending.patch)
+dilapiskan di atas generation guard **hanya di scratch**. Model pthread/atomic
+[`probe_s40_susfs_pending.py`](build-kit/scripts/probe_s40_susfs_pending.py)
+menjadwalkan permintaan saat worker sibuk serta tepat sebelum dan sesudah
+transisi ke idle. Dalam jadwal tersebut permintaan sibuk digabungkan menjadi
+pass berikutnya, dan perubahan konfigurasi tetap dilindungi generation guard.
+
+**Kandidat ini belum menyelesaikan masalah:** model juga memaksa `kthread_run`
+gagal setelah permintaan lain menandai pending; reset state ke idle menyebabkan
+permintaan tersebut hilang. Permintaan independen sesudahnya dapat memulihkan
+bitmap dalam model, tetapi tidak dijamin terjadi. Hasil ini hanya jadwal host
+dengan shim, bukan bukti memory ordering Linux, RCU, filesystem, SELinux,
+kthread sungguhan atau perangkat. Jangan integrasikan kandidat ini sebagai
+perbaikan kernel; SUSFS 2.4 tetap nonaktif dan belum terintegrasi.
 
 ### Kompilasi terisolasi priority filter
 
 [`probe_s40_susfs_priority_compile.py`](build-kit/scripts/probe_s40_susfs_priority_compile.py)
 menyiapkan pohon scratch baru dari source yang dipin, mengambil hanya enam hunk
 priority dari patch resmi pada `kernel/sys.c` dan `block/ioprio.c`, dan membuat
-unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard di atas. Adapter
+unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard dan pending di atas. Adapter
 kecil untuk mencari domain KSUN dibuat **hanya untuk percobaan kompilasi**;
 kesetaraan perilakunya dan keamanan SELinux belum dibuktikan. Flag priority
 dipasang hanya pada pemanggilan compiler percobaan, bukan pada konfigurasi 4.0;
 objek tersebut tidak didaftarkan ke Kbuild atau disertakan dalam image.
 
-Secara lokal, kedua varian beserta dua objek hook dan objek SELinux KSUN berhasil
+Secara lokal, ketiga varian beserta dua objek hook dan objek SELinux KSUN berhasil
 dikompilasi menjadi ARM64 setelah memeriksa 599 permintaan konfigurasi. Tiap
 objek syscall memiliki dua relokasi panggilan priority, dan partial link
 menyelesaikan tiga simbol terpilih; **167 simbol lain masih unresolved** pada
 masing-masing varian lokal. Ini menggunakan LLVM 23 dan shim `m4` lokal yang
 belum tervalidasi, bukan build release. CI terpisah
 [`s40-susfs-priority-compile.yml`](.github/workflows/s40-susfs-priority-compile.yml)
-disiapkan untuk mengulangnya dengan Neutron yang dipin; hasilnya baru dapat
-diklaim setelah run selesai. Tidak ada dispatcher SUSFS, link kernel penuh,
+mengulang kedua varian awal dengan Neutron yang dipin dan lulus pada
+[CI 42554605698](https://github.com/dwp29/Syntenthica/actions/runs/42554605698).
+CI untuk varian pending tambahan perlu diperiksa terpisah; kompilasi tidak menutup
+celah gagal-start yang telah dimodelkan. Tidak ada dispatcher SUSFS, link kernel penuh,
 modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti

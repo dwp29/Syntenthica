@@ -11,8 +11,10 @@ on:
       - 'build-kit/scripts/annotate_synthetica40_failure.py'
       - 'build-kit/scripts/audit_s40_susfs_abi.py'
       - 'build-kit/scripts/probe_s40_susfs_priority.py'
+      - 'build-kit/scripts/probe_s40_susfs_pending.py'
       - 'tests/test_s40_susfs_abi.py'
       - 'tests/test_s40_susfs_priority.py'
+      - 'tests/test_s40_susfs_pending.py'
   workflow_dispatch:
 
 permissions:
@@ -93,6 +95,22 @@ jobs:
               exit 1
             }
           cat "$t/reports/priority-model.json"
+      - name: Model pending candidate and known failed-start counterexample
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-susfs-abi"
+          S40_ABI_SUSFS="$t/susfs" python3 -m unittest discover -s tests -p 'test_s40_susfs_pending.py' -v \
+            2>&1 | tee "$t/reports/pending-tests.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'SUSFS pending model tests' "$t/reports/pending-tests.log"
+              exit 1
+            }
+          python3 build-kit/scripts/probe_s40_susfs_pending.py --susfs "$t/susfs" \
+            > "$t/reports/pending-model.json" 2> "$t/reports/pending-model.log" || {
+              cat "$t/reports/pending-model.log"
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'SUSFS pending model' "$t/reports/pending-model.log"
+              exit 1
+            }
+          cat "$t/reports/pending-model.json"
       - name: Upload source-only report, no binaries or APKs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

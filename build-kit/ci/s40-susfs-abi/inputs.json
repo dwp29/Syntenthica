@@ -67,7 +67,14 @@
     },
     "generated_fragment_sha256": {
       "original": "3edd46fead175451e6fb735c6ad58dd1265b8badf1d56d2cd6f90e6e4aedf428",
-      "guarded": "da9714130f9963141bc4c1aa3dbc75e8221662a6a0369e73975fa22d93cd50eb"
+      "guarded": "da9714130f9963141bc4c1aa3dbc75e8221662a6a0369e73975fa22d93cd50eb",
+      "pending": "243791a72fb4ad26f9ff92cdc4474c841ff3547b3d71273ef4cc5163241b2530"
     }
+  },
+  "research_priority_pending": {
+    "scope": "unintegrated research-only pending-state candidate; known failure-to-start race; no kernel/runtime approval",
+    "input_guarded_susfs_c_sha256": "9e8c26ea3cfa72e59421ea38bb703b28fc9b353a81184bb01dfd47ae04191824",
+    "patch_sha256": "8d1b1caf4e6a2627fce7c52a7b16f03fdaf6fb97f781ea9fefa67989a88f2f0d",
+    "pending_guarded_susfs_c_sha256": "92720b6c78b04f9b1789f0c53decd9833227673029f436d3afcbece0fb1dc992"
   }
 }
