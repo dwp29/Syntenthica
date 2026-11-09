@@ -5,12 +5,19 @@ on:
     branches: [arena/96cbd65a-syntenthica]
     paths: ['.github/workflows/synthetica31-infinity-rom-inspect.yml']
 permissions:
-  contents: read
+  contents: write # Only public ROM module audit report, never private device images.
 jobs:
   archive:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install offline extraction tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq brotli e2fsprogs openssl
       - name: Download public official Infinity 4.1 GAPPS archive
         timeout-minutes: 25
         run: |
@@ -19,21 +26,66 @@ jobs:
           curl --fail --location --retry 2 --connect-timeout 30 --max-time 1300 --output "$RUNNER_TEMP/infinity.zip" "$url"
           test "$(stat -c %s "$RUNNER_TEMP/infinity.zip")" = 2641732377
           echo "6b3d41aea18311e663266489adf54307  $RUNNER_TEMP/infinity.zip" | md5sum -c -
-      - name: Inspect archive layout, without extracting or executing ROM
+          echo "::notice title=Publisher ROM SHA256::$(sha256sum "$RUNNER_TEMP/infinity.zip" | cut -d' ' -f1)"
+          echo "ROM_SHA=$(sha256sum "$RUNNER_TEMP/infinity.zip" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+      - name: Extract full vendor and compare ROM boot
+        run: |
+          set -euo pipefail
+          if ! python3 build-kit/scripts/extract_synthetica2_block_ota.py --archive "$RUNNER_TEMP/infinity.zip" \
+            --out "$RUNNER_TEMP/rom-extracted" --sha256 "$ROM_SHA" --bytes 2641732377 > "$RUNNER_TEMP/extract.log" 2>&1; then
+            echo "::error title=ROM extraction refused::$(tail -c 4000 "$RUNNER_TEMP/extract.log" | tr '\n' ' ')"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/extract.log"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads((Path(os.environ['RUNNER_TEMP'])/'rom-extracted/extraction-report.json').read_text())
+          print('::notice title=ROM boot SHA256::'+x['boot_image_sha256'])
+          print('::notice title=ROM vendor SHA256::'+x['vendor_image_sha256'])
+          print('::notice title=Uploaded boot matches public ROM boot::'+str(x['boot_image_sha256']=='d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f'))
+          PY
+      - name: Extract vendor modules without mounting the filesystem
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/mods"
+          debugfs -R "rdump /lib/modules $RUNNER_TEMP/mods" "$RUNNER_TEMP/rom-extracted/vendor.img" > "$RUNNER_TEMP/debugfs.log" 2>&1
+          echo "::notice title=Vendor module extraction::$(tail -c 1800 "$RUNNER_TEMP/debugfs.log" | tr '\n' ' ')"
+          find "$RUNNER_TEMP/mods" -type f | head -30
+          n=$(find "$RUNNER_TEMP/mods" -type f -name '*.ko' | wc -l)
+          echo "::notice title=Vendor uncompressed .ko count::$n"
+          test "$n" -gt 0
+      - name: Fetch 3.1 evidence and audit ROM modules
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' "repos/${GITHUB_REPOSITORY}/git/blobs/0f815b773d39a8f0b392a7d190be9ca1ad702ead" > "$RUNNER_TEMP/evidence31.zip"
+          echo "67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847  $RUNNER_TEMP/evidence31.zip" | sha256sum -c -
+          if ! python3 build-kit/scripts/audit_synthetica31_rom_modules.py --modules "$RUNNER_TEMP/mods" \
+            --evidence "$RUNNER_TEMP/evidence31.zip" --report "$RUNNER_TEMP/rom-modules-report.json" > "$RUNNER_TEMP/audit.log" 2>&1; then
+            echo "::error title=Module audit refused::$(tail -c 4000 "$RUNNER_TEMP/audit.log" | tr '\n' ' ')"; exit 1
+          fi
+          cat "$RUNNER_TEMP/audit.log"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ['RUNNER_TEMP'])/'rom-modules-report.json').read_text())
+          print('::notice title=3.1 vs public Infinity vendor module summary::'+json.dumps(r['summary'],separators=(',',':')))
+          PY
+      - name: Store public audit report as an unreferenced Git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import os,zipfile,json
+          import base64,json,os
           from pathlib import Path
-          p=Path(os.environ['RUNNER_TEMP'])/'infinity.zip'
-          with zipfile.ZipFile(p) as z:
-              infos=z.infolist()
-              print('Entry count:',len(infos))
-              rows = [f'{i.filename} ({i.file_size})' for i in infos if not i.is_dir()]
-              print('::notice title=ROM archive layout::' + ' | '.join(rows).replace('%','%25')[:6000])
-              for i in infos:
-                  if not i.is_dir():
-                      print(json.dumps({'name':i.filename,'bytes':i.file_size,'compressed_bytes':i.compress_size}))
+          t=Path(os.environ['RUNNER_TEMP']); data=(t/'rom-modules-report.json').read_bytes()
+          assert len(data)<10000000
+          (t/'report-blob.json').write_text(json.dumps({'content':base64.b64encode(data).decode(),'encoding':'base64'}))
           PY
+          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/report-blob.json" --jq .sha)
+          echo "::notice title=Public ROM modules audit blob::$blob"
       - name: Scope
-        run: echo '::notice::Public publisher archive only; not a user image, installed-ROM proof, boot test, or module audit.'
+        run: echo '::notice::Public publisher archive only; not installed-ROM proof, runtime module loading or physical boot.'
