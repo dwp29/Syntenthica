@@ -1,0 +1,31 @@
+name: "Synthetica 3.1 - offline AVB hash checks"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-avb-hash.yml'
+      - 'build-kit/scripts/audit_boot_avb_hash.py'
+      - 'build-kit/scripts/audit_synthetica3_boot.py'
+      - 'tests/test_boot_avb_hash.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Fetch pinned avbtool for fixture cross-check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5 --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
+      - name: Test synthetic AVB hashes and compare with avbtool
+        env:
+          S31_AVBTOOL: ${{ runner.temp }}/avbtool.py
+        run: python3 -m unittest discover -s tests -p 'test_boot_avb_hash.py' -v

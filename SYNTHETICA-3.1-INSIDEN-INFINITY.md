@@ -176,3 +176,28 @@ Bukti kompilasi bukan boot image atau ZIP recovery; **jangan flash**. Installer
 lama mempunyai risiko yang dijelaskan di atas dan belum diadaptasi untuk
 kandidat ini. Tahap selanjutnya adalah merancang dan memverifikasi integrasi
 installer/boot, bukan menyebut compile evidence sebagai file flash siap pakai.
+
+### Kendala AVB yang ditemukan selama integrasi
+
+Pemeriksaan read-only `build-kit/scripts/audit_boot_avb_hash.py`, disilang-periksa
+dengan `avbtool` terpin blob `7932b111ce2b8bb23ea50bebf42c201a20c4eea5`,
+menemukan descriptor hash `boot` SHA-256 di footer image pengguna. Digest atas
+50.405.376 byte image asli cocok. Header vbmeta yang tertanam memakai algorithm
+`NONE`, jadi hasil ini **bukan verifikasi tanda tangan atau chain of trust**;
+keadaan vbmeta eksternal dan bootloader tidak diketahui.
+
+Untuk menguji konsekuensi metode repack, sebuah **fixture offline privat**
+dibuat dengan kernel control1, ramdisk/DTB/header relevan dipertahankan, dan
+metadata AVB lama disalin. Pemeriksaan struktur dan legacy boot ID lulus,
+tetapi digest descriptor `boot` **tidak cocok**, dikonfirmasi oleh audit dan
+`avbtool verify_image` pada file fixture bernama `boot.img` di direktori
+terpisah. Ini bukan eksekusi installer, bukan boot perangkat, dan bukan bukti
+mengapa 3.1 sebelumnya bootloop. Hasil ini menunjukkan mengapa kesamaan bytes
+metadata AVB saja bukan syarat cukup untuk melepas kandidat baru.
+
+Jangan memakai fixture sebagai image untuk flash. Installer lama belum lolos
+pemeriksaan AVB ini; belum ada keputusan untuk mengganti footer atau menonaktifkan
+verifikasi. Signature, vbmeta eksternal, state runtime dan ROM/modules tetap
+belum diverifikasi. Tes unit pemeriksa hash menggunakan fixture sintetis dan
+`avbtool`, tanpa ponsel; script hanya membaca input dan tidak menandatangani,
+memodifikasi, atau mem-flash.
