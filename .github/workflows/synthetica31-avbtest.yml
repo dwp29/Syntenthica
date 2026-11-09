@@ -1,0 +1,45 @@
+name: "Synthetica 3.1 AVB test - guarded installer fixture tests"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-avbtest.yml'
+      - 'build-kit/ci/s31-avbtest-installer/**'
+      - 'build-kit/scripts/build_synthetica31_avbtest.py'
+      - 'tests/test_synthetica31_avbtest.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install ARM fixture tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static unzip
+      - name: Fetch pinned avbtool and verify packaged ARM BusyBox
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5 --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
+          echo 'b1a0be5c7402a14d25f64fab495d6dd7e945dab18fa55c2fd164c5ced853897c  release/Synthetica-2.0.zip' | sha256sum -c -
+          unzip -p release/Synthetica-2.0.zip tools/busybox > "$RUNNER_TEMP/busybox-arm"
+          chmod 755 "$RUNNER_TEMP/busybox-arm"
+      - name: Test synthetic repack, host writer and emulated ARM BusyBox
+        env:
+          S31_AVBTOOL: ${{ runner.temp }}/avbtool.py
+          S31_ARM_BB: ${{ runner.temp }}/busybox-arm
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica31_control_repack.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica31_avbtest.py' -v
+          python3 -m unittest discover -s tests -p 'test_boot_avb_hash.py' -v
+      - name: Record scope
+        run: echo '::notice::Synthetic regular files and ARM user emulation only; no actual recovery, boot partition, physical boot, ROM modules or external AVB chain verified.'

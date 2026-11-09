@@ -434,3 +434,23 @@ perangkat, bukan boot fisik**.
   Repack control1 yang menghitung ulang hash diuji offline sebelumnya, tetapi
   **tetap jangan flash**: kesesuaian modul, trust eksternal, dan boot tidak
   terbukti. Jangan menonaktifkan verifikasi atau mengasumsikan gejala selesai.
+
+## Kandidat AVB-test berdasarkan permintaan uji perangkat
+
+Kandidat `Synthetica-3.1-AVB-TEST-Joyeuse-Infinity4.1.zip` menggunakan Image.gz
+3.1 asli, bukan control1 atau build ulang. Boot dibangun dari image yang
+teridentifikasi tepat sebagai boot ROM publik; ramdisk, DTB dan header yang
+relevan dipertahankan, digest unsigned embedded diperbarui. Kernel ROM dan
+modul vendor tidak dimodifikasi. Paket menolak penulisan jika boot saat ini
+tidak identik dengan referensi; tidak memasang ksud atau modul. Oleh karena itu
+ia tidak untuk Android 16 saat ini dan dapat menolak boot yang telah di-root.
+
+ZIP SHA-256 `26f9f17ca9d0f3c41e6c20b83463ca0253092d430d52bd8d07f7b3b9abe6e34d`;
+boot kandidat SHA-256 `ef2531f712d998513c9960fa25abc7884b1549f5d951aea8ef070c25ef1e305e`.
+AVB descriptor NONE lulus verifikasi avbtool pada direktori terisolasi; fixture
+installer host berhasil menulis dan memverifikasi salinan file biasa dengan
+berbagai pengujian kegagalan dan precondition. Ini kandidat diagnostik untuk
+diuji pengguna dengan backup, **bukan perbaikan bootloop yang terbukti**: belum
+diuji pada perangkat, external AVB belum diverifikasi, tiga modul ROM masih
+mismatch, dan tidak dipastikan bootloader memeriksa descriptor embedded. Jangan
+flash control1 lama. Output boot/ZIP disimpan privat, bukan di Git.

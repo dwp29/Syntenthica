@@ -1,0 +1,75 @@
+#!/sbin/sh
+# 3.1-AVB-test EXPERIMENTAL, only for the exact pre-audited boot image.
+# No mounts, no external tools or partitions modified other than boot.
+set -u
+case "${2-}" in ''|*[!0-9]*) exit 1;; esac
+OUTFD=$2
+ZIPFILE=${3-}
+ui() { echo "ui_print $*" >> "/proc/self/fd/$OUTFD"; echo ui_print >> "/proc/self/fd/$OUTFD"; }
+fail() { ui "ERROR: $*"; ui 'Tidak ada reboot otomatis.'; exit 1; }
+prop() { getprop "$1" 2>/dev/null || true; }
+ui 'Synthetica 3.1-AVB-test - ZIP UJI EKSPERIMENTAL'
+ui 'Boot, modul ROM, root dan AVB eksternal belum diuji.'
+ui 'Backup boot yang tepat dan recovery siap pakai wajib tersedia.'
+[ -f "$ZIPFILE" ] || fail 'ZIP tidak ditemukan.'
+device_ok=0
+for key in ro.product.device ro.build.product ro.product.vendor.device; do
+  device=$(prop "$key")
+  case "$device" in joyeuse|miatoll) device_ok=1;; esac
+done
+[ "$device_ok" = 1 ] || fail 'Properti perangkat bukan joyeuse/miatoll.' 
+for key in ro.boot.slot_suffix ro.boot.slot; do
+  slot=$(prop "$key")
+  case "$slot" in ''|normal) :;; *) fail 'Slot A/B atau slot tidak diketahui.';; esac
+done
+ab=$(prop ro.build.ab_update)
+case "$ab" in ''|false|0) :;; *) fail 'Perangkat A/B atau status tidak diketahui.';; esac
+for arg in $(cat /proc/cmdline 2>/dev/null); do
+  case "$arg" in
+    androidboot.slot=|androidboot.slot=normal|androidboot.slot_suffix=|androidboot.slot_suffix=normal) :;;
+    androidboot.slot=*|androidboot.slot_suffix=*) fail 'Slot A/B ditemukan di cmdline.';;
+  esac
+done
+for dir in /dev/block/bootdevice/by-name /dev/block/by-name; do
+  for part in "$dir/boot_a" "$dir/boot_b"; do
+    [ ! -e "$part" ] && [ ! -L "$part" ] || fail 'Nama partisi boot ber-slot ditemukan.'
+  done
+done
+locked=$(prop ro.boot.flash.locked); state=$(prop ro.boot.verifiedbootstate); device_state=$(prop ro.boot.vbmeta.device_state)
+[ "$locked" != 1 ] && [ "$device_state" != locked ] || fail 'Bootloader terkunci.'
+[ "$locked" = 0 ] || [ "$state" = orange ] || [ "$device_state" = unlocked ] || fail 'Bootloader terbuka tidak dapat dipastikan.'
+BLOCK=/dev/block/bootdevice/by-name/boot
+[ -b "$BLOCK" ] || fail 'Partisi boot tidak ditemukan.'
+command -v unzip >/dev/null 2>&1 || fail 'unzip recovery tidak tersedia.'
+umask 077
+WORK="/tmp/synthetica31-avbtest-$$"
+mkdir "$WORK" || fail 'Tidak dapat membuat folder sementara.'
+trap 'rm -rf "$WORK"' EXIT
+trap 'exit 1' HUP INT TERM
+unzip -p "$ZIPFILE" tools/busybox > "$WORK/busybox" || fail 'Tidak dapat mengekstrak busybox.'
+chmod 700 "$WORK/busybox" || fail 'Tidak dapat menjalankan busybox.'
+BB="$WORK/busybox"
+partsize=$("$BB" blockdev --getsize64 "$BLOCK") || fail 'Ukuran partisi tidak tersedia.'
+[ "$partsize" = 134217728 ] || fail 'Ukuran boot bukan 128 MiB.'
+readonly=$("$BB" blockdev --getro "$BLOCK") || fail 'Status read-only tidak tersedia.'
+[ "$readonly" = 0 ] || fail 'Partisi boot read-only.'
+hash() { "$BB" sha256sum "$1" | "$BB" cut -d ' ' -f 1; }
+ui 'Memeriksa boot asli...'
+[ "$(hash "$BLOCK")" = '@REFERENCE@' ] || fail 'Boot tidak identik dengan image referensi. Tidak ada penulisan.'
+ui 'Mengekstrak dan memeriksa kandidat...'
+unzip -p "$ZIPFILE" boot.img > "$WORK/boot.img" || fail 'Ekstraksi image gagal atau ruang /tmp tidak cukup.'
+[ "$("$BB" stat -c %s "$WORK/boot.img")" = "$partsize" ] || fail 'Ukuran kandidat salah.'
+[ "$(hash "$WORK/boot.img")" = '@CANDIDATE@' ] || fail 'Hash kandidat salah.'
+[ "$(hash "$BLOCK")" = '@REFERENCE@' ] || fail 'Boot berubah selama persiapan. Tidak ada penulisan.'
+ui 'Menulis partisi boot; jangan putuskan daya.'
+if ! "$BB" dd if="$WORK/boot.img" of="$BLOCK" bs=1048576 conv=fsync 2>/dev/null; then
+  ui 'PENULISAN GAGAL. JANGAN REBOOT. Pulihkan backup boot tepat dari recovery.'
+  exit 1
+fi
+if ! "$BB" cmp -s -n "$partsize" "$WORK/boot.img" "$BLOCK"; then
+  ui 'READBACK GAGAL. JANGAN REBOOT. Pulihkan backup boot tepat dari recovery.'
+  exit 1
+fi
+ui 'Penulisan dan readback selesai. Tidak reboot otomatis.'
+ui 'Jika bootloop, kembali ke recovery dan pulihkan backup boot yang tepat.'
+exit 0
