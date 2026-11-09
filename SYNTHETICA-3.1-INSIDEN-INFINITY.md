@@ -58,6 +58,10 @@ log bukan otomatis log boot gagal. Batas ukuran, kegagalan, timeout dan output
 kosong tercatat di `STATUS.json`. Alat tidak flash, reboot, mount atau mengubah
 partisi. Tes menggunakan ADB palsu; **belum diuji pada OrangeFox atau perangkat
 fisik** dan tidak menjamin log dapat dikumpulkan. Uji awal tidak memerlukan flash.
+[CI host Ubuntu dan Windows 42561394722](https://github.com/dwp29/Syntenthica/actions/runs/42561394722)
+lulus dengan ADB palsu, bukan recovery sebenarnya. [ZIP alat PC diagnostik](https://drive.google.com/file/d/1ukWt9Wi44TqHt4zZ0Ehd1ExmunfdU2rV/view?usp=drivesdk)
+(SHA-256 `561c46fdcc758505ab8643f608ae17ad6ea5c72617d02b67812fa37f64d442f0`)
+hanya berisi skrip Python dan panduan; **bukan file kernel untuk di-flash**.
 
 Konfigurasi 3.1 pada bukti build ber-SHA terverifikasi mengaktifkan `PSTORE`,
 `PSTORE_CONSOLE`, `PSTORE_PMSG`, dan `PSTORE_RAM`; ini bukan bukti perangkat,
