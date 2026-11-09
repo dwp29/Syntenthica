@@ -13,6 +13,7 @@ on:
       - 'build-kit/scripts/audit_s40_susfs_abi.py'
       - 'build-kit/scripts/probe_s40_susfs_priority.py'
       - 'build-kit/scripts/probe_s40_susfs_pending.py'
+      - 'build-kit/scripts/probe_s40_susfs_stalled.py'
       - 'build-kit/scripts/probe_s40_susfs_priority_compile.py'
       - 'tests/test_s40_susfs_priority_compile.py'
   workflow_dispatch:
@@ -101,7 +102,7 @@ jobs:
               python3 build-kit/scripts/annotate_synthetica40_failure.py 'Priority-object config' "$RUNNER_TEMP/s40-priority-reports/config.log"
               exit 1
             }
-      - name: Compile original, guarded and pending fragments with priority hooks
+      - name: Compile all four research fragments with priority hooks
         timeout-minutes: 20
         run: |
           set -euo pipefail

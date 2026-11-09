@@ -237,18 +237,42 @@ pada [CI 42555885358](https://github.com/dwp29/Syntenthica/actions/runs/42555885
 Jangan integrasikan kandidat ini sebagai perbaikan kernel; SUSFS 2.4 tetap
 nonaktif dan belum terintegrasi.
 
+### Penanda gagal-start dan kesalahan resolver
+
+Kandidat scratch berikutnya
+[`research-only-priority-stalled.patch`](build-kit/ci/s40-susfs-abi/research-only-priority-stalled.patch)
+menambahkan state `STALLED` setelah kegagalan pembuatan worker, termasuk saat
+ada request yang bersamaan. Model
+[`probe_s40_susfs_stalled.py`](build-kit/scripts/probe_s40_susfs_stalled.py)
+mempertahankan state internal itu pada kegagalan berulang dan menunjukkan
+bahwa request terpisah berikutnya dapat mencoba lagi. Namun **tidak ada retry
+otomatis atau pelaporan kegagalan eksternal**, sehingga tanpa request baru bitmap
+dapat tetap usang tanpa batas. Penanda bukan jaminan pemrosesan event dan bukan
+solusi siap kernel; tidak ada patch ini yang diintegrasikan.
+
+Pemeriksaan fungsi parser, setter dan worker yang diekstrak menunjukkan masalah
+lain: jalur `skip_failed` melewati **semua** error resolver, bukan hanya `ENOENT`.
+Dalam model dengan resolver palsu yang menyuntikkan `ENOENT`, `EIO`, `EACCES`
+dan `ENOMEM`, worker menerbitkan bitmap kosong; setter juga mengembalikan sukses
+untuk `EIO` yang disimulasikan. Ini bukan reproduksi fault filesystem asli,
+tetapi alasan penting untuk membedakan package yang benar-benar hilang dari
+kegagalan sementara sebelum mengubah kebijakan retry atau port. Audit credential,
+namespace, urutan memori, lifetime worker dan perilaku saat alokasi gagal tetap
+harus dilakukan; workqueue pun tidak otomatis aman sebagai pengganti kthread.
+
 ### Kompilasi terisolasi priority filter
 
 [`probe_s40_susfs_priority_compile.py`](build-kit/scripts/probe_s40_susfs_priority_compile.py)
 menyiapkan pohon scratch baru dari source yang dipin, mengambil hanya enam hunk
 priority dari patch resmi pada `kernel/sys.c` dan `block/ioprio.c`, dan membuat
-unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard dan pending di atas. Adapter
+unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard, pending dan
+stalled di atas. Adapter
 kecil untuk mencari domain KSUN dibuat **hanya untuk percobaan kompilasi**;
 kesetaraan perilakunya dan keamanan SELinux belum dibuktikan. Flag priority
 dipasang hanya pada pemanggilan compiler percobaan, bukan pada konfigurasi 4.0;
 objek tersebut tidak didaftarkan ke Kbuild atau disertakan dalam image.
 
-Secara lokal, ketiga varian beserta dua objek hook dan objek SELinux KSUN berhasil
+Secara lokal, keempat varian beserta dua objek hook dan objek SELinux KSUN berhasil
 dikompilasi menjadi ARM64 setelah memeriksa 599 permintaan konfigurasi. Tiap
 objek syscall memiliki dua relokasi panggilan priority, dan partial link
 menyelesaikan tiga simbol terpilih; **167 simbol lain masih unresolved** pada
@@ -259,7 +283,8 @@ mengulang kedua varian awal dengan Neutron yang dipin dan lulus pada
 [CI 42554605698](https://github.com/dwp29/Syntenthica/actions/runs/42554605698).
 Ketiga varian, termasuk pending, juga lulus CI terpisah dengan Neutron
 [42555885345](https://github.com/dwp29/Syntenthica/actions/runs/42555885345);
-kompilasi tidak menutup celah gagal-start yang telah dimodelkan. Tidak ada dispatcher SUSFS, link kernel penuh,
+kompilasi tidak menutup celah gagal-start yang telah dimodelkan. CI untuk
+varian stalled tambahan perlu diperiksa terpisah. Tidak ada dispatcher SUSFS, link kernel penuh,
 modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti

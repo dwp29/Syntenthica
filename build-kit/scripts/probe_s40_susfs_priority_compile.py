@@ -5,8 +5,9 @@ Two pinned upstream 2.4 priority-hook hunks are extracted for each syscall
 file, together with the declaration hunk. The 2.4 filter and a separately
 pinned research-only race guard are compiled as ARM64 objects against the
 prepared 6.18 tree and KSUN 3.4.2. A second pending-refresh candidate is also
-compiled but still has a known failed-thread-start race. A tiny adapter maps
-the upstream domain query to the KSUN symbol *for this compile experiment only*; its runtime
+compiled but still has a known failed-thread-start race. A stalled-marker
+candidate adds no automatic retry. A tiny adapter maps the upstream domain
+query to the KSUN symbol *for this compile experiment only*; its runtime
 semantics are NOT established. The objects are partially linked to check a few
 symbol references, while hundreds of unrelated kernel symbols may remain
 unresolved. There is no dispatcher, full SUSFS build, image, module, device
@@ -32,6 +33,7 @@ import audit_s40_susfs_abi as abi
 import build_synthetica40 as s40
 import probe_s40_susfs_priority as priority
 import probe_s40_susfs_pending as pending_probe
+import probe_s40_susfs_stalled as stalled_probe
 
 PINS = abi.PINS['priority_compile_research']
 PATCH = 'kernel_patches/50_add_susfs_in_gki-android14-6.1.patch'
@@ -39,7 +41,8 @@ MARKER = 'S40-PRIORITY-RESEARCH.json'
 FLAG = 'CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER'
 OUTPUT_SOURCES = {'original': 'fs/s40_priority_original.c',
                   'guarded': 'fs/s40_priority_guarded.c',
-                  'pending': 'fs/s40_priority_pending.c'}
+                  'pending': 'fs/s40_priority_pending.c',
+                  'stalled': 'fs/s40_priority_stalled.c'}
 
 
 def checked_file(root: Path, relative: str, expected: str) -> str:
@@ -118,7 +121,8 @@ def fragment(source: str, header: str) -> str:
     digest = hashlib.sha256(source.encode()).hexdigest()
     if digest not in {abi.PINS['sources']['susfs'][priority.SOURCE],
                       abi.PINS['research_priority_guard']['guarded_susfs_c_sha256'],
-                      abi.PINS['research_priority_pending']['pending_guarded_susfs_c_sha256']}:
+                      abi.PINS['research_priority_pending']['pending_guarded_susfs_c_sha256'],
+                      abi.PINS['research_priority_stalled']['stalled_susfs_c_sha256']}:
         raise ValueError('Priority fragment source is not pinned')
     if hashlib.sha256(header.encode()).hexdigest() != abi.PINS['sources']['susfs'][priority.HEADER]:
         raise ValueError('Priority header is not pinned')
@@ -174,8 +178,9 @@ def prepare(kernel: Path, ksun: Path, nomount: Path, susfs: Path, work: Path) ->
     with tempfile.TemporaryDirectory(prefix='s40-guard-extraction-') as temp:
         guarded = priority.apply_candidate(original, Path(temp) / 'generation')
         pending = pending_probe.apply_pending(guarded, Path(temp) / 'pending')
+        stalled = stalled_probe.apply_stalled(pending, Path(temp) / 'stalled')
     generated = {'original': fragment(original, header), 'guarded': fragment(guarded, header),
-                 'pending': fragment(pending, header)}
+                 'pending': fragment(pending, header), 'stalled': fragment(stalled, header)}
     generated_hashes = {key: hashlib.sha256(value.encode()).hexdigest() for key, value in generated.items()}
     if generated_hashes != PINS['generated_fragment_sha256']:
         raise ValueError('Generated priority fragment SHA-256 mismatch')
@@ -317,6 +322,8 @@ def verify_objects(out: Path, *, nm: str = 'llvm-nm', ld: str = 'ld.lld',
         'upstream_and_research_guarded_priority_fragments_compiled': True,
         'research_pending_candidate_also_compiled': True,
         'pending_candidate_failed_thread_start_race_fixed': False,
+        'research_stalled_candidate_also_compiled': True,
+        'stalled_candidate_guarantees_automatic_retry': False,
         'sys_and_ioprio_priority_call_relocations_each': 2,
         'three_selected_symbols_resolved_in_partial_link': True,
         'unresolved_other_symbols': unresolved_counts,

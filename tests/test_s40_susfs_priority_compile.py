@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'build-kit/scripts'))
 import probe_s40_susfs_priority as priority
 import probe_s40_susfs_pending as pending
+import probe_s40_susfs_stalled as stalled
 import probe_s40_susfs_priority_compile as probe
 
 
@@ -111,6 +112,7 @@ class PriorityCompileGuardTests(unittest.TestCase):
                      'fs/s40_priority_original.c': 'original\n',
                      'fs/s40_priority_guarded.c': 'guarded\n',
                      'fs/s40_priority_pending.c': 'pending\n',
+                     'fs/s40_priority_stalled.c': 'stalled\n',
                      'fs/Makefile': 'obj-y += open.o\n', 'fs/Kconfig': 'menu "FS"\n'}
             for path, content in files.items():
                 f = src / path
@@ -171,6 +173,10 @@ class PriorityCompileGuardTests(unittest.TestCase):
                                         'setup_selinux': {'U'}, 'is_ksu_domain': {'U'}},
             's40_priority_pending.o': {'susfs_is_priority_uid_filtered': {'T'},
                                         'setup_selinux': {'U'}, 'is_ksu_domain': {'U'}},
+            's40_priority_stalled.o': {'susfs_is_priority_uid_filtered': {'T'},
+                                        'setup_selinux': {'U'}, 'is_ksu_domain': {'U'}},
+            'stalled-DO-NOT-LOAD.o': {'susfs_is_priority_uid_filtered': {'T'},
+                                       'setup_selinux': {'T'}, 'is_ksu_domain': {'T'}, 'other': {'U'}},
             'pending-DO-NOT-LOAD.o': {'susfs_is_priority_uid_filtered': {'T'},
                                        'setup_selinux': {'T'}, 'is_ksu_domain': {'T'}, 'other': {'U'}},
             'original-DO-NOT-LOAD.o': {'susfs_is_priority_uid_filtered': {'T'},
@@ -186,9 +192,15 @@ class PriorityCompileGuardTests(unittest.TestCase):
              mock.patch.object(probe, 'symbols', side_effect=fake_symbols), \
              mock.patch.object(probe, 'run', side_effect=fake_run):
             report = probe.verify_objects(Path('/tmp/fake-output'))
-            self.assertEqual(report['unresolved_other_symbols'], {'original': 1, 'guarded': 1, 'pending': 1})
+            self.assertEqual(report['unresolved_other_symbols'], {'original': 1, 'guarded': 1, 'pending': 1, 'stalled': 1})
             self.assertTrue(report['research_pending_candidate_also_compiled'])
             self.assertFalse(report['pending_candidate_failed_thread_start_race_fixed'])
+            self.assertTrue(report['research_stalled_candidate_also_compiled'])
+            self.assertFalse(report['stalled_candidate_guarantees_automatic_retry'])
+            tables['stalled-DO-NOT-LOAD.o']['is_ksu_domain'] = {'U'}
+            with self.assertRaisesRegex(ValueError, 'Expected exactly T for is_ksu_domain'):
+                probe.verify_objects(Path('/tmp/fake-output'))
+            tables['stalled-DO-NOT-LOAD.o']['is_ksu_domain'] = {'T'}
             tables['pending-DO-NOT-LOAD.o']['is_ksu_domain'] = {'U'}
             with self.assertRaisesRegex(ValueError, 'Expected exactly T for is_ksu_domain'):
                 probe.verify_objects(Path('/tmp/fake-output'))
@@ -225,7 +237,7 @@ class PriorityCompileGuardTests(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which('git'), 'git required')
 class RealSourcePriorityCompileTests(unittest.TestCase):
-    def test_exact_selected_hunks_and_all_three_fragments(self):
+    def test_exact_selected_hunks_and_all_four_fragments(self):
         susfs = os.environ.get('S40_ABI_SUSFS')
         if not susfs:
             self.skipTest('set S40_ABI_SUSFS to pinned source')
@@ -239,7 +251,8 @@ class RealSourcePriorityCompileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='s40-priority-fragments-') as tmp:
             guarded = priority.apply_candidate(source, Path(tmp) / 'candidate')
             candidate = pending.apply_pending(guarded, Path(tmp) / 'pending')
-        for name, text in (('original', source), ('guarded', guarded), ('pending', candidate)):
+            fourth = stalled.apply_stalled(candidate, Path(tmp) / 'stalled')
+        for name, text in (('original', source), ('guarded', guarded), ('pending', candidate), ('stalled', fourth)):
             generated = probe.fragment(text, header)
             self.assertEqual(digest(generated), probe.PINS['generated_fragment_sha256'][name])
             self.assertIn('COMPILE', generated.upper())

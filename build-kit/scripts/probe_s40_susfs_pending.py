@@ -297,8 +297,8 @@ int main(void) {
 '''
 
 
-def program(source: str, header: str) -> str:
-    if hashlib.sha256(source.encode()).hexdigest() != PINS['pending_guarded_susfs_c_sha256']:
+def build_program(source: str, header: str, expected_source: str, main: str) -> str:
+    if hashlib.sha256(source.encode()).hexdigest() != expected_source:
         raise ValueError('Unpinned pending candidate source')
     if hashlib.sha256(header.encode()).hexdigest() != abi.PINS['sources']['susfs'][priority.HEADER]:
         raise ValueError('Unpinned priority header')
@@ -308,7 +308,8 @@ def program(source: str, header: str) -> str:
         '#define atomic_cmpxchg(p, old, new) __sync_val_compare_and_swap((p), (old), (new))',
         'static int model_cmpxchg(atomic_t *ptr, int old, int next);\n'
         '#define atomic_cmpxchg(p, old, new) model_cmpxchg((p), (old), (new))\n'
-        '#define atomic_read(p) __atomic_load_n((p), __ATOMIC_SEQ_CST)')
+        '#define atomic_read(p) __atomic_load_n((p), __ATOMIC_SEQ_CST)\n'
+        '#define atomic_xchg(p, v) __atomic_exchange_n((p), (v), __ATOMIC_SEQ_CST)')
     resolver = replace_once(priority.RESOLVER,
         'static uid_t alpha_uid = 10001; /* protected by gate */',
         'static uid_t alpha_uid = 10001; /* protected by gate */\nstatic int worker_resolutions;')
@@ -317,7 +318,11 @@ def program(source: str, header: str) -> str:
         'if (is_worker_thread) worker_resolutions++;\n        if (is_worker_thread && pause_worker) {')
     return '\n'.join((preamble, parts['globals'], parts['payload'], parts['valid'], resolver,
                       CAS_SHIM, parts['parse'], parts['set'], once, parts['worker'], THREAD_SHIM,
-                      parts['request'], parts['lookup'], MAIN))
+                      parts['request'], parts['lookup'], main))
+
+
+def program(source: str, header: str) -> str:
+    return build_program(source, header, PINS['pending_guarded_susfs_c_sha256'], MAIN)
 
 
 def probe(susfs: Path, compiler: str = 'gcc') -> dict:

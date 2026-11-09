@@ -1,0 +1,36 @@
+--- a/fs/susfs.c
++++ b/fs/susfs.c
+@@ -1409,6 +1409,8 @@
+ #define SUSFS_PRIORITY_REFRESH_IDLE 0
+ #define SUSFS_PRIORITY_REFRESH_RUNNING 1
+ #define SUSFS_PRIORITY_REFRESH_PENDING 2
++/* No worker exists after a failed launch; a later request may retry. */
++#define SUSFS_PRIORITY_REFRESH_STALLED 3
+ static atomic_t susfs_priority_app_strings_running = ATOMIC_INIT(0);
+ 
+ /*
+@@ -1815,18 +1817,18 @@
+ 				return;
+ 			continue;
+ 		}
+-		if (state != SUSFS_PRIORITY_REFRESH_IDLE) {
++		if (state != SUSFS_PRIORITY_REFRESH_IDLE &&
++		    state != SUSFS_PRIORITY_REFRESH_STALLED) {
+ 			SUSFS_LOGE("unexpected priority refresh state\n");
+ 			return;
+ 		}
+ 		if (atomic_cmpxchg(&susfs_priority_app_strings_running,
+-				SUSFS_PRIORITY_REFRESH_IDLE, SUSFS_PRIORITY_REFRESH_RUNNING) !=
+-				SUSFS_PRIORITY_REFRESH_IDLE)
++				state, SUSFS_PRIORITY_REFRESH_RUNNING) != state)
+ 			continue;
+-		/* TODO: concurrent requests during a failed kthread_run can still be
+-		 * lost. This state machine is research-only and is not a port. */
+ 		if (IS_ERR(kthread_run(susfs_priority_app_strings_worker, NULL, "susfs_gpsp_appstr"))) {
+-			atomic_set(&susfs_priority_app_strings_running, SUSFS_PRIORITY_REFRESH_IDLE);
++			/* Research only: retain a visible failed state, including any
++			 * concurrently pending request. There is NO automatic retry. */
++			atomic_xchg(&susfs_priority_app_strings_running, SUSFS_PRIORITY_REFRESH_STALLED);
+ 			SUSFS_LOGE("failed to create the thread susfs_priority_app_strings\n");
+ 		}
+ 		return;
