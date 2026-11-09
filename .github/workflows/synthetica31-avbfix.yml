@@ -1,0 +1,189 @@
+name: "Synthetica 3.1 - targeted AVB repair and installer tests"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-avbfix.yml'
+      - 'build-kit/ci/s31-avb-fix/**'
+      - 'build-kit/scripts/package_synthetica31_avbfix.py'
+      - 'tests/test_synthetica31_avb_fix.py'
+      - 'tests/test_synthetica31_avbfix_infinity_qemu.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write # public compiled helper only, no ROM image
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install ARM fixture tools
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get -y -qq install busybox qemu-user-static gcc-arm-linux-gnueabi >/dev/null
+      - name: Validate the recorded build identity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          x = json.loads(Path('build-kit/ci/synthetica31-build-evidence.json').read_text())
+          for key, size in (('transfer_git_blob',40),('transfer_sha256',64),('image_sha256',64),('config_sha256',64),('module_public_cert_sha256',64)):
+              if not isinstance(x.get(key), str) or not re.fullmatch('[0-9a-f]{%d}' % size, x[key]): raise ValueError('invalid evidence identity '+key)
+          if x.get('release') != '4.14.357-openela-synthetica-3.1' or not isinstance(x.get('build_run'), int): raise ValueError('invalid build release/run')
+          env = Path(os.environ['GITHUB_ENV'])
+          with env.open('a') as f:
+              for k in ('transfer_git_blob','transfer_sha256','image_sha256','config_sha256','module_public_cert_sha256'):
+                  f.write('S31_'+k.upper()+'='+x[k]+'\n')
+          PY
+      - name: Fetch and hash-check the previous configs and new compile evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/8541d4a26081b94215d4d493332cc27711f2fd15" > "$RUNNER_TEMP/transfer30.zip"
+          echo '77f7a76159c5f450704adc75d9dc7daa02a7c6e18f33edf4216025314e38e5c9  '"$RUNNER_TEMP/transfer30.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer30.zip" generated.config.txt > "$RUNNER_TEMP/config30"
+          echo '253a89a338e8c5b71da71b698a0160d9fb361468cfac3a3bfc7fae2c52f4af2d  '"$RUNNER_TEMP/config30" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/d5e292c91a36c7706deedfdb9f1ca8b7a703ee3e" > "$RUNNER_TEMP/transfer20.zip"
+          echo '742068c09eb99f6eb37d55aa3ee1bca9ee156db592d10d3d901fca738900dabc  '"$RUNNER_TEMP/transfer20.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer20.zip" generated.config.txt > "$RUNNER_TEMP/config20exp"
+          echo 'c72503550d74446f5af3573288b4e93dc1407854c5df338d20681d1866ccb96c  '"$RUNNER_TEMP/config20exp" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/$S31_TRANSFER_GIT_BLOB" > "$RUNNER_TEMP/transfer31.zip"
+          echo "$S31_TRANSFER_SHA256  $RUNNER_TEMP/transfer31.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import os, zipfile
+          from pathlib import Path
+          t = Path(os.environ['RUNNER_TEMP']); out = t/'result'; out.mkdir()
+          allowed = {'Image.gz.DO-NOT-FLASH','STATUS.json','generated.config.txt','module-signing-public-cert.x509','Module.symvers','System.map'}
+          with zipfile.ZipFile(t/'transfer31.zip') as z:
+              names=z.namelist()
+              if set(names)!=allowed or len(names)!=len(allowed) or z.testzip(): raise ValueError('unexpected 3.1 evidence archive')
+              for name in names:
+                  if z.getinfo(name).file_size > 30000000: raise ValueError('oversized evidence member')
+                  (out/name).write_bytes(z.read(name))
+          PY
+          echo "$S31_IMAGE_SHA256  $RUNNER_TEMP/result/Image.gz.DO-NOT-FLASH" | sha256sum -c -
+          echo "$S31_CONFIG_SHA256  $RUNNER_TEMP/result/generated.config.txt" | sha256sum -c -
+          echo "$S31_MODULE_PUBLIC_CERT_SHA256  $RUNNER_TEMP/result/module-signing-public-cert.x509" | sha256sum -c -
+          echo "S31_RESULT=$RUNNER_TEMP/result" >> "$GITHUB_ENV"
+          echo "S31_BASELINE_CONFIG=$RUNNER_TEMP/config30" >> "$GITHUB_ENV"
+          echo "S3RC_TESTED_CONFIG=$RUNNER_TEMP/config20exp" >> "$GITHUB_ENV"
+      - name: Verify build evidence and create recovery ZIP
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/release"
+          python3 build-kit/scripts/package_synthetica31.py \
+            --result "$S31_RESULT" --tested20 "$S3RC_TESTED_CONFIG" --baseline30 "$S31_BASELINE_CONFIG" \
+            --output "$RUNNER_TEMP/release/Synthetica-3.1-Installer-2.0-TEST.zip"
+          cd "$RUNNER_TEMP/release"
+          sha256sum Synthetica-3.1-Installer-2.0-TEST.zip > Synthetica-3.1-Installer-2.0-TEST.zip.sha256
+          cat Synthetica-3.1-Installer-2.0-TEST.zip.sha256
+          sha256sum -c Synthetica-3.1-Installer-2.0-TEST.zip.sha256
+          echo "::notice title=3.1 recovery ZIP SHA256::$(cut -d' ' -f1 Synthetica-3.1-Installer-2.0-TEST.zip.sha256)"
+      - name: Test actual 3.1 ZIP and deterministic packaging
+        run: python3 -m unittest discover -s tests -p 'test_synthetica31_package.py' -v
+      - name: Exercise actual 3.1 image through AnyKernel using synthetic boot files
+        env:
+          S31_QEMU: '1'
+          S31_ZIP: ${{ runner.temp }}/release/Synthetica-3.1-Installer-2.0-TEST.zip
+        run: |
+          export S31_IMAGE_SHA="$S31_IMAGE_SHA256"
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica31_package_qemu.py' -v > "$RUNNER_TEMP/s31-qemu.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/s31-qemu.log"
+          if [ "$rc" -ne 0 ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text=(Path(os.environ['RUNNER_TEMP'])/'s31-qemu.log').read_text(errors='replace')[-16000:]
+          for i in range(0, len(text), 1800):
+              s=text[i:i+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f'::error title=3.1 final fixture diagnostic {i//1800+1}::{s}')
+          PY
+            exit "$rc"
+          fi
+      - name: Download and check the public official Infinity 4.1 GAPPS ROM
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 2 --connect-timeout 30 --max-time 1300 \
+            --output "$RUNNER_TEMP/rom.zip" 'https://mirror.tejas101k.workers.dev/0:/Project_Infinity-X-4.1-miatoll-21.10.2026-GAPPS-OFFICIAL.zip'
+          test "$(stat -c %s "$RUNNER_TEMP/rom.zip")" = 2641732377
+          echo "dc107bce866c6d2ba60d0c0f77578ac1b3de8dca04428ecafb06a4b11f9f648a  $RUNNER_TEMP/rom.zip" | sha256sum -c -
+          python3 - <<'PY2'
+          import os, zipfile
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(t/'rom.zip') as z:
+              members=[x for x in z.infolist() if x.filename=='boot.img']
+              if len(members)!=1 or members[0].file_size!=134217728: raise ValueError('unexpected public boot member')
+              with z.open(members[0]) as src, (t/'public-boot.img').open('xb') as dst:
+                  import shutil; shutil.copyfileobj(src,dst)
+          PY2
+          echo "d33c01c2fd84faff24c8b80b60ed32df735fc966cff2472b1d30403c3e6fec1f  $RUNNER_TEMP/public-boot.img" | sha256sum -c -
+      - name: Compile ARM helper and run synthetic integrity tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/LineageOS/android_external_avb/git/blobs/7932b111ce2b8bb23ea50bebf42c201a20c4eea5 --jq .content | base64 -d > "$RUNNER_TEMP/avbtool.py"
+          test "$(git hash-object "$RUNNER_TEMP/avbtool.py")" = 7932b111ce2b8bb23ea50bebf42c201a20c4eea5
+          arm-linux-gnueabi-gcc -std=c11 -O2 -Wall -Wextra -Werror -static -s build-kit/ci/s31-avb-fix/fix_avb.c -o "$RUNNER_TEMP/fix-avb-arm"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror build-kit/ci/s31-avb-fix/fix_avb.c -o "$RUNNER_TEMP/fix-avb-host"
+          S31_FIX_AVB="$RUNNER_TEMP/fix-avb-host" S31_AVBTOOL="$RUNNER_TEMP/avbtool.py" python3 -m unittest discover -s tests -p 'test_synthetica31_avb_fix.py' -v
+          S31_FIX_AVB="$RUNNER_TEMP/fix-avb-arm" S31_FIX_PREFIX=qemu-arm-static S31_AVBTOOL="$RUNNER_TEMP/avbtool.py" python3 -m unittest discover -s tests -p 'test_synthetica31_avb_fix.py' -v
+          echo "S31_HELPER_SHA=$(sha256sum "$RUNNER_TEMP/fix-avb-arm" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+      - name: Make test package and retain original ROM support path
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_synthetica31_avbfix.py --base "$RUNNER_TEMP/release/Synthetica-3.1-Installer-2.0-TEST.zip" \
+             --helper "$RUNNER_TEMP/fix-avb-arm" --helper-sha256 "$S31_HELPER_SHA" --output "$RUNNER_TEMP/candidate.zip"
+          S31_QEMU=1 S31_ZIP="$RUNNER_TEMP/candidate.zip" S31_IMAGE_SHA="$S31_IMAGE_SHA256" \
+             python3 -m unittest discover -s tests -p 'test_synthetica31_package_qemu.py' -v
+      - name: Test actual public Infinity boot with repaired installer
+        env:
+          S31_INFINITY_OFFLINE: '1'
+          S3_INSTALLER20_ZIP: ${{ runner.temp }}/candidate.zip
+          S31_PUBLIC_BOOT: ${{ runner.temp }}/public-boot.img
+        run: |
+          set -euo pipefail
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica31_avbfix_infinity_qemu.py' -v > "$RUNNER_TEMP/patch-test.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/patch-test.log"
+          if [ "$rc" != 0 ]; then
+             python3 - <<'PY2'
+          import os
+          from pathlib import Path
+          s=(Path(os.environ['RUNNER_TEMP'])/'patch-test.log').read_text()[-10000:]
+          print('::error title=AVB candidate fixture diagnostic::'+s.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+          PY2
+             exit "$rc"
+          fi
+      - name: Publish only compiled helper as public Git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY2'
+          import base64,json,os
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); b=(t/'fix-avb-arm').read_bytes()
+          (t/'helper-blob.json').write_text(json.dumps({'content':base64.b64encode(b).decode(),'encoding':'base64'}))
+          PY2
+          blob=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/blobs" --input "$RUNNER_TEMP/helper-blob.json" --jq .sha)
+          echo "::notice title=Compiled ARM helper blob::$blob"
+          echo "::notice title=Compiled ARM helper SHA256::$S31_HELPER_SHA"
+          echo '::notice title=Scope::Emulated ARM tests and public ROM file only; actual recovery and boot not tested.'
