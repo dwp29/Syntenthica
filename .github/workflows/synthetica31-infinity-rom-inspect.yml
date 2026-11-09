@@ -176,6 +176,10 @@ jobs:
                   z.write(p,'modules/'+name)
               z.write(t/'rom-module-controls.json','rom-module-controls.json')
               z.write(t/'rom-extracted/extraction-report.json','extraction-report.json')
+              for name in ('init/hw/init.qcom.rc','init/netmgrd.rc'):
+                  p=t/'vendor-init'/name
+                  if p.is_symlink() or not p.is_file() or p.stat().st_size>1048576: raise ValueError('missing init evidence')
+                  z.write(p, name)
           raw=output.read_bytes(); assert len(raw)<10_000_000
           (t/'evidence-blob.json').write_text(json.dumps({'content':base64.b64encode(raw).decode(),'encoding':'base64'}))
           print('::notice title=Public vendor evidence zip SHA256::'+hashlib.sha256(raw).hexdigest())
