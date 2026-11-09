@@ -1,0 +1,21 @@
+name: "Synthetica 3.1 - Chronicle reference audit tests"
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/synthetica31-chronicle-audit.yml'
+      - 'build-kit/scripts/audit_chronicle_s31.py'
+      - 'tests/test_audit_chronicle_s31.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exercise guards against synthetic fixtures
+        run: python3 -m unittest discover -s tests -p 'test_audit_chronicle_s31.py' -v
