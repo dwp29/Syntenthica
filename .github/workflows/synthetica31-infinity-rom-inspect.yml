@@ -80,6 +80,23 @@ jobs:
           print('::notice title=ROM module signature controls::'+json.dumps(checks,separators=(',',':')))
           (t/'rom-module-controls.json').write_text(json.dumps({'rom_boot_cert_sha256':cert_hash,'modules_load':loaded,'modules':checks},indent=2))
           PY
+      - name: Inspect vendor init module load commands
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/vendor-init"
+          debugfs -R "rdump /etc/init $RUNNER_TEMP/vendor-init" "$RUNNER_TEMP/rom-extracted/vendor.img" > "$RUNNER_TEMP/init-debugfs.log" 2>&1
+          python3 - <<'PY'
+          import os,re
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'vendor-init'; findings=[]; scanned=0
+          for p in sorted(root.rglob('*.rc')):
+              if p.is_symlink() or not p.is_file() or p.stat().st_size>1048576: continue
+              scanned+=1
+              for i,line in enumerate(p.read_text(errors='replace').splitlines(),1):
+                  if re.search(r'\b(?:insmod|modprobe)\b|modules\.load|/vendor/lib/modules',line,re.I) and not line.lstrip().startswith('#'):
+                      findings.append(f'{p.relative_to(root)}:{i}: {line.strip()}')
+          print(f'::notice title=Vendor init module references::{scanned} rc files scanned; '+(' | '.join(findings) or 'no matching directives')[:5500].replace('%','%25'))
+          PY
       - name: Fetch 3.1 evidence and audit ROM modules
         env:
           GH_TOKEN: ${{ github.token }}
