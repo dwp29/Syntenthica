@@ -46,6 +46,23 @@ adb pull /sys/fs/pstore pstore-infinity
 
 File/path dapat tidak ada atau tidak dapat diakses; jangan memaksa akses dengan mengubah partisi. `/tmp/recovery.log` dapat berasal dari sesi recovery terbaru, bukan sesi flash yang gagal, dan hilang saat recovery reboot. `pstore`/`last_kmsg` mungkin kosong atau bukan boot yang dimaksud. Tinjau dan redaksi data pribadi sebelum mengirim log secara privat. Jangan unggah log mentah ke repositori publik.
 
+## Pengambilan log lewat PC (uji awal tanpa flash)
+
+[`capture.py`](build-kit/ci/s31-adb-capture/capture.py) adalah alat terpisah
+untuk PC, **bukan installer kernel**, dengan petunjuk di
+[`README-ID.txt`](build-kit/ci/s31-adb-capture/README-ID.txt). Ia menggunakan
+ADB untuk membaca log recovery, log installer yang ada, dan pada tahap boot
+mengambil pstore terlebih dahulu serta `last_kmsg`. Hasil hanya ditulis di folder
+baru pada PC; log perlu ditinjau privat. Pstore dapat kosong/tertindih; recovery
+log bukan otomatis log boot gagal. Batas ukuran, kegagalan, timeout dan output
+kosong tercatat di `STATUS.json`. Alat tidak flash, reboot, mount atau mengubah
+partisi. Tes menggunakan ADB palsu; **belum diuji pada OrangeFox atau perangkat
+fisik** dan tidak menjamin log dapat dikumpulkan. Uji awal tidak memerlukan flash.
+
+Konfigurasi 3.1 pada bukti build ber-SHA terverifikasi mengaktifkan `PSTORE`,
+`PSTORE_CONSOLE`, `PSTORE_PMSG`, dan `PSTORE_RAM`; ini bukan bukti perangkat,
+DTB, recovery atau boot gagal benar-benar menyimpan record yang dapat dibaca.
+
 ## Fakta statis yang perlu dibedakan dari diagnosis
 
 Pemeriksaan dilakukan **offline**, bukan pada perangkat pengguna. Bukti build CI 3.1 dan konfigurasi ditarik dari Git blob publik dan diverifikasi hash; ZIP 3.1 direkonstruksi dari input yang dipin dan SHA-256-nya cocok dengan rilis yang terdokumentasi, `1ffe861ceaa2775e4f75bc9f7ecd4b7c56cf9c146f1690eb941c8dd2e5200d4a`. Pelapor menyatakan checksum ZIP yang digunakan cocok, tetapi file itu sendiri belum diperiksa secara independen.
