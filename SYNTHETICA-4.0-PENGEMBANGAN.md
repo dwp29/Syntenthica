@@ -78,7 +78,10 @@ berhasil untuk commit `c9d2248bda9d376da9a92748415b590017eacc20`: Image,
 empat DTB curtana/Joyeuse, 200 modul yang terpasang ke scratch, dan CLI NoMount
 arm64 dikompilasi dengan Neutron yang dipin. CI memeriksa arsitektur, vermagic,
 dan trailer tanda tangan 200 modul; itu **bukan** verifikasi kriptografi
-terhadap semua 200 modul atau uji pemuatan.
+terhadap semua 200 modul atau uji pemuatan. Build terpisah
+[42546928142](https://github.com/dwp29/Syntenthica/actions/runs/42546928142)
+juga lulus pada commit `5aeeadf`; setiap build memakai kunci modul sementara,
+sehingga image dan hash-nya tidak diharapkan identik.
 
 | Bukti, bukan artefak flash | SHA-256 / nilai |
 | --- | --- |
@@ -88,7 +91,8 @@ terhadap semua 200 modul atau uji pemuatan.
 | `module_layout` / simbol | `0xdd02b758` / 15.001 simbol ekspor |
 
 Audit offline [`verify_s40_compile_evidence.py`](build-kit/scripts/verify_s40_compile_evidence.py)
-memeriksa whitelist ZIP, manifest, provenance, konfigurasi, struktur Image/DTB,
+lulus pada [CI 42548454635](https://github.com/dwp29/Syntenthica/actions/runs/42548454635).
+Audit memeriksa whitelist ZIP, manifest, provenance, konfigurasi, struktur Image/DTB,
 CLI, sertifikat publik di Image, serta **tanda tangan PKCS#7 dan CRC simbol tiga
 modul contoh** `tcp_bic`, `tcp_htcp`, `tcp_westwood`. Tes negatif juga menolak
 modul yang diubah meskipun checksum luar diperbarui. Sertifikat ini dibuat untuk
@@ -133,6 +137,15 @@ byte daemon; CI berikutnya
 **berhasil** membangun dan memeriksa identitas paket, versionCode, ABI, hash
 `ksud`, alignment, izin dan status unsigned. CI hanya menyimpan diagnostik,
 bukan APK. Hasil ini tetap bukan uji instalasi atau runtime.
+
+Eksperimen [`probe_s40_apk_signing.py`](build-kit/scripts/probe_s40_apk_signing.py)
+disiapkan untuk membuat APK **fixture sintetis** dengan kunci sementara,
+memverifikasinya memakai `apksigner`, dan menjalankan parser C kernel serta
+parser Rust `ksud` yang dipin dalam harness host. Kunci dan APK fixture tidak
+diekspor; workflow hanya mengunggah laporan. Hasilnya belum terbukti sampai
+CI eksperimen selesai. Sekalipun lulus, ini tidak membuktikan upgrade Manager
+lama, penerimaan Android, keamanan otorisasi root, atau kompatibilitas ROM dan
+perangkat.
 
 ## Interpretasi bukti
 

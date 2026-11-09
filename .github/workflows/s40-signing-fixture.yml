@@ -1,0 +1,107 @@
+name: "Synthetica 4.0 - isolated APK signing policy fixture"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/s40-signing-fixture.yml'
+      - 'build-kit/ci/synthetica40/inputs.json'
+      - 'build-kit/scripts/build_synthetica40.py'
+      - 'build-kit/scripts/annotate_synthetica40_failure.py'
+      - 'build-kit/scripts/probe_s40_apk_signing.py'
+      - 'tests/test_s40_apk_guard.py'
+      - 'tests/test_s40_signing_probe.py'
+      - 'release/Synthetica-2.0.apk'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: "Throwaway certificate and host-only parser checks"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install host prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq gcc make libssl-dev
+          if ! command -v rustc >/dev/null; then sudo apt-get install -y -qq rustc; fi
+          rustc --version
+          gcc --version | head -1
+      - name: Fetch and prepare exact experimental parser source
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-signing"
+          mkdir -p "$t"/{kernel,ksun,nomount,reports}
+          curl --fail --location --retry 3 -o "$t/kernel.tar.gz" \
+            https://codeload.github.com/7829hw/linux-miatoll-6.18/tar.gz/76e733e54156ad08cef3926e46c5ad25e2a5cc52
+          curl --fail --location --retry 3 -o "$t/ksun.tar.gz" \
+            https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af
+          curl --fail --location --retry 3 -o "$t/nomount.tar.gz" \
+            https://codeload.github.com/maxsteeel/nomount/tar.gz/bf1847f98fed382369c43bfd652cd93774b9b8e3
+          python3 build-kit/scripts/build_synthetica40.py verify-archives \
+            --kernel "$t/kernel.tar.gz" --ksun "$t/ksun.tar.gz" --nomount "$t/nomount.tar.gz"
+          tar -xzf "$t/kernel.tar.gz" -C "$t/kernel" --strip-components=1
+          tar -xzf "$t/ksun.tar.gz" -C "$t/ksun" --strip-components=1
+          tar -xzf "$t/nomount.tar.gz" -C "$t/nomount" --strip-components=1
+          python3 build-kit/scripts/build_synthetica40.py prepare \
+            --kernel "$t/kernel" --ksun "$t/ksun" --nomount "$t/nomount" --work "$t/work"
+      - name: Exercise real parser and fixture helper guards
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-signing"
+          S40_TEST_PREPARED="$t/work/kernel" S40_TEST_KSUN="$t/ksun" \
+            python3 -m unittest discover -s tests -p 'test_s40_signing_probe.py' -v \
+              2>&1 | tee "$t/reports/tests.log" || {
+                python3 build-kit/scripts/annotate_synthetica40_failure.py 'Signing fixture host tests' "$t/reports/tests.log"
+                exit 1
+              }
+      - name: Install Android tools for isolated fixture
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk-s40-signing-fixture"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline-signing.zip" https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline-signing.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-36' 'build-tools;36.1.0' 2>&1 | tail -10
+      - name: Test v2-only versus v2-plus-v3 with a temporary certificate
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-signing"
+          python3 build-kit/scripts/probe_s40_apk_signing.py --prepared "$t/work/kernel" \
+            --ksun "$t/ksun" --android-sdk "$ANDROID_SDK_ROOT" \
+            > "$t/reports/result.json" 2> "$t/reports/probe.log" || {
+              cat "$t/reports/probe.log"
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'Signing fixture probe' "$t/reports/probe.log"
+              exit 1
+            }
+          cat "$t/reports/result.json"
+          echo '::notice title=Fixture only::No production key, installation or flash; temporary fixture APKs and key are deleted.'
+      - name: Upload report only, never key or APK fixture
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-SIGNING-FIXTURE-REPORT-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/s40-signing/reports/tests.log
+            ${{ runner.temp }}/s40-signing/reports/probe.log
+            ${{ runner.temp }}/s40-signing/reports/result.json
+          if-no-files-found: ignore
+          retention-days: 7
