@@ -3,9 +3,10 @@
 
 Extracts actual upstream functions into a host harness. Fake file resolution,
 credentials, user copies, allocation and RCU substitute for kernel facilities;
-pthreads provide one deliberately scheduled interleaving. Also tests a small,
-unintegrated candidate guard applied ONLY to a temporary source copy. Neither
-this model nor that candidate is a kernel/device test or a complete SUSFS port.
+pthreads provide deliberately scheduled interleavings for a stale configuration
+and a lost refresh request. Also tests a small, unintegrated candidate guard
+applied ONLY to a temporary source copy. Neither this model nor that candidate
+is a kernel/device test or a complete SUSFS port.
 """
 from __future__ import annotations
 
@@ -68,6 +69,7 @@ def source_parts(source: str, header: str) -> dict[str, str]:
         'parse': extract_function(source, 'static int susfs_parse_priority_app_names('),
         'set': extract_function(source, 'void susfs_set_priority_uid_filter('),
         'worker': extract_function(source, 'static int susfs_priority_app_strings_worker('),
+        'request': extract_function(source, 'void susfs_parse_priority_app_strings('),
         'lookup': extract_function(source, 'bool susfs_is_priority_uid_filtered('),
     }
 
@@ -126,7 +128,8 @@ struct cred { int unused; };
 #define __rcu
 #define __user
 #define ATOMIC_INIT(x) (x)
-#define atomic_set(p, v) (*(p) = (v))
+#define atomic_set(p, v) __atomic_store_n((p), (v), __ATOMIC_SEQ_CST)
+#define atomic_cmpxchg(p, old, new) __sync_val_compare_and_swap((p), (old), (new))
 #define DEFINE_MUTEX(name) pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
 #define GFP_KERNEL 1
 #define __GFP_ZERO 2
@@ -170,20 +173,55 @@ RESOLVER = r'''
 /* Deterministic stand-in for filesystem/SELinux-dependent package resolution. */
 static pthread_mutex_t gate = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t gate_cond = PTHREAD_COND_INITIALIZER;
-static bool waiting, resume_worker;
+static bool waiting, resume_worker, pause_worker = true;
+static uid_t alpha_uid = 10001; /* protected by gate */
 static _Thread_local bool is_worker_thread;
 static int susfs_resolve_priority_app_uid(const char *name, uid_t *uid) {
-    if (is_worker_thread && !strcmp(name, "sample.alpha")) {
+    if (!strcmp(name, "sample.alpha")) {
         assert(pthread_mutex_lock(&gate) == 0);
-        waiting = true;
-        assert(pthread_cond_signal(&gate_cond) == 0);
-        while (!resume_worker) assert(pthread_cond_wait(&gate_cond, &gate) == 0);
+        uid_t resolved = alpha_uid;
+        if (is_worker_thread && pause_worker) {
+            /* Pause AFTER taking the simulated packages.list UID snapshot. */
+            waiting = true;
+            assert(pthread_cond_signal(&gate_cond) == 0);
+            while (!resume_worker) assert(pthread_cond_wait(&gate_cond, &gate) == 0);
+        }
         assert(pthread_mutex_unlock(&gate) == 0);
+        *uid = resolved;
+        return 0;
     }
-    if (!strcmp(name, "sample.alpha")) { *uid = 10001; return 0; }
     if (!strcmp(name, "sample.beta")) { *uid = 10002; return 0; }
     return -ENOENT;
 }
+'''
+
+THREAD_SHIM = r'''
+/* kthread stand-in: records requests and joins from the harness, not kernel code. */
+static pthread_t requested_worker;
+static int requested_worker_count;
+struct thread_args { int (*fn)(void *); void *data; };
+static void *requested_worker_entry(void *opaque) {
+    struct thread_args args = *(struct thread_args *)opaque;
+    free(opaque);
+    is_worker_thread = true;
+    assert(args.fn(args.data) == 0);
+    return NULL;
+}
+static void *fake_kthread_run(int (*fn)(void *), void *data, const char *name) {
+    (void)name;
+    struct thread_args *args = malloc(sizeof(*args));
+    if (!args) return NULL;
+    args->fn = fn;
+    args->data = data;
+    if (pthread_create(&requested_worker, NULL, requested_worker_entry, args)) {
+        free(args);
+        return NULL;
+    }
+    requested_worker_count++;
+    return &requested_worker;
+}
+#define kthread_run(fn, data, name) fake_kthread_run((fn), (data), (name))
+#define IS_ERR(ptr) ((ptr) == NULL)
 '''
 
 MAIN = r'''
@@ -252,9 +290,47 @@ int main(int argc, char **argv) {
     assert(susfs_priority_app_strings_worker(NULL) == 0);
     assert(!susfs_is_priority_uid_filtered(10001));
     assert(susfs_is_priority_uid_filtered(10002));
+
+    /* Second schedule: an app's simulated UID changes while a refresh is
+     * running. The real request function discards a second request while busy;
+     * a configuration-generation guard cannot observe this UID-only change. */
+    set_names("sample.alpha");
+    assert(susfs_is_priority_uid_filtered(10001));
+    assert(pthread_mutex_lock(&gate) == 0);
+    waiting = false;
+    resume_worker = false;
+    pause_worker = true;
+    assert(pthread_mutex_unlock(&gate) == 0);
+    susfs_parse_priority_app_strings();
+    assert(requested_worker_count == 1);
+    assert(pthread_mutex_lock(&gate) == 0);
+    while (!waiting) assert(pthread_cond_wait(&gate_cond, &gate) == 0);
+    alpha_uid = 10003; /* simulated packages.list update after worker snapshot */
+    assert(pthread_mutex_unlock(&gate) == 0);
+    susfs_parse_priority_app_strings(); /* deliberately arrives while busy */
+    assert(requested_worker_count == 1); /* request was dropped, not queued */
+    assert(pthread_mutex_lock(&gate) == 0);
+    resume_worker = true;
+    assert(pthread_cond_signal(&gate_cond) == 0);
+    assert(pthread_mutex_unlock(&gate) == 0);
+    assert(pthread_join(requested_worker, NULL) == 0);
+    assert(!strcmp(susfs_priority_app_strings, "sample.alpha"));
+    assert(susfs_is_priority_uid_filtered(10001));
+    assert(!susfs_is_priority_uid_filtered(10003));
+
+    /* A separate later request can recover, but the dropped event did not. */
+    assert(pthread_mutex_lock(&gate) == 0);
+    pause_worker = false;
+    assert(pthread_mutex_unlock(&gate) == 0);
+    susfs_parse_priority_app_strings();
+    assert(requested_worker_count == 2);
+    assert(pthread_join(requested_worker, NULL) == 0);
+    assert(!susfs_is_priority_uid_filtered(10001));
+    assert(susfs_is_priority_uid_filtered(10003));
     free(priority_uid_filter_bitmap);
     free(susfs_priority_app_strings);
-    puts(guarded ? "guard retained newer bitmap" : "original published stale bitmap");
+    puts(guarded ? "guard retained newer config; busy refresh still dropped" :
+                   "original published stale config; busy refresh also dropped");
     return 0;
 }
 '''
@@ -263,7 +339,8 @@ int main(int argc, char **argv) {
 def build_and_run(source: str, header: str, compiler: str, directory: Path, mode: str) -> None:
     parts = source_parts(source, header)
     program = '\n'.join((PREAMBLE, parts['globals'], parts['payload'], parts['valid'], RESOLVER,
-                         parts['parse'], parts['set'], parts['worker'], parts['lookup'], MAIN))
+                         parts['parse'], parts['set'], parts['worker'], THREAD_SHIM, parts['request'],
+                         parts['lookup'], MAIN))
     c_file, exe = directory / f'{mode}.c', directory / f'{mode}-host-probe'
     c_file.write_text(program)
     run([compiler, '-std=gnu11', '-O1', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
@@ -285,6 +362,9 @@ def probe(susfs: Path, compiler: str = 'gcc') -> dict:
         'baseline_worker_can_publish_stale_bitmap_in_modeled_interleaving': True,
         'research_generation_guard_preserves_newer_bitmap_in_same_model': True,
         'another_sequential_refresh_recovers_in_model': True,
+        'busy_refresh_request_can_be_lost_in_second_scheduled_model': True,
+        'research_generation_guard_does_not_prevent_lost_uid_refresh': True,
+        'later_request_recovers_after_simulated_uid_change': True,
         'candidate_patch_applied_to_kernel_or_release': False,
         'real_rcu_filesystem_selinux_faults_or_device_tested': False,
         'full_concurrency_or_refresh_correctness_proven': False,

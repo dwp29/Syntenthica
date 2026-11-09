@@ -1,0 +1,124 @@
+name: "Synthetica 4.0 - SUSFS selected priority-object research"
+
+on:
+  push:
+    branches: [arena/96cbd65a-syntenthica]
+    paths:
+      - '.github/workflows/s40-susfs-priority-compile.yml'
+      - 'build-kit/ci/s40-susfs-abi/**'
+      - 'build-kit/ci/synthetica40/**'
+      - 'build-kit/scripts/build_synthetica40.py'
+      - 'build-kit/scripts/build_synthetica40_kernel.sh'
+      - 'build-kit/scripts/annotate_synthetica40_failure.py'
+      - 'build-kit/scripts/audit_s40_susfs_abi.py'
+      - 'build-kit/scripts/probe_s40_susfs_priority.py'
+      - 'build-kit/scripts/probe_s40_susfs_priority_compile.py'
+      - 'tests/test_s40_susfs_priority_compile.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selected-object-research:
+    name: "Compile selected priority objects, not a kernel or module"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq gcc make bc flex bison libssl-dev libelf-dev \
+            python3 patch openssl git curl binutils zstd
+      - name: Fetch and verify all four pinned source archives
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-priority-inputs"
+          mkdir -p "$t"/{kernel,ksun,nomount,susfs} "$RUNNER_TEMP/s40-priority-reports"
+          curl --fail --location --retry 3 -o "$t/kernel.tar.gz" \
+            https://codeload.github.com/7829hw/linux-miatoll-6.18/tar.gz/76e733e54156ad08cef3926e46c5ad25e2a5cc52
+          curl --fail --location --retry 3 -o "$t/ksun.tar.gz" \
+            https://codeload.github.com/KernelSU-Next/KernelSU-Next/tar.gz/4c706b5938665866ebe16944a481a7b91e3396af
+          curl --fail --location --retry 3 -o "$t/nomount.tar.gz" \
+            https://codeload.github.com/maxsteeel/nomount/tar.gz/bf1847f98fed382369c43bfd652cd93774b9b8e3
+          curl --fail --location --retry 3 -o "$t/susfs.tar.gz" \
+            https://codeload.github.com/Trijal08/susfs4ksu/tar.gz/a2165b6f875b73e2f87d3c6f12814efac8de061d
+          python3 build-kit/scripts/build_synthetica40.py verify-archives \
+            --kernel "$t/kernel.tar.gz" --ksun "$t/ksun.tar.gz" --nomount "$t/nomount.tar.gz"
+          python3 build-kit/scripts/audit_s40_susfs_abi.py verify-archives \
+            --kernel "$t/kernel.tar.gz" --ksun "$t/ksun.tar.gz" --susfs "$t/susfs.tar.gz"
+          for name in kernel ksun nomount susfs; do
+            tar -xzf "$t/$name.tar.gz" -C "$t/$name" --strip-components=1
+          done
+      - name: Test source and scratch safety guards
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-priority-inputs"
+          S40_ABI_SUSFS="$t/susfs" python3 -m unittest discover -s tests -p 'test_s40_susfs_priority_compile.py' -v \
+            2>&1 | tee "$RUNNER_TEMP/s40-priority-reports/tests.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'Priority-object research tests' "$RUNNER_TEMP/s40-priority-reports/tests.log"
+              exit 1
+            }
+      - name: Download and verify pinned Neutron toolchain
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
+          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
+          test "$(stat -c %s "$archive")" = 77768187
+          mkdir -p "$RUNNER_TEMP/neutron"
+          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
+          echo "$RUNNER_TEMP/neutron/bin" >> "$GITHUB_PATH"
+      - name: Prepare only the selected research hooks in a fresh scratch tree
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/s40-priority-inputs"
+          python3 build-kit/scripts/probe_s40_susfs_priority_compile.py prepare \
+            --kernel "$t/kernel" --ksun "$t/ksun" --nomount "$t/nomount" --susfs "$t/susfs" \
+            --work "$RUNNER_TEMP/s40-priority-work" \
+              2>&1 | tee "$RUNNER_TEMP/s40-priority-reports/prepare.log" || {
+                python3 build-kit/scripts/annotate_synthetica40_failure.py 'Priority-object preparation' "$RUNNER_TEMP/s40-priority-reports/prepare.log"
+                exit 1
+              }
+      - name: Generate and verify the ordinary 6.18 experimental config only
+        env:
+          S40_SOURCE: ${{ runner.temp }}/s40-priority-work/kernel
+          S40_OUT: ${{ runner.temp }}/s40-priority-work/out
+          S40_CONFIG_ONLY: '1'
+        run: |
+          set -euo pipefail
+          bash build-kit/scripts/build_synthetica40_kernel.sh \
+            2>&1 | tee "$RUNNER_TEMP/s40-priority-reports/config.log" || {
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'Priority-object config' "$RUNNER_TEMP/s40-priority-reports/config.log"
+              exit 1
+            }
+      - name: Compile original and guarded fragments with priority hooks
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          r="$RUNNER_TEMP/s40-priority-reports"
+          python3 build-kit/scripts/probe_s40_susfs_priority_compile.py compile \
+            --work "$RUNNER_TEMP/s40-priority-work" --jobs 4 \
+            > "$r/objects.json" 2> "$r/compile.log" || {
+              tail -100 "$r/compile.log"
+              python3 build-kit/scripts/annotate_synthetica40_failure.py 'Priority-object compiler' "$r/compile.log"
+              exit 1
+            }
+          cat "$r/objects.json"
+          echo '::notice title=Research only::Selected objects and partial links only; SUSFS is not integrated, nothing is installable or device-tested.'
+      - name: Upload reports only, never objects, keys, images or APKs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Synthetica-SUSFS-PRIORITY-OBJECT-RESEARCH-${{ github.run_id }}
+          path: ${{ runner.temp }}/s40-priority-reports/
+          if-no-files-found: ignore
+          retention-days: 7

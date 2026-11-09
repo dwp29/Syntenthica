@@ -44,5 +44,30 @@
     "scope": "unintegrated research-only candidate; host-model validation, no kernel/runtime approval",
     "patch_sha256": "7ee1ca18dbb4db6b08d45eb6ba0fb101f3ec4d9a558192062a062d8101263ed2",
     "guarded_susfs_c_sha256": "9e8c26ea3cfa72e59421ea38bb703b28fc9b353a81184bb01dfd47ae04191824"
+  },
+  "priority_compile_research": {
+    "scope": "scratch-only selected source/hook objects and relocatable link; no usable kernel, device or SUSFS integration",
+    "upstream_kernel_patch_sha256": "9104e6b85a0c5af7b347cb2d52aeb1ff0a3b8fcb72c126422e4ac8a04576b171",
+    "selected_priority_hunks_sha256": "d3c38d69ee118a8171e737145d2a9ccb3208a4e5d07db473b7ee45d8b1f90686",
+    "kernel_files": {
+      "block/ioprio.c": {
+        "original_sha256": "f33e815ba09ca96e05dcf565fb244ed97bfb27a767adb41c30ef4ecec20366e5",
+        "selected_hunks": 3,
+        "research_output_sha256": "916751608895d2000687d139de248256e497bcda11991df962280093d800b453"
+      },
+      "kernel/sys.c": {
+        "original_sha256": "99362a6a2efeb20d64da921d21971be478894f8db519d23cdcc94acd4ce5fea0",
+        "selected_hunks": 3,
+        "research_output_sha256": "9682c50346ba4d1d75deb627b4290ef1b42d566aade7822d4be8e088f04de969"
+      }
+    },
+    "ksun_files": {
+      "kernel/selinux/selinux.c": "a72d21bead104af0450cfaa3f923e58653766acfc8d2632507badd7ba218a8af",
+      "kernel/selinux/selinux.h": "f64a4e1e13a603f1c51ba18ef488a853c0d1d86997fbbe34516a640c3926a2b4"
+    },
+    "generated_fragment_sha256": {
+      "original": "3edd46fead175451e6fb735c6ad58dd1265b8badf1d56d2cd6f90e6e4aedf428",
+      "guarded": "da9714130f9963141bc4c1aa3dbc75e8221662a6a0369e73975fa22d93cd50eb"
+    }
   }
 }

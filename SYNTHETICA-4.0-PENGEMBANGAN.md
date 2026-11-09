@@ -152,12 +152,21 @@ atau Android yang berjalan. Kunci dan APK fixture tidak diekspor; CI menyimpan
 laporan saja. Hasilnya tidak membuktikan upgrade Manager lama, penerimaan APK
 di perangkat, keamanan otorisasi root, atau kompatibilitas ROM dan perangkat.
 
-Pengujian berikutnya memperluas fixture tersebut ke prototipe Manager UAPI 5
-hasil build yang sebenarnya: APK unsigned diperiksa dahulu, lalu ditandatangani
-dengan kunci sementara **di scratch** untuk menguji v2/v3, payload dan alignment.
-Hasilnya baru dapat diklaim setelah CI selesai; kunci sementara tidak cocok
-dengan identitas yang dipin pada kernel dan tidak dapat menjadi upgrade in-place
-atas Manager lama. Tidak ada APK atau kunci yang akan diekspor.
+CI Manager [42551003110](https://github.com/dwp29/Syntenthica/actions/runs/42551003110)
+memperluas pengujian ke **prototipe Manager UAPI 5 yang benar-benar dibangun**.
+Setelah APK unsigned lolos pemeriksaan statis, dua salinannya ditandatangani
+dengan kunci sementara **di scratch**. `apksigner` memverifikasi v2-only dan
+v2+v3; payload semua entri ZIP tetap identik dan alignment 16 KiB tetap valid.
+Dengan pin sertifikat sementara, parser C kernel yang disiapkan dan parser Rust
+`ksud` pada host menerima v2-only dan menolak v2+v3. Parser C juga menolak
+sertifikat sementara terhadap pin produksi. Fixture yang diubah ditolak oleh
+`apksigner` tetapi tetap diterima parser sertifikat C, seperti pada fixture
+sintetis. Run fixture terpisah
+[42551003067](https://github.com/dwp29/Syntenthica/actions/runs/42551003067)
+juga lulus. Kunci sementara tidak dapat menjadi upgrade in-place atas Manager
+lama; APK dan kunci tidak diekspor atau diinstal. Ini bukan bukti bahwa APK
+bertanda tangan kunci asli akan diterima di Android/kernel, atau bahwa migrasi
+UAPI dan fitur Manager bekerja saat runtime.
 
 ## Pemetaan ABI SUSFS 2.4
 
@@ -195,10 +204,41 @@ lulus pada [CI 42550360156](https://github.com/dwp29/Syntenthica/actions/runs/42
 Kandidat [`research-only-priority-generation.patch`](build-kit/ci/s40-susfs-abi/research-only-priority-generation.patch)
 menolak publikasi snapshot yang generasinya sudah usang dan lolos interleaving
 yang sama dalam model lokal. Patch hanya diterapkan ke salinan scratch untuk
-pengujian, **belum** menjadi bagian kernel 4.0. Guard sempit itu belum membuktikan
-seluruh perilaku konkurensi/RCU, fault, keamanan SELinux, atau bahwa refresh
-instalasi/uninstall tidak terlewat saat perubahan konfigurasi berulang; semua
-itu tetap perlu dirancang dan diuji sebelum port dipakai.
+pengujian, **belum** menjadi bagian kernel 4.0.
+
+Model diperluas dengan jadwal kedua: worker telah mengambil UID lama yang
+**disimulasikan**, lalu ada permintaan refresh lain saat worker masih berjalan.
+Fungsi request upstream yang diekstrak mengabaikan permintaan itu karena flag
+`running`; worker kemudian menerbitkan UID lama. Ini terjadi dalam model baik
+pada source asli maupun kandidat generation guard, karena daftar nama tidak
+berubah. Permintaan terpisah berikutnya memulihkan UID baru dalam model. Hasil
+ini lokal sementara CI baru belum selesai; ini **bukan** reproduksi packages.list,
+fsnotify atau race pada perangkat. Guard yang ada saja belum cukup untuk
+menjamin refresh tidak terlewat, dan juga belum membuktikan seluruh konkurensi,
+RCU, fault atau keamanan SELinux. Port memerlukan rancangan refresh yang dapat
+menangani event saat worker sibuk, serta uji kernel dan perangkat.
+
+### Kompilasi terisolasi priority filter
+
+[`probe_s40_susfs_priority_compile.py`](build-kit/scripts/probe_s40_susfs_priority_compile.py)
+menyiapkan pohon scratch baru dari source yang dipin, mengambil hanya enam hunk
+priority dari patch resmi pada `kernel/sys.c` dan `block/ioprio.c`, dan membuat
+unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard di atas. Adapter
+kecil untuk mencari domain KSUN dibuat **hanya untuk percobaan kompilasi**;
+kesetaraan perilakunya dan keamanan SELinux belum dibuktikan. Flag priority
+dipasang hanya pada pemanggilan compiler percobaan, bukan pada konfigurasi 4.0;
+objek tersebut tidak didaftarkan ke Kbuild atau disertakan dalam image.
+
+Secara lokal, kedua varian beserta dua objek hook dan objek SELinux KSUN berhasil
+dikompilasi menjadi ARM64 setelah memeriksa 599 permintaan konfigurasi. Tiap
+objek syscall memiliki dua relokasi panggilan priority, dan partial link
+menyelesaikan tiga simbol terpilih; **167 simbol lain masih unresolved** pada
+masing-masing varian lokal. Ini menggunakan LLVM 23 dan shim `m4` lokal yang
+belum tervalidasi, bukan build release. CI terpisah
+[`s40-susfs-priority-compile.yml`](.github/workflows/s40-susfs-priority-compile.yml)
+disiapkan untuk mengulangnya dengan Neutron yang dipin; hasilnya baru dapat
+diklaim setelah run selesai. Tidak ada dispatcher SUSFS, link kernel penuh,
+modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti
 

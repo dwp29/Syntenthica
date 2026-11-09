@@ -77,7 +77,7 @@ jobs:
             }
           cat "$t/reports/audit.json"
           echo '::notice title=Research only::SUSFS 2.4 is not integrated; no syscalls, modules, device testing or flash.'
-      - name: Model priority-filter stale publication and research-only guard
+      - name: Model stale priority publication and lost refresh requests
         run: |
           set -euo pipefail
           t="$RUNNER_TEMP/s40-susfs-abi"
