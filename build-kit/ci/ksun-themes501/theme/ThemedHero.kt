@@ -1,5 +1,6 @@
 package com.rifsxd.ksunext.ui.theme
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,19 +12,28 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -36,9 +46,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rifsxd.ksunext.R
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
-/** The same status and callbacks, arranged differently for each design. */
+/**
+ * Distinct hero structures, PNG emblems and live animations per design.
+ * Root/kernel data and callbacks come unchanged from HomeScreen.
+ */
 @Composable
 internal fun DistinctManagerHero(
     eyebrow: String,
@@ -50,141 +65,715 @@ internal fun DistinctManagerHero(
     metaLine: String,
     onClick: (() -> Unit)?,
 ) {
-    val style = LocalManagerStyle.current
-    val glass = LocalGlassStyle.current
-    val panel = Modifier.fillMaxWidth().iosGlass(
-        shape = if (style == ManagerStyle.PIXEL) RectangleShape else MaterialTheme.shapes.extraLarge,
-        tintTop = glass.elevatedTintTop, tintBottom = glass.elevatedTintBottom, elevation = 8.dp,
-    ).let { if (onClick != null) it.clickable(onClick = onClick) else it }
+    val phase by rememberStylePhase()
+    val clickMod = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    when (LocalManagerStyle.current) {
+        ManagerStyle.PIXEL -> PixelMatrixHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+        ManagerStyle.CYBERPUNK -> CyberpunkBrutalHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+        ManagerStyle.IOS_GLASS -> IosLiquidGlassHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+        ManagerStyle.NEON -> NeonCyberHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+    }
+}
+
+@Composable
+private fun HeroEmblem(
+    style: ManagerStyle,
+    size: Dp,
+    shape: Shape,
+    border: Color,
+    phase: Float,
+) {
+    val emblemRes = emblemResForStyle(style)
     when (style) {
-        ManagerStyle.PIXEL -> Column(panel) {
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary.copy(alpha = .12f))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                HeroEyebrow(eyebrow)
-                Text("■ ■ ■", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                HeroEmblem(52.dp, RectangleShape)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) { HeroTitle(title); HeroKernel(kernelLine) }
-            }
-            HorizontalDivider(thickness = 1.dp, color = glass.divider)
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                HeroStatuses(statusPill, statusColor, modePill)
-                Spacer(Modifier.height(8.dp))
-                HeroMeta(metaLine)
-            }
-        }
-        ManagerStyle.CYBERPUNK -> Column(panel.padding(horizontal = 18.dp, vertical = 16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                HeroEyebrow(eyebrow)
-                Text("///", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary)
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { HeroTitle(title); HeroKernel(kernelLine) }
-                Spacer(Modifier.width(12.dp))
-                HeroEmblem(70.dp, MaterialTheme.shapes.large)
-            }
-            Spacer(Modifier.height(14.dp))
-            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary.copy(alpha = .12f))
-                .padding(horizontal = 10.dp, vertical = 8.dp)) {
-                HeroStatuses(statusPill, statusColor, modePill)
-            }
-            Spacer(Modifier.height(9.dp))
-            HeroMeta(metaLine)
-        }
-        ManagerStyle.IOS_GLASS -> Column(panel.padding(horizontal = 22.dp, vertical = 21.dp),
-            horizontalAlignment = Alignment.CenterHorizontally) {
-            HeroEyebrow(eyebrow)
-            Spacer(Modifier.height(12.dp))
-            HeroEmblem(68.dp, CircleShape)
-            Spacer(Modifier.height(10.dp))
-            HeroTitle(title, centered = true)
-            HeroKernel(kernelLine, centered = true)
-            Spacer(Modifier.height(12.dp))
-            HeroStatuses(statusPill, statusColor, modePill, centered = true)
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(thickness = .7.dp, color = glass.divider)
-            Spacer(Modifier.height(8.dp))
-            HeroMeta(metaLine, centered = true)
-        }
-        ManagerStyle.NEON -> Column(panel.padding(horizontal = 18.dp, vertical = 18.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                HeroEmblem(58.dp, MaterialTheme.shapes.large)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    HeroEyebrow(eyebrow)
-                    Spacer(Modifier.height(5.dp))
-                    HeroTitle(title)
+        ManagerStyle.PIXEL -> {
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .background(Color(0xFF101010))
+                    .border(1.5.dp, border, RectangleShape)
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val dot = 3.dp.toPx()
+                    drawRect(border, Offset.Zero, Size(dot, dot))
+                    drawRect(border, Offset(this.size.width - dot, 0f), Size(dot, dot))
+                    drawRect(border, Offset(0f, this.size.height - dot), Size(dot, dot))
+                    drawRect(border, Offset(this.size.width - dot, this.size.height - dot), Size(dot, dot))
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            HeroKernel(kernelLine)
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-                .background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = .18f),
-                    MaterialTheme.colorScheme.tertiary.copy(alpha = .08f))))
-                .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                HeroStatuses(statusPill, statusColor, modePill)
+        }
+        ManagerStyle.CYBERPUNK -> {
+            val cutShape = CutCornerShape(topStart = 2.dp, topEnd = 14.dp, bottomEnd = 2.dp, bottomStart = 14.dp)
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .clip(cutShape)
+                    .background(Color(0xFF0A0D12))
+                    .border(1.5.dp, border, cutShape)
+                    .padding(3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(cutShape)
+                        .drawWithContent {
+                            drawContent()
+                            val scanY = this.size.height * phase
+                            drawLine(
+                                color = border.copy(alpha = 0.65f),
+                                start = Offset(0f, scanY),
+                                end = Offset(this.size.width, scanY),
+                                strokeWidth = 1.5.dp.toPx(),
+                            )
+                        },
+                )
             }
-            Spacer(Modifier.height(9.dp))
-            HeroMeta(metaLine)
+        }
+        ManagerStyle.IOS_GLASS -> {
+            val pedestalShape = RoundedCornerShape(22.dp)
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .shadow(16.dp, pedestalShape, ambientColor = border.copy(alpha = 0.45f), spotColor = border.copy(alpha = 0.55f))
+                    .clip(pedestalShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.25f),
+                                border.copy(alpha = 0.14f),
+                                Color(0xFF07162C).copy(alpha = 0.45f),
+                            )
+                        )
+                    )
+                    .border(1.25.dp, Color.White.copy(alpha = 0.65f), pedestalShape)
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(18.dp))
+                        .drawWithContent {
+                            drawContent()
+                            val sx = this.size.width * phase
+                            drawRect(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.White.copy(alpha = 0.28f),
+                                        Color.Transparent,
+                                    ),
+                                    start = Offset(sx - this.size.width * 0.35f, 0f),
+                                    end = Offset(sx + this.size.width * 0.20f, this.size.height),
+                                )
+                            )
+                        },
+                )
+            }
+        }
+        ManagerStyle.NEON -> {
+            val magenta = Color(0xFFFF4FD8)
+            Box(
+                modifier = Modifier
+                    .size(size + 8.dp)
+                    .drawBehind {
+                        val pulse = 0.72f + 0.28f * abs(sin(phase * Math.PI.toFloat()))
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(border.copy(alpha = 0.36f * pulse), magenta.copy(alpha = 0.18f * pulse), Color.Transparent),
+                            ),
+                            radius = this.size.minDimension * 0.54f,
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(size)
+                        .clip(shape)
+                        .border(
+                            width = 1.5.dp,
+                            brush = Brush.linearGradient(listOf(border, magenta, border)),
+                            shape = shape,
+                        ),
+                )
+            }
         }
     }
-}
-
-@Composable
-private fun HeroEmblem(size: Dp, shape: Shape) {
-    Image(painter = painterResource(R.drawable.ic_synthetica_emblem), contentDescription = null,
-        contentScale = ContentScale.Crop, modifier = Modifier.size(size).clip(shape)
-            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .70f), shape))
-}
-
-@Composable
-private fun HeroEyebrow(value: String) {
-    Text(value.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-}
-
-@Composable
-private fun HeroTitle(value: String, centered: Boolean = false) {
-    Text(value, modifier = if (centered) Modifier.fillMaxWidth() else Modifier,
-        textAlign = if (centered) TextAlign.Center else TextAlign.Start,
-        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-}
-
-@Composable
-private fun HeroKernel(value: String, centered: Boolean = false) {
-    if (value.isNotBlank()) {
-        Spacer(Modifier.height(4.dp))
-        Text(value, modifier = if (centered) Modifier.fillMaxWidth() else Modifier,
-            textAlign = if (centered) TextAlign.Center else TextAlign.Start,
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun HeroMeta(value: String, centered: Boolean = false) {
-    Text(value, modifier = if (centered) Modifier.fillMaxWidth() else Modifier,
-        textAlign = if (centered) TextAlign.Center else TextAlign.Start,
-        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HeroStatuses(status: String, statusColor: Color, mode: String?, centered: Boolean = false) {
-    FlowRow(modifier = if (centered) Modifier.fillMaxWidth() else Modifier,
-        horizontalArrangement = if (centered) Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp), maxItemsInEachRow = 2) {
-        IosPill(text = status, color = statusColor)
-        if (!mode.isNullOrBlank()) IosPill(text = mode, color = MaterialTheme.colorScheme.primary)
+private fun PixelMatrixHero(
+    eyebrow: String,
+    title: String,
+    statusPill: String,
+    statusColor: Color,
+    modePill: String?,
+    kernelLine: String,
+    metaLine: String,
+    phase: Float,
+    clickMod: Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val glass = LocalGlassStyle.current
+    val step = (phase * 8f).roundToInt()
+    val cursorChar = if (step % 2 == 0) "■" else "□"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .iosGlass(
+                shape = RectangleShape,
+                tintTop = glass.elevatedTintTop,
+                tintBottom = glass.elevatedTintBottom,
+                borderWidth = 1.5.dp,
+                elevation = 8.dp,
+            )
+            .then(clickMod),
+    ) {
+        // Hardware Dot-Matrix LED Strip Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(accent.copy(alpha = 0.14f))
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "${eyebrow.uppercase()} $cursorChar",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.1.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(8.dp))
+            Canvas(modifier = Modifier.width(68.dp).height(12.dp)) {
+                val cols = 10
+                val rows = 3
+                val cell = 3.5.dp.toPx()
+                val gap = 3.dp.toPx()
+                for (c in 0 until cols) {
+                    val activeRow = (c + step) % rows
+                    for (r in 0 until rows) {
+                        val lit = r >= activeRow
+                        drawRect(
+                            color = accent.copy(alpha = if (lit) 0.88f else 0.18f),
+                            topLeft = Offset(c * (cell + gap), r * (cell + 1.5.dp.toPx())),
+                            size = Size(cell, cell),
+                        )
+                    }
+                }
+            }
+        }
+        HorizontalDivider(thickness = 1.dp, color = glass.divider)
+
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                HeroEmblem(
+                    style = ManagerStyle.PIXEL,
+                    size = 56.dp,
+                    shape = RectangleShape,
+                    border = accent,
+                    phase = phase,
+                )
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (kernelLine.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = kernelLine,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Boxed Pixel Readout Grid Cells
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.45f))
+                    .border(1.dp, glass.divider, RectangleShape)
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                maxItemsInEachRow = 2,
+            ) {
+                IosPill(text = statusPill, color = statusColor)
+                if (!modePill.isNullOrBlank()) {
+                    IosPill(text = modePill, color = accent)
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(thickness = 1.dp, color = accent.copy(alpha = 0.26f))
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "■",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = metaLine,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CyberpunkBrutalHero(
+    eyebrow: String,
+    title: String,
+    statusPill: String,
+    statusColor: Color,
+    modePill: String?,
+    kernelLine: String,
+    metaLine: String,
+    phase: Float,
+    clickMod: Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val cyan = Color(0xFF00F0FF)
+    val glass = LocalGlassStyle.current
+    val cardShape = CutCornerShape(topStart = 2.dp, topEnd = 22.dp, bottomEnd = 2.dp, bottomStart = 18.dp)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .iosGlass(
+                shape = cardShape,
+                tintTop = glass.elevatedTintTop,
+                tintBottom = glass.elevatedTintBottom,
+                borderWidth = 1.5.dp,
+                elevation = 8.dp,
+            )
+            .then(clickMod),
+    ) {
+        // Top Cyberbrutal Telemetry Rail
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(accent.copy(alpha = 0.16f))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(accent)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text(
+                    text = "SYS.01",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF090B0E),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = eyebrow.uppercase(),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                letterSpacing = 1.1.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "///",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Black,
+                color = cyan,
+            )
+        }
+        HorizontalDivider(thickness = 1.dp, color = accent.copy(alpha = 0.45f))
+
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Reversed Command Deck Layout: Title + Solari Split-Flap on Left, Chamfered PNG Emblem on Right
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    DepartureBoardText(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                    )
+                    if (kernelLine.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = kernelLine,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                HeroEmblem(
+                    style = ManagerStyle.CYBERPUNK,
+                    size = 66.dp,
+                    shape = MaterialTheme.shapes.large,
+                    border = accent,
+                    phase = phase,
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Industrial Left-Railed Status Bay
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(accent.copy(alpha = 0.10f))
+                    .border(1.dp, accent.copy(alpha = 0.38f), MaterialTheme.shapes.small)
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(24.dp)
+                        .background(accent),
+                )
+                Spacer(Modifier.width(10.dp))
+                FlowRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    maxItemsInEachRow = 2,
+                ) {
+                    IosPill(text = statusPill, color = statusColor)
+                    if (!modePill.isNullOrBlank()) {
+                        IosPill(text = modePill, color = accent)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            // Animated horizontal laser telemetry bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(glass.divider)
+                    .drawBehind {
+                        val barW = size.width * 0.28f
+                        val startX = (size.width - barW) * phase
+                        drawLine(
+                            brush = Brush.horizontalGradient(listOf(Color.Transparent, accent, cyan, Color.Transparent)),
+                            start = Offset(startX, size.height / 2f),
+                            end = Offset(startX + barW, size.height / 2f),
+                            strokeWidth = size.height,
+                        )
+                    }
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = metaLine,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IosLiquidGlassHero(
+    eyebrow: String,
+    title: String,
+    statusPill: String,
+    statusColor: Color,
+    modePill: String?,
+    kernelLine: String,
+    metaLine: String,
+    phase: Float,
+    clickMod: Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val glass = LocalGlassStyle.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .iosGlass(
+                shape = RoundedCornerShape(30.dp),
+                tintTop = glass.elevatedTintTop,
+                tintBottom = glass.elevatedTintBottom,
+                borderWidth = 1.1.dp,
+                elevation = 8.dp,
+            )
+            .then(clickMod)
+            .padding(horizontal = 22.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = eyebrow.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = accent,
+            letterSpacing = 1.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        // Centered iOS 18 Liquid Glass Pedestal with 3D Refractive Knot PNG Emblem
+        HeroEmblem(
+            style = ManagerStyle.IOS_GLASS,
+            size = 70.dp,
+            shape = CircleShape,
+            border = accent,
+            phase = phase,
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = title,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        if (kernelLine.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = kernelLine,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            maxItemsInEachRow = 2,
+        ) {
+            IosPill(text = statusPill, color = statusColor)
+            if (!modePill.isNullOrBlank()) {
+                IosPill(text = modePill, color = accent)
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider(thickness = 0.7.dp, color = glass.divider)
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = metaLine,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NeonCyberHero(
+    eyebrow: String,
+    title: String,
+    statusPill: String,
+    statusColor: Color,
+    modePill: String?,
+    kernelLine: String,
+    metaLine: String,
+    phase: Float,
+    clickMod: Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val magenta = Color(0xFFFF4FD8)
+    val glass = LocalGlassStyle.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .iosGlass(
+                shape = RoundedCornerShape(20.dp),
+                tintTop = glass.elevatedTintTop,
+                tintBottom = glass.elevatedTintBottom,
+                borderWidth = 1.5.dp,
+                elevation = 8.dp,
+            )
+            .then(clickMod)
+            .padding(18.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            HeroEmblem(
+                style = ManagerStyle.NEON,
+                size = 58.dp,
+                shape = MaterialTheme.shapes.large,
+                border = accent,
+                phase = phase,
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(accent),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = eyebrow.uppercase(),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                        letterSpacing = 1.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        if (kernelLine.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = kernelLine,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Neon Dual-Laser Status Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            accent.copy(alpha = 0.20f),
+                            magenta.copy(alpha = 0.12f),
+                        )
+                    )
+                )
+                .border(1.dp, Brush.horizontalGradient(listOf(accent.copy(alpha = 0.65f), magenta.copy(alpha = 0.45f))), MaterialTheme.shapes.medium)
+                .padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                maxItemsInEachRow = 2,
+            ) {
+                IosPill(text = statusPill, color = statusColor)
+                if (!modePill.isNullOrBlank()) {
+                    IosPill(text = modePill, color = accent)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // Animated Neon Laser Pulse Divider
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.5.dp)
+                .clip(CircleShape)
+                .background(glass.divider)
+                .drawBehind {
+                    val pulseW = size.width * (0.35f + 0.50f * abs(sin(phase * Math.PI.toFloat())))
+                    drawLine(
+                        brush = Brush.horizontalGradient(listOf(accent, magenta)),
+                        start = Offset(0f, size.height / 2f),
+                        end = Offset(pulseW, size.height / 2f),
+                        strokeWidth = size.height,
+                    )
+                }
+        )
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = metaLine,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

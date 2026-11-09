@@ -35,6 +35,10 @@ class Theme501SourceTests(unittest.TestCase):
         self.assertIn('LocalContentColor provides MaterialTheme.colorScheme.onSurface', glass)
         self.assertIn('FlowRow(', hero)  # statuses can wrap on small/large-font screens
         self.assertIn('role = Role.RadioButton', selector)
+        for splash_fn in ('PixelMatrixSplash', 'CyberBrutalSplash', 'IosLiquidGlassSplash', 'NeonCyberSplash'):
+            self.assertIn(splash_fn, glass)
+        for emblem in ('ic_emblem_pixel.png', 'ic_emblem_cyberpunk.png', 'ic_emblem_ios_glass.png', 'ic_emblem_neon.png'):
+            self.assertTrue((app.ASSETS / 'res/drawable-nodpi' / emblem).is_file(), emblem)
         self.assertEqual(app.VERSION_CODE, 60001)
         self.assertEqual(app.APP_ID, 'net.ember.labs')
 

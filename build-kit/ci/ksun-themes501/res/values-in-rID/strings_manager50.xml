@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="theme50_design_title">Tema desain</string>
-    <string name="theme50_design_footer">Mengubah tata letak, panel, navigasi dan warna. Fitur dan pengaturan Manager tetap sama.</string>
+    <string name="theme50_design_footer">Mengubah tata letak, animasi, ikon PNG, splash screen, panel, navigasi dan warna. Fitur dan pengaturan Manager tetap sama.</string>
     <string name="theme50_pixel">Pixel Signal</string>
-    <string name="theme50_pixel_detail">Panel kotak, grid piksel dan navigasi datar</string>
+    <string name="theme50_pixel_detail">Panel dot-matrix kotak, ikon PNG piksel, splash LED matrix dan dock datar</string>
     <string name="theme50_cyber">Cyberpunk</string>
-    <string name="theme50_cyber_detail">Dasbor bersudut, grid industrial dan volt</string>
+    <string name="theme50_cyber_detail">Dasbor cyberbrutal bersudut, Solari split-flap, scanline dan HUD volt</string>
     <string name="theme50_ios">iOS Glass</string>
-    <string name="theme50_ios_detail">Kartu terpusat, ikon warna dan dock kaca</string>
+    <string name="theme50_ios_detail">Pedestal liquid-glass terpusat, ikon PNG kaca 3D, aurora blur dan dock kapsul</string>
     <string name="theme50_neon">Neon</string>
-    <string name="theme50_neon_detail">Garis bercahaya dan panel neon</string>
+    <string name="theme50_neon_detail">Grid siber neon ganda, ikon PNG neon 3D, pulsa laser dan dock HUD</string>
+    <string name="theme50_preview_splash">Pratinjau splash screen</string>
+    <string name="theme50_preview_splash_sub">Tampilkan ulang animasi splash screen dan ikon PNG tema aktif</string>
 </resources>

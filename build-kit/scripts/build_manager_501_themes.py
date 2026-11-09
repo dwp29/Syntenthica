@@ -59,6 +59,20 @@ def patch_production_dock(activity: Path) -> None:
     ])
 
 
+def patch_about(about: Path) -> None:
+    patch = base50.previous.previous.patch_file
+    patch(about, [
+        ('import com.rifsxd.ksunext.ui.theme.GlassTopBar\n',
+         'import com.rifsxd.ksunext.ui.theme.GlassTopBar\n'
+         'import com.rifsxd.ksunext.ui.theme.LocalManagerStyle\n'
+         'import com.rifsxd.ksunext.ui.theme.ManagerStyle\n'
+         'import com.rifsxd.ksunext.ui.theme.emblemResForStyle\n', '5.0.1 about theme imports', 1),
+        ('val iconShape = RoundedCornerShape(24.dp)\n                Image(\n                    painter = painterResource(R.drawable.ic_synthetica_emblem),',
+         'val activeStyle = LocalManagerStyle.current\n                val iconShape = if (activeStyle == ManagerStyle.PIXEL) androidx.compose.ui.graphics.RectangleShape else MaterialTheme.shapes.extraLarge\n                Image(\n                    painter = painterResource(emblemResForStyle(activeStyle)),',
+         '5.0.1 about theme PNG emblem', 1),
+    ])
+
+
 def prepare_tree(src: Path) -> None:
     base50.prepare_tree(src)
     patch = base50.previous.previous.patch_file
@@ -73,6 +87,7 @@ def prepare_tree(src: Path) -> None:
     main = src / 'manager/app/src/main'
     copy_theme(main)
     patch_production_dock(main / 'java/com/rifsxd/ksunext/ui/MainActivity.kt')
+    patch_about(main / 'java/com/rifsxd/ksunext/ui/screen/About.kt')
     for locale, value in (
         ('values', 'Manager 5.0.1, UAPI v4 and open-source credits'),
         ('values-in-rID', 'Manager 5.0.1, UAPI v4 dan kredit sumber terbuka'),

@@ -1,22 +1,43 @@
 package com.rifsxd.ksunext.ui.theme
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rifsxd.ksunext.R
+import kotlinx.coroutines.delay
 
 /** Styles share one set of screens and one root backend; these are presentation only. */
 enum class ManagerStyle(val id: String) {
@@ -28,6 +49,122 @@ enum class ManagerStyle(val id: String) {
 }
 
 val LocalManagerStyle = staticCompositionLocalOf { ManagerStyle.PIXEL }
+
+/** Triggers a live boot-splash transition when the user switches themes or taps Preview Splash. */
+val SplashPreviewTickState = mutableIntStateOf(0)
+
+fun triggerThemeSplashPreview() {
+    SplashPreviewTickState.intValue += 1
+}
+
+/** Distinct PNG emblem resource for each of the 4 visual designs. */
+fun emblemResForStyle(style: ManagerStyle): Int = when (style) {
+    ManagerStyle.PIXEL -> R.drawable.ic_emblem_pixel
+    ManagerStyle.CYBERPUNK -> R.drawable.ic_emblem_cyberpunk
+    ManagerStyle.IOS_GLASS -> R.drawable.ic_emblem_ios_glass
+    ManagerStyle.NEON -> R.drawable.ic_emblem_neon
+}
+
+/** Distinct splash edition label per theme (preserves ' // MANAGER 5.0.1' marker). */
+fun splashTagForStyle(style: ManagerStyle): String = when (style) {
+    ManagerStyle.PIXEL -> "PIXEL // MANAGER 5.0.1"
+    ManagerStyle.CYBERPUNK -> "CYBERPUNK // MANAGER 5.0.1"
+    ManagerStyle.IOS_GLASS -> "GLASS // MANAGER 5.0.1"
+    ManagerStyle.NEON -> "NEON // MANAGER 5.0.1"
+}
+
+/**
+ * Synchronizes preferences on Frame 0 so cold-start splash immediately uses the saved theme,
+ * and drives continuous 0..1 animations for all 4 styles (including IOS_GLASS) when motion is on.
+ */
+@Composable
+fun rememberStylePhase(): State<Float> {
+    val context = LocalContext.current
+    remember(context) {
+        syncNeonPrefs(context)
+        true
+    }
+    val motionEnabled = LocalPixelMotionEnabled.current
+    return if (motionEnabled) {
+        val transition = rememberInfiniteTransition(label = "synthetica-501-motion")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2600, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "synthetica-501-phase",
+        )
+    } else {
+        remember { mutableFloatStateOf(0.5f) }
+    }
+}
+
+private const val FLAP_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789//:#=[]"
+
+/**
+ * Solari Airport Split-Flap mechanical character cycling from Synthetica 2.1 Cyberbrutalist.
+ * Settles deterministically to [text] and skips animation immediately when motion is disabled.
+ */
+@Composable
+fun DepartureBoardText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = TextStyle.Default,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = 1,
+    overflow: TextOverflow = TextOverflow.Ellipsis,
+    delayMillis: Int = 0,
+    charStaggerMs: Int = 14,
+    flapDurationMs: Int = 220,
+) {
+    val motionEnabled = LocalPixelMotionEnabled.current
+    var displayed by remember(text, motionEnabled) { mutableStateOf(text) }
+
+    LaunchedEffect(text, motionEnabled) {
+        if (!motionEnabled || text.isEmpty()) {
+            displayed = text
+            return@LaunchedEffect
+        }
+        if (delayMillis > 0) delay(delayMillis.toLong())
+        val stepMs = 28L
+        val totalDuration = (text.length * charStaggerMs + flapDurationMs).coerceAtMost(480)
+        var elapsed = 0
+        while (elapsed < totalDuration) {
+            val sb = StringBuilder(text.length)
+            for (i in text.indices) {
+                val c = text[i]
+                val charStart = i * charStaggerMs
+                val charEnd = charStart + flapDurationMs
+                when {
+                    c == ' ' || c == '\n' -> sb.append(c)
+                    elapsed >= charEnd -> sb.append(c)
+                    elapsed < charStart -> sb.append(FLAP_CHARS[(i * 5 + elapsed / 28) % FLAP_CHARS.length])
+                    else -> {
+                        val idx = (i * 11 + elapsed / 28) % FLAP_CHARS.length
+                        sb.append(FLAP_CHARS[idx])
+                    }
+                }
+            }
+            displayed = sb.toString()
+            delay(stepMs)
+            elapsed += stepMs.toInt()
+        }
+        displayed = text
+    }
+
+    Text(
+        text = displayed,
+        modifier = modifier,
+        style = style,
+        color = color,
+        fontWeight = fontWeight,
+        maxLines = maxLines,
+        overflow = overflow,
+    )
+}
 
 private val CyberShapes = Shapes(
     extraSmall = CutCornerShape(topStart = 0.dp, topEnd = 5.dp, bottomEnd = 0.dp, bottomStart = 5.dp),

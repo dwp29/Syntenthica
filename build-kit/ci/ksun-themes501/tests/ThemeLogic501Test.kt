@@ -34,4 +34,13 @@ class ThemeLogic501Test {
             assertTrue(palette.glass.isAmoled)
         }
     }
+
+    @Test fun splashTagAndPreviewTickAreDistinctPerDesign() {
+        val tags = ManagerStyle.entries.map(::splashTagForStyle)
+        assertEquals(4, tags.toSet().size)
+        tags.forEach { assertTrue(it.endsWith(" // MANAGER 5.0.1")) }
+        val before = SplashPreviewTickState.intValue
+        triggerThemeSplashPreview()
+        assertEquals(before + 1, SplashPreviewTickState.intValue)
+    }
 }
