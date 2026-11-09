@@ -29,6 +29,8 @@ jobs:
           with zipfile.ZipFile(p) as z:
               infos=z.infolist()
               print('Entry count:',len(infos))
+              rows = [f'{i.filename} ({i.file_size})' for i in infos if not i.is_dir()]
+              print('::notice title=ROM archive layout::' + ' | '.join(rows).replace('%','%25')[:6000])
               for i in infos:
                   if not i.is_dir():
                       print(json.dumps({'name':i.filename,'bytes':i.file_size,'compressed_bytes':i.compress_size}))
