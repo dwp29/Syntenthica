@@ -136,15 +136,23 @@ jobs:
           S31_PUBLIC_BOOT: ${{ runner.temp }}/public-boot.img
         run: |
           set -euo pipefail
-          python3 -m unittest discover -s tests -p 'test_synthetica31_infinity_installer_offline.py' -v 2>&1 | tee "$RUNNER_TEMP/infinity-test.log"
+          set +e
+          python3 -m unittest discover -s tests -p 'test_synthetica31_infinity_installer_offline.py' -v > "$RUNNER_TEMP/infinity-test.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/infinity-test.log"
           python3 - <<'PY2'
           import os
           from pathlib import Path
           s=(Path(os.environ['RUNNER_TEMP'])/'infinity-test.log').read_text()
           for line in s.splitlines():
-              if line.startswith('INFINITY_OFFLINE_RESULT='):
-                  print('::notice title=Public Infinity boot installer output::'+line.split('=',1)[1].replace('%','%25'))
+              if 'INFINITY_OFFLINE_RESULT=' in line:
+                  print('::notice title=Public Infinity boot installer output::'+line.split('INFINITY_OFFLINE_RESULT=',1)[1].replace('%','%25'))
+          if 'FAILED (' in s:
+              s=s[-10000:].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print('::error title=Offline fixture diagnostic::'+s)
           PY2
+          exit "$rc"
       - name: State the test scope
         run: echo '::notice title=Scope::QEMU used synthetic regular boot files and redirected paths, not a phone or physical TWRP. Boot, root, AVB, ROM modules and camera remain unverified.'
       - name: Upload recovery ZIP and checksum
