@@ -97,6 +97,36 @@ jobs:
                       findings.append(f'{p.relative_to(root)}:{i}: {line.strip()}')
           print(f'::notice title=Vendor init module references::{scanned} rc files scanned; '+(' | '.join(findings) or 'no matching directives')[:5500].replace('%','%25'))
           PY
+      - name: Inspect modules in system partition
+        run: |
+          set -euo pipefail
+          if ! python3 - <<'PY' > "$RUNNER_TEMP/system-extract.log" 2>&1
+          import os,sys,zipfile
+          from pathlib import Path
+          sys.path.insert(0,'build-kit/scripts'); import extract_synthetica2_block_ota as ex
+          t=Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(t/'infinity.zip') as z:
+              transfer=ex.info_once(z,'system.transfer.list',ex.MAX_TRANSFER)
+              info=ex.info_once(z,'system.new.dat.br',ex.MAX_VENDOR_COMPRESSED)
+              patch=ex.info_once(z,'system.patch.dat',0)
+              size,ranges=ex.parse_transfer(z.read(transfer))
+              ex.extract_vendor(z,info,t/'system.img',size,ranges)
+          PY
+          then
+            echo "::error title=System extraction refused::$(tail -c 3000 "$RUNNER_TEMP/system-extract.log" | tr '\n' ' ')"; exit 1
+          fi
+          mkdir "$RUNNER_TEMP/system-modules"
+          debugfs -R "rdump /system/lib/modules $RUNNER_TEMP/system-modules" "$RUNNER_TEMP/system.img" > "$RUNNER_TEMP/system-debug.log" 2>&1
+          debugfs -R "rdump /lib/modules $RUNNER_TEMP/system-modules" "$RUNNER_TEMP/system.img" >> "$RUNNER_TEMP/system-debug.log" 2>&1
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          t=Path(os.environ['RUNNER_TEMP']); root=t/'system-modules'; rows=[]
+          for p in sorted(root.rglob('*')):
+              if p.is_file() and not p.is_symlink(): rows.append(f'{p.relative_to(root)}:{p.stat().st_size}')
+          print('::notice title=System module files::'+(' | '.join(rows) or 'none')[:5000])
+          print('::notice title=System debugfs::'+(t/'system-debug.log').read_text()[-1500:].replace('\n',' '))
+          PY
       - name: Fetch 3.1 evidence and audit ROM modules
         env:
           GH_TOKEN: ${{ github.token }}
