@@ -44,7 +44,7 @@ def verify(path: Path) -> dict:
         daemon_info = apk.getinfo(daemon_name)
         pin = migration.PINS['ksud_arm64']
         if daemon_info.file_size != pin['bytes']:
-            raise ValueError('Unexpected packaged ksud size')
+            raise ValueError(f"Unexpected packaged ksud size: {daemon_info.file_size} != {pin['bytes']}")
         daemon = apk.read(daemon_info)
         if hashlib.sha256(daemon).hexdigest() != pin['sha256'] or not arm64_elf(daemon, (2, 3)):
             raise ValueError('Packaged ksud identity or ARM64 ELF mismatch')

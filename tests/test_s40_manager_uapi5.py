@@ -144,7 +144,9 @@ class ActualSourceMigrationTests(unittest.TestCase):
             self.assertIn('KERNEL_SU_UAPI_VERSION = 5;', (source / 'uapi/supercall.h').read_text())
             self.assertIn('kernelUAPIVersion == managerUAPIVersion',
                           (source / 'manager/app/src/main/java/com/rifsxd/ksunext/Natives.kt').read_text())
-            self.assertIn('applicationId = "net.ember.labs"', (source / 'manager/app/build.gradle.kts').read_text())
+            app_gradle = (source / 'manager/app/build.gradle.kts').read_text()
+            self.assertIn('applicationId = "net.ember.labs"', app_gradle)
+            self.assertEqual(app_gradle.count('keepDebugSymbols += "**/libksud.so"'), 1)
             self.assertIn('5.0.1-uapi5-dev', (source / 'manager/build.gradle.kts').read_text())
             report = json.loads((base / 'work/PROTOTYPE.json').read_text())
             self.assertFalse(report['signed'])

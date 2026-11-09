@@ -117,6 +117,11 @@ def prepare(old: Path, new: Path, daemon: Path, work: Path) -> Path:
         ('output.outputFileName = "Synthetica-5.0.1-MultiTheme-$name.apk"',
          'output.outputFileName = "Manager-UAPI5-UNSIGNED-DO-NOT-INSTALL-$name.apk"',
          'dev output label', 1),
+        # AGP otherwise strips the already-built daemon and changes its pinned
+        # byte identity. Preserve the exact upstream asset inside the APK.
+        ('        jniLibs {\n            useLegacyPackaging = true\n',
+         '        jniLibs {\n            useLegacyPackaging = true\n'
+         '            keepDebugSymbols += "**/libksud.so"\n', 'preserve published ksud', 1),
     ])
     for locale, value in (
         ('values', 'UAPI 5 DEV: not a tested or installable release'),
