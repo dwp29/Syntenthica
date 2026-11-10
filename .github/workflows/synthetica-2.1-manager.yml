@@ -99,7 +99,13 @@ jobs:
           git config user.email 'ci@users.noreply.github.com'
           # This directory is freshly recreated during the unsigned-only build.
           # Stage deletions too, so a failed run cannot leave an older APK behind.
-          git add -A -f ci-stage/step21/
+          # Keep the unsigned APK out of git history; record its digest instead.
+          if [ -f ci-stage/step21/manager-aligned.apk ]; then
+            sha256sum ci-stage/step21/manager-aligned.apk > ci-stage/step21/APK-SHA256.txt
+          fi
+          (cd ci-stage/step21 && find . -maxdepth 1 -type f ! -name '*.apk' -print0) \
+            | xargs -0 -r git add -f
+          git rm -q --cached -f ci-stage/step21/manager-aligned.apk 2>/dev/null || true
           git diff --cached --quiet && exit 0
           git commit -qm "ci: save unsigned Synthetica 2.1 build diagnostics (run ${GITHUB_RUN_ID})"
           git pull --rebase origin "${GITHUB_REF_NAME}"

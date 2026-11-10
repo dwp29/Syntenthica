@@ -372,3 +372,11 @@ ke riwayat git. Hal itu tidak memberi manfaat — artefak CI sudah menyimpan
 berkasnya — tetapi memperbesar clone dan riwayat. Workflow itu sekarang hanya
 meng-commit bukti teks kecil dan `BINARY-SHA256.txt`, biner dihapus dari indeks
 (tetap ada di disk) dan diberi aturan `.gitignore`.
+
+Hal yang sama berlaku untuk `ci-stage/step1/manager-aligned.apk` dan
+`ci-stage/step21/manager-aligned.apk`: keduanya keluaran build murni, tidak
+dirujuk sebagai input mana pun, tetapi ikut ter-commit setiap run. Keduanya kini
+juga diabaikan dan diganti `APK-SHA256.txt`. Yang **sengaja tetap** di git
+adalah APK input yang dipin di `build-kit/ci/INPUT_PINS.json`
+(`manager-pinned/SYNTHETICA-NEXT-MANAGER.apk`, `rollercoaster/manager/base.apk`)
+dan rilis `release/Synthetica-2.0.apk`, karena build membacanya sebagai bahan.
