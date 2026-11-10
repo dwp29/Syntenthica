@@ -1,10 +1,10 @@
-name: "Synthetica Manager 6.0.0 — standalone universal-kernel build (manager60-build)"
+name: "Synthetica Manager 6.0.0 — standalone universal-kernel build"
 
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
     paths:
-      - '.github/workflows/manager60-build.yml'
+      - '.github/workflows/synthetica60-manager.yml'
       - 'synthetica-manager/**'
       - 'build-kit/scripts/build_manager_60_standalone.py'
       - 'build-kit/scripts/sign_manager_60_locally.py'
