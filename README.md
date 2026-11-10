@@ -11,10 +11,10 @@ belum lengkap atau divalidasi.
 APK manager **6.0.0** (`net.ember.labs`, versionCode `70000`) sudah
 dikompilasi di CI dan ditandatangani dengan sertifikat Synthetica asli.
 
-- Berkas: `Synthetica-Manager-6.0.0-Universal-SIGNED.apk`, `8.990.470` byte
-- SHA-256: `666b24b6d4e7835a5b03b7e5e40f77676820f827d0130aad2d96a120a4dd9cac`
+- Berkas: `Synthetica-Manager-6.0.0-Universal-SIGNED-R2.apk`, `8.937.023` byte
+- SHA-256: `29fe923f091cc96306b7b32f9b617bd069ba807e02aa8026a0febca3d0f64697`
 - Tanda tangan: v2 + v3, sertifikat `fe833710…ab4140`
-- Build CI: [run `42750759962`](https://github.com/dwp29/Syntenthica/actions/runs/42750759962) (compile + verify lulus)
+- Build CI: [run `42785387126`](https://github.com/dwp29/Syntenthica/actions/runs/42785387126) (compile + verify lulus)
 
 Rincian, termasuk apa yang **belum** diverifikasi, ada di
 [docs/SYNTHETICA-MANAGER-6.0.0-UNIVERSAL.md](docs/SYNTHETICA-MANAGER-6.0.0-UNIVERSAL.md).

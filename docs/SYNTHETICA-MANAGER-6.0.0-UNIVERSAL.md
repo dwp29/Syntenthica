@@ -299,6 +299,7 @@ supaya tidak ada yang mengulang jalan buntu yang sama:
 | `42747877219` | `8bd4de8` | gagal `aapt2`: `strings_manager50.xml:19` (apostrof mentah `kernel's`) |
 | `42749580793` | `410200b` | gagal Kotlin: `unresolved reference: build` di `KsuCli.kt:160` |
 | `42750759962` | `8106db7` | **sukses** — langkah 6 (compile) dan 7 (verify) lulus |
+| `42785387126` | `bf57e07` | **sukses** — build R2, memuat perbaikan rantai `su` dan About |
 
 Dua kegagalan itu bukan masalah lingkungan, melainkan bug di pohon ini, dan
 keduanya sekarang dijaga regresi:
@@ -325,16 +326,16 @@ Artifact CI (unsigned) ditandatangani di luar CI dengan kunci Synthetica asli.
 
 | Properti | Nilai |
 |---|---|
-| Berkas | `Synthetica-Manager-6.0.0-Universal-SIGNED.apk` |
-| Ukuran | `8.990.470` byte |
-| SHA-256 | `666b24b6d4e7835a5b03b7e5e40f77676820f827d0130aad2d96a120a4dd9cac` |
+| Berkas | `Synthetica-Manager-6.0.0-Universal-SIGNED-R2.apk` |
+| Ukuran | `8.937.023` byte |
+| SHA-256 | `29fe923f091cc96306b7b32f9b617bd069ba807e02aa8026a0febca3d0f64697` |
 | Skema tanda tangan | v2 `true`, v3 `true`, v1 `false` |
 | Sertifikat (SHA-256) | `fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140` |
 | Package / versi | `net.ember.labs` / `6.0.0` (`70000`), label `Synthetica` |
 | Native code | `arm64-v8a` |
 
-Artifact unsigned dari CI: `8.927.711` byte, SHA-256
-`7f3333b6efbc9c6ee9e61d7514cdd64783b776b51eac16af9880874bc11bd5c8`.
+Artifact unsigned dari CI: `8.925.555` byte, SHA-256
+`a7f5c5f0525601264b2b6b568d191931a7aeb482ab84edd8c0de803a783efe3f`.
 Perbandingan isi ZIP: 642 entri sebelum dan sesudah, **tidak ada satu pun entri
 payload yang berubah**; satu-satunya tambahan adalah `META-INF/MANIFEST.MF`,
 `SYNTHETI.SF`, dan `SYNTHETI.RSA`.
@@ -342,7 +343,8 @@ payload yang berubah**; satu-satunya tambahan adalah `META-INF/MANIFEST.MF`,
 Verifikasi isi APK final:
 
 - `apksigner verify --verbose --print-certs` → `Verifies`, v2 dan v3 `true`.
-- `tests/verify_synthetica60_apk.py` → semua gate lulus, termasuk halaman About.
+- `tests/verify_synthetica60_apk.py` → semua gate lulus, termasuk
+  `no repo link` pada halaman About.
 - Rantai root di DEX: literal `su --mount-master || `, `su || `, ` || sh`,
   ` debug su`, dan ` --global-mnt` semuanya ditemukan. Pencarian frasa gabungan
   gagal hanya karena R8 memecah string menjadi literal per-bagian.
