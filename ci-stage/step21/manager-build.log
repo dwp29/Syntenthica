@@ -112,19 +112,19 @@ C/C++:     DEBUG_SYMBOLS_PATH
 > Task :app:createReleaseCompatibleScreenManifests
 > Task :app:extractDeepLinksRelease
 > Task :app:processReleaseMainManifest
+> Task :app:mergeReleaseResources
 > Task :app:processReleaseManifest
 > Task :app:extractProguardFiles
 > Task :app:mergeReleaseStartupProfile
-> Task :app:processReleaseManifestForPackage
 > Task :app:mergeReleaseShaders
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
-> Task :app:mergeReleaseResources
 > Task :app:mergeReleaseAssets
 > Task :app:compressReleaseAssets
 > Task :app:extractReleaseVersionControlInfo
 > Task :app:writeReleaseAppMetadata
 > Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseManifestForPackage
 > Task :app:processReleaseResources
 > Task :app:kspReleaseKotlin
 > Task :app:compileReleaseKotlin
@@ -153,7 +153,7 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.2.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 3m 51s
+BUILD SUCCESSFUL in 4m 58s
 51 actionable tasks: 51 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.0/userguide/configuration_cache_enabling.html
 + /home/runner/android-sdk/build-tools/36.1.0/zipalign -p -f -v 4 /tmp/synthetica-21-manager/manager/app/build/outputs/apk/release/KernelSU_Next_2.1.2_30004-release.apk /home/runner/work/Syntenthica/Syntenthica/ci-stage/step21/manager-aligned.apk
