@@ -330,8 +330,11 @@ kompilasi tidak menutup celah gagal-start yang telah dimodelkan. Keempat
 varian juga lulus kompilasi objek dan partial link pada
 [CI 42558992815](https://github.com/dwp29/Syntenthica/actions/runs/42558992815);
 itu tidak menguji runtime atau retry otomatis. Fragmen kandidat retry sudah
-dipin (`9202bbf4…`) dan disambungkan ke probe kompilasi, tetapi kompilasi
-ARM64-nya belum dijalankan ulang; objek retry belum pernah dibangun. Tidak ada dispatcher SUSFS, link kernel penuh,
+dipin (`9202bbf4…`) dan disambungkan ke probe kompilasi. Kelima varian,
+termasuk retry, lulus kompilasi objek dan partial link di CI pada
+[run 42819910207](https://github.com/dwp29/Syntenthica/actions/runs/42819910207)
+setelah filter branch workflow diperbaiki. Kompilasi itu tetap tidak menguji
+runtime, retry otomatis, atau perilaku task_work. Tidak ada dispatcher SUSFS, link kernel penuh,
 modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti
