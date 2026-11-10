@@ -206,7 +206,7 @@ mengembalikan `uid=0`) plus konfirmasi `id -u` == `0`.
 ### 7.4 Status verifikasi
 
 `tests/test_synthetica60_standalone.py` + `tests/test_synthetica60_signing.py`
-lulus (33 test), termasuk penjaga regresi:
+lulus (35 test), termasuk penjaga regresi:
 - locale tidak boleh tertukar antara `values/` dan `values-in-rID/`;
 - `su` harus dicoba sebelum `libksud.so`;
 - probe root harus memakai `shell.isRoot`, bukan exit code;
@@ -218,43 +218,68 @@ Seluruh suite repo juga dijalankan ulang dari pohon yang sekarang: **515 test,
 0 gagal** (126 skip karena prasyarat host), termasuk gate statis 6.0.0
 (`[verify] net.ember.labs 6.0.0 (70000); UAPI 4; standalone tree OK`).
 
-### 7.5 Yang belum diverifikasi: kompilasi
+### 7.5 Kompilasi: terbukti di CI
 
-**Penyebabnya global, bukan workflow ini.** Bukti dari repo (semua lewat API,
-bukan dugaan):
+Kompilasi Kotlin **berhasil** di GitHub Actions. Riwayat lengkapnya penting
+supaya tidak ada yang mengulang jalan buntu yang sama:
 
-| Uji | Hasil |
+| Run | Commit | Hasil |
+|---|---|---|
+| `42747467198` | `e83d3a4` | `startup_failure` — 0 job |
+| `42747877219` | `8bd4de8` | gagal `aapt2`: `strings_manager50.xml:19` (apostrof mentah `kernel's`) |
+| `42749580793` | `410200b` | gagal Kotlin: `unresolved reference: build` di `KsuCli.kt:160` |
+| `42750759962` | `8106db7` | **sukses** — langkah 6 (compile) dan 7 (verify) lulus |
+
+Dua kegagalan itu bukan masalah lingkungan, melainkan bug di pohon ini, dan
+keduanya sekarang dijaga regresi:
+
+- apostrof mentah di `strings.xml` membuat `aapt2` mati. Dijaga oleh
+  `test_strings_are_valid_aapt_input`.
+- deklarasi top-level ganda (`createRootShellBuilder` di baris 73 **dan** 143)
+  menghasilkan pesan menyesatkan `unresolved reference: build` di titik
+  pemanggilan. Dijaga oleh `test_no_duplicate_top_level_declarations`.
+
+Keduanya sudah dibuktikan **gagal saat bug disuntikkan kembali**, jadi
+penjaganya bukan test kosong.
+
+Pelajaran operasional: workflow di branch non-default bisa gagal dijadwalkan
+(`startup_failure`) bila menarik reusable workflow lewat `uses:` lintas-branch.
+Jalan yang berhasil adalah menyalin langkah build secara utuh ke workflow di
+`main` (`manager60-run.yml`, `workflow_dispatch` saja). Jangan mengubah nama
+berkas workflow: workflow yang di-rename tidak terdaftar dan tidak bisa
+di-rerun.
+
+### 7.6 APK final
+
+Artifact CI (unsigned) ditandatangani di luar CI dengan kunci Synthetica asli.
+
+| Properti | Nilai |
 |---|---|
-| Push ke commit yang menyentuh `synthetica501-manager.yml`, `synthetica50-manager.yml` dan `manager60-build.yml` sekaligus | **tidak ada** run untuk ketiganya |
-| Workflow probe baru `ci-probe.yml` (nama & isi sederhana) | **jalan** (run `42741370990`, sukses) |
-| `workflow_dispatch` untuk workflow mana pun | `HTTP 403 Resource not accessible by integration` |
-| `repository_dispatch` | tidak menghasilkan run (event ini hanya menjangkau workflow di branch *default*) |
-| Workflow `manager60-build.yml` | **tidak pernah muncul** di daftar workflow GitHub |
+| Berkas | `Synthetica-Manager-6.0.0-Universal-SIGNED.apk` |
+| Ukuran | `8.990.470` byte |
+| SHA-256 | `666b24b6d4e7835a5b03b7e5e40f77676820f827d0130aad2d96a120a4dd9cac` |
+| Skema tanda tangan | v2 `true`, v3 `true`, v1 `false` |
+| Sertifikat (SHA-256) | `fe833710a733f63061691c87ff222e84ca2fa462582aceaf5f577fe799ab4140` |
+| Package / versi | `net.ember.labs` / `6.0.0` (`70000`), label `Synthetica` |
+| Native code | `arm64-v8a` |
 
-Tidak ada run sama sekali setelah `2026-11-10T02:14Z` kecuali probe. Workflow
-lama (5.0, 5.0.1, 4.0) juga berhenti pada 9 Nov. Pola ini cocok dengan kuota
-GitHub Actions yang habis: workflow yang **baru mendaftar** masih bisa jalan,
-sedangkan workflow yang sudah terdaftar gagal dijadwalkan tanpa pesan error.
+Artifact unsigned dari CI: `8.927.711` byte, SHA-256
+`7f3333b6efbc9c6ee9e61d7514cdd64783b776b51eac16af9880874bc11bd5c8`.
+Perbandingan isi ZIP: 642 entri sebelum dan sesudah, **tidak ada satu pun entri
+payload yang berubah**; satu-satunya tambahan adalah `META-INF/MANIFEST.MF`,
+`SYNTHETI.SF`, dan `SYNTHETI.RSA`.
 
-Artinya: perubahan 7.1–7.4 lolos gate statis, host, dan suite penuh (515 test),
-tetapi **belum** lolos kompilasi Kotlin maupun instalasi di perangkat.
+Verifikasi isi APK final:
 
-**Tindakan yang diperlukan di luar repo.** Pengguna mengonfirmasi *billing
-habis*, tetapi angka di repo ini tidak sepenuhnya cocok dengan "kuota menit
-habis", jadi keduanya perlu dicek:
+- `apksigner verify --verbose --print-certs` → `Verifies`, v2 dan v3 `true`.
+- `tests/verify_synthetica60_apk.py` → semua gate lulus, termasuk halaman About.
+- Rantai root di DEX: literal `su --mount-master || `, `su || `, ` || sh`,
+  ` debug su`, dan ` --global-mnt` semuanya ditemukan. Pencarian frasa gabungan
+  gagal hanya karena R8 memecah string menjadi literal per-bagian.
+- `RootChannel` tidak ditemukan sebagai literal karena R8 me-rename nama kelas
+  di build release; ini normal, bukan regresi.
+- URL donasi karangan tidak ditemukan di DEX.
 
-| Fakta dari repo | Implikasi |
-|---|---|
-| `dwp29/Syntenthica` **publik**, bukan fork | Menit Actions standar untuk repo publik **gratis** |
-| Satu-satunya repo milik akun ini | Tidak ada repo privat lain yang memakan kuota |
-| Semua job `runs-on: ubuntu-*`; tidak ada macOS/Windows | Tidak ada menit berbayar dari runner besar |
-| Tidak ada run `queued`/`in_progress` yang macet | Bukan runner nyangkut |
-
-Jadi yang paling mungkin menagih: **storage & packages** (artifact
-`upload-artifact` dengan `retention-days: 14` di setiap run, plus blob Git),
-atau **GitHub Pro/Team** yang statusnya berubah, bukan menit runner. Periksa
-*Settings → Billing → Plans and usage* pada tab **Storage** dan **Actions**
-sekaligus, lalu hapus artifact lama bila yang penuh adalah storage.
-
-Setelah status billing pulih, jalankan ulang workflow `manager60-build.yml`.
-Jangan menganggap pohon ini sudah menjadi rilis sebelum itu.
+**Yang tetap belum diverifikasi:** instalasi di perangkat Android, root `su`
+sungguhan, pemuatan modul nyata, dan perilaku boot. APK ini lolos kompilasi,
+tanda tangan, dan pemeriksaan isi — bukan uji perangkat.
