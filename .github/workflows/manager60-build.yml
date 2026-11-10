@@ -1,21 +1,16 @@
-name: "Synthetica Manager 6.0.0 — standalone universal-kernel build"
+name: "Synthetica Manager 6.0.0 — standalone universal-kernel build (manager60-build)"
 
 on:
   push:
     branches: [arena/96cbd65a-syntenthica]
     paths:
-      - '.github/workflows/synthetica60-manager.yml'
+      - '.github/workflows/manager60-build.yml'
       - 'synthetica-manager/**'
       - 'build-kit/scripts/build_manager_60_standalone.py'
       - 'build-kit/scripts/sign_manager_60_locally.py'
       - 'tests/test_synthetica60_*.py'
       - 'tests/verify_synthetica60_apk.py'
   workflow_dispatch:
-  # Not a manual convenience: pushes made by the integration token do not
-  # schedule workflow runs, so the build is started with a repository_dispatch
-  # event instead (POST /repos/:owner/:repo/dispatches).
-  repository_dispatch:
-    types: [manager60-build]
 
 permissions:
   contents: write # unsigned APK, evidence logs and test output as unreferenced blobs only
