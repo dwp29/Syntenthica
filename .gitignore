@@ -28,3 +28,7 @@ ci-stage/step21/*.apk
 
 # Raw, un-cropped theme art. Only the processed assets in the app tree ship.
 wip/
+
+# Unsigned APKs produced by build-kit/scripts/build_manager_60_standalone.py.
+# They are build output; the pinned inputs stay in git, this does not.
+artifacts/unsigned/
