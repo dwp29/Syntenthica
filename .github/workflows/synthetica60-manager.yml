@@ -11,6 +11,10 @@ on:
       - 'tests/test_synthetica60_*.py'
       - 'tests/verify_synthetica60_apk.py'
   workflow_dispatch:
+  # Lets the thin dispatcher that lives on the default branch start this exact
+  # job. GitHub only shows "Run workflow" when the file exists on main, and main
+  # holds nothing but a README, so main calls this workflow by branch ref.
+  workflow_call:
 
 permissions:
   contents: write # unsigned APK, evidence logs and test output as unreferenced blobs only
@@ -23,6 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          # When called from the default-branch dispatcher, github.ref is main;
+          # the sources live on the working branch, so it is named explicitly.
+          ref: arena/96cbd65a-synthentica
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
