@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -124,11 +125,15 @@ fun BrandIconRow(
 fun rememberSafeLinkOpener(): (String, Int) -> Unit {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
-    return { url, failureMessageRes ->
-        try {
-            uriHandler.openUri(url)
-        } catch (_: Exception) {
-            Toast.makeText(context, failureMessageRes, Toast.LENGTH_SHORT).show()
+    // remember so the lambda keeps its identity across recompositions; it is
+    // captured by many click lambdas on the About page.
+    return remember(uriHandler, context) {
+        { url: String, failureMessageRes: Int ->
+            try {
+                uriHandler.openUri(url)
+            } catch (_: Exception) {
+                Toast.makeText(context, failureMessageRes, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

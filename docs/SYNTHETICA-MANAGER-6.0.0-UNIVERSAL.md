@@ -149,7 +149,7 @@ dengan `apksigner` (v2+v3), lalu memastikan **payload non-tanda tangan tidak ber
 
 | Lapis | Cakupan | Status |
 |---|---|---|
-| Unit host (24 test) | Pohon mandiri, versi, tanpa rahasia, allowlist aksi, bridge `su`, animasi + JSON, 46 string en/id, 4 profil | Lulus |
+| Unit host (27 test) | Pohon mandiri, versi, tanpa rahasia, allowlist aksi, bridge `su`, animasi + JSON, 46 string en/id, 4 profil | Lulus |
 | Shell helper (fake `/sys`, `/proc`) | `telemetry` read-only, `kmod_status/load/unload`, `diag_*`, `profile_battery` 80%, `profile_cooldown` 70%, `profile_revert` | Lulus |
 | Signing gate (5 test) | Sertifikat asli saja, v2+v3, payload identik, tanpa password di argumen | Lulus |
 | Statis APK | Identitas, permission set = 2.0, UAPI 4, `libksud` ter-*pin*, alignment 4B/16KB, unsigned | Lulus |
@@ -165,3 +165,55 @@ dan perilaku boot. Klaim di dokumen ini hanya sebatas pengujian di atas.
 Layar **Device Check** adalah pengamatan, bukan atestasi. Pada kernel pihak ketiga ia akan
 melaporkan `rootAccessible = true` (dari `su`) tetapi SuSFS, modul KSU, dan Zygisk KSU akan
 `Tidak tersedia` — itu **wajar**, bukan kerusakan.
+
+---
+
+## 7. Perubahan setelah rilis 6.0.0 pertama (belum masuk APK bertanda tangan)
+
+Tiga perubahan di bawah ini ada di source `main` tetapi **belum** ada di APK
+`Synthetica-Manager-6.0.0-Universal-SIGNED.apk` yang sudah diunggah. APK baru
+butuh build CI + tanda tangan ulang.
+
+### 7.1 Urutan shell root dibetulkan
+
+| Sebelum | Sesudah |
+|---|---|
+| `libksud.so debug su -g \|\| su --mount-master \|\| sh` | `su --mount-master \|\| su \|\| libksud.so debug su --global-mnt \|\| sh` |
+
+Alasan: `libksud.so` selalu ada di dalam APK, jadi kalau ia dicoba lebih dulu ia
+menutupi `su` milik kernel pihak ketiga. Pada kernel SELAIN Synthetica perintah
+itu gagal, lalu rantai jatuh ke `sh` — shell **biasa**, bukan root.
+
+### 7.2 Deteksi root tidak lagi memakai exit code
+
+`probeUniversalRoot60()` dulu menilai `result.isSuccess` dari seluruh rantai
+`... || sh`. Karena `sh` hampir selalu berhasil, hasilnya `true` meski UID-nya
+2000. Helper lalu berjalan tanpa hak root dan gagal diam-diam.
+
+Sekarang probe memakai status shell libsu (`shell.isRoot`, diisi setelah `id`
+mengembalikan `uid=0`) plus konfirmasi `id -u` == `0`.
+
+### 7.3 Halaman About: pembuat, source, lisensi, donasi
+
+- Pembuat: **Pure_Saturday**, Telegram [@Pure_Saturday](https://t.me/Pure_Saturday).
+- Source lengkap: <https://github.com/dwp29/Syntenthica>, dengan penawaran source
+  eksplisit di [`synthetica-manager/SOURCE-OFFER.md`](../synthetica-manager/SOURCE-OFFER.md).
+- Lisensi: `GPL-3.0-only`, teks penuh di [`synthetica-manager/LICENSE`](../synthetica-manager/LICENSE),
+  atribusi pihak ketiga di [`synthetica-manager/NOTICE`](../synthetica-manager/NOTICE).
+- Donasi: **slot placeholder** (`AppCredit60.DONATE_URL = ""`). Baris tampil
+  nonaktif dengan label `SOON`; tidak ada dompet atau tautan karangan.
+
+### 7.4 Status verifikasi
+
+`tests/test_synthetica60_standalone.py` + `tests/test_synthetica60_signing.py`
+lulus (32 test), termasuk penjaga regresi:
+- locale tidak boleh tertukar antara `values/` dan `values-in-rID/`;
+- `su` harus dicoba sebelum `libksud.so`;
+- probe root harus memakai `shell.isRoot`, bukan exit code;
+- slot donasi harus tetap placeholder nonaktif.
+
+Yang **belum** diverifikasi: kompilasi APK. Workflow
+`synthetica60-manager.yml` tidak menghasilkan run baru untuk push setelah
+`e83d3a4` walau statusnya `active`; `workflow_dispatch` juga ditolak
+(`HTTP 403 Resource not accessible by integration`). Artinya perubahan ini
+lolos gate statis/host, **belum** lolos kompilasi Kotlin.
