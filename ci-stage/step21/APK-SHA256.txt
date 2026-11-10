@@ -1,0 +1,1 @@
+3d45c2ea0e1df83461fa1e5d8c71a4241fd0af17e62c7016bc6ac15b91e939f9  ci-stage/step21/manager-aligned.apk
