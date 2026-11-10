@@ -1,71 +1,68 @@
-# Link satu-klik: pulihkan CI Synthetica
+# Link satu-klik: jalankan build Manager 6.0.0
 
-Semua URL di bawah sudah diuji (HTTP 200 / redirect sah), bukan tebakan.
-
----
-
-## Langkah 1 — kosongkan storage (penyebab billing)
-
-GitHub → halaman **Caches & Artifacts** repo:
-
-**<https://github.com/dwp29/Syntenthica/actions/caches>**
-
-Di halaman itu ada dua tab: **Caches** dan **Artifacts**. Pilih **Artifacts**,
-lalu hapus yang besar. Saat dokumen ini ditulis:
-
-- total artifact: **189**
-- total ukuran: **1,22 GB**
-- penyumbang terbesar: `themes501-simulated-ui-emulator-*` (~40–70 MB tiap run)
-
-Ketik `themes501` di kotak filter untuk memunculkannya sekaligus.
+Semua URL di sini sudah diuji (HTTP 200), bukan tebakan.
 
 ---
 
-## Langkah 2 — cek billing
+## Akar masalahnya (sudah diperbaiki)
 
-**<https://github.com/settings/billing/summary>**
+Branch **`main` hanya berisi `README.md`**. GitHub hanya menampilkan tombol
+**Run workflow** kalau file `workflow_dispatch` ada di **branch default**. Karena
+`main` tidak punya `.github/workflows/` sama sekali, tombol itu tidak pernah
+muncul — bukan karena billing, bukan karena workflow rusak.
 
-Lihat tab **Storage** dan **Actions**. Kalau storage turun setelah langkah 1,
-build biasanya langsung bisa jalan tanpa menunggu reset bulanan.
+Billing Anda juga sudah saya baca dari screenshot: `$0` billable,
+Compute `$0 / $12.00`, storage `0 GB / 0.5 GB`. Jadi **billing bukan penyebab**.
+Repo publik tidak menghitung artifact sebagai storage berbayar.
+
+Perbaikan yang sudah masuk:
+
+| Branch | Isi | Fungsi |
+|---|---|---|
+| `main` | `.github/workflows/manager60-run.yml` | memunculkan tombol Run workflow |
+| `arena/96cbd65a-synthentica` | `synthetica60-manager.yml` | seluruh langkah build sebenarnya |
+
+`manager60-run.yml` tidak punya langkah build sendiri: ia **memanggil** workflow
+asli (`workflow_call`) di branch arena, jadi langkah build tetap di satu tempat
+dan tidak bisa berbeda.
 
 ---
 
-## Langkah 3 — jalankan build Manager 6.0.0
+## Jalankan build — satu klik
 
-**<https://github.com/dwp29/Syntenthica/actions/workflows/synthetica60-manager.yml>**
+### 👉 <https://github.com/dwp29/Syntenthica/actions/workflows/manager60-run.yml>
 
-Klik **Run workflow** → pilih branch `arena/96cbd65a-synthentica` → **Run workflow**.
+Klik tombol **Run workflow** (kanan atas) → **Run workflow**.
 
-Kalau tombol itu tidak muncul atau run tetap tidak terjadwal, alternatifnya:
-
-**<https://github.com/dwp29/Syntenthica/actions/runs/42658163433>**
-
-Run #1 (commit `e83d3a4`) sukses. Tombol **Re-run all jobs** di kanan atas akan
-membangun ulang; hasilnya APK 6.0.0 tanpa perubahan hari ini, tetapi tetap
-berguna untuk memastikan pipeline hidup lagi.
+Halaman itu sekarang menampilkan tombolnya; sebelumnya 404.
 
 ---
 
-## Langkah 4 — kirim hasilnya ke agen
+## Kalau masih ingin cara lama
 
-Setelah run selesai, kirim salah satu:
+Run #1 dulu sukses, dan tombol **Re-run all jobs** selalu tersedia:
+
+### 👉 <https://github.com/dwp29/Syntenthica/actions/runs/42658163433>
+
+---
+
+## Setelah build selesai
+
+Kirim salah satu ke agen:
 
 - URL halaman run, atau
 - angka `SHA256` dari langkah *Verify identity, permissions, daemon...*, atau
 - nama artifact `synthetica60-manager-unsigned-<run_id>`
 
-Agen lalu menandatangani dengan kunci `synthetica` (sertifikat
-`fe833710…`, 1381 byte / `0x565`), menjalankan `tests/verify_synthetica60_apk.py`,
-dan mengunggah APK final ke Google Drive seperti sebelumnya.
+Agen lalu menandatangani dengan kunci `synthetica` (sertifikat `fe833710…`,
+1381 byte / `0x565`), menjalankan `tests/verify_synthetica60_apk.py`, dan
+mengunggah APK final ke Google Drive seperti sebelumnya.
 
 ---
 
-## Catatan penting
+## Batas agen
 
-- Workflow di path `synthetica60-manager.yml` sudah dikembalikan ke nama aslinya
-  karena GitHub masih mendaftarkan workflow `412328719` di path itu; saat filenya
-  sempat di-rename, GitHub menganggapnya rusak (`cannot be rerun`).
-- Agen **tidak bisa** menghapus artifact atau memicu run: token yang dipakai
-  hanya punya izin `contents`, dan tidak bisa `workflow_dispatch`
-  (`403 Resource not accessible by integration`). Karena itu langkah 1–3 harus
-  dari akun Anda.
+Token integrasi hanya punya izin `contents`. Ia **tidak** bisa
+`workflow_dispatch` (`403 Resource not accessible by integration`), tidak bisa
+menghapus artifact, dan tidak bisa menekan tombol di UI. Karena itu langkah
+klik di atas harus dari akun Anda.
