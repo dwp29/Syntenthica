@@ -120,5 +120,3 @@ jobs:
           path: ${{ runner.temp }}/manager60-output/
           retention-days: 14
           if-no-files-found: warn
-
-# re-register trigger
