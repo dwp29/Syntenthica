@@ -123,6 +123,15 @@ class StyleRegistrationTests(unittest.TestCase):
             i += 1
         raise AssertionError('unbalanced parentheses')
 
+    def test_theme_files_import_generated_r(self):
+        """The generated R class lives in com.rifsxd.ksunext, not in .ui.theme.
+
+        A file that writes R.drawable.* without this import does not compile;
+        ThemedHero.kt shipped exactly that for one full CI round trip.
+        """
+        for name in ('ThemedHero.kt', 'Glass.kt', 'VisualStyles.kt', 'AppearanceControls.kt'):
+            self.assertIn('import com.rifsxd.ksunext.R', read(name), f'{name} lacks the R import')
+
     def test_themed_hero_declares_its_package(self):
         """No package line means the file lands in the root package and cannot see
         ManagerStyle; the compiler reports dozens of bogus unresolved references."""
