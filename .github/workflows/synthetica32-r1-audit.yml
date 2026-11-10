@@ -2,7 +2,7 @@ name: "Synthetica 3.2-r1 - offline compile evidence verification"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica32-r1-audit.yml'
       - 'build-kit/scripts/verify_synthetica32_r1_evidence.py'

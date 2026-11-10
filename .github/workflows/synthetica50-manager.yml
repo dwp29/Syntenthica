@@ -2,7 +2,7 @@ name: "Synthetica Manager 5.0 — multi-theme build and preview"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica50-manager.yml'
       - 'build-kit/scripts/build_manager_50_multitheme.py'

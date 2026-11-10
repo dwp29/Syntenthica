@@ -2,7 +2,7 @@ name: "Synthetica 3.2-r1 - rebuild from 3.1 with features retained"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica32-r1-kernel.yml'
       - 'build-kit/scripts/build_synthetica32_r1.py'

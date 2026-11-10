@@ -2,7 +2,7 @@ name: "Synthetica 3.0 with 2.0 installer - build and synthetic tests"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica3-installer20.yml'
       - 'build-kit/scripts/package_synthetica3_installer20.py'

@@ -2,7 +2,7 @@ name: "Synthetica 4.0 - SUSFS arm64 source ABI research"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/s40-susfs-abi-research.yml'
       - 'build-kit/ci/s40-susfs-abi/**'

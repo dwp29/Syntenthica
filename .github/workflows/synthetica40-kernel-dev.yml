@@ -2,7 +2,7 @@ name: "Synthetica 4.0 - Linux 6.18 experimental compile evidence"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica40-kernel-dev.yml'
       - 'build-kit/ci/synthetica40/**'

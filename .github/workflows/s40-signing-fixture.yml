@@ -2,7 +2,7 @@ name: "Synthetica 4.0 - isolated APK signing policy fixture"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/s40-signing-fixture.yml'
       - 'build-kit/ci/synthetica40/inputs.json'

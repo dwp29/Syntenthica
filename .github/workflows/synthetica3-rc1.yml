@@ -2,7 +2,7 @@ name: "Synthetica 3.0-rc1 - compile and guarded recovery test ZIP"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica3-rc1.yml'
       - 'build-kit/ci/synthetica3-rc/**'

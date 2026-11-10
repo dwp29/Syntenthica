@@ -2,7 +2,7 @@ name: "Synthetica 3.1 signing safety and local toolchain"
 on:
   push:
     branches:
-      - arena/96cbd65a-syntenthica
+      - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/synthetica31-signing-tools.yml'
       - 'build-kit/scripts/sign_manager_31_locally.py'

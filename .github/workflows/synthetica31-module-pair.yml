@@ -2,7 +2,7 @@ name: "Synthetica 3.1 - verify matching kernel and module pair"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica31-module-pair.yml'
       - 'build-kit/scripts/collect_synthetica31_module_pair.py'

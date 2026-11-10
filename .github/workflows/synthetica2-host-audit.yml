@@ -2,7 +2,7 @@ name: "Synthetica 2.0 experiment - host-only audit tests"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica2-host-audit.yml'
       - 'build-kit/scripts/audit_synthetica2_rom_modules.py'

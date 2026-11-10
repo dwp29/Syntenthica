@@ -2,7 +2,7 @@ name: "Synthetica Manager 3.0 Neon (unsigned)"
 on:
   push:
     branches:
-      - arena/96cbd65a-syntenthica
+      - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/synthetica30-manager-neon.yml'
       - 'build-kit/scripts/build_manager_30_neon.py'

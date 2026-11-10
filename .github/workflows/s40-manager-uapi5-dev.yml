@@ -2,7 +2,7 @@ name: "Synthetica 4.0 - Manager UAPI 5 development checks"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/s40-manager-uapi5-dev.yml'
       - 'build-kit/ci/manager-uapi5-dev/**'

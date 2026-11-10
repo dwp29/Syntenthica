@@ -2,7 +2,7 @@ name: "Synthetica 3.1 - offline installer on public Infinity boot"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica31-infinity-installer-offline.yml'
       - 'tests/test_synthetica31_infinity_installer_offline.py'

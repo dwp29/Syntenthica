@@ -2,7 +2,7 @@ name: "Synthetica 3.2 - offline build and module audit"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica32-audit.yml'
       - 'build-kit/scripts/audit_synthetica32_rom_modules.py'

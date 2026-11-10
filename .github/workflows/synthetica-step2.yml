@@ -2,7 +2,7 @@ name: "Synthetica 2.0 - Step 2 & 3 Kernel + Flashable Package"
 on:
   push:
     branches:
-      - arena/96cbd65a-syntenthica
+      - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/synthetica-step2.yml'
 

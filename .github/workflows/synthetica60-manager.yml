@@ -2,7 +2,7 @@ name: "Synthetica Manager 6.0.0 — standalone universal-kernel build"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica60-manager.yml'
       - 'synthetica-manager/**'

@@ -2,7 +2,7 @@ name: "Synthetica 3.0 - Manager root candidate and guarded recovery ZIP"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica3-root.yml'
       - 'build-kit/ci/synthetica3-root/**'

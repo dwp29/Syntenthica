@@ -2,7 +2,7 @@ name: "Synthetica 3.1 - targeted AVB repair and installer tests"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica31-avbfix.yml'
       - 'build-kit/ci/s31-avb-fix/**'

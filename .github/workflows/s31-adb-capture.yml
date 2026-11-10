@@ -2,7 +2,7 @@ name: "Synthetica 3.1 - recovery log capture host tests"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/s31-adb-capture.yml'
       - 'build-kit/ci/s31-adb-capture/**'

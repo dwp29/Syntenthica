@@ -2,7 +2,7 @@ name: "Synthetica 3.0 compatibility - synthetic safety tests"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica3-compat.yml'
       - 'build-kit/ci/synthetica3-compat/**'

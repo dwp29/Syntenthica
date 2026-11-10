@@ -2,7 +2,7 @@ name: "Validate Synthetica 3.1 preview on Android emulator"
 on:
   push:
     branches:
-      - arena/96cbd65a-syntenthica
+      - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/synthetica31-preview-emulator.yml'
       - 'tests/run_neon31_emulator.py'

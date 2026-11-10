@@ -2,7 +2,7 @@ name: "Synthetica 2.0 experimental installer - synthetic tests"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica2-installer-experiment.yml'
       - 'build-kit/ci/synthetica2-experimental/test-installer/**'

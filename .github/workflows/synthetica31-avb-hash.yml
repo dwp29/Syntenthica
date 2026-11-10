@@ -1,7 +1,7 @@
 name: "Synthetica 3.1 - offline AVB hash checks"
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica31-avb-hash.yml'
       - 'build-kit/scripts/audit_boot_avb_hash.py'

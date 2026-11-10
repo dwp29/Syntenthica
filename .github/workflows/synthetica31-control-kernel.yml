@@ -2,7 +2,7 @@ name: "Synthetica 3.1-control1 - rebuild from 3.1 MGLRU boot-default control, co
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica31-control-kernel.yml'
       - 'build-kit/scripts/build_synthetica31_control.py'

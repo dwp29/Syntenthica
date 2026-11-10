@@ -2,7 +2,7 @@ name: "Synthetica 3.1 - inspect public Infinity 4.1 ROM archive"
 on:
   workflow_dispatch:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths: ['.github/workflows/synthetica31-infinity-rom-inspect.yml']
 permissions:
   contents: write # Only public ROM module audit report, never private device images.

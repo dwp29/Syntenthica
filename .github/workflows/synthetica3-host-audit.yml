@@ -3,7 +3,7 @@ name: "Synthetica 3.0 - host safety tests (no ROM)"
 on:
   push:
     branches:
-      - arena/96cbd65a-syntenthica
+      - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/synthetica3-host-audit.yml'
       - 'build-kit/scripts/audit_synthetica3_vendor.py'

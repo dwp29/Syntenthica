@@ -2,7 +2,7 @@ name: "Synthetica 3.2 - verify compile evidence, package ZIP, and run ARM QEMU t
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica32-package.yml'
       - 'build-kit/ci/synthetica32-final-build-evidence.json'

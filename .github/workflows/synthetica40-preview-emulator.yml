@@ -2,7 +2,7 @@ name: "Validate Synthetica 4.0 isolated preview on Android emulator"
 on:
   push:
     branches:
-      - arena/96cbd65a-syntenthica
+      - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/synthetica40-preview-emulator.yml'
       - 'tests/run_pixel40_emulator.py'

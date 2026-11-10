@@ -2,7 +2,7 @@ name: "Synthetica Manager 5.0.1 — production designs and safe UI fixture"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica501-manager.yml'
       - 'build-kit/ci/ksun-themes501/**'

@@ -328,7 +328,7 @@ Ketiga varian, termasuk pending, juga lulus CI terpisah dengan Neutron
 [42555885345](https://github.com/dwp29/Syntenthica/actions/runs/42555885345);
 kompilasi tidak menutup celah gagal-start yang telah dimodelkan. Keempat
 varian juga lulus kompilasi objek dan partial link pada
-[CI 42558992815](https://github.com/dwp29/Synthentica/actions/runs/42558992815);
+[CI 42558992815](https://github.com/dwp29/Syntenthica/actions/runs/42558992815);
 itu tidak menguji runtime atau retry otomatis. Fragmen kandidat retry sudah
 dipin (`9202bbf4…`) dan disambungkan ke probe kompilasi, tetapi kompilasi
 ARM64-nya belum dijalankan ulang; objek retry belum pernah dibangun. Tidak ada dispatcher SUSFS, link kernel penuh,
@@ -346,3 +346,17 @@ pemuatan modul maupun trust ROM.
 
 Status build serta hasil uji spesifik dicatat setelah CI selesai. Build yang
 berhasil pun **tidak** mengubah semua hambatan di atas menjadi selesai.
+
+## Catatan infrastruktur CI
+
+Semua workflow di repo ini memfilter `push` pada nama branch
+`arena/96cbd65a-synthentica`, sedangkan branch kerja sesi adalah
+`arena/96cbd65a-synthentica`. Keduanya **branch yang berbeda**; akibatnya push ke
+branch kerja tidak menjadwalkan run sama sekali (0 run untuk commit retry).
+Pada 2026-11-10 filter di 52 workflow diseragamkan ke nama branch yang benar.
+`workflow_dispatch` juga tidak tersedia untuk token `contents`-only di sandbox,
+jadi run harus dipicu lewat push.
+
+Nama repo juga mudah tertukar: yang benar adalah `dwp29/Synthentica`, sementara
+`Synthentica` mengembalikan 404. URL remote lokal sudah dikoreksi dan seluruh
+tautan CI di dokumen ini mengarah ke ejaan yang benar.

@@ -2,7 +2,7 @@ name: "Synthetica 5.0.1 — actual Manager screens in simulated emulator"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - 'build-kit/ci/synthetica501-ui-fixture-evidence.json'
       - 'tests/run_themes501_emulator.py'

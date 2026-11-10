@@ -2,7 +2,7 @@ name: "Synthetica 3.2 - conservative kernel build (not device validated)"
 
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica32-kernel.yml'
       - 'build-kit/scripts/build_synthetica32.py'

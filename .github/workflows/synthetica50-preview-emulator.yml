@@ -1,7 +1,7 @@
 name: "Synthetica 5.0 — isolated multi-theme emulator"
 on:
   push:
-    branches: [arena/96cbd65a-syntenthica]
+    branches: [arena/96cbd65a-synthentica]
     paths:
       - '.github/workflows/synthetica50-preview-emulator.yml'
       - 'build-kit/ci/synthetica50-preview-evidence.json'
