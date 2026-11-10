@@ -66,3 +66,15 @@ Token integrasi hanya punya izin `contents`. Ia **tidak** bisa
 `workflow_dispatch` (`403 Resource not accessible by integration`), tidak bisa
 menghapus artifact, dan tidak bisa menekan tombol di UI. Karena itu langkah
 klik di atas harus dari akun Anda.
+
+---
+
+## Riwayat kegagalan (jangan diulang)
+
+| Percobaan | Hasil | Sebab |
+|---|---|---|
+| `workflow_dispatch` di workflow yang hanya ada di branch arena | tombol tidak muncul | GitHub hanya menampilkan tombol untuk file di branch default |
+| `main` memanggil `uses: .../synthetica60-manager.yml@arena/...` | `startup_failure`, **0 job**, `referenced_workflows: []` | GitHub tidak me-resolve reusable workflow lintas-branch dari `main` |
+| `main` berisi salinan langkah build utuh | dipakai sekarang | tidak ada `uses:` yang bisa gagal; langkahnya diverifikasi identik |
+
+Kesimpulan: jangan memakai `uses:` lintas-branch untuk kasus ini.
