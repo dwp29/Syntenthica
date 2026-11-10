@@ -94,10 +94,12 @@ fun createRootShellBuilder(globalMnt: Boolean = false): Shell.Builder {
  * a live UID-0 `su` means the kernel's own root channel, otherwise the KSU
  * driver tells us whether our libksud can be used, otherwise there is nothing.
  */
-fun detectRootChannel(): RootChannel = when {
-    probeSuRoot() -> RootChannel.SU
-    runCatching { Natives.isManager }.getOrDefault(false) -> RootChannel.KSUD
-    else -> RootChannel.NONE
+suspend fun detectRootChannel(): RootChannel = withContext(Dispatchers.IO) {
+    when {
+        probeSuRoot() -> RootChannel.SU
+        runCatching { Natives.isManager }.getOrDefault(false) -> RootChannel.KSUD
+        else -> RootChannel.NONE
+    }
 }
 
 data class FlashResult(val code: Int, val err: String, val showReboot: Boolean) {

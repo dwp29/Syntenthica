@@ -96,6 +96,17 @@ class StandaloneTreeTests(unittest.TestCase):
         probe = cli[probe_start:cli.index("fun probeSuRootGlobal()")]
         self.assertIn("shell.isRoot", probe)
 
+    def test_root_channel_detection_is_offloaded_from_the_main_thread(self) -> None:
+        # probeSuRoot() spawns a process and can block on the su prompt. This was
+        # rewritten once already and lost in a workspace reset, so the signature
+        # is now pinned: a non-suspend version silently blocks the first frame.
+        cli = read("app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt")
+        self.assertIn("suspend fun detectRootChannel(): RootChannel = withContext(Dispatchers.IO) {", cli)
+        home = read("app/src/main/java/com/rifsxd/ksunext/ui/screen/Home.kt")
+        # ...and it must only be called from a coroutine scope.
+        self.assertIn("LaunchedEffect(isManager)", home)
+        self.assertIn("rootChannel = detectRootChannel()", home)
+
     def test_about_page_credits_author_source_licence_and_donation_slot(self) -> None:
         credit = read("app/src/main/java/com/rifsxd/ksunext/ui/util/AppCredit60.kt")
         self.assertIn('AUTHOR = "Pure_Saturday"', credit)
