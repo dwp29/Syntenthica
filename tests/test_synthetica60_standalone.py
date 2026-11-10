@@ -164,6 +164,32 @@ class StandaloneTreeTests(unittest.TestCase):
             used.update(re.findall(r"R\.string\.(manager60_[a-z0-9_]+)", path.read_text(encoding="utf-8")))
         self.assertEqual(used, en_keys, f"unused or undefined: {used ^ en_keys}")
 
+    def test_strings_are_valid_aapt_input(self) -> None:
+        """Reject strings aapt2 would fail on, before a 2-minute CI build.
+
+        aapt2 aborts the whole build with a bare "Invalid unicode escape
+        sequence in string" when an Android string contains a character that
+        needs escaping. An unescaped apostrophe (kernel's) did exactly that.
+        """
+        import re as _re
+        import xml.etree.ElementTree as _ET
+
+        bad: list[str] = []
+        for path in sorted((TREE / "app/src/main/res").glob("values*/strings*.xml")):
+            root = _ET.parse(path).getroot()
+            for node in root.findall("string"):
+                name = node.get("name") or "?"
+                value = "".join(node.itertext())
+                # Single quotes and double quotes are the two characters aapt2
+                # treats as string delimiters; backslash starts an escape.
+                if _re.search(r"(?<!\\)'", value):
+                    bad.append(f"{path.name}:{name}: unescaped apostrophe")
+                if _re.search(r"(?<!\\)\\[^nt\\'\"@?]", value):
+                    bad.append(f"{path.name}:{name}: invalid escape")
+                if "\\\\" in value:
+                    bad.append(f"{path.name}:{name}: doubled backslash")
+        self.assertEqual(bad, [], "aapt2 would reject:\n" + "\n".join(bad))
+
     def test_locale_files_are_not_swapped(self) -> None:
         # Regression guard: the Indonesian strings belong in values-in-rID, the
         # English defaults in values/. They were once written the other way
