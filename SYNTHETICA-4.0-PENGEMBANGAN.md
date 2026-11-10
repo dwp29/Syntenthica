@@ -363,3 +363,12 @@ jadi run harus dipicu lewat push.
 Nama repo juga mudah tertukar: yang benar adalah `dwp29/Synthentica`, sementara
 `Synthentica` mengembalikan 404. URL remote lokal sudah dikoreksi dan seluruh
 tautan CI di dokumen ini mengarah ke ejaan yang benar.
+
+Begitu filter diperbaiki, 52 workflow lama ikut berjalan dan tiga di antaranya
+(`synthetica-step1`, `synthetica-step2`, `synthetica-2.1-manager`) menulis
+hasil build kembali ke branch. `synthetica-step2` ikut meng-commit
+`build-kit/artifacts/Image.gz` (14 MB), `Synthetica-2.0.zip` (21 MB) dan ZIP log
+ke riwayat git. Hal itu tidak memberi manfaat — artefak CI sudah menyimpan
+berkasnya — tetapi memperbesar clone dan riwayat. Workflow itu sekarang hanya
+meng-commit bukti teks kecil dan `BINARY-SHA256.txt`, biner dihapus dari indeks
+(tetap ada di disk) dan diberi aturan `.gitignore`.

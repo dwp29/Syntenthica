@@ -17,3 +17,9 @@ google_drive/
 out/
 __pycache__/
 *.pyc
+
+# CI kernel and package binaries belong in the CI artifact, never in git
+# history. Their digests are committed as BINARY-SHA256.txt instead.
+build-kit/artifacts/*.gz
+build-kit/artifacts/*.zip
+build-kit/artifacts/*.img
