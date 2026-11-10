@@ -122,5 +122,3 @@ jobs:
           if-no-files-found: warn
 
 # re-register trigger
-
-# re-register

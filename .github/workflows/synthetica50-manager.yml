@@ -207,5 +207,3 @@ jobs:
           path: ${{ runner.temp }}/preview50-output/
           retention-days: 14
           if-no-files-found: warn
-
-# re-register

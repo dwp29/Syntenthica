@@ -234,5 +234,3 @@ jobs:
           path: ${{ runner.temp }}/fixture501-output/
           retention-days: 7
           if-no-files-found: warn
-
-# re-register
