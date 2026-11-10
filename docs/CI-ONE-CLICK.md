@@ -4,16 +4,19 @@ Semua URL di sini sudah diuji (HTTP 200), bukan tebakan.
 
 ---
 
-## Status: build sudah sukses
+## Ada build baru yang perlu dijalankan
 
-Run **`42750759962`** (`main`, commit `8106db7`) berstatus **success**. Langkah
-6 (**Compile**) dan 7 (**Verify**) lulus. Artifact
-`synthetica60-manager-unsigned-42750759962` berukuran `7.610.330` byte.
+APK terakhir (`42750759962`) **belum** memuat perbaikan-perbaikan ini:
 
-APK final: `Synthetica-Manager-6.0.0-Universal-SIGNED.apk`, `8.990.470` byte,
-SHA-256 `666b24b6d4e7835a5b03b7e5e40f77676820f827d0130aad2d96a120a4dd9cac`.
+| Perbaikan | Commit | Efek |
+|---|---|---|
+| Rantai root: `su` polos dulu, `--mount-master` jadi cadangan | `71b90c7` | HP ber-root KernelSU tidak lagi terbaca "tidak ada root" |
+| Halaman About tanpa tautan GitHub dan blok "source lengkap" | `cd86510` | sesuai permintaan |
+| Baris diagnostik root tidak lagi terpotong 2 baris | `bf57e07` | penyebab kegagalan terbaca utuh |
 
-Halaman run: <https://github.com/dwp29/Syntenthica/actions/runs/42750759962>
+Riwayat run: `42750759962` sukses (APK yang beredar sekarang). Build baru
+memakai commit terbaru dari branch arena secara otomatis — workflow memakai
+`ref: arena/96cbd65a-synthentica`, jadi tidak ada yang perlu diubah di `main`.
 
 ---
 
