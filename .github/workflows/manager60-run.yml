@@ -1,0 +1,24 @@
+# Default branch dispatcher for the Synthetica Manager 6.0.0 build.
+#
+# Why this file exists: GitHub only renders a "Run workflow" button for a
+# workflow_dispatch workflow when the file is present on the *default branch*.
+# - main holds nothing but a README, so the build workflow (which lives on
+#   arena/96cbd65a-synthentica together with the sources) was never listed with
+#   a Run button.
+# - This file is the minimum needed to expose that button. It contains no build
+#   steps of its own: it calls the real workflow by branch ref, so the steps stay
+#   in exactly one place and cannot drift.
+#
+# Anyone with write access can start a build from:
+#   Actions -> "Synthetica Manager 6.0.0 — run build" -> Run workflow
+name: "Synthetica Manager 6.0.0 — run build"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: dwp29/Synthentica/.github/workflows/synthetica60-manager.yml@arena/96cbd65a-synthentica
