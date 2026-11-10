@@ -69,13 +69,7 @@
     <string name="about_author_name">Pure_Saturday</string>
     <string name="about_author_role">Developer of the Synthetica kernel, modules &amp; Manager</string>
     <string name="about_author_tg_sub">Telegram ID @Pure_Saturday — open the profile to reach out directly</string>
-    <string name="about_source_group">Full source &amp; licence</string>
-    <string name="about_source_repo">Full repository source</string>
-    <string name="about_source_repo_sub">github.com/dwp29/Syntenthica — kernel, modules, docs, Manager</string>
-    <string name="about_source_manager">Synthetica Manager source</string>
-    <string name="about_source_manager_sub">synthetica-manager/ inside the same repository</string>
-    <string name="about_source_upstream">Upstream base</string>
-    <string name="about_source_upstream_sub">KernelSU-Next — GPL-3.0</string>
+    <string name="about_credits_upstream_sub">KernelSU-Next and SuSFS — GPL-3.0. Full text in the licence below.</string>
     <string name="about_license">Licence</string>
     <string name="about_license_sub">GNU GPL v3.0 — source must stay open on redistribution</string>
     <string name="about_license_open">Read the full licence text</string>

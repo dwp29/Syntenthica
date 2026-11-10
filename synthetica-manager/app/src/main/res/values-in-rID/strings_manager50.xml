@@ -69,13 +69,7 @@
     <string name="about_author_name">Pure_Saturday</string>
     <string name="about_author_role">Pengembang Synthetica kernel, modul &amp; Manager</string>
     <string name="about_author_tg_sub">ID Telegram @Pure_Saturday — buka profil untuk kontak langsung</string>
-    <string name="about_source_group">Source lengkap &amp; lisensi</string>
-    <string name="about_source_repo">Source lengkap repository</string>
-    <string name="about_source_repo_sub">github.com/dwp29/Syntenthica — kernel, modul, dokumentasi, Manager</string>
-    <string name="about_source_manager">Source Synthetica Manager</string>
-    <string name="about_source_manager_sub">synthetica-manager/ di dalam repository yang sama</string>
-    <string name="about_source_upstream">Basis upstream</string>
-    <string name="about_source_upstream_sub">KernelSU-Next — GPL-3.0</string>
+    <string name="about_credits_upstream_sub">KernelSU-Next dan SuSFS — GPL-3.0. Teks lengkap di lisensi di bawah.</string>
     <string name="about_license">Lisensi</string>
     <string name="about_license_sub">GNU GPL v3.0 — kode wajib tetap terbuka bila didistribusikan ulang</string>
     <string name="about_license_open">Baca teks lisensi penuh</string>

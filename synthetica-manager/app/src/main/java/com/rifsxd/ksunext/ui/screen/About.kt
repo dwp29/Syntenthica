@@ -190,44 +190,13 @@ fun AboutScreen(navigator: DestinationsNavigator) {
                 )
             }
 
-            IosGroup(title = stringResource(R.string.about_source_group)) {
-                BrandIconRow(
-                    drawableRes = R.drawable.ic_github,
-                    badgeColor = IosIndigoDark,
-                    title = stringResource(R.string.about_source_repo),
-                    subtitle = stringResource(R.string.about_source_repo_sub),
-                    value = "dwp29/Syntenthica",
-                    showChevron = true,
-                    onClick = {
-                        openLink(AppCredit60.SOURCE_URL, R.string.about_link_failed)
-                    },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Folder,
-                    badgeColor = IosPurpleDark,
-                    title = stringResource(R.string.about_source_manager),
-                    subtitle = stringResource(R.string.about_source_manager_sub),
-                    showChevron = true,
-                    onClick = {
-                        openLink(AppCredit60.SOURCE_MANAGER_URL, R.string.about_link_failed)
-                    },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Code,
-                    badgeColor = IosPurpleDark,
-                    title = stringResource(R.string.about_source_upstream),
-                    subtitle = stringResource(R.string.about_source_upstream_sub),
-                    showChevron = true,
-                    onClick = {
-                        openLink(AppCredit60.UPSTREAM_URL, R.string.about_link_failed)
-                    },
-                )
-            }
-
+            // GitHub/source links are deliberately not shown here. The GPL-3.0
+            // obligation is answered by the written source offer shipped with
+            // the tree (synthetica-manager/SOURCE-OFFER.md), so the licence
+            // group below stays exactly as it is: removing the licence or its
+            // notice would breach the terms this APK is distributed under.
             // Licence. GPL-3.0 is not decoration: this APK is a derivative of
-            // KernelSU-Next, so the source offer has to be one tap away.
+            // KernelSU-Next, so the licence and its notice must stay visible.
             IosGroup(title = stringResource(R.string.about_license)) {
                 IosRow(
                     icon = Icons.Rounded.Gavel,
@@ -271,15 +240,14 @@ fun AboutScreen(navigator: DestinationsNavigator) {
                 title = stringResource(R.string.synthetica_about_credits_group),
                 footer = stringResource(R.string.synthetica_about_credits_sub),
             ) {
+                // Attribution without a repository link: GPL-3.0 asks for the
+                // notice, not for a clickable URL in the UI.
                 IosRow(
                     icon = Icons.Rounded.Code,
                     badgeColor = IosPurpleDark,
                     title = "KernelSU-Next & SuSFS",
-                    subtitle = "github.com/KernelSU-Next/KernelSU-Next • GPL-3.0",
-                    showChevron = true,
-                    onClick = {
-                        openLink(AppCredit60.UPSTREAM_URL, R.string.about_link_failed)
-                    },
+                    subtitle = stringResource(R.string.about_credits_upstream_sub),
+                    showChevron = false,
                 )
             }
         }

@@ -16,7 +16,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,31 +83,6 @@ private fun AboutCardContent() {
                     fontSize = 14.sp
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val annotatedString = AnnotatedString.fromHtml(
-                    htmlString = stringResource(
-                        id = R.string.about_source_code,
-                        "<b><a href=\"https://github.com/KernelSU-Next/KernelSU-Next\">GitHub</a></b>"
-                    ),
-                    linkStyles = TextLinkStyles(
-                        style = SpanStyle(
-                            color = MaterialTheme.colorScheme.primary,
-                            textDecoration = TextDecoration.Underline
-                        ),
-                        pressedStyle = SpanStyle(
-                            color = MaterialTheme.colorScheme.primary,
-                            background = MaterialTheme.colorScheme.secondaryContainer,
-                            textDecoration = TextDecoration.Underline
-                        )
-                    )
-                )
-                Text(
-                    text = annotatedString,
-                    style = TextStyle(
-                        fontSize = 14.sp
-                    )
-                )
             }
         }
     }

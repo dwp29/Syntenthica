@@ -130,11 +130,10 @@ class StandaloneTreeTests(unittest.TestCase):
             self.assertNotIn("driver KSU menolak", no_root)
             self.assertNotIn("KSU driver rejects", no_root)
 
-    def test_about_page_credits_author_source_licence_and_donation_slot(self) -> None:
+    def test_about_page_credits_author_licence_and_donation_slot(self) -> None:
         credit = read("app/src/main/java/com/rifsxd/ksunext/ui/util/AppCredit60.kt")
         self.assertIn('AUTHOR = "Pure_Saturday"', credit)
         self.assertIn('TELEGRAM_URL = "https://t.me/Pure_Saturday"', credit)
-        self.assertIn('SOURCE_URL = "https://github.com/dwp29/Syntenthica"', credit)
         self.assertIn('LICENSE_SPDX = "GPL-3.0-only"', credit)
         # The donation slot stays empty on purpose until the author publishes one.
         self.assertIn('DONATE_URL = ""', credit)
@@ -142,15 +141,20 @@ class StandaloneTreeTests(unittest.TestCase):
 
         about = read("app/src/main/java/com/rifsxd/ksunext/ui/screen/About.kt")
         for marker in ("AppCredit60.TELEGRAM_HANDLE", "R.drawable.ic_telegram",
-                       "R.drawable.ic_github", "AppCredit60.SOURCE_URL",
                        "AppCredit60.LICENSE_SPDX", "R.string.about_donate",
                        "rememberSafeLinkOpener()"):
             self.assertIn(marker, about)
+        # The repository links were removed from the About page on request. The
+        # licence itself must stay: dropping it would breach GPL-3.0.
+        for gone in ("AppCredit60.SOURCE_URL", "AppCredit60.SOURCE_MANAGER_URL",
+                     "R.drawable.ic_github", "R.string.about_source_repo",
+                     "R.string.about_source_manager"):
+            self.assertNotIn(gone, about)
         # Disabled placeholder, not a dead link the user can tap.
         donate_block = about[about.index("R.string.about_donate_group"):]
         self.assertIn("enabled = false", donate_block)
 
-        for drawable in ("ic_telegram", "ic_github", "ic_donate_placeholder"):
+        for drawable in ("ic_telegram", "ic_donate_placeholder"):
             path = TREE / f"app/src/main/res/drawable/{drawable}.xml"
             self.assertTrue(path.is_file(), f"missing drawable {drawable}")
             self.assertIn("<vector", path.read_text(encoding="utf-8"))

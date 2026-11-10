@@ -18,14 +18,11 @@ object AppCredit60 {
     /** Explicit scheme so Android resolves it to the Telegram app, not a browser. */
     const val TELEGRAM_URL = "https://t.me/Pure_Saturday"
 
-    /** Repository that contains the kernel, the modules and this Manager. */
-    const val SOURCE_URL = "https://github.com/dwp29/Syntenthica"
-
-    /** Where the Manager's own sources live inside that repository. */
-    const val SOURCE_MANAGER_URL = "https://github.com/dwp29/Syntenthica/tree/main/synthetica-manager"
-
-    /** Upstream this Manager is derived from. */
-    const val UPSTREAM_URL = "https://github.com/KernelSU-Next/KernelSU-Next"
+    // Source/repository URLs are deliberately absent: the About page must not
+    // carry a GitHub link. GPL-3.0 still requires a written source offer for a
+    // binary distribution, and that obligation is met by
+    // synthetica-manager/SOURCE-OFFER.md shipped inside this tree. Removing the
+    // offer as well would put the distribution outside the licence.
 
     /** SPDX identifier of the licence this APK is distributed under. */
     const val LICENSE_SPDX = "GPL-3.0-only"
