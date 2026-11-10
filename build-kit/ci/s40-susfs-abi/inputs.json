@@ -69,7 +69,8 @@
       "original": "3edd46fead175451e6fb735c6ad58dd1265b8badf1d56d2cd6f90e6e4aedf428",
       "guarded": "da9714130f9963141bc4c1aa3dbc75e8221662a6a0369e73975fa22d93cd50eb",
       "pending": "243791a72fb4ad26f9ff92cdc4474c841ff3547b3d71273ef4cc5163241b2530",
-      "stalled": "270dcb2085ef175ebd898832b207e6a82b7836563f01be93479c7fbf837d5263"
+      "stalled": "270dcb2085ef175ebd898832b207e6a82b7836563f01be93479c7fbf837d5263",
+      "retry": "9202bbf4850daa33903e5c512b501c71845024ded744285bdcdd54e399e39331"
     }
   },
   "research_priority_pending": {
@@ -83,5 +84,11 @@
     "input_pending_susfs_c_sha256": "92720b6c78b04f9b1789f0c53decd9833227673029f436d3afcbece0fb1dc992",
     "patch_sha256": "b250ac512243267a02aea30a62ce60d09d86f1381e576472071059c94e2df1a7",
     "stalled_susfs_c_sha256": "a3b6806088a5860fee25e03d70caace54419329252f4dc4b7a86aebbad80dec4"
+  },
+  "research_priority_retry": {
+    "scope": "unintegrated research-only retry candidate; host-model validation only; no kernel/runtime approval",
+    "input_stalled_susfs_c_sha256": "a3b6806088a5860fee25e03d70caace54419329252f4dc4b7a86aebbad80dec4",
+    "patch_sha256": "54877b5a300be6c8dd723d9997f96aa615fcdc80b527019754ff95f51fa94816",
+    "retry_susfs_c_sha256": "fac2807c7e5605510805ded1ca089bd06ce6ca810bd035c8a524270984f85195"
   }
 }

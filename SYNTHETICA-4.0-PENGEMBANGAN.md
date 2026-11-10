@@ -41,7 +41,7 @@ permintaan konfigurasi efektif diperiksa setelah `olddefconfig`. Resep:
 | KernelSU-Next | Source 3.4.2 UAPI **5** diintegrasikan ke resep. UAPI 5 tidak otomatis cocok dengan Manager dan `ksud` Synthetica 5.0.1 UAPI **4**; migrasi ketiganya dan uji root masih diperlukan. |
 | Identitas Manager | Paket dan digest sertifikat publik lama dipin. Parser tanda tangan KSUN diadaptasi untuk sertifikat 1.381-byte dengan batas dan pemeriksaan hash tetap aktif; tidak menerima sembarang sertifikat. **Sertifikat sama saja tidak membuat UAPI cocok.** Parser 3.4.2 juga menolak blok signing tambahan yang tidak dikenal; APK referensi lama mempunyai blok v3 selain v2. Kompatibilitas APK nyata masih harus ditangani dengan aman dan diuji; pemeriksaan tidak dilonggarkan. |
 | Manager 5.0.1 | Resep dan APK lama tetap UAPI 4. Prototipe **source-only/unsigned** mempertahankan overlay multi-tema dan memasang JNI/header serta `ksud` UAPI 5 yang dipin; ini belum membuktikan migrasi runtime, fitur, kompatibilitas APK, atau kemampuan upgrade. Upgrade in-place tetap membutuhkan kunci penandatangan asli dan versionCode yang lebih tinggi. |
-| SUSFS 2.4.0 | **Belum terintegrasi.** Patch resmi `a2165b6f` memang versi 2.4.0, tetapi patch kernel 6.1 dan glue KSU-nya gagal `git apply --check` pada 6.18 dan KSUN 3.4.2 yang dipin. Harus di-port dan diuji, termasuk UID priority filter `0x60030`, hook VFS, `ksu_susfs`, SELinux dan interaksi root/NoMount. Mengubah label versi atau memasang LKM GKI bukan solusinya. |
+| SUSFS 2.4.0 | **Belum terintegrasi.** Empat kandidat research-only (generation guard, pending, stalled, retry) sudah dimodelkan di host; kandidat retry memulihkan launch yang gagal dalam model, dengan kontrol negatif yang membuktikan kandidat lama memang kehilangan event. **Belum satu pun** dikompilasi sebagai objek retry atau diuji di kernel/perangkat. Patch resmi `a2165b6f` memang versi 2.4.0, tetapi patch kernel 6.1 dan glue KSU-nya gagal `git apply --check` pada 6.18 dan KSUN 3.4.2 yang dipin. Harus di-port dan diuji, termasuk UID priority filter `0x60030`, hook VFS, `ksu_susfs`, SELinux dan interaksi root/NoMount. Mengubah label versi atau memasang LKM GKI bukan solusinya. |
 | NoMount | Source NoMount 2.2.0 dipin dan dihubungkan built-in, dengan tool `nm` dari commit yang sama. Enum perintah, struktur payload dan magic kernel/userspace dibandingkan; protokolnya **22**, berbeda dari protokol 20 r1. Flag upstream `-fno-stack-protector` untuk driver dihapus agar tidak mengurangi proteksi stack build. Konfigurasi dan kompilasi bukan bukti bahwa redirection, UID isolation atau WebUI bekerja. Modul/metamodule userspace belum dipaketkan sebagai release. |
 | MGLRU / UCLAMP | MGLRU default aktif dan UCLAMP diminta pada source 6.18. Ini bukan jaminan bahwa implementasi, antarmuka tuning atau perilaku patch MGLRU 3.1/r1 identik. |
 | Scheduler | WALT vendor 4.14 tidak tersedia di source mainline ini. Tidak diklaim dipertahankan; pengganti atau port, antarmuka Control/Boost dan uji performa masih terbuka. |
@@ -262,20 +262,61 @@ Audit credential,
 namespace, urutan memori, lifetime worker dan perilaku saat alokasi gagal tetap
 harus dilakukan; workqueue pun tidak otomatis aman sebagai pengganti kthread.
 
+### Kandidat retry: launch gagal dipulihkan dalam model
+
+Kandidat keempat
+[`research-only-priority-retry.patch`](build-kit/ci/s40-susfs-abi/research-only-priority-retry.patch)
+mengganti penanda `STALLED` dengan state `RETRY` yang **dapat diklaim ulang**
+plus batas `SUSFS_PRIORITY_REFRESH_MAX_ATTEMPTS`. Pemanggil yang mengamati
+`kthread_run` gagal menerbitkan `RETRY` (bukan `IDLE`), lalu mengulang sendiri
+selama masih ada jatah; setelah jatah habis, `RETRY` tetap terbit sehingga
+pemanggil berikutnya dapat mengambilnya. Tidak pernah kembali ke `IDLE` pada
+jalur gagal, karena itu yang menghapus event `PENDING` yang bersamaan.
+
+[`probe_s40_susfs_retry.py`](build-kit/scripts/probe_s40_susfs_retry.py)
+menjalankan jadwal yang sama dengan probe pending, dengan dua kasus:
+permintaan datang saat launch yang gagal sedang tertahan, dan semua attempt
+dalam satu panggilan gagal. Pada kasus pertama kandidat lama menerbitkan `IDLE`
+dan permintaan itu hilang; kandidat retry justru meluncurkan tepat satu worker
+dan memakai konfigurasi terbaru. Pada kasus kedua jumlah attempt berhenti di
+batas, state tertinggal di `RETRY`, dan permintaan berikutnya menyelesaikan
+refresh sampai `IDLE`.
+
+Yang membuat hasil ini bermakna adalah **kontrol negatif**: kandidat
+`stalled` yang sudah dipin menjalankan harness yang identik dengan hanya
+`EXPECT_RECOVERED` dibalik, dan kontrol itu memang kehilangan permintaan
+(`control: blocked failure dropped the concurrent request`). Tanpa kontrol
+tersebut, lulusnya kandidat retry tidak membuktikan apa pun. Uji dijalankan
+berulang tanpa kegagalan pada jadwal tetap; ini tetap **hanya model host dengan
+shim**, bukan bukti memory ordering Linux, lifetime worker, konteks task_work,
+RCU, filesystem, SELinux, kthread sungguhan, atau perangkat.
+
+Dua batasan penting yang belum tertutup dan **tidak** diklaim oleh kandidat
+ini. Pertama, pemanggil aslinya adalah task_work callback
+(`ksu_track_throne_tw_func` di patch KernelSU 10), dan kandidat menambah
+percobaan `kthread_run` di jalur itu; jaminan bebas-sleep konteks tersebut
+belum diperiksa. Kedua, `susfs_priority_app_strings_worker_once` mengembalikan
+`ret` hasil parser, sehingga kegagalan parser bisa membuat worker berhenti
+dengan `new_bitmap == NULL` tanpa publikasi; kandidat retry tidak menyentuh
+jalur itu. Keduanya harus diselesaikan sebelum port serius. SUSFS 2.4 tetap
+nonaktif dan belum terintegrasi.
+
 ### Kompilasi terisolasi priority filter
 
 [`probe_s40_susfs_priority_compile.py`](build-kit/scripts/probe_s40_susfs_priority_compile.py)
 menyiapkan pohon scratch baru dari source yang dipin, mengambil hanya enam hunk
 priority dari patch resmi pada `kernel/sys.c` dan `block/ioprio.c`, dan membuat
-unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard, pending dan
-stalled di atas. Adapter
+unit kompilasi dari fungsi priority 2.4 asli serta kandidat guard, pending,
+stalled dan retry di atas. Adapter
 kecil untuk mencari domain KSUN dibuat **hanya untuk percobaan kompilasi**;
 kesetaraan perilakunya dan keamanan SELinux belum dibuktikan. Flag priority
 dipasang hanya pada pemanggilan compiler percobaan, bukan pada konfigurasi 4.0;
 objek tersebut tidak didaftarkan ke Kbuild atau disertakan dalam image.
 
-Secara lokal, keempat varian beserta dua objek hook dan objek SELinux KSUN berhasil
-dikompilasi menjadi ARM64 setelah memeriksa 599 permintaan konfigurasi. Tiap
+Secara lokal, empat varian saat itu (asli, guard, pending, stalled) beserta dua
+objek hook dan objek SELinux KSUN berhasil dikompilasi menjadi ARM64 setelah
+memeriksa 599 permintaan konfigurasi. Varian retry menambah satu objek; angka
+599 itu tidak berlaku untuk rangkaian lima varian. Tiap
 objek syscall memiliki dua relokasi panggilan priority, dan partial link
 menyelesaikan tiga simbol terpilih; **167 simbol lain masih unresolved** pada
 masing-masing varian lokal. Ini menggunakan LLVM 23 dan shim `m4` lokal yang
@@ -287,8 +328,10 @@ Ketiga varian, termasuk pending, juga lulus CI terpisah dengan Neutron
 [42555885345](https://github.com/dwp29/Syntenthica/actions/runs/42555885345);
 kompilasi tidak menutup celah gagal-start yang telah dimodelkan. Keempat
 varian juga lulus kompilasi objek dan partial link pada
-[CI 42558992815](https://github.com/dwp29/Syntenthica/actions/runs/42558992815);
-itu tidak menguji runtime atau retry otomatis. Tidak ada dispatcher SUSFS, link kernel penuh,
+[CI 42558992815](https://github.com/dwp29/Synthentica/actions/runs/42558992815);
+itu tidak menguji runtime atau retry otomatis. Fragmen kandidat retry sudah
+dipin (`9202bbf4…`) dan disambungkan ke probe kompilasi, tetapi kompilasi
+ARM64-nya belum dijalankan ulang; objek retry belum pernah dibangun. Tidak ada dispatcher SUSFS, link kernel penuh,
 modul, image, pengujian syscall, atau artefak yang boleh dimuat/di-flash.
 
 ## Interpretasi bukti

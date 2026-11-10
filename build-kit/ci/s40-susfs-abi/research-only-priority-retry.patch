@@ -1,0 +1,55 @@
+--- a/fs/susfs.c
++++ b/fs/susfs.c
+@@ -1409,8 +1409,12 @@
+ #define SUSFS_PRIORITY_REFRESH_IDLE 0
+ #define SUSFS_PRIORITY_REFRESH_RUNNING 1
+ #define SUSFS_PRIORITY_REFRESH_PENDING 2
+-/* No worker exists after a failed launch; a later request may retry. */
+-#define SUSFS_PRIORITY_REFRESH_STALLED 3
++/* No worker exists after a failed launch. A bare marker only records the
++ * failure; this state is claimable so the request that parked it (or any later
++ * caller) can re-drive the refresh instead of leaving the bitmap stale. */
++#define SUSFS_PRIORITY_REFRESH_RETRY 3
++/* Bounded attempts per call path: an unbounded respawn loop could livelock. */
++#define SUSFS_PRIORITY_REFRESH_MAX_ATTEMPTS 3
+ static atomic_t susfs_priority_app_strings_running = ATOMIC_INIT(0);
+ 
+ /*
+@@ -1805,6 +1809,7 @@
+  */
+ void susfs_parse_priority_app_strings(void) {
+ 	int state;
++	int attempts = 0;
+ 
+ 	for (;;) {
+ 		state = atomic_read(&susfs_priority_app_strings_running);
+@@ -1818,18 +1823,25 @@
+ 			continue;
+ 		}
+ 		if (state != SUSFS_PRIORITY_REFRESH_IDLE &&
+-		    state != SUSFS_PRIORITY_REFRESH_STALLED) {
++		    state != SUSFS_PRIORITY_REFRESH_RETRY) {
+ 			SUSFS_LOGE("unexpected priority refresh state\n");
+ 			return;
+ 		}
+ 		if (atomic_cmpxchg(&susfs_priority_app_strings_running,
+ 				state, SUSFS_PRIORITY_REFRESH_RUNNING) != state)
+ 			continue;
++		attempts++;
+ 		if (IS_ERR(kthread_run(susfs_priority_app_strings_worker, NULL, "susfs_gpsp_appstr"))) {
+-			/* Research only: retain a visible failed state, including any
+-			 * concurrently pending request. There is NO automatic retry. */
+-			atomic_xchg(&susfs_priority_app_strings_running, SUSFS_PRIORITY_REFRESH_STALLED);
++			/* Publish RETRY, never IDLE: a request that arrived while the
++			 * launch was failing turned RUNNING into PENDING, and parking in
++			 * IDLE silently dropped that event. */
++			atomic_xchg(&susfs_priority_app_strings_running, SUSFS_PRIORITY_REFRESH_RETRY);
+ 			SUSFS_LOGE("failed to create the thread susfs_priority_app_strings\n");
++			if (attempts < SUSFS_PRIORITY_REFRESH_MAX_ATTEMPTS)
++				continue;
++			/* Out of attempts. Keep RETRY published so the next caller can
++			 * claim it; never fall back to IDLE, which would hide the event. */
++			return;
+ 		}
+ 		return;
+ 	}
