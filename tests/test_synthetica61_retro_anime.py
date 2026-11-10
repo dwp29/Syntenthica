@@ -158,13 +158,33 @@ class BannerTests(unittest.TestCase):
             self.assertNotEqual(near, far, banner)
 
     def test_banner_layers_are_16_by_9(self):
-        from PIL import Image
+        # Read the intrinsic size straight from the JPEG frame header so the check
+        # still runs on a machine without Pillow (CI installs it, hosts may not).
         for banner in self.BANNERS:
             for suffix in ('', '_far'):
                 path = RES / 'drawable-xxhdpi' / f'{banner}{suffix}.jpg'
-                with Image.open(path) as im:
-                    w, h = im.size
+                w, h = self._jpeg_size(path)
                 self.assertAlmostEqual(w / h, 16 / 9, delta=0.01, msg=path.name)
+
+    @staticmethod
+    def _jpeg_size(path) -> tuple[int, int]:
+        data = path.read_bytes()
+        if not data.startswith(b'\xff\xd8'):
+            raise AssertionError(f'{path.name} is not a JPEG')
+        i = 2
+        while i < len(data) - 9:
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            length = int.from_bytes(data[i + 2:i + 4], 'big')
+            # SOF0..SOF3, SOF5..SOF7, SOF9..SOF11, SOF13..SOF15 carry frame size.
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+                          0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                return (int.from_bytes(data[i + 7:i + 9], 'big'),
+                        int.from_bytes(data[i + 5:i + 7], 'big'))
+            i += 2 + length
+        raise AssertionError(f'no JPEG frame header in {path.name}')
 
     def test_hero_keeps_live_data_over_the_illustration(self):
         """The banner must not replace state with art: status and kernel stay live."""

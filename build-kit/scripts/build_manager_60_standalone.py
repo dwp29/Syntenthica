@@ -21,7 +21,12 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 TREE = ROOT / "synthetica-manager"
-DONOR = ROOT / "ci-stage" / "step1" / "manager-aligned.apk"
+# The donor only has to carry the pinned libksud.so, and the pinned 2.0 release
+# does: same size and same SHA-256, checked in inject_daemon(). ci-stage/step1/
+# manager-aligned.apk used to serve here, but that file is a build *output* that
+# stopped being committed in 3ae2b8c, which silently broke this script. Do not
+# point this back at ci-stage.
+DONOR = ROOT / "release" / "Synthetica-2.0.apk"
 DEFAULT_OUT = ROOT / "artifacts" / "unsigned" / "Manager-6.0.0-UNSIGNED.apk"
 
 APP_ID = "net.ember.labs"

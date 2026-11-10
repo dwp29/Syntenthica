@@ -374,9 +374,19 @@ meng-commit bukti teks kecil dan `BINARY-SHA256.txt`, biner dihapus dari indeks
 (tetap ada di disk) dan diberi aturan `.gitignore`.
 
 Hal yang sama berlaku untuk `ci-stage/step1/manager-aligned.apk` dan
-`ci-stage/step21/manager-aligned.apk`: keduanya keluaran build murni, tidak
-dirujuk sebagai input mana pun, tetapi ikut ter-commit setiap run. Keduanya kini
-juga diabaikan dan diganti `APK-SHA256.txt`. Yang **sengaja tetap** di git
+`ci-stage/step21/manager-aligned.apk`: keduanya keluaran build murni yang ikut
+ter-commit setiap run. Keduanya kini juga diabaikan dan diganti
+`APK-SHA256.txt`.
+
+> Koreksi (ditemukan saat build 6.0.0 gagal pada 2026-11-10): catatan sebelumnya
+> menyebut kedua berkas itu "tidak dirujuk sebagai input mana pun". Itu **tidak
+> benar** untuk `ci-stage/step1/manager-aligned.apk` — `build-kit/scripts/build_manager_60_standalone.py`
+> membacanya sebagai donor `libksud.so`, sehingga menghapusnya dari git mematikan
+> build 6.0.0. Skrip itu sekarang membaca `release/Synthetica-2.0.apk`, yang
+> memang di-pin sebagai input dan memuat `libksud.so` dengan SHA-256 serta ukuran
+> yang sama persis.
+
+Yang **sengaja tetap** di git
 adalah APK input yang dipin di `build-kit/ci/INPUT_PINS.json`
 (`manager-pinned/SYNTHETICA-NEXT-MANAGER.apk`, `rollercoaster/manager/base.apk`)
 dan rilis `release/Synthetica-2.0.apk`, karena build membacanya sebagai bahan.

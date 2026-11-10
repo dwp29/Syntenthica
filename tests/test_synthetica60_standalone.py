@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "build-kit/scripts"))
@@ -518,6 +519,34 @@ class ProfileHelperTests(unittest.TestCase):
         result = self.run_control("profile_overclock")
         self.assertEqual(result.returncode, 2)
         self.assertIn("unsupported control action", result.stdout)
+
+
+class DonorDaemonTests(unittest.TestCase):
+    """The donor must be a file that is pinned as input and really ships libksud.so.
+
+    History: the donor used to be ci-stage/step1/manager-aligned.apk. That file is
+    a *build output* and stopped being committed, so every 6.0.0 build died with
+    "Missing pinned donor APK" while the host tests still passed. These guards make
+    the dependency explicit instead of letting it rot.
+    """
+
+    def test_donor_is_not_a_ci_stage_artefact(self) -> None:
+        parts = builder.DONOR.relative_to(ROOT).parts
+        self.assertNotIn("ci-stage", parts, f"donor must not be a build output: {builder.DONOR}")
+
+    def test_donor_is_committed_to_git(self) -> None:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(builder.DONOR.relative_to(ROOT))],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, "donor APK is not tracked; a clean checkout cannot build")
+
+    def test_donor_carries_the_pinned_daemon(self) -> None:
+        self.assertTrue(builder.DONOR.is_file(), f"donor missing: {builder.DONOR}")
+        with zipfile.ZipFile(builder.DONOR) as donor:
+            daemon = donor.read("lib/arm64-v8a/libksud.so")
+        self.assertEqual(len(daemon), builder.KSUD_SIZE)
+        self.assertEqual(hashlib.sha256(daemon).hexdigest(), builder.KSUD_SHA256)
 
 
 if __name__ == "__main__":
