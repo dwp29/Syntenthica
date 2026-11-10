@@ -5,10 +5,16 @@ Tiga tema baru yang ditambahkan di atas Manager 6.0.0 yang sudah rilis. Ketigany
 pengaturan. Semua layar, data, dan tombol tetap sama; yang berubah hanya warna,
 tipografi, bentuk, banner, splash, dan gerak.
 
-> Status jujur: pekerjaan ini **belum dikompilasi** dan **belum diuji di
-> perangkat**. Yang sudah ada adalah kode sumber, aset, dan gerbang statis
-> (test). Lihat bagian "Yang belum dibuktikan" di bawah sebelum menganggapnya
-> selesai.
+> Status jujur: kode ini **sudah dikompilasi**. `:app:assembleRelease` berhasil
+> di CI (run 42845619299, commit `ca0506d`) dan APK-nya diperiksa ulang: 6 lapisan
+> banner, 7 emblem, 4 lisensi font, serta id `retro_arcade` / `anime_wibu` /
+> `gothic_crimson` ada di DEX. Yang **belum** dibuktikan adalah tampilannya di
+> perangkat; lihat "Yang belum dibuktikan" di bawah.
+>
+> Dua putaran CI sebelumnya gagal karena kesalahan yang tidak terlihat oleh test:
+> `ThemedHero.kt` kehilangan baris `package`, `CutCornerShape` dipakai tanpa
+> import, dua `when` di `IosSwitch` tidak exhaustive, dan `R` tidak diimpor.
+> Keempatnya sekarang dijaga test (lihat bagian gerbang).
 
 ## Cara memilih
 
@@ -104,26 +110,38 @@ transparan, 512×512, dipangkas dan dipusatkan seperti emblem lama.
 
 ## Gerbang yang menjaga
 
-`tests/test_synthetica61_retro_anime.py` (14 test) memeriksa:
+`tests/test_synthetica61_retro_anime.py` (16 test) memeriksa:
 
-1. enum punya enam gaya dan id lama tidak berubah;
-2. setiap titik dispatch (`VisualStyles`, `ThemedHero`, `Glass`) punya cabang
-   untuk kedua tema baru;
-3. setiap `when (style)` yang dipakai sebagai statement bersifat exhaustive —
-   ini benar-benar menangkap satu cabang latar yang terlewat saat pengerjaan;
-4. font dan emblem ada, dipakai, dan berada di bawah batas ukuran;
-5. pemilih tema dan string (termasuk terjemahan Indonesia) memuat kedua tema;
-6. gerbang standalone `verify_tree()` masih menerima pohon, dan tidak ada bahan
+1. enum punya tujuh gaya dan id lama tidak berubah;
+2. setiap titik dispatch (`VisualStyles`, `ThemedHero`, `Glass`,
+   `AppearanceControls`) punya cabang untuk ketiga tema baru;
+3. setiap `when` yang menyebut salah satu anggota `ManagerStyle` bersifat
+   exhaustive. Versi pertama test ini hanya mengenali `when (style)`, dan justru
+   itu sebabnya dua `when` yang tidak exhaustive lolos sampai CI. Versi sekarang
+   memindai subjek apa pun dan menuntut ketujuh cabang — diuji dengan menghapus
+   satu cabang dan memastikan test gagal;
+4. setiap berkas tema mendeklarasikan `package` dan mengimpor `R`. Keduanya
+   sempat hilang dan memakan satu putaran CI penuh (58 error, 53 di antaranya
+   efek berantai dari baris `package` yang hilang);
+5. lapisan banner ada, berjumlah dua per tema (near + far), keduanya 16:9, saling
+   berbeda, di bawah batas ukuran, dan benar-benar dipakai di source;
+6. data hidup (status, mode, baris kernel) tetap dirender di atas ilustrasi;
+7. font dan emblem ada, dipakai, dan di bawah batas ukuran;
+8. pemilih tema dan string (termasuk terjemahan Indonesia) memuat ketiga tema;
+9. gerbang standalone `verify_tree()` masih menerima pohon, dan tidak ada bahan
    penandatanganan yang ikut masuk.
+
+`tests/verify_synthetica60_apk.py` mengulang pemeriksaan itu **pada APK**, bukan
+pada source: 7 emblem, 6 lapisan banner, dan ketiga id gaya harus ada di DEX.
+Semuanya lolos pada APK hasil run 42845619299. Gate ini juga diuji balik dengan
+APK yang sengaja dirusak, dan memang menolak.
 
 ## Yang belum dibuktikan
 
-- **Belum dikompilasi.** Sandbox ini tidak punya JDK atau Android SDK, jadi
-  `:app:assembleRelease` belum pernah dijalankan untuk kode ini. Kesalahan Kotlin
-  (misalnya tipe `Dp` pada `shadow`, atau resolusi `R.font`) hanya akan muncul di
-  build sungguhan.
-- **Belum diuji di perangkat.** Tidak ada tangkapan layar, tidak ada bukti
-  animasi berjalan, dan tidak ada bukti performa pada perangkat 4.14.
+- **Belum diuji di perangkat.** Kompilasi sudah terbukti, tampilan belum. Belum
+  ada tangkapan layar, belum ada bukti animasi berjalan di layar sungguhan, dan
+  belum ada angka frame rate pada perangkat 4.14. Yang paling perlu dilihat
+  pertama: keterbacaan judul di atas langit biru terang milik tema retro.
 - **Cakupan glyph subset terbatas** pada daftar karakter di atas.
-- **Belum ditandatangani** dan belum ada APK. Penandatanganan memakai
-  sertifikat Synthetica asli di luar sandbox.
+- **Belum ditandatangani.** APK yang dihasilkan CI sengaja *unsigned*; penandatanganan
+  memakai sertifikat Synthetica asli di luar sandbox.

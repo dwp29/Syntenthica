@@ -125,19 +125,40 @@ def verify(apk: Path) -> None:
             if banned in dex or banned in arsc:
                 raise ValueError(
                     f"Repository link must not appear in the APK: {banned!r}")
-        for emblem in ("ic_emblem_pixel", "ic_emblem_cyberpunk", "ic_emblem_ios_glass", "ic_emblem_neon"):
+        emblems = ("ic_emblem_pixel", "ic_emblem_cyberpunk", "ic_emblem_ios_glass",
+                   "ic_emblem_neon", "ic_emblem_retro", "ic_emblem_anime",
+                   "ic_emblem_gothic")
+        for emblem in emblems:
             if emblem.encode() not in arsc and not any(emblem in n for n in names):
                 raise ValueError(f"theme PNG emblem missing from APK: {emblem}")
 
+        # The three illustrated themes ship a near + far banner each. A renamed or
+        # dropped resource is invisible to the Kotlin compiler, so check the table.
+        for theme in ("retro", "gothic", "anime"):
+            for suffix in ("", "_far"):
+                name = f"theme_banner_{theme}{suffix}"
+                if name.encode() not in arsc:
+                    raise ValueError(f"theme banner missing from APK: {name}")
+
+        # The selector persists these ids, so they must survive into the dex.
+        for style_id in (b"retro_arcade", b"anime_wibu", b"gothic_crimson"):
+            if style_id not in dex:
+                raise ValueError(f"theme style id missing from DEX: {style_id!r}")
+
+        banner_hashes = {hashlib.sha256(z.read(n)).hexdigest() for n in names
+                         if n.startswith("res/") and n.endswith(".jpg")}
+        if len(banner_hashes) < 6:
+            raise ValueError("Expected 6 distinct banner layers (3 themes x near/far)")
+
         png_hashes = {hashlib.sha256(z.read(n)).hexdigest() for n in names
                       if n.startswith("res/") and n.endswith(".png")}
-        if len(png_hashes) < 4:
-            raise ValueError("Expected at least 4 distinct PNG emblems")
+        if len(png_hashes) < 7:
+            raise ValueError("Expected at least 7 distinct PNG emblems")
 
     print("Manager 6.0.0 static gates passed:")
     print("  identity net.ember.labs / 6.0.0, UAPI 4 JNI, pinned UAPI-4 libksud.so")
     print("  Universal Root Bridge, telemetry, .ko loader and diag markers in DEX")
-    print("  4 PNG emblems, 4 splash tags, localized manager60_* strings")
+    print("  7 PNG emblems, 7 splash tags, 6 banner layers, localized manager60_* strings")
     print("  installer scripts unchanged from the 2.0 baseline")
     print("  About page: author @Pure_Saturday, GPL-3.0-only, donation placeholder, no repo link")
     print("Not verified: Android install, live su/root, real module loading or boot behaviour.")
