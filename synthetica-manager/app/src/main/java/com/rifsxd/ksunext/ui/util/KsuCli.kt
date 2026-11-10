@@ -126,34 +126,6 @@ fun Uri.getFileName(context: Context): String? {
     return fileName
 }
 
-/**
- * Root shell for BOTH ecosystems.
- *
- * Order matters. `su` first, because on KernelSU-family kernels (BakaSU,
- * SukiSU, ReSukiSU, APatch, official KSU) /system/bin/su is a symlink that the
- * kernel resolves straight to its own su daemon — it is the only path that
- * works, and it is what the user approves in the kernel's own manager.
- *
- * `ksud debug su` is tried second: only Synthetica's native kernel ships a
- * libksud.so we may call, and its --mount-master flag is spelled -M.
- *
- * The bare `sh` fallback stays last so a plain unrooted device still gets a
- * usable (non-root) shell instead of an exception.
- */
-fun createRootShellBuilder(globalMnt: Boolean = false): Shell.Builder {
-    return Shell.Builder.create().run {
-        val cmd = buildString {
-            append("su")
-            if (globalMnt) append(" --mount-master")
-            append(" || ")
-            append("${getKsuDaemonPath()} debug su")
-            if (globalMnt) append(" -M")
-            append(" || ")
-            append("sh")
-        }
-        setCommands("sh", "-c", cmd)
-    }
-}
 
 fun createRootShell(globalMnt: Boolean = false): Shell {
     return runCatching {

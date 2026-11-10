@@ -164,6 +164,46 @@ class StandaloneTreeTests(unittest.TestCase):
             used.update(re.findall(r"R\.string\.(manager60_[a-z0-9_]+)", path.read_text(encoding="utf-8")))
         self.assertEqual(used, en_keys, f"unused or undefined: {used ^ en_keys}")
 
+    def test_no_duplicate_top_level_declarations(self) -> None:
+        """Two top-level functions with one signature break the Kotlin build.
+
+        A stale copy of createRootShellBuilder() survived an edit and only
+        surfaced as 'unresolved reference: build' at the call site, which points
+        at the wrong line. Catching it here names the real problem.
+        """
+        import re as _re
+
+        # Overloads are legal; only an identical name + parameter list is not.
+        # Parameters are read from the same line plus wrapped continuation lines
+        # up to the closing parenthesis of the declaration.
+        decl = _re.compile(
+            r"^(?:suspend |inline |private |internal |public )*fun ([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+            _re.M,
+        )
+        bad: list[str] = []
+        for path in sorted(KOTLIN.rglob("*.kt")):
+            text = path.read_text(encoding="utf-8")
+            seen: dict[str, int] = {}
+            for m in decl.finditer(text):
+                start = m.end() - 1
+                depth = 0
+                end = start
+                for i in range(start, min(len(text), start + 4000)):
+                    if text[i] == "(":
+                        depth += 1
+                    elif text[i] == ")":
+                        depth -= 1
+                        if depth == 0:
+                            end = i + 1
+                            break
+                params = " ".join(text[start:end].split())
+                key = f"{m.group(1)}{params}"
+                seen[key] = seen.get(key, 0) + 1
+            for key, count in seen.items():
+                if count > 1:
+                    bad.append(f"{path.relative_to(TREE)}: {key} declared {count}x")
+        self.assertEqual(bad, [], "duplicate top-level declarations:\n" + "\n".join(bad))
+
     def test_strings_are_valid_aapt_input(self) -> None:
         """Reject strings aapt2 would fail on, before a 2-minute CI build.
 
