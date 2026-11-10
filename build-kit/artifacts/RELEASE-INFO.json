@@ -1,0 +1,66 @@
+{
+  "kind": "RELEASE_2.0_PACKAGES_UNQUALIFIED_FLASH_AT_OWN_RISK",
+  "release_version": "2.0",
+  "uname_release": "4.14.357-openela-Synthetica-2.0",
+  "kernel_image_gz_sha256": "2e194b5fe37f889661ffce069d713d7844e1962f8102f85ffbc66b8f36992b14",
+  "kernel_image_gz_bytes": 14570573,
+  "flashable_zip": {
+    "name": "Synthetica-2.0.zip",
+    "bytes": 21567210,
+    "sha256": "ee018fa833b75040493a26e153f47159d6ec43f9ad31aa61e4ab2b9a135d36e3"
+  },
+  "log_collector_zip": {
+    "name": "Synthetica-2.0-LOG.zip",
+    "bytes": 861633,
+    "sha256": "83db06d2f063f5fafdb08b1793e5bb2a10090c9a5e588eced9b473b4673376a1"
+  },
+  "anykernel3": {
+    "repository": "osm0sis/AnyKernel3",
+    "commit": "41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1",
+    "archive_url": "https://codeload.github.com/osm0sis/AnyKernel3/tar.gz/41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1",
+    "archive_bytes": 3099416,
+    "archive_sha256": "792b37fec7d1221570a4f1deb777a2d2cb8261596b1465a70bd7abfb30e268a2"
+  },
+  "flashable_entries": [
+    "BUILD-INFO.txt",
+    "Image.gz",
+    "LICENSE",
+    "META-INF/com/google/android/update-binary",
+    "META-INF/com/google/android/updater-script",
+    "README-FLASH.txt",
+    "anykernel.sh",
+    "ksud",
+    "tools/ak3-core.sh",
+    "tools/busybox",
+    "tools/fec",
+    "tools/httools_static",
+    "tools/lptools_static",
+    "tools/magiskboot",
+    "tools/magiskpolicy",
+    "tools/snapshotupdater_static"
+  ],
+  "log_collector_entries": [
+    "META-INF/com/google/android/update-binary",
+    "META-INF/com/google/android/updater-script",
+    "README-FLASH.txt",
+    "tools/busybox"
+  ],
+  "installer_behaviour": [
+    "no boot backup (removed in 2.0 by request)",
+    "writes an installation log to <storage>/Synthetica/install-log-<time>.txt",
+    "no auto reboot",
+    "no modules",
+    "no /data writes"
+  ],
+  "log_collector_behaviour": [
+    "read-only",
+    "writes only under <storage>/synthetica-logs/",
+    "collects dmesg, last_kmsg, pstore, recovery logs, partition hashes",
+    "13-installed-kernel.txt: kernel version strings read out of the live boot partition",
+    "14-installed-zip.txt: which SYNTHETICA-PULSE zip is on storage",
+    "12-backup-listing/: copies BACKUP-INFO.txt if one exists from older releases"
+  ],
+  "physical_boot_root_tests": 0,
+  "bootloop_fix_proven": false,
+  "private_signing_key_exported": false
+}

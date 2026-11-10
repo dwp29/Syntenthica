@@ -1,0 +1,67 @@
+SYNTHETICA PACKAGE 2.0
+========================
+ONLY ONE FILE IS FLASHED: Synthetica-2.0.zip
+Everything else here is a record, a diagnostic tool, or a raw kernel image.
+
+Synthetica-2.0.zip
+  bytes  : 21567210
+  sha256 : ee018fa833b75040493a26e153f47159d6ec43f9ad31aa61e4ab2b9a135d36e3
+  flash? : YES - this is the installer
+  what   : kernel + AnyKernel3 installer + ksud; backs up boot first, no auto reboot
+
+Synthetica-2.0-LOG.zip
+  bytes  : 861633
+  sha256 : 83db06d2f063f5fafdb08b1793e5bb2a10090c9a5e588eced9b473b4673376a1
+  flash? : no
+  what   : read-only log grabber (dmesg/last_kmsg/pstore/logs); writes nothing to partitions
+
+Image.gz
+  bytes  : 14570573
+  sha256 : 2e194b5fe37f889661ffce069d713d7844e1962f8102f85ffbc66b8f36992b14
+  flash? : no
+  what   : kernel image only (gzip). NOT flashable on its own
+
+ksud
+  bytes  : 5518552
+  sha256 : 52ba3da465459bfbac98dd25c53f8d31f93ee5a8ee89d84f67a28fe0d18cdef2
+  flash? : no
+  what   : KernelSU userspace daemon, also shipped inside the flashable zip
+
+STATUS.json
+  bytes  : 4940
+  sha256 : 1ff3a9fd8a653c27b2542f99572a44fbcb09116dd268733de6dcab75a9751441
+  flash? : no
+  what   : machine-readable build record: uname, config flags, hashes, what was not tested
+
+RELEASE-INFO.json
+  bytes  : 2346
+  sha256 : b06cde78bb25b62fec0595a7f7aafc7d9951c22ad7cc740d20b4e0845cc649fc
+  flash? : no
+  what   : package record: zip entries, installer behaviour
+
+generated.config.txt
+  bytes  : 161189
+  sha256 : 248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b
+  flash? : no
+  what   : the .config that was actually compiled
+
+build.log
+  bytes  : 234284
+  sha256 : 4620dea8150855fbc6b107a54936e75cf5b8dc41cca37c9caa2d966d35fe9d6f
+  flash? : no
+  what   : full build log
+
+TOOLCHAIN.txt
+  bytes  : 209
+  sha256 : 29ba3dc4d68638d9d4bb4c11d4776e3cddc7ed72a1a56c99674d3ec6f4eccc82
+  flash? : no
+  what   : compiler and linker versions
+
+REFERENCE-NOT-FOR-FLASH-Synthetica-2.0.zip
+  bytes  : 19761252
+  sha256 : 5e91fadcc45f7aa1d857b8fb7d603ef4bfa18a83f49cd00e4fb4b55239bf5db2
+  flash? : no
+  what   : builder's own zip, renamed on purpose: no boot backup, no rollback. DO NOT FLASH
+
+Check: the sha256 of your download must match the line above.
+Similar size does NOT mean the same file; compare sha256.

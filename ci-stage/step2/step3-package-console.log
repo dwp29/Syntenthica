@@ -4,17 +4,17 @@ verified Synthetica-2.0-LOG.zip: 4 entries, CRC ok
   "kind": "RELEASE_2.0_PACKAGES_UNQUALIFIED_FLASH_AT_OWN_RISK",
   "release_version": "2.0",
   "uname_release": "4.14.357-openela-Synthetica-2.0",
-  "kernel_image_gz_sha256": "58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff",
-  "kernel_image_gz_bytes": 14570501,
+  "kernel_image_gz_sha256": "2e194b5fe37f889661ffce069d713d7844e1962f8102f85ffbc66b8f36992b14",
+  "kernel_image_gz_bytes": 14570573,
   "flashable_zip": {
     "name": "Synthetica-2.0.zip",
-    "bytes": 21567245,
-    "sha256": "b1a0be5c7402a14d25f64fab495d6dd7e945dab18fa55c2fd164c5ced853897c"
+    "bytes": 21567210,
+    "sha256": "ee018fa833b75040493a26e153f47159d6ec43f9ad31aa61e4ab2b9a135d36e3"
   },
   "log_collector_zip": {
     "name": "Synthetica-2.0-LOG.zip",
     "bytes": 861633,
-    "sha256": "0832820bc4646a1069dd4b2ef96ce17a6cc5cc522080a9e668c730d644fd15c0"
+    "sha256": "83db06d2f063f5fafdb08b1793e5bb2a10090c9a5e588eced9b473b4673376a1"
   },
   "anykernel3": {
     "repository": "osm0sis/AnyKernel3",

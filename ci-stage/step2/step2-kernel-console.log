@@ -34,16 +34,16 @@ find: ‘arch/arm64/boot/dts/’: No such file or directory
 find: ‘arch/arm64/boot/dts/’: No such file or directory
   GZIP    arch/arm64/boot/Image.gz
 make[1]: Leaving directory '/tmp/sp-kernel-2.0/tree/out-synthetica'
--rw-r--r-- 1 runner runner 14570501 Oct 31 09:47 /tmp/sp-kernel-2.0/tree/out-synthetica/arch/arm64/boot/Image.gz
+-rw-r--r-- 1 runner runner 14570573 Nov 10 13:13 /tmp/sp-kernel-2.0/tree/out-synthetica/arch/arm64/boot/Image.gz
 --- kemas AnyKernel3 ---
   OK   paket: Image.gz + ksud + anykernel.sh (tanpa backup otomatis)
 ==============================================================
  SELESAI: /home/runner/work/Syntenthica/Syntenthica/build-kit/artifacts/Synthetica-2.0.zip
- 48035c81ac8ec89b056fcb1a10d2e81a738e03f8cef8d9ed0578ca81220038ff  Synthetica-2.0.zip
+ 5e91fadcc45f7aa1d857b8fb7d603ef4bfa18a83f49cd00e4fb4b55239bf5db2  Synthetica-2.0.zip
 ---------                     -------
- 22175682                     25 files
+ 22175754                     25 files
 ==============================================================
-[exit 0 in 1168s]
+[exit 0 in 998s]
 {
   "KSU": "y",
   "KSU_MANUAL_HOOK": "y",
@@ -108,8 +108,8 @@ STATUS.json
   },
   "mandatory_KSU": true,
   "compile_exit_code": 0,
-  "image_gz_bytes": 14570501,
-  "image_gz_sha256": "58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff",
+  "image_gz_bytes": 14570573,
+  "image_gz_sha256": "2e194b5fe37f889661ffce069d713d7844e1962f8102f85ffbc66b8f36992b14",
   "config_sha256": "248af9218b5ed9dd82202956d99991f97428c3010565a810eac3c9e6f71ff33b",
   "features": {
     "KSU": "y",
@@ -164,4 +164,4 @@ STATUS.json
   ]
 }
 
-DONE: Image.gz 14570501 B sha256 58a57b1fcca0eb6190c836f8c89d7c5a514b1c395e85c2770ab1c43173887fff
+DONE: Image.gz 14570573 B sha256 2e194b5fe37f889661ffce069d713d7844e1962f8102f85ffbc66b8f36992b14
