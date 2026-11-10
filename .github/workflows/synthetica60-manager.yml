@@ -1,4 +1,4 @@
-name: "Synthetica Manager 6.0.0 — standalone universal-kernel build"
+name: "Synthetica Manager 6.0.0 — standalone universal-kernel build (v2)"
 
 on:
   push:
