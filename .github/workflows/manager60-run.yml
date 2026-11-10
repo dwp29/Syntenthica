@@ -1,10 +1,9 @@
 # Default-branch copy of the Synthetica Manager 6.0.0 build.
 #
 # GitHub only renders a "Run workflow" button when a workflow_dispatch workflow
-# exists on the default branch, and main previously held only a README. A
-# reusable workflow called with `uses: ...@branch` from main produced
-# startup_failure with referenced_workflows=[] (GitHub never resolved it), so the
-# steps are duplicated here instead and this file is the single entry point.
+# exists on the default branch. A reusable workflow called with `uses: ...@branch`
+# from main produced startup_failure with referenced_workflows=[] (GitHub never
+# resolved it), so the steps are duplicated here and this file is the entry point.
 #
 # Keep in sync with .github/workflows/synthetica60-manager.yml on
 # arena/96cbd65a-synthentica. Only the trigger block differs.
