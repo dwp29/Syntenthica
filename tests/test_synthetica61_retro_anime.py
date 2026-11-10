@@ -75,16 +75,60 @@ class StyleRegistrationTests(unittest.TestCase):
             for style in NEW_STYLES:
                 self.assertIn(f'ManagerStyle.{style} ->', text, f'{name} lacks {style}')
 
-    def test_statement_whens_are_exhaustive(self):
-        """A Kotlin `when` used as a statement needs an explicit branch per value."""
-        for name in ('Glass.kt', 'ThemedHero.kt', 'VisualStyles.kt', 'AppearanceControls.kt'):
+    # Guards that did not exist when these themes landed, and cost a CI round trip:
+    # `when` over a style value looks identical whether or not the compiler will
+    # accept it, so the suite has to enumerate every style branch itself.
+    STYLE_FILE_NAMES = ('Glass.kt', 'ThemedHero.kt', 'VisualStyles.kt', 'AppearanceControls.kt')
+
+    def test_every_style_when_is_exhaustive(self):
+        """Catch any `when` that dispatches on a style but omits a branch.
+
+        The subject of the `when` is whatever variable the file uses for a
+        ManagerStyle (style, design, option.style, LocalManagerStyle.current, ...).
+        Rather than guess the variable names, treat a `when` as style-dispatching
+        when its body contains at least one `ManagerStyle.<X> ->` branch, then
+        require every branch alias to appear.
+        """
+        branches = LEGACY_STYLES + NEW_STYLES
+        for name in self.STYLE_FILE_NAMES:
             text = read(name)
-            for match in re.finditer(r'when \((style|LocalManagerStyle\.current)\)\s*\{', text):
-                block = _brace_block(text, match.end() - 1)
-                covered = all(s in block for s in LEGACY_STYLES + NEW_STYLES)
+            for match in re.finditer(r'\bwhen\s*\(', text):
+                start = match.end() - 1
+                after = self._matching_paren(text, start) + 1
+                while after < len(text) and text[after] in ' \t\n\r':
+                    after += 1
+                if after >= len(text) or text[after] != '{':
+                    continue
+                block = _brace_block(text, after)
+                if 'ManagerStyle.' not in block:
+                    continue
                 line = text[:match.start()].count('\n') + 1
-                self.assertTrue(covered or 'else ->' in block,
-                                f'{name}:{line} is not exhaustive')
+                if 'else ->' in block:
+                    continue
+                missing = [s for s in branches
+                           if not re.search(rf'ManagerStyle\.{s}\b', block)]
+                self.assertFalse(missing, f'{name}:{line} omits {missing}')
+
+    @staticmethod
+    def _matching_paren(text: str, open_index: int) -> int:
+        depth = 0
+        i = open_index
+        while i < len(text):
+            if text[i] == '(':
+                depth += 1
+            elif text[i] == ')':
+                depth -= 1
+                if depth == 0:
+                    return i
+            i += 1
+        raise AssertionError('unbalanced parentheses')
+
+    def test_themed_hero_declares_its_package(self):
+        """No package line means the file lands in the root package and cannot see
+        ManagerStyle; the compiler reports dozens of bogus unresolved references."""
+        for name in self.STYLE_FILE_NAMES:
+            self.assertTrue(read(name).startswith('package com.rifsxd.ksunext.ui.theme'),
+                            f'{name} lost its package declaration')
 
     def test_selector_lists_both_new_themes(self):
         selector = read('AppearanceControls.kt')

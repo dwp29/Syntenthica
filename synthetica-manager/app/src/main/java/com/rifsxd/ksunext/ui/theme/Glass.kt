@@ -981,12 +981,16 @@ fun IosSwitch(
     val trackShape = when (design) {
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> CutCornerShape(7.dp)
-        ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> CircleShape
+        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(3.dp)
+        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topEnd = 7.dp, bottomStart = 7.dp)
+        ManagerStyle.IOS_GLASS, ManagerStyle.NEON, ManagerStyle.ANIME_WIBU -> CircleShape
     }
     val thumbShape = when (design) {
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> CutCornerShape(5.dp)
-        ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> CircleShape
+        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(2.dp)
+        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topEnd = 5.dp, bottomStart = 5.dp)
+        ManagerStyle.IOS_GLASS, ManagerStyle.NEON, ManagerStyle.ANIME_WIBU -> CircleShape
     }
     val activeColor = MaterialTheme.colorScheme.primary
     val inactiveColor = if (glass.isDark) Color.White.copy(alpha = 0.18f) else Color(0xFF0E2240).copy(alpha = 0.14f)

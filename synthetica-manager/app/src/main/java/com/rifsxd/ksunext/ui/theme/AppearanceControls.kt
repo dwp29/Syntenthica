@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -201,6 +202,9 @@ private fun StyleChoice(option: StyleOption, selected: Boolean, onClick: () -> U
         ManagerStyle.CYBERPUNK -> Color(0xFF12151D)
         ManagerStyle.IOS_GLASS -> Color(0xFF1B2A40)
         ManagerStyle.NEON -> Color(0xFF111A30)
+        ManagerStyle.RETRO_ARCADE -> Color(0xFF13233F)
+        ManagerStyle.ANIME_WIBU -> Color(0xFF1E1430)
+        ManagerStyle.GOTHIC_CRIMSON -> Color(0xFF0A0708)
     }
     Row(
         modifier = Modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
