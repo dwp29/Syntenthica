@@ -239,8 +239,22 @@ sedangkan workflow yang sudah terdaftar gagal dijadwalkan tanpa pesan error.
 Artinya: perubahan 7.1–7.4 lolos gate statis, host, dan suite penuh (515 test),
 tetapi **belum** lolos kompilasi Kotlin maupun instalasi di perangkat.
 
-**Tindakan yang diperlukan di luar repo:** buka
-*GitHub → Settings → Billing → Plans and usage → Actions* untuk akun `dwp29`.
-Kalau kuota habis, tunggu reset bulanan atau naikkan batas; baru setelah itu
-`Manager 6.0.0` bisa dikompilasi dan ditandatangani ulang. Jangan menganggap
-pohon ini sudah menjadi rilis.
+**Tindakan yang diperlukan di luar repo.** Pengguna mengonfirmasi *billing
+habis*, tetapi angka di repo ini tidak sepenuhnya cocok dengan "kuota menit
+habis", jadi keduanya perlu dicek:
+
+| Fakta dari repo | Implikasi |
+|---|---|
+| `dwp29/Syntenthica` **publik**, bukan fork | Menit Actions standar untuk repo publik **gratis** |
+| Satu-satunya repo milik akun ini | Tidak ada repo privat lain yang memakan kuota |
+| Semua job `runs-on: ubuntu-*`; tidak ada macOS/Windows | Tidak ada menit berbayar dari runner besar |
+| Tidak ada run `queued`/`in_progress` yang macet | Bukan runner nyangkut |
+
+Jadi yang paling mungkin menagih: **storage & packages** (artifact
+`upload-artifact` dengan `retention-days: 14` di setiap run, plus blob Git),
+atau **GitHub Pro/Team** yang statusnya berubah, bukan menit runner. Periksa
+*Settings → Billing → Plans and usage* pada tab **Storage** dan **Actions**
+sekaligus, lalu hapus artifact lama bila yang penuh adalah storage.
+
+Setelah status billing pulih, jalankan ulang workflow `manager60-build.yml`.
+Jangan menganggap pohon ini sudah menjadi rilis sebelum itu.
