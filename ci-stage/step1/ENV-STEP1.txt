@@ -8,7 +8,7 @@ ID=ubuntu
 === Hardware ===
 4
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.5Gi        10Gi        45Mi       4.3Gi        14Gi
+Mem:            15Gi       1.4Gi        10Gi        45Mi       4.4Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
 Filesystem      Size  Used Avail Use% Mounted on
 /dev/root       145G   62G   83G  43% /
