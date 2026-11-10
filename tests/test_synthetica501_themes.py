@@ -25,6 +25,12 @@ class Theme501SourceTests(unittest.TestCase):
         for style in ('PIXEL', 'CYBERPUNK', 'IOS_GLASS', 'NEON'):
             self.assertIn(f'ManagerStyle.{style} ->', hero)
             self.assertIn(f'ManagerStyle.{style} ->', styles)
+        # 6.1 adds three themes, but to the shipped 6.0.0 tree, NOT to the
+        # frozen 5.0.1 tree these assets belong to. Assert the opposite here so
+        # the ledger stays a record of what 5.0.1 actually contained.
+        for style in ('RETRO_ARCADE', 'ANIME_WIBU', 'GOTHIC_CRIMSON'):
+            self.assertNotIn(f'ManagerStyle.{style} ->', hero)
+            self.assertNotIn(f'ManagerStyle.{style} ->', styles)
         self.assertIn('managerDockSpec', styles)
         self.assertIn('StyleThumbnail', selector)
         self.assertIn('LocalGlassWallpaperLayer', glass)

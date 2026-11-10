@@ -55,6 +55,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rifsxd.ksunext.R
+import kotlin.math.cos
+import kotlin.math.sin
 
 private data class StyleOption(@StringRes val name: Int, @StringRes val detail: Int, val style: ManagerStyle)
 private val styles = listOf(
@@ -62,6 +64,9 @@ private val styles = listOf(
     StyleOption(R.string.theme50_cyber, R.string.theme50_cyber_detail, ManagerStyle.CYBERPUNK),
     StyleOption(R.string.theme50_ios, R.string.theme50_ios_detail, ManagerStyle.IOS_GLASS),
     StyleOption(R.string.theme50_neon, R.string.theme50_neon_detail, ManagerStyle.NEON),
+    StyleOption(R.string.theme50_retro, R.string.theme50_retro_detail, ManagerStyle.RETRO_ARCADE),
+    StyleOption(R.string.theme50_anime, R.string.theme50_anime_detail, ManagerStyle.ANIME_WIBU),
+    StyleOption(R.string.theme50_gothic, R.string.theme50_gothic_detail, ManagerStyle.GOTHIC_CRIMSON),
 )
 
 /** Shared by the real Manager and the isolated, non-root preview. */
@@ -230,6 +235,9 @@ private fun StyleThumbnail(style: ManagerStyle, surface: Color, accent: Color) {
         ManagerStyle.CYBERPUNK -> shapesForStyle(style).small
         ManagerStyle.IOS_GLASS -> RoundedCornerShape(10.dp)
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
+        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(4.dp)
+        ManagerStyle.ANIME_WIBU -> RoundedCornerShape(14.dp)
+        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topStart = 2.dp, topEnd = 9.dp, bottomEnd = 2.dp, bottomStart = 9.dp)
     }
     Row(
         modifier = Modifier
@@ -274,6 +282,34 @@ private fun StyleThumbnail(style: ManagerStyle, surface: Color, accent: Color) {
                 ManagerStyle.IOS_GLASS -> {
                     drawCircle(accent, radius = w * 0.32f, center = Offset(w * 0.5f, h * 0.35f))
                     drawRoundRect(Color.White.copy(alpha = 0.75f), Offset(w * 0.1f, h * 0.72f), Size(w * 0.8f, h * 0.16f), CornerRadius(3.dp.toPx()))
+                }
+                ManagerStyle.RETRO_ARCADE -> {
+                    // Scanline stack with one lit bar, like a cabinet score rail.
+                    val line = 2.dp.toPx()
+                    for (r in 0..4) {
+                        val colour = if (r == 1) accent else faint
+                        drawRect(colour, Offset(w * 0.12f, r * (line + 2.dp.toPx())), Size(w * 0.78f, line))
+                    }
+                    drawCircle(Color(0xFFFF8A3D), radius = 2.5.dp.toPx(), center = Offset(w * 0.5f, h * 0.86f))
+                }
+                ManagerStyle.GOTHIC_CRIMSON -> {
+                    // Moon disc with a thorn ring and a thin crimson rule.
+                    drawCircle(accent.copy(alpha = 0.85f), radius = w * 0.20f, center = Offset(w * 0.62f, h * 0.32f))
+                    for (i in 0..7) {
+                        val a = (i / 8f) * 2f * Math.PI.toFloat()
+                        val r = w * 0.20f
+                        drawLine(Color(0xFF5A0A10), Offset(w * 0.62f + cos(a) * r, h * 0.32f + sin(a) * r),
+                            Offset(w * 0.62f + cos(a) * r * 1.3f, h * 0.32f + sin(a) * r * 1.3f), 1.dp.toPx())
+                    }
+                    drawRect(accent.copy(alpha = 0.55f), Offset(w * 0.1f, h * 0.82f), Size(w * 0.8f, 1.2.dp.toPx()))
+                }
+                ManagerStyle.ANIME_WIBU -> {
+                    // Sakura scatter plus a rounded caption bar.
+                    repeat(4) { i ->
+                        drawCircle(accent.copy(alpha = 0.55f), radius = 1.8.dp.toPx(),
+                            center = Offset(w * (0.2f + 0.2f * i), h * (0.18f + 0.1f * (i % 2))))
+                    }
+                    drawRoundRect(Color.White.copy(alpha = 0.85f), Offset(0f, h * 0.68f), Size(w, h * 0.32f), CornerRadius(6.dp.toPx()))
                 }
                 ManagerStyle.NEON -> {
                     drawLine(accent, Offset(w * 0.15f, h * 0.25f), Offset(w * 0.85f, h * 0.25f), 2.dp.toPx())

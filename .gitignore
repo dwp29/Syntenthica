@@ -25,3 +25,6 @@ build-kit/artifacts/*.zip
 build-kit/artifacts/*.img
 ci-stage/step1/*.apk
 ci-stage/step21/*.apk
+
+# Raw, un-cropped theme art. Only the processed assets in the app tree ship.
+wip/

@@ -1,5 +1,3 @@
-package com.rifsxd.ksunext.ui.theme
-
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,14 +31,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,6 +75,9 @@ internal fun DistinctManagerHero(
         ManagerStyle.CYBERPUNK -> CyberpunkBrutalHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
         ManagerStyle.IOS_GLASS -> IosLiquidGlassHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
         ManagerStyle.NEON -> NeonCyberHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+        ManagerStyle.RETRO_ARCADE -> RetroBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+        ManagerStyle.ANIME_WIBU -> AnimeBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
+        ManagerStyle.GOTHIC_CRIMSON -> GothicBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
     }
 }
 
@@ -182,6 +188,64 @@ private fun HeroEmblem(
                                 )
                             )
                         },
+                )
+            }
+        }
+        ManagerStyle.RETRO_ARCADE -> {
+            // Flat cabinet plate: no blur, hard 2 dp edge, pixel emblem inset.
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .background(Color(0xFF17120C))
+                    .border(2.dp, border, CutCornerShape(topStart = 3.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 10.dp))
+                    .padding(5.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        ManagerStyle.GOTHIC_CRIMSON -> {
+            // Heraldic plate: near-black, hard crimson edge, no rounding.
+            val plate = CutCornerShape(topStart = 3.dp, topEnd = 12.dp, bottomEnd = 3.dp, bottomStart = 12.dp)
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .background(Color(0xFF0A0708), plate)
+                    .border(1.5.dp, border, plate)
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        ManagerStyle.ANIME_WIBU -> {
+            // Sticker with a white die-cut edge over a pastel drop shadow.
+            val sticker = RoundedCornerShape(size * 0.32f)
+            Box(
+                modifier = Modifier
+                    .size(size)
+                    .shadow(size * 0.08f, sticker, clip = false, ambientColor = Color(0xFFFF7FB2), spotColor = Color(0xFFC9A3FF))
+                    .background(Color.White, sticker)
+                    .padding(3.dp)
+                    .background(Color(0xFFFDF1F8), RoundedCornerShape(size * 0.27f))
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(emblemRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -776,4 +840,253 @@ private fun NeonCyberHero(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+
+/**
+ * Shared banner geometry for the three illustrated themes.
+ *
+ * The illustration is the hero: a 16:9 picture, cropped to a fixed band, with
+ * the live status, title and kernel data sitting directly on top of it. The
+ * parallax slides only the background layer so the character in the foreground
+ * stays put and stays sharp.
+ */
+@Composable
+private fun IllustratedBannerHero(
+    banner: Int,
+    bannerFar: Int,
+    eyebrow: String,
+    title: String,
+    statusPill: String,
+    statusColor: Color,
+    modePill: String?,
+    kernelLine: String,
+    metaLine: String,
+    phase: Float,
+    clickMod: Modifier,
+    shape: Shape,
+    bandHeight: Dp,
+    titleStyle: TextStyle,
+    titleColor: Color,
+    bannerTint: Color,
+    dataBackground: Color,
+    dataInk: Color,
+    parallax: Dp,
+    pulse: Boolean = false,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(bandHeight)
+            .clip(shape)
+            .background(bannerTint)
+            .then(clickMod),
+    ) {
+        // Far layer: the scenery, sliding slowly for parallax.
+        Image(
+            painter = painterResource(bannerFar),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(x = (-parallax + parallax * 2f * phase))
+                .graphicsLayer { alpha = 0.55f },
+        )
+        // Near layer: the full illustration with the character.
+        Image(
+            painter = painterResource(banner),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    // A slow breathing zoom sells "animated" without moving the
+                    // character far enough to look detached from the frame.
+                    val grow = 1.02f + 0.015f * (if (pulse) abs(sin(phase * Math.PI.toFloat())) else phase)
+                    scaleX = grow
+                    scaleY = grow
+                },
+        )
+        // Bottom gradient keeps white text readable over bright pixel art.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(bandHeight * 0.62f)
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.62f)))),
+        )
+        // Status row, top end, over the scenery.
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (modePill != null) {
+                Text(
+                    text = modePill.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = dataInk,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .background(dataBackground.copy(alpha = 0.88f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(statusColor.copy(alpha = 0.92f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 9.dp, vertical = 4.dp),
+            ) {
+                Box(Modifier.size(6.dp).background(Color.White, RoundedCornerShape(3.dp)))
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = statusPill.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    maxLines = 1,
+                )
+            }
+        }
+        // Emblem, bottom start, over the character's corner but small enough to
+        // never hide the face.
+        Image(
+            painter = painterResource(emblemResForStyle(LocalManagerStyle.current)),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 12.dp, bottom = 52.dp)
+                .size(44.dp),
+        )
+        // Title block, bottom, above the data strip.
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 14.dp, bottom = 34.dp),
+        ) {
+            Text(
+                text = title,
+                style = titleStyle,
+                color = titleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.graphicsLayer {
+                    // A hint of motion only; the banner already carries the animation.
+                    translationX = sin(phase * 2f * Math.PI.toFloat()) * 0.6f
+                },
+            )
+            Text(
+                text = eyebrow,
+                style = MaterialTheme.typography.labelSmall,
+                color = titleColor.copy(alpha = 0.82f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // Data strip pinned to the very bottom, like the reference mock.
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(dataBackground.copy(alpha = 0.90f))
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = kernelLine,
+                style = MaterialTheme.typography.labelSmall,
+                color = dataInk,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Text(
+                text = "  ·  ",
+                style = MaterialTheme.typography.labelSmall,
+                color = dataInk.copy(alpha = 0.55f),
+            )
+            Text(
+                text = metaLine,
+                style = MaterialTheme.typography.labelSmall,
+                color = dataInk.copy(alpha = 0.80f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** 16-bit amusement park: bright, chunky, all-ages. */
+@Composable
+private fun RetroBannerHero(
+    eyebrow: String, title: String, statusPill: String, statusColor: Color, modePill: String?,
+    kernelLine: String, metaLine: String, phase: Float, clickMod: Modifier,
+) {
+    IllustratedBannerHero(
+        banner = R.drawable.theme_banner_retro,
+        bannerFar = R.drawable.theme_banner_retro_far,
+        eyebrow = eyebrow, title = title, statusPill = statusPill, statusColor = statusColor,
+        modePill = modePill, kernelLine = kernelLine, metaLine = metaLine, phase = phase,
+        clickMod = clickMod,
+        shape = RoundedCornerShape(14.dp),
+        bandHeight = 214.dp,
+        titleStyle = MaterialTheme.typography.headlineMedium,
+        titleColor = Color.White,
+        bannerTint = Color(0xFF1FB6E8),
+        dataBackground = Color(0xFF10214A),
+        dataInk = Color(0xFFEAF6FF),
+        parallax = 10.dp,
+    )
+}
+
+/** Gothic crimson: moonlit castle, heraldic serif, blood-red data strip. */
+@Composable
+private fun GothicBannerHero(
+    eyebrow: String, title: String, statusPill: String, statusColor: Color, modePill: String?,
+    kernelLine: String, metaLine: String, phase: Float, clickMod: Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    IllustratedBannerHero(
+        banner = R.drawable.theme_banner_gothic,
+        bannerFar = R.drawable.theme_banner_gothic_far,
+        eyebrow = eyebrow, title = title, statusPill = statusPill, statusColor = statusColor,
+        modePill = modePill, kernelLine = kernelLine, metaLine = metaLine, phase = phase,
+        clickMod = clickMod,
+        shape = CutCornerShape(topStart = 6.dp, topEnd = 26.dp, bottomEnd = 6.dp, bottomStart = 26.dp),
+        bandHeight = 222.dp,
+        titleStyle = MaterialTheme.typography.headlineMedium,
+        titleColor = Color(0xFFF2DCDC),
+        bannerTint = Color(0xFF0A0708),
+        dataBackground = Color(0xFF170A0C),
+        dataInk = accent,
+        parallax = 14.dp,
+    )
+}
+
+/** Anime wibu: sakura night sky, lantern glow, soft pink. */
+@Composable
+private fun AnimeBannerHero(
+    eyebrow: String, title: String, statusPill: String, statusColor: Color, modePill: String?,
+    kernelLine: String, metaLine: String, phase: Float, clickMod: Modifier,
+) {
+    IllustratedBannerHero(
+        banner = R.drawable.theme_banner_anime,
+        bannerFar = R.drawable.theme_banner_anime_far,
+        eyebrow = eyebrow, title = title, statusPill = statusPill, statusColor = statusColor,
+        modePill = modePill, kernelLine = kernelLine, metaLine = metaLine, phase = phase,
+        clickMod = clickMod,
+        shape = RoundedCornerShape(28.dp),
+        bandHeight = 218.dp,
+        titleStyle = MaterialTheme.typography.headlineMedium,
+        titleColor = Color(0xFFFFF2FA),
+        bannerTint = Color(0xFF1B1438),
+        dataBackground = Color(0xFF241A44),
+        dataInk = Color(0xFFF3E6FF),
+        parallax = 12.dp,
+        pulse = true,
+    )
 }

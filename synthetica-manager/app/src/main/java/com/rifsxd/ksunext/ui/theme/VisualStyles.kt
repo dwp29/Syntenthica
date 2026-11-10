@@ -41,7 +41,8 @@ import kotlinx.coroutines.delay
 
 /** Styles share one set of screens and one root backend; these are presentation only. */
 enum class ManagerStyle(val id: String) {
-    PIXEL("pixel"), CYBERPUNK("cyberpunk"), IOS_GLASS("ios_glass"), NEON("neon");
+    PIXEL("pixel"), CYBERPUNK("cyberpunk"), IOS_GLASS("ios_glass"), NEON("neon"),
+    RETRO_ARCADE("retro_arcade"), ANIME_WIBU("anime_wibu"), GOTHIC_CRIMSON("gothic_crimson");
 
     companion object {
         fun fromId(id: String?): ManagerStyle = entries.firstOrNull { it.id == id } ?: PIXEL
@@ -97,6 +98,9 @@ fun emblemResForStyle(style: ManagerStyle): Int = when (style) {
     ManagerStyle.CYBERPUNK -> R.drawable.ic_emblem_cyberpunk
     ManagerStyle.IOS_GLASS -> R.drawable.ic_emblem_ios_glass
     ManagerStyle.NEON -> R.drawable.ic_emblem_neon
+    ManagerStyle.RETRO_ARCADE -> R.drawable.ic_emblem_retro
+    ManagerStyle.ANIME_WIBU -> R.drawable.ic_emblem_anime
+    ManagerStyle.GOTHIC_CRIMSON -> R.drawable.ic_emblem_gothic
 }
 
 /** Distinct splash edition label per theme (preserves the ' // MANAGER 6.0.0' marker). */
@@ -105,6 +109,9 @@ fun splashTagForStyle(style: ManagerStyle): String = when (style) {
     ManagerStyle.CYBERPUNK -> "CYBERPUNK // MANAGER 6.0.0"
     ManagerStyle.IOS_GLASS -> "GLASS // MANAGER 6.0.0"
     ManagerStyle.NEON -> "NEON // MANAGER 6.0.0"
+    ManagerStyle.RETRO_ARCADE -> "RETRO ARCADE // MANAGER 6.0.0"
+    ManagerStyle.ANIME_WIBU -> "ANIME WIBU // MANAGER 6.0.0"
+    ManagerStyle.GOTHIC_CRIMSON -> "GOTHIC CRIMSON // MANAGER 6.0.0"
 }
 
 /**
@@ -227,11 +234,38 @@ private val NeonShapes = Shapes(
     extraLarge = RoundedCornerShape(20.dp),
 )
 
+// Chunky, toy-like bevels: everything is squarer than the glass themes but
+// still softened, so the retro cabinet reads as furniture rather than paper.
+private val RetroShapes = Shapes(
+    extraSmall = RoundedCornerShape(3.dp), small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(18.dp),
+)
+// Anime keeps large soft radii and a pill silhouette; the character comes from
+// the colour ramp, the sticker borders and the motion, not from sharp corners.
+private val AnimeShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(30.dp),
+    extraLarge = RoundedCornerShape(36.dp),
+)
+
+// Blade-like: long cuts on opposite corners so panels read as heraldic plates.
+private val GothicShapes = Shapes(
+    extraSmall = CutCornerShape(topStart = 0.dp, topEnd = 4.dp, bottomEnd = 0.dp, bottomStart = 4.dp),
+    small = CutCornerShape(topStart = 0.dp, topEnd = 8.dp, bottomEnd = 0.dp, bottomStart = 8.dp),
+    medium = CutCornerShape(topStart = 2.dp, topEnd = 14.dp, bottomEnd = 2.dp, bottomStart = 14.dp),
+    large = CutCornerShape(topStart = 4.dp, topEnd = 20.dp, bottomEnd = 4.dp, bottomStart = 20.dp),
+    extraLarge = CutCornerShape(topStart = 6.dp, topEnd = 28.dp, bottomEnd = 6.dp, bottomStart = 28.dp),
+)
+
 fun shapesForStyle(style: ManagerStyle): Shapes = when (style) {
     ManagerStyle.PIXEL -> GlassShapes
     ManagerStyle.CYBERPUNK -> CyberShapes
     ManagerStyle.IOS_GLASS -> IosShapes
     ManagerStyle.NEON -> NeonShapes
+    ManagerStyle.RETRO_ARCADE -> RetroShapes
+    ManagerStyle.ANIME_WIBU -> AnimeShapes
+    ManagerStyle.GOTHIC_CRIMSON -> GothicShapes
 }
 
 /** Geometry is shared by the real Manager dock and the non-root UI fixture. */
@@ -250,6 +284,12 @@ fun managerDockSpec(style: ManagerStyle): ManagerDockSpec = when (style) {
     ManagerStyle.CYBERPUNK -> ManagerDockSpec(8.dp, 8.dp, 72.dp, CyberShapes.extraLarge, CyberShapes.medium, true)
     ManagerStyle.IOS_GLASS -> ManagerDockSpec(28.dp, 12.dp, 68.dp, RoundedCornerShape(36.dp), RoundedCornerShape(26.dp))
     ManagerStyle.NEON -> ManagerDockSpec(16.dp, 10.dp, 66.dp, RoundedCornerShape(18.dp), RoundedCornerShape(12.dp))
+    // A real cabinet: near-full-width, tall, labels in the 8-bit face.
+    ManagerStyle.RETRO_ARCADE -> ManagerDockSpec(6.dp, 10.dp, 76.dp, RoundedCornerShape(14.dp), RoundedCornerShape(9.dp), true)
+    // Floating, narrow, very pill-shaped: the dock should feel like a sticker
+    // strip rather than a bar.
+    ManagerStyle.ANIME_WIBU -> ManagerDockSpec(34.dp, 16.dp, 70.dp, RoundedCornerShape(40.dp), RoundedCornerShape(30.dp))
+    ManagerStyle.GOTHIC_CRIMSON -> ManagerDockSpec(10.dp, 8.dp, 72.dp, GothicShapes.extraLarge, GothicShapes.small, true)
 }
 
 // Keep body text in the system font; only short headings vary across designs.
@@ -264,11 +304,63 @@ private val CyberTypography = headings(FontFamily.Monospace)
 private val IosTypography = headings(FontFamily.SansSerif)
 private val NeonTypography = headings(NeonDisplay)
 
+// Subset builds of OFL faces; see res/font and docs/SYNTHETICA-MANAGER-THEMES-RETRO-ANIME.md.
+private val RetroTerminal = FontFamily(Font(R.font.retro_vt323, FontWeight.Normal))
+private val RetroPixel = FontFamily(Font(R.font.retro_pressstart, FontWeight.Normal))
+
+/** 1980s arcade cabinet: VT323 terminal headings over an 8-bit label face. */
+private val RetroTypography = Typography.copy(
+    displaySmall = Typography.displaySmall.copy(fontFamily = RetroTerminal, fontSize = 40.sp),
+    headlineMedium = Typography.headlineMedium.copy(fontFamily = RetroTerminal, fontSize = 30.sp),
+    headlineSmall = Typography.headlineSmall.copy(fontFamily = RetroTerminal, fontSize = 26.sp),
+    titleLarge = Typography.titleLarge.copy(fontFamily = RetroTerminal, fontSize = 23.sp),
+    titleMedium = Typography.titleMedium.copy(fontFamily = RetroTerminal, fontSize = 20.sp),
+    labelLarge = Typography.labelLarge.copy(fontFamily = RetroPixel, fontSize = 11.sp, letterSpacing = 0.5.sp),
+    labelMedium = Typography.labelMedium.copy(fontFamily = RetroPixel, fontSize = 9.sp, letterSpacing = 0.4.sp),
+    labelSmall = Typography.labelSmall.copy(fontFamily = RetroPixel, fontSize = 8.sp, letterSpacing = 0.3.sp),
+)
+
+private val AnimeRounded = FontFamily(Font(R.font.anime_zenmaru, FontWeight.Normal))
+private val AnimeDisplay = FontFamily(Font(R.font.anime_rampart, FontWeight.Normal))
+
+/**
+ * Anime/wibu: a rounded gothic body face carries Japanese glyphs too, while the
+ * display face is only ever used for Latin headings because it has no kana.
+ */
+private val AnimeTypography = Typography.copy(
+    displaySmall = Typography.displaySmall.copy(fontFamily = AnimeDisplay, fontSize = 30.sp),
+    headlineMedium = Typography.headlineMedium.copy(fontFamily = AnimeRounded, fontSize = 25.sp),
+    headlineSmall = Typography.headlineSmall.copy(fontFamily = AnimeRounded, fontSize = 22.sp),
+    titleLarge = Typography.titleLarge.copy(fontFamily = AnimeRounded, fontSize = 19.sp),
+    titleMedium = Typography.titleMedium.copy(fontFamily = AnimeRounded, fontSize = 17.sp),
+    bodyLarge = Typography.bodyLarge.copy(fontFamily = AnimeRounded),
+    bodyMedium = Typography.bodyMedium.copy(fontFamily = AnimeRounded),
+    bodySmall = Typography.bodySmall.copy(fontFamily = AnimeRounded),
+    labelLarge = Typography.labelLarge.copy(fontFamily = AnimeRounded, letterSpacing = 0.2.sp),
+    labelMedium = Typography.labelMedium.copy(fontFamily = AnimeRounded),
+)
+
+/**
+ * Gothic crimson: a high-contrast serif stands in for blackletter. A real
+ * fraktur face would be more faithful, but it needs its own subset and licence;
+ * the serif keeps the heraldic tone without shipping another megabyte.
+ */
+private val GothicTypography = Typography.copy(
+    displaySmall = Typography.displaySmall.copy(fontFamily = FontFamily.Serif, fontSize = 30.sp, letterSpacing = 0.5.sp),
+    headlineMedium = Typography.headlineMedium.copy(fontFamily = FontFamily.Serif, fontSize = 24.sp, letterSpacing = 0.4.sp),
+    headlineSmall = Typography.headlineSmall.copy(fontFamily = FontFamily.Serif, fontSize = 21.sp),
+    titleLarge = Typography.titleLarge.copy(fontFamily = FontFamily.Serif, fontSize = 18.sp),
+    labelLarge = Typography.labelLarge.copy(fontFamily = FontFamily.Serif, letterSpacing = 0.6.sp),
+)
+
 fun typographyForStyle(style: ManagerStyle): Typography = when (style) {
     ManagerStyle.PIXEL -> Typography
     ManagerStyle.CYBERPUNK -> CyberTypography
     ManagerStyle.IOS_GLASS -> IosTypography
     ManagerStyle.NEON -> NeonTypography
+    ManagerStyle.RETRO_ARCADE -> RetroTypography
+    ManagerStyle.ANIME_WIBU -> AnimeTypography
+    ManagerStyle.GOTHIC_CRIMSON -> GothicTypography
 }
 
 /** The legacy accent IDs are retained so existing 3.x/4.0 settings migrate. */
@@ -292,6 +384,25 @@ fun accentForStyle(style: ManagerStyle, id: String, dark: Boolean): Color = when
         "pink" -> Color(0xFFFF86D8); "violet" -> Color(0xFFD4A7FF); "lime" -> Color(0xFFBAFF87); else -> Color(0xFF5AEFFF)
     } else when (id) {
         "pink" -> Color(0xFF9C0063); "violet" -> Color(0xFF6631A1); "lime" -> Color(0xFF2D6515); else -> Color(0xFF006078)
+    }
+    // Warm arcade CRT: amber as the default, with an orange "ball" and a mint
+    // "1UP" reading as the other accents. Light mode darkens each for contrast.
+    ManagerStyle.RETRO_ARCADE -> if (dark) when (id) {
+        "pink" -> Color(0xFFFF9A6B); "violet" -> Color(0xFFFFD27A); "lime" -> Color(0xFF9BF0B4); else -> Color(0xFFFFB347)
+    } else when (id) {
+        "pink" -> Color(0xFF9E3B10); "violet" -> Color(0xFF8A5A00); "lime" -> Color(0xFF1C6B3A); else -> Color(0xFF8A4A00)
+    }
+    // Candy pop: strawberry as the default, then soda blue, matcha and grape.
+    ManagerStyle.ANIME_WIBU -> if (dark) when (id) {
+        "pink" -> Color(0xFFFF7FB2); "violet" -> Color(0xFFC9A3FF); "lime" -> Color(0xFF9FE8C0); else -> Color(0xFF7FD8FF)
+    } else when (id) {
+        "pink" -> Color(0xFFB3125A); "violet" -> Color(0xFF6A3BB8); "lime" -> Color(0xFF14764F); else -> Color(0xFF00697F)
+    }
+    // Blood crimson is the only loud colour; steel and bone are the rest.
+    ManagerStyle.GOTHIC_CRIMSON -> if (dark) when (id) {
+        "pink" -> Color(0xFFFF4D5E); "violet" -> Color(0xFFC9CBD4); "lime" -> Color(0xFF8FD9A8); else -> Color(0xFFE01B2E)
+    } else when (id) {
+        "pink" -> Color(0xFF9B1220); "violet" -> Color(0xFF4A4E59); "lime" -> Color(0xFF1F6B3A); else -> Color(0xFF8A0F1B)
     }
 }
 
@@ -348,6 +459,55 @@ fun paletteForStyle(style: ManagerStyle, dark: Boolean, amoled: Boolean, base: C
             dockTintTop = Color(0xFFFDFEFF), dockTintBottom = Color(0xFFF0F4FF),
             borderHighlight = Color(0xFF98C4D3), borderMid = Color(0xFFC3D9E9), borderShadow = Color(0xFFABC2D8),
             divider = Color(0xFFD1DDEA), shadowColor = Color.Transparent,
+        )
+        ManagerStyle.RETRO_ARCADE -> if (dark) DarkGlassStyle.copy(
+            canvasBase = Color(0xFF17120C), cardTintTop = Color(0xFF241C13), cardTintBottom = Color(0xFF1E1710),
+            elevatedTintTop = Color(0xFF2E2418), elevatedTintBottom = Color(0xFF241C13),
+            barTintTop = Color(0xFF1B150E), barTintBottom = Color(0xFF1B150E),
+            dockTintTop = Color(0xFF2A2015), dockTintBottom = Color(0xFF1C160F),
+            borderHighlight = Color(0xFFB98A4E), borderMid = Color(0xFF6B4E2E), borderShadow = Color(0xFF3A2A19),
+            divider = Color(0xFF4A3823), shadowColor = Color.Transparent,
+            innerHighlight = Color(0xFFF0D9A8),
+        ) else LightGlassStyle.copy(
+            canvasBase = Color(0xFFF3E7CF), cardTintTop = Color(0xFFFFF8EA), cardTintBottom = Color(0xFFF7EAD3),
+            elevatedTintTop = Color(0xFFFFFBF2), elevatedTintBottom = Color(0xFFF7EAD3),
+            barTintTop = Color(0xFFF3E7CF), barTintBottom = Color(0xFFEADCC2),
+            dockTintTop = Color(0xFFFFF8EA), dockTintBottom = Color(0xFFE7D6B4),
+            borderHighlight = Color(0xFF6B4E2E), borderMid = Color(0xFFA98A5E), borderShadow = Color(0xFF6B4E2E),
+            divider = Color(0xFFC9B490), shadowColor = Color(0x3317120C),
+        )
+        ManagerStyle.GOTHIC_CRIMSON -> if (dark) DarkGlassStyle.copy(
+            canvasBase = Color(0xFF0A0708), cardTintTop = Color(0xFF15100F), cardTintBottom = Color(0xFF110D0C),
+            elevatedTintTop = Color(0xFF1C1514), elevatedTintBottom = Color(0xFF15100F),
+            barTintTop = Color(0xFF0D0908), barTintBottom = Color(0xFF0D0908),
+            dockTintTop = Color(0xFF1A1211), dockTintBottom = Color(0xFF100B0A),
+            borderHighlight = Color(0xFF8E1B24), borderMid = Color(0xFF4A1218), borderShadow = Color(0xFF280609),
+            divider = Color(0xFF3A0E12), shadowColor = Color.Transparent,
+            innerHighlight = Color(0xFFE8C9C9),
+        ) else LightGlassStyle.copy(
+            canvasBase = Color(0xFFF3EDE8), cardTintTop = Color(0xFFFBF6F2), cardTintBottom = Color(0xFFF3E9E2),
+            elevatedTintTop = Color(0xFFFFFBF8), elevatedTintBottom = Color(0xFFF3E9E2),
+            barTintTop = Color(0xFFF7F0EA), barTintBottom = Color(0xFFF0E4DC),
+            dockTintTop = Color(0xFFFBF6F2), dockTintBottom = Color(0xFFEDE0D7),
+            borderHighlight = Color(0xFF6E1018), borderMid = Color(0xFFB08A7E), borderShadow = Color(0xFF6E1018),
+            divider = Color(0xFFD3BDB0), shadowColor = Color(0x330A0708),
+        )
+        ManagerStyle.ANIME_WIBU -> if (dark) DarkGlassStyle.copy(
+            canvasBase = Color(0xFF15102A), cardTintTop = Color(0xFF241A44), cardTintBottom = Color(0xFF1C1438),
+            elevatedTintTop = Color(0xFF2F2258), elevatedTintBottom = Color(0xFF241A44),
+            barTintTop = Color(0xFF191230), barTintBottom = Color(0xFF191230),
+            dockTintTop = Color(0xFF2C2054), dockTintBottom = Color(0xFF1B1438),
+            borderHighlight = Color(0xFFB08CFF), borderMid = Color(0xFF6B54A8), borderShadow = Color(0xFF3B2D6B),
+            divider = Color(0xFF43346F), shadowColor = Color(0x66000000),
+            blurRadius = 8.dp, dockBlurRadius = 12.dp,
+        ) else LightGlassStyle.copy(
+            canvasBase = Color(0xFFFDF1F8), cardTintTop = Color.White, cardTintBottom = Color(0xFFFFF5FB),
+            elevatedTintTop = Color.White, elevatedTintBottom = Color(0xFFFFF7FC),
+            barTintTop = Color(0xFFFFF9FD), barTintBottom = Color(0xFFFFF0F9),
+            dockTintTop = Color.White, dockTintBottom = Color(0xFFFDE9F5),
+            borderHighlight = Color(0xFFE39BC4), borderMid = Color(0xFFF2C9E0), borderShadow = Color(0xFFD98BB8),
+            divider = Color(0xFFF4D7E8), shadowColor = Color(0x22B3125A),
+            blurRadius = 8.dp, dockBlurRadius = 12.dp,
         )
     }
     if (dark && amoled) glass = glass.copy(
