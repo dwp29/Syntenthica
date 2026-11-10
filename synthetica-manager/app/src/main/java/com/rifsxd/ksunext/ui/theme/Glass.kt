@@ -975,6 +975,9 @@ fun IosRow(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    // Two lines is right for ordinary rows, but a diagnostic line that gets
+    // ellipsized is worse than useless: it hid the reason behind "... AND su".
+    subtitleMaxLines: Int = 2,
 ) {
     val style = LocalManagerStyle.current
     val accent = MaterialTheme.colorScheme.primary
@@ -1014,7 +1017,7 @@ fun IosRow(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = subtitleMaxLines,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

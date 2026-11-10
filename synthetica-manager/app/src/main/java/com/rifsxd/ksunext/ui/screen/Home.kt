@@ -440,6 +440,9 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                                 stringResource(R.string.manager60_no_su_reason)
                             else -> stringResource(R.string.manager60_no_su_reason)
                         } + if (rootDiag.isNotBlank()) " · $rootDiag" else "",
+                        // The diagnostic tail must stay readable; two lines cut
+                        // it off mid-word, which is how the cause stayed hidden.
+                        subtitleMaxLines = if (rootDiag.isNotBlank()) 6 else 2,
                         pill = stringResource(
                             if (universalRoot) R.string.manager60_bridge_active
                             else R.string.manager60_bridge_inactive
