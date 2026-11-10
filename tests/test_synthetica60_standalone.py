@@ -153,6 +153,22 @@ class StandaloneTreeTests(unittest.TestCase):
             used.update(re.findall(r"R\.string\.(manager60_[a-z0-9_]+)", path.read_text(encoding="utf-8")))
         self.assertEqual(used, en_keys, f"unused or undefined: {used ^ en_keys}")
 
+    def test_locale_files_are_not_swapped(self) -> None:
+        # Regression guard: the Indonesian strings belong in values-in-rID, the
+        # English defaults in values/. They were once written the other way
+        # round, which shows Indonesian text on an English phone and vice versa.
+        english = read("app/src/main/res/values/strings_manager50.xml")
+        indonesian = read("app/src/main/res/values-in-rID/strings_manager50.xml")
+        self.assertIn("Root active via the kernel", english)
+        self.assertIn("Root aktif lewat su kernel", indonesian)
+        self.assertIn("reserved but still empty", english)
+        self.assertIn("sudah disiapkan tetapi masih kosong", indonesian)
+        # No Indonesian-only wording may leak into the default resource file.
+        for phrase in ("Penulis belum", "Slot donasi", "Tidak ada root", "Pengembang"):
+            self.assertNotIn(phrase, english)
+        for phrase in ("reserved but still empty", "Developer of the Synthetica", "No root:"):
+            self.assertNotIn(phrase, indonesian)
+
     def test_four_power_profiles_and_revert_exist_in_helper(self) -> None:
         helper = (ASSETS / "synthetica-control40.sh").read_text(encoding="utf-8")
         for profile in ("daily", "gaming", "battery", "cooldown"):
