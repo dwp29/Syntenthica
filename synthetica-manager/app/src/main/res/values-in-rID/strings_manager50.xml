@@ -63,7 +63,8 @@
     <string name="manager60_bridge_row_sub">Kernel pihak ketiga terdeteksi: Control, Boost, pemuat .ko dan pembaca log berjalan lewat su</string>
     <string name="manager60_bridge_row_sub_native">Kernel Synthetica: aksi istimewa memakai backend natif UAPI v4</string>
     <string name="manager60_bridge_row_sub_su">Root aktif lewat su kernel (UID 0) — bukan driver/manager Synthetica</string>
-    <string name="manager60_no_root_reason">Tidak ada root: driver KSU menolak APK ini (signature/package manager) DAN su tidak memberi UID 0</string>
+    <string name="manager60_no_root_reason">Belum ada root: su ada di perangkat ini tetapi belum memberi UID 0. Buka aplikasi root Anda (Magisk / KernelSU / APatch) lalu izinkan Synthetica.</string>
+    <string name="manager60_no_su_reason">Tidak ada root: perangkat ini tidak punya su dan driver KSU tidak mengenali APK ini. Pasang Magisk/KernelSU/APatch, atau pakai kernel Synthetica.</string>
     <string name="about_author_group">Pembuat APK ini</string>
     <string name="about_author_name">Pure_Saturday</string>
     <string name="about_author_role">Pengembang Synthetica kernel, modul &amp; Manager</string>

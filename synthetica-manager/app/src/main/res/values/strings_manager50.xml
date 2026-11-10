@@ -63,7 +63,8 @@
     <string name="manager60_bridge_row_sub">Third-party kernel detected: Control, Boost, .ko loader and log viewer run through su</string>
     <string name="manager60_bridge_row_sub_native">Synthetica kernel: privileged actions use the native UAPI v4 backend</string>
     <string name="manager60_bridge_row_sub_su">Root active via the kernel\'s own su (UID 0) — not the Synthetica driver</string>
-    <string name="manager60_no_root_reason">No root: the KSU driver rejects this APK (manager signature/package) AND su does not yield UID 0</string>
+    <string name="manager60_no_root_reason">No root yet: su exists on this device but has not granted UID 0. Open your root app (Magisk / KernelSU / APatch) and allow Synthetica.</string>
+    <string name="manager60_no_su_reason">No root: this device has no su and the KSU driver does not recognise this APK. Install Magisk/KernelSU/APatch, or use a Synthetica kernel.</string>
     <string name="about_author_group">Author of this APK</string>
     <string name="about_author_name">Pure_Saturday</string>
     <string name="about_author_role">Developer of the Synthetica kernel, modules &amp; Manager</string>

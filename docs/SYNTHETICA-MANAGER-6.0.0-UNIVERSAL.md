@@ -52,6 +52,36 @@ untuk fitur sysfs/procfs yang tidak butuh driver khusus.
 - Semua aksi Control/Boost/Universal memakai allowlist regex; tidak ada argumen bebas dari
   pengguna dan helper dijalankan lewat heredoc literal.
 
+### 2.2.1 Bukti lapangan pertama: 4.14 stok, tanpa root
+
+Uji coba pertama di perangkat nyata (kernel `4.14.357-SuperCosmic/cd7c343f`,
+PixelOS/Matrix) menunjukkan kartu bridge berstatus `SIAGA` dengan pesan lama
+*"driver KSU menolak APK ini (signature/package manager) DAN su tidak memberi
+UID 0"*. **Pesan itu menyesatkan** dan sudah diperbaiki:
+
+| Yang diukur | Arti sebenarnya |
+|---|---|
+| Kernel 4.14 | Tidak mungkin menjalankan KernelSU (butuh GKI 2.0 / 5.10+), jadi **tidak ada driver KSU** yang bisa menolak apa pun |
+| `su` tidak ada di `PATH` | Belum ada Magisk/KernelSU/APatch terpasang |
+| Akibatnya | Tidak ada yang pernah *meminta* izin root, jadi tidak ada penolakan |
+
+`detectRootChannel()` sekarang membedakan empat keadaan, bukan dua:
+
+| `RootChannel` | Kapan | Pesan ke pengguna |
+|---|---|---|
+| `SU` | shell benar-benar UID 0 | bridge `AKTIF` |
+| `KSUD` | driver mengenali APK | backend natif UAPI v4 |
+| `SU_DENIED` | `su` ada tetapi tidak memberi UID 0 | "buka aplikasi root Anda lalu izinkan Synthetica" |
+| `SU_ABSENT` | tidak ada `su` sama sekali | "perangkat ini tidak punya su; pasang Magisk/KernelSU/APatch atau pakai kernel Synthetica" |
+
+**Yang tidak bisa diperbaiki dengan kode apa pun:** kernel 4.14 tanpa Magisk
+tidak punya jalur root. APK tidak melakukan *root exploit*, dan driver KSU
+tidak bisa ditambahkan dari userspace. Di perangkat itu Manager bisa dipasang
+dan dipakai sebagai tampilan, tetapi bridge akan tetap `SIAGA` sampai pengguna
+memasang root dari pihak lain atau memakai kernel yang mendukung.
+
+Penjaga regresi: `test_no_root_message_names_the_layer_that_actually_failed`.
+
 ### 2.3 Empat profil daya & termal (`synthetica-control40.sh`)
 | Profil | Governor | Batas frekuensi | GPU | `swappiness` |
 |---|---|---|---|---|

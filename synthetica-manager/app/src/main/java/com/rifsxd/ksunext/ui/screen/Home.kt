@@ -428,7 +428,11 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                             // No root: name the exact layer that failed instead of
                             // telling the user to install a kernel that may already
                             // be installed but signed for another manager.
-                            else -> stringResource(R.string.manager60_no_root_reason)
+                            rootChannel == RootChannel.SU_DENIED ->
+                                stringResource(R.string.manager60_no_root_reason)
+                            rootChannel == RootChannel.SU_ABSENT ->
+                                stringResource(R.string.manager60_no_su_reason)
+                            else -> stringResource(R.string.manager60_no_su_reason)
                         },
                         pill = stringResource(
                             if (universalRoot) R.string.manager60_bridge_active

@@ -45,8 +45,14 @@ private fun getKsuDaemonPath(): String {
  * (diagnostics, UI) can show the truth instead of guessing.
  */
 enum class RootChannel {
+    /** `su` exists and the user granted it, but the shell is not uid 0. */
+    SU_DENIED,
+
     /** /system/bin/su — KernelSU family (BakaSU, SukiSU, APatch), Magisk. */
     SU,
+
+    /** /system/bin/su does not exist at all on this device. */
+    SU_ABSENT,
 
     /** Synthetica's own libksud.so, UAPI 4. */
     KSUD,
@@ -98,7 +104,11 @@ suspend fun detectRootChannel(): RootChannel = withContext(Dispatchers.IO) {
     when {
         probeSuRoot() -> RootChannel.SU
         runCatching { Natives.isManager }.getOrDefault(false) -> RootChannel.KSUD
-        else -> RootChannel.NONE
+        // Distinguish "su is there but not granted" from "there is no su at
+        // all". Without this the UI told the user the KSU driver rejected the
+        // APK when usually nothing had ever asked the user to grant root.
+        suBinaryPresent() -> RootChannel.SU_DENIED
+        else -> RootChannel.SU_ABSENT
     }
 }
 
@@ -537,6 +547,17 @@ fun rootAvailable() = Shell.isAppGrantedRoot() == true
  * the explicit `id -u` is kept as a second, cheap confirmation for the case
  * where the shell was built before that check completed.
  */
+/**
+ * Is there a `su` binary on PATH at all? Purely observational: it runs no
+ * command and therefore cannot trigger a prompt. Used only to word the
+ * failure correctly.
+ */
+fun suBinaryPresent(): Boolean = runCatching {
+    val paths = System.getenv("PATH").orEmpty().split(':').filter { it.isNotBlank() }
+    paths.any { File(it, "su").canExecute() } || File("/system/bin/su").canExecute() ||
+        File("/system/xbin/su").canExecute()
+}.getOrDefault(false)
+
 fun probeSuRoot(): Boolean {
     if (rootAvailable()) return true
     return runCatching {

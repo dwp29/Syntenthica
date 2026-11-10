@@ -107,6 +107,29 @@ class StandaloneTreeTests(unittest.TestCase):
         self.assertIn("LaunchedEffect(isManager)", home)
         self.assertIn("rootChannel = detectRootChannel()", home)
 
+    def test_no_root_message_names_the_layer_that_actually_failed(self) -> None:
+        # The shipped APK told a user with a stock 4.14 kernel "the KSU driver
+        # rejects this APK", which was wrong twice over: that kernel has no KSU
+        # driver, and nothing had ever asked for root. The wording must follow
+        # the measured channel instead of assuming one cause.
+        cli = read("app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt")
+        self.assertIn("SU_DENIED", cli)
+        self.assertIn("SU_ABSENT", cli)
+        self.assertIn("fun suBinaryPresent()", cli)
+        # `su` present but not granted, and no `su` at all, are different states.
+        detect = cli[cli.index("suspend fun detectRootChannel()"):][:600]
+        self.assertIn("suBinaryPresent()", detect)
+        # ...and the branch must run before the catch-all, or it is dead code.
+        self.assertLess(detect.index("suBinaryPresent()"), detect.index("SU_ABSENT"))
+        for locale in ("values", "values-in-rID"):
+            strings = read(f"app/src/main/res/{locale}/strings_manager50.xml")
+            self.assertIn('name="manager60_no_su_reason"', strings)
+            no_root = strings[strings.index('name="manager60_no_root_reason"'):]
+            no_root = no_root[:no_root.index("</string>")]
+            # Must not blame the KSU driver: that is not what was measured.
+            self.assertNotIn("driver KSU menolak", no_root)
+            self.assertNotIn("KSU driver rejects", no_root)
+
     def test_about_page_credits_author_source_licence_and_donation_slot(self) -> None:
         credit = read("app/src/main/java/com/rifsxd/ksunext/ui/util/AppCredit60.kt")
         self.assertIn('AUTHOR = "Pure_Saturday"', credit)
