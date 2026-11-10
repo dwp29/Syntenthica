@@ -206,11 +206,13 @@ mengembalikan `uid=0`) plus konfirmasi `id -u` == `0`.
 ### 7.4 Status verifikasi
 
 `tests/test_synthetica60_standalone.py` + `tests/test_synthetica60_signing.py`
-lulus (32 test), termasuk penjaga regresi:
+lulus (33 test), termasuk penjaga regresi:
 - locale tidak boleh tertukar antara `values/` dan `values-in-rID/`;
 - `su` harus dicoba sebelum `libksud.so`;
 - probe root harus memakai `shell.isRoot`, bukan exit code;
-- slot donasi harus tetap placeholder nonaktif.
+- slot donasi harus tetap placeholder nonaktif;
+- `detectRootChannel()` harus `suspend` + `Dispatchers.IO` (pernah hilang dan
+  membuat probe jalan di main thread).
 
 Seluruh suite repo juga dijalankan ulang dari pohon yang sekarang: **515 test,
 0 gagal** (126 skip karena prasyarat host), termasuk gate statis 6.0.0
