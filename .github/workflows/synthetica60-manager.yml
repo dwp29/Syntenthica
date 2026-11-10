@@ -11,6 +11,11 @@ on:
       - 'tests/test_synthetica60_*.py'
       - 'tests/verify_synthetica60_apk.py'
   workflow_dispatch:
+  # Not a manual convenience: pushes made by the integration token do not
+  # schedule workflow runs, so the build is started with a repository_dispatch
+  # event instead (POST /repos/:owner/:repo/dispatches).
+  repository_dispatch:
+    types: [manager60-build]
 
 permissions:
   contents: write # unsigned APK, evidence logs and test output as unreferenced blobs only
