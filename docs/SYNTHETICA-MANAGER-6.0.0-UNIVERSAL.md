@@ -212,8 +212,24 @@ lulus (32 test), termasuk penjaga regresi:
 - probe root harus memakai `shell.isRoot`, bukan exit code;
 - slot donasi harus tetap placeholder nonaktif.
 
-Yang **belum** diverifikasi: kompilasi APK. Workflow
-`synthetica60-manager.yml` tidak menghasilkan run baru untuk push setelah
-`e83d3a4` walau statusnya `active`; `workflow_dispatch` juga ditolak
-(`HTTP 403 Resource not accessible by integration`). Artinya perubahan ini
-lolos gate statis/host, **belum** lolos kompilasi Kotlin.
+Seluruh suite repo juga dijalankan ulang dari pohon yang sekarang: **515 test,
+0 gagal** (126 skip karena prasyarat host), termasuk gate statis 6.0.0
+(`[verify] net.ember.labs 6.0.0 (70000); UAPI 4; standalone tree OK`).
+
+### 7.5 Yang belum diverifikasi: kompilasi
+
+Workflow `synthetica60-manager.yml` **tidak pernah** menghasilkan run untuk
+commit setelah `e83d3a4`, walau:
+
+| Cara | Hasil |
+|---|---|
+| Push ke branch yang dipantau (`on.push.paths`) | tidak ada run |
+| `workflow_dispatch` | `HTTP 403 Resource not accessible by integration` |
+| Ganti nama workflow (ID baru) | workflow lama tetap `412328719`, tidak ada run |
+
+Workflow lain di repo ini juga berhenti membuat run di periode yang sama, jadi
+penyebabnya ada di sisi GitHub (status Actions repo), **bukan** di YAML. Tidak
+ada perubahan dari dalam repo yang bisa menembusnya.
+
+Konsekuensinya: perubahan 7.1–7.4 lolos gate statis/host/suite, **belum** lolos
+kompilasi Kotlin maupun instalasi di perangkat. Jangan menganggapnya rilis.
