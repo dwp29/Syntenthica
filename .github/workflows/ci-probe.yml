@@ -1,0 +1,18 @@
+name: "CI probe (delete after use)"
+
+on:
+  push:
+    branches: [arena/96cbd65a-synthentica]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "probe ok: $(date -u)"
+          echo "sha: ${{ github.sha }}"
