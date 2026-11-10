@@ -116,6 +116,7 @@ import com.rifsxd.ksunext.ui.theme.IosTile
 import com.rifsxd.ksunext.ui.theme.iosGlass
 import com.rifsxd.ksunext.ui.util.RootChannel
 import com.rifsxd.ksunext.ui.util.detectRootChannel
+import com.rifsxd.ksunext.ui.util.diagnoseRoot60
 import com.rifsxd.ksunext.ui.util.getMetaModule
 import com.rifsxd.ksunext.ui.util.getModuleCount
 import com.rifsxd.ksunext.ui.util.getSELinuxStatus
@@ -193,10 +194,15 @@ fun HomeScreen(navigator: DestinationsNavigator) {
     // Only shown when the kernel is foreign, so the user can see *why* a feature
     // is unavailable instead of a status that silently lies.
     var rootChannel by remember { mutableStateOf(RootChannel.NONE) }
+    var rootDiag by remember { mutableStateOf("") }
     LaunchedEffect(isManager) {
         if (!isManager) {
             universalRoot = probeUniversalRoot60()
             rootChannel = detectRootChannel()
+            // When root exists but was not reached, the device itself has to
+            // say why. Without this the only report was "no root", which the
+            // user could not tell apart from a real permission problem.
+            if (!universalRoot) rootDiag = diagnoseRoot60()
         }
     }
 
@@ -433,7 +439,7 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                             rootChannel == RootChannel.SU_ABSENT ->
                                 stringResource(R.string.manager60_no_su_reason)
                             else -> stringResource(R.string.manager60_no_su_reason)
-                        },
+                        } + if (rootDiag.isNotBlank()) " · $rootDiag" else "",
                         pill = stringResource(
                             if (universalRoot) R.string.manager60_bridge_active
                             else R.string.manager60_bridge_inactive

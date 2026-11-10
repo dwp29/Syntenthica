@@ -64,15 +64,21 @@ enum class RootChannel {
 /**
  * Root shell for BOTH ecosystems, built as an explicit fallback chain.
  *
- * `su` comes first: on every KernelSU-family kernel /system/bin/su is the
- * kernel's own entry point — the request the user approves in the kernel's
- * manager, and the only one guaranteed to be wired to the driver.
+ * Plain `su` comes first, ALWAYS. This is the bug that made a rooted KernelSU
+ * device look unrooted: the previously shipped chain started with
+ * `su --mount-master`, which KernelSU's su does not implement — it exits
+ * non-zero and prints usage instead of granting a shell. Because the shell sat
+ * in a mount-master namespace for every caller (the default builder passes
+ * `globalMnt = true`), a perfectly good root was never reached.
  *
- * `libksud.so debug su` is second and only runs when `su` failed. That binary
- * ships inside our APK regardless of the kernel, so it must never be tried
- * first, or a foreign ksud would shadow a perfectly good su. In ksud's clap
- * definition `global_mnt` takes both `-g` and `--global-mnt`; the long form is
- * used here so an unrelated `-g GROUP` meaning cannot be picked up later.
+ * `su --mount-master` is therefore only a *fallback* after plain `su` failed,
+ * which is where Magisk accepts it. `-g` on KernelSU's su means "group", not
+ * "global mount", so the long form is used and only when it can help.
+ *
+ * `libksud.so debug su` is last before the `sh` tail: that binary ships inside
+ * our APK regardless of the kernel, so it must never be tried first, or a
+ * foreign ksud would shadow a perfectly good su. In ksud's clap definition
+ * `global_mnt` takes both `-g` and `--global-mnt`; the long form is used here.
  *
  * A plain `sh` tail keeps an unrooted device usable; it never claims root.
  */
@@ -80,16 +86,21 @@ fun createRootShellBuilder(globalMnt: Boolean = false): Shell.Builder {
     return Shell.Builder.create().run {
         val ksud = getKsuDaemonPath()
         val cmd = buildString {
-            // Mount-master is requested first but must not take `su` down with
-            // it: Magisk rejects --mount-master, and then the plain su below
-            // still has to run in this same process.
-            if (globalMnt) {
-                append("su --mount-master || ")
-            }
+            // Plain su first: it is the only form every su implementation
+            // supports, and on KernelSU it is what the user approves. Asking
+            // for --mount-master first made KernelSU's su print its usage and
+            // exit, so the whole chain fell through to the unprivileged sh.
             append("su || ")
             append("$ksud debug su")
             if (globalMnt) append(" --global-mnt")
-            append(" || sh")
+            append(" || ")
+            // Only now, when plain su has already failed, try the mount-master
+            // namespace that Magisk understands. A kernel that rejects it has
+            // still had its chance to answer the plain su above.
+            if (globalMnt) {
+                append("su --mount-master || ")
+            }
+            append("sh")
         }
         setCommands("sh", "-c", cmd)
     }
@@ -557,6 +568,36 @@ fun suBinaryPresent(): Boolean = runCatching {
     paths.any { File(it, "su").canExecute() } || File("/system/bin/su").canExecute() ||
         File("/system/xbin/su").canExecute()
 }.getOrDefault(false)
+
+/**
+ * One-line, device-side explanation of why root was not obtained. Written for
+ * the case where the user knows the device IS rooted (KernelSU says so) but the
+ * Manager reports NONE: guessing is useless there, so this records what each
+ * layer actually answered.
+ *
+ * Deliberately cheap and safe: a handful of toybox calls through an
+ * unprivileged shell, no su prompt, no writes.
+ */
+suspend fun diagnoseRoot60(): String = withContext(Dispatchers.IO) {
+    val facts = ArrayList<String>(6)
+    facts += "su:" + if (suBinaryPresent()) "ada" else "tidak"
+    facts += "ksu:" + (runCatching { Natives.isManager }.getOrDefault(false))
+    facts += "kern:" + runCatching { System.getProperty("os.version").orEmpty() }.getOrDefault("?")
+    val probe = runCatching {
+        val out = ArrayList<String>()
+        Shell.Builder.create().build().use { sh ->
+            sh.newJob().add(
+                "for a in /proc/self/fd/*; do t=\$(readlink \"\$a\" 2>/dev/null); " +
+                "case \"\$t\" in *ksu_driver*) echo driver=ya\$t;; esac; done; " +
+                "echo uid=\$(id -u)"
+            ).to(out, null).exec()
+        }
+        out
+    }.getOrDefault(ArrayList())
+    if (probe.any { it.contains("driver=") }) facts += "driver:ya" else facts += "driver:tidak"
+    probe.firstOrNull { it.startsWith("uid=") }?.let { facts += it.trim() }
+    facts.joinToString(" · ")
+}
 
 fun probeSuRoot(): Boolean {
     if (rootAvailable()) return true

@@ -82,6 +82,46 @@ memasang root dari pihak lain atau memakai kernel yang mendukung.
 
 Penjaga regresi: `test_no_root_message_names_the_layer_that_actually_failed`.
 
+### 2.2.2 Bug nyata: HP ber-root KernelSU terbaca "tidak ada root"
+
+Laporan lapangan: perangkat **sudah root dengan KernelSU** dan aplikasi
+KernelSU menunjukkan berfungsi, tetapi Manager 6.0.0 tetap `SIAGA`.
+
+Penyebabnya ditemukan di rantai root yang dikirim APK:
+
+```text
+su --mount-master || su || <nativeLibraryDir>/libksud.so debug su --global-mnt || sh
+```
+
+`su --mount-master` adalah opsi **Magisk**; `su` milik KernelSU tidak
+mengenalinya, mencetak bantuan lalu keluar dengan status bukan-nol. Karena
+seluruh aplikasi memakai builder dengan `globalMnt = true`
+(`Shell.setDefaultBuilder(createRootShellBuilder(true))` di
+`KernelSUApplication`), **setiap** pemanggil memulai dengan perintah yang gagal
+itu. Rantai akhirnya jatuh ke `sh` tanpa hak istimewa, dan probe menyimpulkan
+"tidak ada root" pada perangkat yang justru ber-root.
+
+Perbaikannya: urutan dibalik menjadi
+
+```text
+su || <nativeLibraryDir>/libksud.so debug su [--global-mnt] || su --mount-master || sh
+```
+
+`su` polos selalu pertama karena hanya bentuk itu yang dipahami semua
+implementasi `su`. `--mount-master` turun menjadi cadangan setelah `su` polos
+gagal, yang tetap benar untuk Magisk. Penjaga regresi:
+`test_plain_su_runs_before_any_mount_master_variant` (dibuktikan gagal saat
+urutan lama dikembalikan).
+
+Tambahan diagnostik `diagnoseRoot60()`: bila root tidak tercapai, Home
+menampilkan fakta perangkat apa adanya melalui `su:` / `ksu:` / `kern:` /
+`driver:` / `uid=`, sehingga tidak perlu menebak lagi apakah masalahnya ada di
+tanda tangan, di `PATH`, atau di kernel.
+
+**Catatan:** baris ini juga terpotong dua baris oleh `IosRow`, sehingga pesan
+hanya tampil sebagai "… DAN su…". Itu kosmetik, tetapi membuat pesan tidak
+terbaca; sudah diperbaiki bersamaan.
+
 ### 2.3 Empat profil daya & termal (`synthetica-control40.sh`)
 | Profil | Governor | Batas frekuensi | GPU | `swappiness` |
 |---|---|---|---|---|

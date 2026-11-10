@@ -90,6 +90,24 @@ class StandaloneTreeTests(unittest.TestCase):
         self.assertLess(chain.index('append("su'), chain.index("debug su"))
         self.assertIn("--global-mnt", chain)
         self.assertNotIn('debug su -g', chain)
+
+    def test_plain_su_runs_before_any_mount_master_variant(self) -> None:
+        # This shipped as a real bug: the chain started with
+        # `su --mount-master`, which KernelSU's su does not implement, so on a
+        # rooted KernelSU device every caller got the unprivileged sh and the
+        # Manager declared "no root". Plain `su` must be the first command, and
+        # --mount-master may only appear as a later fallback.
+        cli = read("app/src/main/java/com/rifsxd/ksunext/ui/util/KsuCli.kt")
+        chain_start = cli.index("fun createRootShellBuilder(")
+        chain = cli[chain_start:cli.index("setCommands", chain_start)]
+        self.assertIn('append("su || ")', chain)
+        # Strip comments: the rationale mentions --mount-master in prose and
+        # must not be able to satisfy (or break) a check about command order.
+        code = "\n".join(line.split("//", 1)[0] for line in chain.splitlines())
+        self.assertLess(code.index('append("su || ")'),
+                        code.index('append("su --mount-master'))
+        # ...and the unprivileged tail must stay last.
+        self.assertLess(code.index('append("su --mount-master'), code.rindex('append("sh")'))
         # libsu reports ROOT_SHELL only after `id` printed uid=0; the exit code of
         # the whole `|| sh` chain is meaningless, so it must not be trusted alone.
         probe_start = cli.index("fun probeSuRoot()")
