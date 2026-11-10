@@ -220,18 +220,27 @@ Seluruh suite repo juga dijalankan ulang dari pohon yang sekarang: **515 test,
 
 ### 7.5 Yang belum diverifikasi: kompilasi
 
-Workflow `synthetica60-manager.yml` **tidak pernah** menghasilkan run untuk
-commit setelah `e83d3a4`, walau:
+**Penyebabnya global, bukan workflow ini.** Bukti dari repo (semua lewat API,
+bukan dugaan):
 
-| Cara | Hasil |
+| Uji | Hasil |
 |---|---|
-| Push ke branch yang dipantau (`on.push.paths`) | tidak ada run |
-| `workflow_dispatch` | `HTTP 403 Resource not accessible by integration` |
-| Ganti nama workflow (ID baru) | workflow lama tetap `412328719`, tidak ada run |
+| Push ke commit yang menyentuh `synthetica501-manager.yml`, `synthetica50-manager.yml` dan `manager60-build.yml` sekaligus | **tidak ada** run untuk ketiganya |
+| Workflow probe baru `ci-probe.yml` (nama & isi sederhana) | **jalan** (run `42741370990`, sukses) |
+| `workflow_dispatch` untuk workflow mana pun | `HTTP 403 Resource not accessible by integration` |
+| `repository_dispatch` | tidak menghasilkan run (event ini hanya menjangkau workflow di branch *default*) |
+| Workflow `manager60-build.yml` | **tidak pernah muncul** di daftar workflow GitHub |
 
-Workflow lain di repo ini juga berhenti membuat run di periode yang sama, jadi
-penyebabnya ada di sisi GitHub (status Actions repo), **bukan** di YAML. Tidak
-ada perubahan dari dalam repo yang bisa menembusnya.
+Tidak ada run sama sekali setelah `2026-11-10T02:14Z` kecuali probe. Workflow
+lama (5.0, 5.0.1, 4.0) juga berhenti pada 9 Nov. Pola ini cocok dengan kuota
+GitHub Actions yang habis: workflow yang **baru mendaftar** masih bisa jalan,
+sedangkan workflow yang sudah terdaftar gagal dijadwalkan tanpa pesan error.
 
-Konsekuensinya: perubahan 7.1–7.4 lolos gate statis/host/suite, **belum** lolos
-kompilasi Kotlin maupun instalasi di perangkat. Jangan menganggapnya rilis.
+Artinya: perubahan 7.1–7.4 lolos gate statis, host, dan suite penuh (515 test),
+tetapi **belum** lolos kompilasi Kotlin maupun instalasi di perangkat.
+
+**Tindakan yang diperlukan di luar repo:** buka
+*GitHub → Settings → Billing → Plans and usage → Actions* untuk akun `dwp29`.
+Kalau kuota habis, tunggu reset bulanan atau naikkan batas; baru setelah itu
+`Manager 6.0.0` bisa dikompilasi dan ditandatangani ulang. Jangan menganggap
+pohon ini sudah menjadi rilis.
