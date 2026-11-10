@@ -93,12 +93,11 @@ jobs:
           git config user.email "ci@users.noreply.github.com"
           # The unsigned APK stays in the CI artifact. Committing it put ~9 MB
           # into git history on every run; only text evidence is useful here.
-          (cd ci-stage/step1 && find . -maxdepth 1 -type f ! -name '*.apk' -print0) \
-            | xargs -0 -r git add -f
           if [ -f ci-stage/step1/manager-aligned.apk ]; then
             sha256sum ci-stage/step1/manager-aligned.apk > ci-stage/step1/APK-SHA256.txt
-            git add -f ci-stage/step1/APK-SHA256.txt
           fi
+          git add -f ci-stage/step1/
+          git rm -q --cached -f ci-stage/step1/manager-aligned.apk 2>/dev/null || true
           git commit -qm "ci: step 1 manager build output (run ${GITHUB_RUN_ID})" || exit 0
           for i in 1 2 3; do
             git pull --rebase "$remote" "${GITHUB_REF_NAME}" || true
