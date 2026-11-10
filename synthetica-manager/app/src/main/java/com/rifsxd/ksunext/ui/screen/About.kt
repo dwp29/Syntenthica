@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DeveloperBoard
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Memory
@@ -257,8 +256,8 @@ fun AboutScreen(navigator: DestinationsNavigator) {
                 title = stringResource(R.string.about_donate_group),
                 footer = stringResource(R.string.about_donate_sub_empty),
             ) {
-                IosRow(
-                    icon = Icons.Rounded.Favorite,
+                BrandIconRow(
+                    drawableRes = R.drawable.ic_donate_placeholder,
                     badgeColor = IosPinkDark,
                     title = stringResource(R.string.about_donate),
                     subtitle = stringResource(R.string.about_donate_sub_empty),

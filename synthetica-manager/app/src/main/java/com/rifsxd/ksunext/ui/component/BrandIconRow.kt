@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.rifsxd.ksunext.ui.theme.IosPill
 
 /**
  * Same geometry as [com.rifsxd.ksunext.ui.theme.IosRow], but the leading glyph
@@ -45,6 +46,8 @@ fun BrandIconRow(
     title: String,
     subtitle: String? = null,
     value: String? = null,
+    pill: String? = null,
+    pillColor: Color = androidx.compose.ui.graphics.Color.Unspecified,
     showChevron: Boolean = false,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
@@ -91,6 +94,13 @@ fun BrandIconRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        if (pill != null) {
+            IosPill(
+                text = pill,
+                color = if (pillColor == Color.Unspecified) badgeColor else pillColor,
+            )
+            if (value != null || showChevron) Spacer(Modifier.width(6.dp))
         }
         if (value != null) {
             Spacer(Modifier.width(8.dp))
