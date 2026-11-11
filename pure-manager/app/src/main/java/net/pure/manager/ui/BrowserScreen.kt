@@ -32,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,6 +90,43 @@ fun BrowserScreen(spec: PureThemeSpec) {
     // on the path alone meant a rename or delete left a stale list until the user
     // navigated away and back -- which reads as data loss.
     var refreshKey by remember { mutableStateOf(0) }
+    // Folders the user granted through SAF. Persisted, because a tree that is not
+    // persisted becomes an entry that fails to open on the next launch, which reads
+    // as data loss.
+    var trees by remember {
+        mutableStateOf(
+            context.getSharedPreferences("pure-trees", android.content.Context.MODE_PRIVATE)
+                .getStringSet("uris", emptySet()).orEmpty()
+                    .map { uri ->
+                        val label = runCatching {
+                            android.provider.DocumentsContract
+                                .getTreeDocumentId(android.net.Uri.parse(uri))
+                                ?.substringAfterLast(':')
+                                ?.ifEmpty { "Folder" }
+                        }.getOrNull() ?: "Folder"
+                        label to android.net.Uri.parse(uri)
+                    }
+        )
+    }
+
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null && Storage.takePersistable(context, uri)) {
+            val prefs = context.getSharedPreferences("pure-trees", android.content.Context.MODE_PRIVATE)
+            prefs.edit().putStringSet("uris", prefs.getStringSet("uris", emptySet()).orEmpty() + uri.toString()).apply()
+            trees = trees + (Storage.displayName(uri.toString()) to uri)
+            // Open it immediately: choosing a folder and then staying put would
+            // look like nothing happened.
+            path = uri.toString()
+            locationLabel = Storage.displayName(uri.toString())
+            mode = AccessMode.STORAGE_TREE
+            query = ""
+            toast = "Folder ditambahkan"
+        } else if (uri != null) {
+            toast = "Folder itu tidak memberi izin permanen"
+        }
+    }
 
     // Re-read whenever the folder, the ordering or the hidden-file setting change.
     LaunchedEffect(path, sortKeyName, sortDescending, showHidden, mode, refreshKey) {
@@ -97,6 +136,22 @@ fun BrowserScreen(spec: PureThemeSpec) {
         }
         val folder = path.ifEmpty {
             Storage.locations(context).firstOrNull()?.path.orEmpty()
+        }
+        // A SAF tree is listed through the content resolver, not java.io.File.
+        if (Storage.isTreePath(folder)) {
+            loading = true
+            error = null
+            val result = withContext(Dispatchers.IO) {
+                Storage.listTree(context, android.net.Uri.parse(folder), showHidden)
+            }
+            entries = result
+                .map { it.sortedWith(comparatorFor(SortOrder(SortKey.valueOf(sortKeyName), sortDescending))) }
+                .getOrElse {
+                    error = it.message ?: "Folder tidak bisa dibaca"
+                    emptyList()
+                }
+            loading = false
+            return@LaunchedEffect
         }
         if (folder.isEmpty()) return@LaunchedEffect
         loading = true
@@ -137,12 +192,7 @@ fun BrowserScreen(spec: PureThemeSpec) {
             AccessMode.NONE -> PermissionCard(
                 spec = spec,
                 onAllFiles = { context.startActivity(Storage.allFilesIntent(context)) },
-                onPickFolder = {
-                    // Handled by the caller's activity result launcher in a later
-                    // slice; the button is here so the screen is honest about the
-                    // two routes rather than showing one.
-                    toast = "Pemilih folder SAF menyusul di irisan berikutnya."
-                },
+                onPickFolder = { folderPicker.launch(null) },
             )
             else -> {
                 SearchField(spec, query, onValueChange = { query = it })
@@ -179,6 +229,7 @@ fun BrowserScreen(spec: PureThemeSpec) {
                     },
                     onToggleGrid = { grid = !grid },
                     onToggleHidden = { showHidden = !showHidden },
+                    onAddFolder = { folderPicker.launch(null) },
                     onHome = {
                         val first = Storage.locations(context).firstOrNull()
                         if (first != null) {
@@ -408,6 +459,7 @@ private fun Toolbar(
     grid: Boolean,
     showHidden: Boolean,
     canGoUp: Boolean,
+    onAddFolder: () -> Unit,
     onUp: () -> Unit,
     onSort: () -> Unit,
     onToggleGrid: () -> Unit,
@@ -451,6 +503,8 @@ private fun Toolbar(
         ToolButton(if (grid) "\u2637" else "\u2263", true, onToggleGrid)
         Spacer(Modifier.size(6.dp))
         ToolButton("\u2302", false, onHome)
+        Spacer(Modifier.size(6.dp))
+        ToolButton("\u2295", false, onAddFolder)
     }
 }
 

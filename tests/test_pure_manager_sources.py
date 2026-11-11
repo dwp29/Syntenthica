@@ -496,6 +496,42 @@ class HazeStructure(unittest.TestCase):
                          "each screen must share one HazeState")
 
 
+class AccessRoutes(unittest.TestCase):
+    """Both ways in must actually exist, not just be described.
+
+    The permission card promised "pilih satu folder saja" while the handler only
+    set a string saying it would come later. That is worse than an absent button:
+    it looks like a feature and does nothing.
+    """
+
+    def setUp(self):
+        self.browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        self.storage = (SRC / "net/pure/manager/fs/Storage.kt").read_text()
+
+    def test_saf_picker_is_wired(self):
+        self.assertIn("OpenDocumentTree", self.browser)
+        self.assertIn("folderPicker.launch(null)", self.browser)
+        # The claim is narrow on purpose: a *button* that promises a later slice is
+        # a broken promise. A toast saying "opening files comes later" is honest,
+        # because opening files really is not implemented yet.
+        self.assertRegex(self.browser, r"onPickFolder = \{ folderPicker\.launch",
+                         "the pick-folder button must open the picker, not a toast")
+        self.assertRegex(self.browser, r"onAddFolder = \{ folderPicker\.launch")
+
+    def test_tree_grants_are_persisted(self):
+        self.assertIn("takePersistable", self.browser)
+        self.assertIn("takePersistableUriPermission", self.storage)
+
+    def test_tree_paths_are_read_through_the_resolver(self):
+        self.assertIn("isTreePath", self.browser)
+        self.assertIn("listTree", self.browser)
+
+    def test_every_button_handler_does_something(self):
+        """No clickable may lead to an empty lambda in the browser."""
+        empties = re.findall(r"clickable\s*\{\s*\}", self.browser)
+        self.assertEqual([], empties, "a click that does nothing")
+
+
 class ManifestAndGradle(unittest.TestCase):
     def test_all_files_permission_arrives_with_the_feature_that_needs_it(self):
         """Stage 1 must not ask; stage 2 must, because it reads real files."""

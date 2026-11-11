@@ -595,7 +595,7 @@ private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spe
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     GroupCard(spec) {
         listOf(
-            "Versi" to "0.2.0",
+            "Versi" to "0.2.1",
             "Tahap" to "T2 \u2014 peramban berkas",
             "Paket" to "net.pure.manager",
             "Android" to "10\u201316",
