@@ -765,6 +765,18 @@ class ManifestAndGradle(unittest.TestCase):
                         self.fail(f"{f.name}: val parameter '{name}' assigned in {m.group(1)}: {st}")
         self.assertGreaterEqual(checked, 100, "parameter scan found suspiciously little")
 
+    def test_the_workflow_reads_the_version_instead_of_repeating_it(self):
+        """Build 18: 38 tests passed and the build still failed.
+
+        The artifact was 0.3.1; the verification step grepped for versionName 0.3.0,
+        written there by hand. Any test count is worthless if the packaging step
+        asserts a string nobody updates.
+        """
+        wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
+        self.assertIn('VERSION=$(sed -n', wf)
+        self.assertNotRegex(wf, r"versionName='0\.3\.\d+'", "the expected version is hardcoded")
+        self.assertNotRegex(wf, r"PureManager-0\.\d+\.\d+-DEBUGKEY", "the artifact name is hardcoded")
+
     def test_gradle_version_satisfies_the_android_plugin(self):
         # AGP 8.7.3 rejects anything below Gradle 8.9; the first CI run died on
         # exactly this, so it is pinned in the workflow.
