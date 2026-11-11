@@ -279,3 +279,140 @@ perintah — bukan hanya warnanya.
 3. **Model AI lokal mana yang dibundel sebagai modul pertama?**
    Saya sarankan **OCR (4 MB)** dulu — paling kecil, paling langsung berguna,
    dan tidak butuh GPU.
+
+---
+
+# Lampiran A — Tambahan 2026-10-31 (dokumen ekstensi, belum masuk v1)
+
+Menjawab tiga hal: format dokumen, editor kode + terminal, dan klaim spoofing Nano.
+
+## A.1 Dukungan format berkas — status jujur
+
+| Kategori | Format | v1 | Cara | Catatan |
+|---|---|---|---|---|
+| Arsip | ZIP, TAR, TAR.GZ | ✅ baca+tulis | commons-compress | |
+| Arsip | RAR, 7z | ⬜ baca saja, modul | junrar | Tulis RAR tidak mungkin |
+| Gambar | JPG, PNG, WebP, GIF, HEIC, AVIF | ✅ | bawaan + modul codec | |
+| Video | MP4, MKV, WebM | ⬜ putar via intent sistem | ExoPlayer (modul) | |
+| **PDF** | .pdf | ⬜ **v1.1** | `PdfRenderer` baca + `PdfBox-Android` anotasi | ~3 MB |
+| **Word** | .docx | ⬜ **v1.1 baca**, edit ⬜ | `docx4j` (Android port) | Apache POI penuh **123 MB** — tidak layak |
+| **Excel** | .xlsx | ⬜ **v1.1 baca**, edit ⬜ | `docx4j` spreadsheet | Sama |
+| Word/Excel lama | .doc, .xls | ❌ v1 | — | Format biner tua, sedikit pengguna |
+| Markdown, teks, kode | .md .txt .json .xml .kt .py | ✅ | editor sendiri | |
+| E-book | .epub | ⬜ v2 | — | |
+
+**Temuan penting:** Apache POI versi penuh **123 MB** dan melewati batas 65k method.
+Yang dipakai aplikasi nyata adalah **docx4j** untuk `.docx`/`.xlsx`, dan itulah
+yang akan saya pakai — sebagai **modul terpisah**, karena tetap belasan MB.
+
+**Jadi untuk pertanyaan Anda:** PDF/Word/Excel **belum masuk v1**. Saya tidak mau
+menjawab "sudah" padahal belum. Masuk **v1.1** sebagai modul.
+
+## A.2 Editor kode mirip VS Code — BISA, dan ada library yang tepat
+
+**`sora-editor`** (Rosemoe), lisensi **LGPL-2.1**:
+
+| Fitur | Ada? |
+|---|---|
+| Syntax highlight inkremental | ✅ |
+| Auto-completion + snippet | ✅ |
+| Undo stack tak terbatas | ✅ |
+| Cari & ganti cepat | ✅ |
+| Bracket matching, sticky scroll | ✅ |
+| TextMate grammar (sama seperti VS Code) | ✅ |
+| Tree-sitter (parsing akurat) | ✅ |
+
+Ini **bukan** VS Code, tapi mesin editornya sekelas itu untuk Android.
+Catatan lisensi: LGPL-2.1 berarti Anda **boleh** memakainya di aplikasi tertutup,
+**asalkan** library-nya tetap bisa diganti pengguna (dynamic linking) dan
+perubahan pada library-nya dipublikasikan. Kalau ini tidak bisa diterima,
+alternatifnya menulis editor sendiri (6–12 bulan) atau Monaco di WebView
+(lebih berat, lebih lambat di HP).
+
+**Yang tidak akan ada:** ekstensi seperti VS Code Marketplace. Itu butuh
+arsitektur plugin lengkap plus sandbox — proyek tersendiri.
+
+## A.3 Terminal seperti Termux — BISA, dengan batasan penting
+
+**Yang bisa:**
+- Emulator terminal **`Termux TerminalView`** (dipakai ulang oleh `ReTerminal`, MIT)
+  atau implementasi sendiri dengan `libghostty`.
+- Menjalankan shell lewat `libsu` (`su` untuk root, atau `sh` untuk tanpa root).
+- Terminal di dalam aplikasi, lengkap dengan warna 256, keyboard, dan scrollback.
+
+**Yang tidak bisa dilakukan semudah Termux:**
+Termux menjalankan **distribusi Linux** (paket `apt`, GCC, Python) karena
+memakai `exec` dari direktori aplikasi dengan `prefix` khusus dan
+bootstrap tarball. Sejak **Android 10**, `exec` dari `/data/data/<pkg>/files`
+**dilarang** oleh kebijakan W^X. Itu sebabnya Termux versi Play Store
+dihentikan dan hanya didistribusikan lewat F-Droid/GitHub.
+
+**Konsekuensi nyata untuk Pure Manager:**
+
+| Kemampuan | Tanpa modul | Dengan modul bootstrap |
+|---|---|---|
+| Shell bawaan Android (`sh`, `ls`, `cat`) | ✅ | ✅ |
+| Perintah root (`su`, mount, chmod) | ✅ via libsu | ✅ |
+| BusyBox / toybox tambahan | ⬜ | ✅ |
+| Python, Node, GCC, `apt` | ❌ | ⚠️ butuh trik ranchu/proot, rapuh |
+
+**Saran saya:** v1 = terminal + shell + akses root penuh. **Bukan** lingkungan
+Linux lengkap. Kalau Anda ingin `apt` dan Python, itu proyek terpisah dengan
+risiko yang jauh lebih tinggi, dan sebaiknya **mengarahkan pengguna memasang
+Termux** lalu menghubungkan lewat SSH dari Pure Manager. Itu jalan yang jujur.
+
+## A.4 Klaim spoofing untuk Gemini Nano — hasil riset
+
+Anda bilang: "bootloader unlock bisa diperbaiki dengan spoofing, karena di custom
+ROM ada fitur spoofing". **Sebagian benar, tapi tidak cukup untuk kasus ini.**
+
+### Yang benar
+Modul seperti **Play Integrity Fix (PIF)**, **Tricky Store**, **BootloaderSpoofer**
+(LSPosed) memang bisa memalsukan status bootloader untuk **beberapa** pemeriksaan:
+
+| Verdict | Bisa dilalui dengan spoofing? |
+|---|---|
+| `MEETS_BASIC_INTEGRITY` | ✅ Biasanya bisa |
+| `MEETS_DEVICE_INTEGRITY` (Android 13+) | ❌ Butuh bukti **hardware** bootloader terkunci |
+| `MEETS_STRONG_INTEGRITY` | ❌ **Mustahil** dengan bootloader terbuka |
+
+Sumber 2026 konsisten: sejak Mei 2025 Google memakai **sinyal ber-backed hardware**
+untuk semua verdict. Pada Android 13+, `DEVICE_INTEGRITY` butuh bukti dari TEE
+bahwa bootloader terkunci. **Properti yang dipalsukan tidak bisa memalsukan bukti
+kriptografis itu** — kuncinya ada di secure element, bukan di sistem.
+
+### Yang membuat ini tidak menolong Nano
+
+Bahkan **andaikan** spoofing berhasil sepenuhnya, tiga masalah lain tetap ada:
+
+1. **ML Kit GenAI memeriksa kunci bootloader lewat AICore**, bukan lewat Play
+   Integrity. Memalsukan Play Integrity tidak otomatis menipu AICore.
+2. **AICore adalah layanan sistem Google.** Modul LSPosed perlu *hooking* ke
+   proses sistem — dan itu justru **merusak** pemeriksaan integritas lain.
+3. **Kuota dan batasan tetap berlaku**: input 4.000 token, output 255 token,
+   hanya foreground, dan kuota per aplikasi.
+
+### Kesimpulan yang jujur
+
+Saya **tidak akan** membangun Pure Manager dengan asumsi "Nano bisa diakali".
+Alasannya:
+
+- Kalau saya salah, aplikasi gagal di HP pengguna yang paling penting (yang root).
+- Fitur yang bergantung pada *hooking* proses sistem akan **rusak setiap update
+  Android dan setiap update AICore** — persis pola kegagalan yang sudah menimpa
+  proyek Manager 6.1.
+- Menyuruh pengguna memasang modul LSPosed agar fitur AI jalan adalah
+  ketergantungan yang rapuh, bukan fitur.
+
+**Yang tetap saya lakukan:** cek `checkStatus()` saat runtime, dan kalau
+tersedia — pakai. Kalau tidak — **model lokal**, yang jalan di HP mana pun
+termasuk yang di-root. Itu bukan kompromi; itu justru lebih baik, karena
+tidak bergantung pada belas kasih Google.
+
+### Kalau Anda tetap ingin mencoba
+
+Itu keputusan Anda, dan saya tidak akan menyembunyikannya. Tapi saya akan
+menuliskannya sebagai **eksperimen opsional di luar aplikasi**, bukan sebagai
+fondasi: pengguna memasang modulnya sendiri, dan aplikasi hanya melaporkan
+"tidak tersedia" kalau AICore menolak. **Jangan sampai fitur lain bergantung
+pada keberhasilan eksperimen ini.**
