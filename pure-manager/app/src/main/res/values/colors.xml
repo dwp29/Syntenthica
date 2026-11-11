@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pure_window">#FF08000F</color>
+    <color name="pure_icon_bg">#FF08000F</color>
+    <color name="pure_icon_fg">#FF00F0FF</color>
+</resources>

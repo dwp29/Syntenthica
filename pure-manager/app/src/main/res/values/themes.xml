@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose owns the real theme; this only styles the window before the first
+         frame so there is no white flash on a dark background. -->
+    <style name="PureTheme.Splash" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/pure_window</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

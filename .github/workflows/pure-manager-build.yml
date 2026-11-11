@@ -1,0 +1,133 @@
+name: "Pure Manager — build APK"
+
+# Builds are the only way to produce an APK here: this sandbox has no JDK and no
+# Android SDK, and dl.google.com is not reachable from it. The runner has both.
+on:
+  push:
+    branches: [arena/96cbd65a-synthentica]
+    paths:
+      - 'pure-manager/**'
+      - 'build-kit/scripts/apk_v2_sign.py'
+      - '.github/workflows/pure-manager-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # only to store the unsigned APK as an unreferenced blob
+
+jobs:
+  build:
+    name: "Unsigned Pure Manager APK"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: arena/96cbd65a-synthentica
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk-pm"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo "$RUNNER_TEMP/cmdline.zip" \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q "$RUNNER_TEMP/cmdline.zip" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' 2>&1 | tail -5
+
+      - name: Generate Gradle wrapper
+        working-directory: pure-manager
+        run: |
+          set -euo pipefail
+          # No wrapper is committed yet; the first build produces one so that later
+          # runs are reproducible against a pinned Gradle version.
+          gradle wrapper --gradle-version 8.7 --distribution-type bin 2>&1 | tail -5 \
+            || {
+              curl -fsSLo /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip
+              unzip -q /tmp/gradle.zip -d /opt
+              /opt/gradle-8.7/bin/gradle wrapper --gradle-version 8.7 --distribution-type bin
+            }
+          ls -la gradlew gradle/wrapper/
+
+      - name: Assemble release
+        working-directory: pure-manager
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace \
+            2>&1 | tee "$RUNNER_TEMP/build.log" | tail -40
+
+      - name: Verify the APK
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/pm-output"
+          mkdir -p "$OUT"
+          APK=$(find pure-manager/app/build/outputs/apk/release -name '*.apk' | head -1)
+          test -n "$APK"
+          cp "$APK" "$OUT/PureManager-0.1.0-UNSIGNED.apk"
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-0.1.0-UNSIGNED.apk"
+          "$TOOLS/aapt" dump badging "$OUT/PureManager-0.1.0-UNSIGNED.apk" > "$OUT/badging.txt"
+          grep -F "package: name='net.pure.manager'" "$OUT/badging.txt"
+          grep -F "sdkVersion:'29'" "$OUT/badging.txt"
+          grep -F "targetSdkVersion:'36'" "$OUT/badging.txt"
+          if "$TOOLS/apksigner" verify "$OUT/PureManager-0.1.0-UNSIGNED.apk" \
+               > "$OUT/signature-check.txt" 2>&1; then
+            echo '::error::Expected an unsigned APK'; exit 1
+          fi
+          sha256sum "$OUT/PureManager-0.1.0-UNSIGNED.apk" | tee "$OUT/SHA256.txt"
+          echo "::notice title=Unsigned Pure Manager SHA256::$(cut -d' ' -f1 "$OUT/SHA256.txt")"
+
+      - name: Store unsigned APK as a git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os, pathlib
+          t = pathlib.Path(os.environ['RUNNER_TEMP'])
+          apk = t / 'pm-output/PureManager-0.1.0-UNSIGNED.apk'
+          (t / 'blob.json').write_text(json.dumps({
+              'content': base64.b64encode(apk.read_bytes()).decode(),
+              'encoding': 'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST \
+                  --input "$RUNNER_TEMP/blob.json" --jq .sha)
+          echo "::notice title=Unsigned Pure Manager blob::$blob"
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -s "$RUNNER_TEMP/build.log" ]; then
+            tail -c 60000 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail.log"
+            LOG="$RUNNER_TEMP/tail.log" python3 - <<'PY'
+          import base64, json, os, pathlib
+          p = pathlib.Path(os.environ['LOG']); t = pathlib.Path(os.environ['RUNNER_TEMP'])
+          (t / 'log.json').write_text(json.dumps({
+              'content': base64.b64encode(p.read_bytes()).decode(),
+              'encoding': 'base64'}))
+          PY
+            blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST \
+                    --input "$RUNNER_TEMP/log.json" --jq .sha)
+            echo "::notice title=Pure Manager build log::$blob"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pure-manager-unsigned-${{ github.run_id }}
+          path: ${{ runner.temp }}/pm-output/
+          retention-days: 14
+          if-no-files-found: warn

@@ -1,0 +1,226 @@
+package net.pure.manager.theme
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/**
+ * Design tokens.
+ *
+ * The whole point of this file is that **no composable may branch on which theme
+ * is active**. Screens read tokens; [PureThemeSpec] decides what those tokens are.
+ * That is what lets Windows get a left rail and Cyberpunk get a command bar
+ * without either theme's rules leaking into shared UI code.
+ */
+
+/** How the shell is laid out. Not decoration: it is a different navigation model. */
+enum class NavModel {
+    /** Bottom tab bar, title on top. iOS and Pixel. */
+    TAB_BAR,
+
+    /** Left rail plus a columned table. Fluent / Explorer. */
+    RAIL,
+
+    /** Bottom command bar with F-key affordances. Cyberpunk. */
+    COMMAND_BAR,
+}
+
+enum class AppMode { LIGHT, DARK, AMOLED }
+
+/** Motion is a token, not a hardcoded duration in each composable. */
+data class MotionSpec(
+    /** Press feedback scale. 1f disables the effect entirely. */
+    val pressScale: Float,
+    val shortMs: Int,
+    val longMs: Int,
+    /** Expressive themes overshoot; dense productivity themes do not. */
+    val overshoot: Boolean,
+)
+
+data class Palette(
+    val background: Color,
+    val surface: Color,
+    val surfaceVariant: Color,
+    val onBackground: Color,
+    val onSurfaceVariant: Color,
+    val accent: Color,
+    val onAccent: Color,
+    /** AMOLED relies on this because tonal elevation is invisible on pure black. */
+    val outline: Color,
+    val useShadow: Boolean,
+)
+
+data class PureThemeSpec(
+    val id: String,
+    val label: String,
+    val nav: NavModel,
+    val palette: Palette,
+    val cornerDp: Int,
+    val rowHeightDp: Int,
+    val contentPaddingDp: Int,
+    val fontFamily: FontFamily,
+    val motion: MotionSpec,
+    /** Compact themes show the size column inline; roomy ones use a subtitle. */
+    val compactRows: Boolean,
+)
+
+// ------------------------------------------------------------------ palettes
+// AMOLED is deliberately not "dark but darker". On pure black a tonal surface is
+// invisible, so these palettes switch to outlines to separate layers.
+
+private fun ios(mode: AppMode, accent: Color) = when (mode) {
+    AppMode.LIGHT -> Palette(
+        Color(0xFFF2F2F7), Color(0xFFFFFFFF), Color(0xFFE4E4EA),
+        Color(0xFF1C1C1E), Color(0xFF8E8E93), accent, Color.White,
+        Color.Transparent, useShadow = true,
+    )
+    AppMode.DARK -> Palette(
+        Color(0xFF000000), Color(0xFF1C1C1E), Color(0xFF2C2C2E),
+        Color(0xFFFFFFFF), Color(0xFF98989F), accent, Color.White,
+        Color.Transparent, useShadow = false,
+    )
+    AppMode.AMOLED -> Palette(
+        Color(0xFF000000), Color(0xFF0E0E10), Color(0xFF1A1A1C),
+        Color(0xFFFFFFFF), Color(0xFF98989F), accent, Color.White,
+        Color(0xFF2A2A2E), useShadow = false,
+    )
+}
+
+private fun pixel(mode: AppMode, accent: Color) = when (mode) {
+    AppMode.LIGHT -> Palette(
+        Color(0xFFFFFBFE), Color(0xFFF3EDF7), Color(0xFFE8DEF8),
+        Color(0xFF1C1B1F), Color(0xFF79747E), accent, Color(0xFF2B1D4A),
+        Color.Transparent, useShadow = false,
+    )
+    AppMode.DARK -> Palette(
+        Color(0xFF141218), Color(0xFF211F26), Color(0xFF2B2930),
+        Color(0xFFE6E0E9), Color(0xFF938F99), accent, Color(0xFF2B1D4A),
+        Color.Transparent, useShadow = false,
+    )
+    AppMode.AMOLED -> Palette(
+        Color(0xFF000000), Color(0xFF101014), Color(0xFF1C1B20),
+        Color(0xFFE6E0E9), Color(0xFF938F99), accent, Color(0xFF2B1D4A),
+        Color(0xFF2B2930), useShadow = false,
+    )
+}
+
+private fun windows(mode: AppMode, accent: Color) = when (mode) {
+    AppMode.LIGHT -> Palette(
+        Color(0xFFF3F3F3), Color(0xFFFFFFFF), Color(0xFFEAEAEA),
+        Color(0xFF1A1A1A), Color(0xFF5D5D5D), accent, Color(0xFF00232E),
+        Color(0xFFD6D6D6), useShadow = false,
+    )
+    AppMode.DARK -> Palette(
+        Color(0xFF202020), Color(0xFF2B2B2B), Color(0xFF333333),
+        Color(0xFFFFFFFF), Color(0xFFA6A6A6), accent, Color(0xFF00232E),
+        Color(0xFF3D3D3D), useShadow = false,
+    )
+    AppMode.AMOLED -> Palette(
+        Color(0xFF000000), Color(0xFF141414), Color(0xFF1E1E1E),
+        Color(0xFFFFFFFF), Color(0xFFA6A6A6), accent, Color(0xFF00232E),
+        Color(0xFF2E2E2E), useShadow = false,
+    )
+}
+
+private fun cyber(mode: AppMode, accent: Color) = when (mode) {
+    AppMode.LIGHT -> Palette(
+        Color(0xFFF4F0FF), Color(0xFFFFFFFF), Color(0xFFE9E0FF),
+        Color(0xFF12081F), Color(0xFF6B5B85), accent, Color.White,
+        Color(0xFFD5C2FF), useShadow = false,
+    )
+    AppMode.DARK -> Palette(
+        Color(0xFF08000F), Color(0xFF12081F), Color(0xFF1B0E2E),
+        Color(0xFFE8FFFB), Color(0xFF7A6B8F), accent, Color(0xFF00181C),
+        Color(0xFFFF2E97), useShadow = false,
+    )
+    AppMode.AMOLED -> Palette(
+        Color(0xFF000000), Color(0xFF07000D), Color(0xFF12081F),
+        Color(0xFFE8FFFB), Color(0xFF7A6B8F), accent, Color(0xFF00181C),
+        Color(0xFF00F0FF), useShadow = false,
+    )
+}
+
+/** Accent choices offered by the Customisation tab. */
+val AccentChoices: List<Pair<String, Color>> = listOf(
+    "Biru" to Color(0xFF007AFF),
+    "Ungu" to Color(0xFF8B5CF6),
+    "Hijau" to Color(0xFF10B981),
+    "Amber" to Color(0xFFF59E0B),
+    "Merah" to Color(0xFFEF4444),
+    "Pink" to Color(0xFFEC4899),
+    "Cyan" to Color(0xFF00F0FF),
+)
+
+/** Builds the full token set for one theme × mode × accent combination. */
+fun specFor(themeId: String, mode: AppMode, accent: Color): PureThemeSpec =
+    when (themeId) {
+        "pixel" -> PureThemeSpec(
+            id = "pixel", label = "Pixel", nav = NavModel.TAB_BAR,
+            palette = pixel(mode, accent),
+            cornerDp = 22, rowHeightDp = 62, contentPaddingDp = 16,
+            fontFamily = FontFamily.SansSerif,
+            motion = MotionSpec(pressScale = 0.96f, shortMs = 140, longMs = 320, overshoot = true),
+            compactRows = false,
+        )
+        "windows" -> PureThemeSpec(
+            id = "windows", label = "Windows", nav = NavModel.RAIL,
+            palette = windows(mode, accent),
+            cornerDp = 4, rowHeightDp = 36, contentPaddingDp = 8,
+            fontFamily = FontFamily.SansSerif,
+            motion = MotionSpec(pressScale = 0.98f, shortMs = 90, longMs = 200, overshoot = false),
+            compactRows = true,
+        )
+        "cyber" -> PureThemeSpec(
+            id = "cyber", label = "Cyberpunk", nav = NavModel.COMMAND_BAR,
+            palette = cyber(mode, accent),
+            cornerDp = 3, rowHeightDp = 32, contentPaddingDp = 10,
+            fontFamily = FontFamily.Monospace,
+            motion = MotionSpec(pressScale = 0.94f, shortMs = 110, longMs = 260, overshoot = true),
+            compactRows = true,
+        )
+        else -> PureThemeSpec(
+            id = "ios", label = "iOS", nav = NavModel.TAB_BAR,
+            palette = ios(mode, accent),
+            cornerDp = 16, rowHeightDp = 54, contentPaddingDp = 14,
+            fontFamily = FontFamily.SansSerif,
+            motion = MotionSpec(pressScale = 0.97f, shortMs = 160, longMs = 380, overshoot = true),
+            compactRows = false,
+        )
+    }
+
+fun shapesFor(spec: PureThemeSpec) = Shapes(
+    extraSmall = RoundedCornerShape((spec.cornerDp / 2).dp),
+    small = RoundedCornerShape((spec.cornerDp * 0.75f).dp),
+    medium = RoundedCornerShape(spec.cornerDp.dp),
+    large = RoundedCornerShape((spec.cornerDp * 1.4f).dp),
+    extraLarge = RoundedCornerShape((spec.cornerDp * 1.8f).dp),
+)
+
+fun typographyFor(spec: PureThemeSpec, scale: Float = 1f) = Typography().let { base ->
+    // Only the roles this build actually uses are restated, so a future type-scale
+    // change stays in one place instead of being sprinkled through screens.
+    base.copy(
+        titleLarge = base.titleLarge.copy(
+            fontFamily = spec.fontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = (22 * scale).sp,
+        ),
+        bodyLarge = base.bodyLarge.copy(
+            fontFamily = spec.fontFamily,
+            fontSize = (14 * scale).sp,
+        ),
+        bodySmall = base.bodySmall.copy(
+            fontFamily = spec.fontFamily,
+            fontSize = (11 * scale).sp,
+        ),
+        labelSmall = base.labelSmall.copy(
+            fontFamily = spec.fontFamily,
+            fontSize = (9.5 * scale).sp,
+        ),
+    )
+}
