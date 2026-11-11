@@ -160,6 +160,15 @@ jobs:
           if [ -n "${SUMMARY:-}" ]; then
             echo "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
           fi
+          # Compiler errors, one per line, as notices. The blob API accepted the
+          # build log twice and then could not read it back (404), and the run log
+          # endpoint returns EOF for this repository. A notice is the only channel
+          # that has never failed -- and `e: ` lines are short enough to survive it.
+          ERRORS=$(grep -E "^e: " "$RUNNER_TEMP/pm-output/tests.log" 2>/dev/null \
+                   | sed -E 's#^\(e: file://[^/]*/)##' | head -8 | tr '\n' ';' || true)
+          if [ -n "${ERRORS:-}" ]; then
+            echo "::notice title=Kompilasi gagal::${ERRORS}"
+          fi
 
       - name: Verify the APK
         run: |
