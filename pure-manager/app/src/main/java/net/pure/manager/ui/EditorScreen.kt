@@ -428,20 +428,19 @@ internal class SyntaxColour(
     private val language: Language,
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        if (text.length > MAX_HIGHLIGHT || language == Language.PLAIN) return TransformedText(text, OffsetMapping.Identity)
+        if (text.length > MAX_HIGHLIGHT || language == Language.PLAIN) return TransformedText(text, androidx.compose.ui.text.input.OffsetMapping.Identity)
         val spans = sortedSpans(highlight(text.text, language))
         val styled = buildAnnotatedString {
             append(text.text)
             for (s in spans) addStyle(SpanStyle(color = colourFor(s.kind, spec)), s.start, s.end)
         }
-        return TransformedText(styled, OffsetMapping.Identity)
+        return TransformedText(styled, androidx.compose.ui.text.input.OffsetMapping.Identity)
     }
 
-    /** Identity mapping: nothing is added or removed, so offsets are unchanged. */
-    private object OffsetMapping : androidx.compose.ui.text.input.OffsetMapping {
-        override fun originalToTransformed(offset: Int): Int = offset
-        override fun transformedToOriginal(offset: Int): Int = offset
-    }
+    // The mapping is the library's own identity object: this transformation adds no
+    // characters, so every offset means the same thing on both sides. A nested
+    // `object OffsetMapping` shadowed the imported name and made `Identity` resolve
+    // to nothing.
 }
 
 private fun subtitle(
