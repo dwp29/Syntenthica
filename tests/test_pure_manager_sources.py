@@ -768,6 +768,27 @@ class ManifestAndGradle(unittest.TestCase):
                 problems.append(f"{f.name}:{line} empty lambda for a callback with parameters")
         self.assertEqual([], problems, "\n".join(problems))
 
+    def test_a_named_lambda_never_reaches_for_it(self):
+        """Build 20: `sources.map { source -> ... File(it) }` does not compile.
+
+        `it` exists only in a lambda that declares no parameter. The moment a lambda
+        names its parameter, `it` is gone.
+
+        Scoped to one line on purpose. A first version looked at the next line too,
+        flagged `use { zip -> ... }` because `it` appeared in a *different* lambda,
+        and would have taught me to ignore the guard.
+        """
+        problems = []
+        for f in list(kt_files()) + sorted((SRC.parents[2] / "app/src/test").rglob("*.kt")):
+            for i, line in enumerate(f.read_text().splitlines(), 1):
+                m = re.search(r"\{ \s*([a-zA-Z_]\w*)\s*->", line)
+                if not m:
+                    continue
+                body = line[m.end():]
+                if re.search(r"(?<![\w.])it(?![\w])", body):
+                    problems.append(f"{f.name}:{i} named lambda '{m.group(1)}' uses 'it'")
+        self.assertEqual([], problems, "\n".join(problems))
+
     def test_a_parameter_is_never_assigned(self):
         """Build #17, caught for real this time.
 

@@ -80,7 +80,7 @@ object CopyEngine {
         // Measure first. A progress bar that starts at an unknown total is a spinner,
         // and a spinner cannot answer "how long will this take".
         val sizes = sources.map { source -> runCatching { measure(File(source)) }.getOrDefault(0L) }
-        val fileCounts = sources.map { source -> runCatching { countFiles(File(it)) }.getOrDefault(0) }
+        val fileCounts = sources.map { source -> runCatching { countFiles(File(source)) }.getOrDefault(0) }
         val totalFiles = fileCounts.sum()
         val totalBytes = sizes.sum()
         var doneBytes = 0L
@@ -90,7 +90,7 @@ object CopyEngine {
         sources.forEachIndexed { index, source ->
             if (cancelled()) {
                 results += Result.failure(Cancelled())
-                return@forEach
+                return@forEachIndexed
             }
             val src = File(source)
             val result = runCatching {
