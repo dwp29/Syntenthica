@@ -269,10 +269,17 @@ private fun ScreenBody(
     // blurred top bar takes over and the small title appears in it.
     val collapsed = scroll.value > 40
 
-    Box(Modifier.fillMaxSize().glassSource(spec, haze)) {
+    // Haze refuses a haze source that CONTAINS a hazeChild:
+    //   "Layout nodes using Modifier.haze and Modifier.hazeChild can not be
+    //    descendants of each other"
+    // So the scrolling content is a sibling of the bars, both children of this
+    // Box. `glassSource` therefore goes on the content column, never on a wrapper
+    // that also holds a bar.
+    Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
+                .glassSource(spec, haze)
                 .verticalScroll(scroll)
                 .padding(
                     start = insets.start,
@@ -747,7 +754,7 @@ private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spe
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     GroupCard(spec) {
         listOf(
-            "Versi" to "0.1.3",
+            "Versi" to "0.1.4",
             "Tahap" to "T1 \u2014 tema dan kerangka",
             "Paket" to "net.pure.manager",
             "Android" to "10\u201316",

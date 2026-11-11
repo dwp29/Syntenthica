@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
             // run left a crash report, this run starts with blur off, the plain
             // theme and default density, which is enough to reach Setelan and read
             // or copy the report.
-            val recovered = remember { PureCrash.read(this@MainActivity) != null }
+            val recovered = remember { PureCrash.crashedOnThisVersion(this@MainActivity) }
             var prefs by rememberSaveable(stateSaver = ThemePrefsSaver) {
                 mutableStateOf(if (recovered) ThemePrefs(blur = false) else ThemePrefs())
             }

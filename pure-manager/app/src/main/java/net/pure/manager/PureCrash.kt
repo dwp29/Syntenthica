@@ -66,6 +66,21 @@ object PureCrash {
     fun read(context: Context): String? =
         File(context.filesDir, FILE_NAME).takeIf { it.isFile }?.readText()
 
+    /**
+     * True only if the recorded crash came from the build that is running now.
+     *
+     * Without this, a report left behind by an older version would put every
+     * later launch into safe mode with blur off -- the owner would see a working
+     * fix and conclude the glass effect is broken. A crash from a previous build
+     * stays readable in Setelan but no longer changes how the app starts.
+     */
+    fun crashedOnThisVersion(context: Context): Boolean {
+        val text = read(context) ?: return false
+        val recorded = runCatching { JSONObject(text).optString("appVersion") }
+            .getOrDefault("")
+        return recorded.isNotEmpty() && recorded == context.appVersionName()
+    }
+
     fun clear(context: Context) {
         File(context.filesDir, FILE_NAME).delete()
     }

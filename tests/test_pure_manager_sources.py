@@ -380,6 +380,12 @@ class NeverDeadOnArrival(unittest.TestCase):
         composable function invocations". Build #10 failed on exactly this."""
         self.assertNotRegex(self.main, r"try\s*\{[\s\S]*?PureTheme\(")
 
+    def test_stale_crash_reports_do_not_pin_safe_mode(self):
+        """A report from an older build must not disable blur forever."""
+        self.assertIn("crashedOnThisVersion", self.crash)
+        self.assertIn("crashedOnThisVersion", self.main)
+        self.assertIn('optString("appVersion")', self.crash)
+
     def test_second_launch_after_a_crash_starts_safe(self):
         self.assertIn("recoveredFromCrash", self.main)
         self.assertIn("ThemePrefs(blur = false)", self.main)
@@ -389,6 +395,71 @@ class NeverDeadOnArrival(unittest.TestCase):
         saver = (SRC / "net/pure/manager/theme/ThemePrefsSaver.kt").read_text()
         self.assertIn("p.blur", saver)
         self.assertIn("blur =", saver)
+
+
+class HazeStructure(unittest.TestCase):
+    """The crash the owner reported, pinned structurally.
+
+    0.1.2 put `glassSource` on a Box that also contained the TopBar, so a
+    hazeChild was a descendant of its haze source. Haze throws
+    "Layout nodes using Modifier.haze and Modifier.hazeChild can not be
+    descendants of each other" from inside the draw pass -- a first-frame crash on
+    any device that gets past API 31.
+
+    Checking nesting in Kotlin source with regex is approximate, but it catches
+    the exact shape that failed: a `glassSource(` call whose enclosing block also
+    closes a GlassBar.
+    """
+
+    def setUp(self):
+        self.shell = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+
+    def _bar_carriers(self, text: str) -> set[str]:
+        """Composables that contain a GlassBar, directly or by calling another."""
+        defs = dict(re.findall(
+            r"private fun (\w+)\([\s\S]*?\n\) \{([\s\S]*?)\n\}", text))
+        direct = {n for n, body in defs.items() if "GlassBar(" in body}
+        # One level of indirection is enough here: TopBar and TabBar each hold a
+        # GlassBar, and nothing else calls them.
+        carriers = set(direct)
+        for n, body in defs.items():
+            for other in direct:
+                if re.search(r"\b" + other + r"\(", body):
+                    carriers.add(n)
+        return carriers
+
+    def test_source_and_bars_are_siblings(self):
+        lines = self.shell.splitlines()
+        carriers = self._bar_carriers(self.shell)
+        self.assertIn("TopBar", carriers, "TopBar should hold a GlassBar")
+        for i, line in enumerate(lines):
+            if "glassSource(" not in line or line.strip().startswith("*"):
+                continue
+            depth, opened = 0, False
+            for j in range(i, min(i + 120, len(lines))):
+                segment = lines[j]
+                if not opened:
+                    if segment.rstrip().endswith("{"):
+                        opened, depth = True, 1
+                    continue
+                # A call to a bar-carrying composable inside this block is the bug.
+                for name in carriers:
+                    if re.search(r"\b" + name + r"\(", segment):
+                        self.fail(
+                            f"{name}() at line {j + 1} is nested inside the "
+                            f"glassSource block opened at line {i + 1}; Haze "
+                            f"throws 'can not be descendants of each other'"
+                        )
+                depth += segment.count("{") - segment.count("}")
+                if depth <= 0:
+                    break
+
+    def test_both_bars_exist_and_use_haze_state(self):
+        self.assertGreaterEqual(self.shell.count("GlassBar("), 2)
+
+    def test_single_haze_state_for_the_screen(self):
+        self.assertEqual(1, self.shell.count("remember { HazeState() }"),
+                         "each screen must share one HazeState")
 
 
 class ManifestAndGradle(unittest.TestCase):

@@ -58,6 +58,16 @@ val LocalBlurEnabled = androidx.compose.runtime.staticCompositionLocalOf { true 
 val blurSupported: Boolean
     get() = android.os.Build.VERSION.SDK_INT >= 31
 
+/**
+ * Structural rule, enforced by a test: the composable carrying this modifier must
+ * not contain a [GlassBar]. Haze throws outright if one is a descendant of the
+ * other, and it throws from inside the draw pass, which kills the process on the
+ * first frame rather than degrading.
+ *
+ * 0.1.2 did exactly that and force-closed on launch on a Redmi Note 9 Pro running
+ * Android 16.
+ */
+
 /** Marks a container whose contents [GlassBar] may blur. */
 @Composable
 fun Modifier.glassSource(spec: PureThemeSpec, state: HazeState): Modifier =
