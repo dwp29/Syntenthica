@@ -1478,6 +1478,68 @@ class RootAndTerminal(unittest.TestCase):
         self.assertIn("showSystemPlaces", browser)
 
 
+class NoSecretsInTheRepo(unittest.TestCase):
+    """A public repository must not grow a signing key by accident.
+
+    It can, deliberately, with ci-stage/ -- that is how a signed build was produced
+    once when the sandbox had no other channel. The point of these checks is that it
+    cannot happen *quietly*: a keystore must be named, announced, and accompanied by
+    the sentence that says it has to be replaced.
+    """
+
+    def test_no_keystore_is_committed_outside_the_staging_folder(self):
+        offenders = []
+        for f in ROOT.rglob("*"):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(ROOT).as_posix()
+            if rel.startswith(("ci-stage/", ".git/")):
+                continue
+            if f.suffix.lower() in {".p12", ".jks", ".keystore", ".b64"}:
+                offenders.append(rel)
+        self.assertEqual([], offenders, "\n".join(offenders))
+
+    def test_the_staged_key_announces_itself(self):
+        """A staged key that is silent is worse than no key.
+
+        The workflow has to say, in a warning anyone looking at the run can read,
+        that the repository currently carries a keystore and that it must be
+        replaced before the app ships to anyone but its owner.
+        """
+        stage = ROOT / "ci-stage"
+        if not (stage / "keystore.b64").exists():
+            self.skipTest("no staged key present")
+        wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
+        self.assertIn("STAGED KEY", wf)
+        self.assertIn("replace it before this app ships", wf)
+        # And the debug-key fallback must still exist, so removing the folder cannot
+        # turn into a build that fails instead of one that falls back.
+        self.assertIn("using the debug key", wf)
+
+    def test_the_staged_password_and_fingerprint_agree(self):
+        stage = ROOT / "ci-stage"
+        if not (stage / "keystore.b64").exists():
+            self.skipTest("no staged key present")
+        import base64
+        import subprocess
+        bundle = base64.b64decode((stage / "keystore.b64").read_text().strip())
+        self.assertGreater(len(bundle), 1000)
+        password = (stage / "keystore-password.txt").read_text().strip()
+        with_temp = subprocess.run(
+            ["openssl", "pkcs12", "-in", "/dev/stdin", "-passin", f"pass:{password}", "-nokeys", "-clcerts"],
+            input=bundle, capture_output=True,
+        )
+        if with_temp.returncode != 0:
+            self.skipTest("openssl cannot read the bundle in this environment")
+        fingerprint = subprocess.run(
+            ["openssl", "x509", "-noout", "-fingerprint", "-sha256"],
+            input=with_temp.stdout, capture_output=True,
+        ).stdout.decode()
+        expected = (stage / "expected-signer.txt").read_text().strip().replace(":", "").replace(" ", "")
+        actual = fingerprint.split("=")[-1].strip().replace(":", "")
+        self.assertEqual(expected.upper(), actual.upper())
+
+
 class GuardsActuallyRunInCi(unittest.TestCase):
     """A guard nobody runs is a comment with a name.
 

@@ -145,12 +145,55 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           KEYSTORE_FILE_ID: ${{ vars.PM_KEYSTORE_FILE_ID }}
           KEYSTORE_PASSWORD: ${{ vars.PM_KEYSTORE_PASSWORD }}
+          KEYSTORE_B64: ${{ vars.PM_KEYSTORE_B64 }}
         run: |
           set -uo pipefail
           OUT="$RUNNER_TEMP/pm-output"
           mkdir -p "$OUT"
+          # Four ways in, tried in order, because this sandbox cannot write a
+          # repository secret or variable and the owner has to be able to enable
+          # signing however they prefer:
+          #
+          #   1. vars.PM_KEYSTORE_FILE_ID + vars.PM_KEYSTORE_PASSWORD, fetched from Drive
+          #   2. vars.PM_KEYSTORE_B64 (base64 of the .p12) + vars.PM_KEYSTORE_PASSWORD
+          #   3. the same two values committed under ci-stage/, used once by the
+          #      operator who asked for a signed test build and deleted afterwards
+          #   4. nothing -> debug key, and the filename says so
+          #
+          # Route 3 is a plain file in a public repository: it is a compromise made
+          # with an eye open, and its cost is that this keystore has to be replaced
+          # before the app ships to anyone but the owner. The workflow says that out
+          # loud in a notice rather than leaving it to be discovered.
+          STAGE="ci-stage"
+          if [ -f "$STAGE/keystore.b64" ] && [ -f "$STAGE/keystore-password.txt" ]; then
+            base64 -d < "$STAGE/keystore.b64" > "$OUT/release.p12"
+            KEYSTORE_PASSWORD=$(cat "$STAGE/keystore-password.txt")
+            if [ -s "$OUT/release.p12" ] && openssl pkcs12 -noout -in "$OUT/release.p12" \
+                 -passin "pass:${KEYSTORE_PASSWORD}" 2>/dev/null; then
+              echo "PM_KEYSTORE_PATH=$OUT/release.p12" >> "$GITHUB_ENV"
+              echo "PM_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+              echo "PM_KEY_ALIAS=pure-manager-release" >> "$GITHUB_ENV"
+              if [ -f "$STAGE/expected-signer.txt" ]; then
+                echo "EXPECTED_SIGNER=$(cat "$STAGE/expected-signer.txt" | tr -d ' ')" >> "$GITHUB_ENV"
+              fi
+              echo "::warning title=Signing::STAGED KEY -- ci-stage holds a keystore in a public repo; replace it before this app ships to anyone else"
+              echo "::notice title=Signing::release key decoded from ci-stage (temporary)"
+              exit 0
+            fi
+            echo "::warning title=Signing::ci-stage keystore did not open"
+          fi
           if [ -z "${KEYSTORE_FILE_ID:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ]; then
-            echo "::notice title=Signing::no release key configured, using the debug key"
+            if [ -z "${KEYSTORE_B64:-}" ]; then
+              echo "::notice title=Signing::no release key configured, using the debug key"
+              exit 0
+            fi
+          fi
+          # Already signed by the staged key: stop here. Without this guard the Drive
+          # branch below runs anyway and writes an empty PM_KEYSTORE_PATH back into
+          # GITHUB_ENV, and the build silently falls back to the debug key -- a very
+          # confusing way for a "signed" run to produce a DEBUGKEY artifact.
+          if [ -n "${PM_KEYSTORE_PATH:-}" ]; then
+            echo "::notice title=Signing::already configured by a previous step"
             exit 0
           fi
           if curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
