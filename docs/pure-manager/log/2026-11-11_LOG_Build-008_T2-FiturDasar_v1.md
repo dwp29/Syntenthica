@@ -13,6 +13,7 @@ Status: **✅ APK siap uji** — run `42995207026` hijau, **38/38 tes JVM lolos*
 | Drive | `17wybc1y_S2dPklh5TQJcE8Z06IrIQCg-` |
 | GitHub | https://github.com/dwp29/Synthentica/raw/build-output/PureManager-0.3.1-DEBUGKEY.apk |
 | Drive (folder 02) | https://drive.google.com/file/d/17wybc1y_S2dPklh5TQJcE8Z06IrIQCg-/view |
+| Log ini di Drive (folder 04) | `14cnl2W9HXo12nSej1Z-RFv6qo8ohh9ke` |
 
 ---
 
