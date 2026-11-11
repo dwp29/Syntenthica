@@ -344,9 +344,14 @@ private fun ScreenBody(
             haze = haze,
             collapsed = collapsed,
             selectionActive = selectionMode,
+            // TopBar only reports the tap. `selectionMode` is a val parameter of
+            // ScreenBody, so assigning it is illegal -- my first "fix" wrapped the
+            // same illegal assignment in a local val and would have failed again.
+            // The state changes through the callbacks ScreenBody already receives.
             onToggleSelection = {
-                selectionMode = !selectionMode
-                if (!selectionMode) selectedCount = 0
+                val next = !selectionMode
+                onSelectionModeChange(next)
+                if (!next) onSelectedCount(0)
             },
         )
     }

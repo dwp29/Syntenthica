@@ -621,6 +621,76 @@ class ManifestAndGradle(unittest.TestCase):
             line = fe[:m.start()].count("\n") + 1
             self.fail(f"FileEntry.kt:{line}: untyped compareBy with a comparator")
 
+
+    def test_every_used_compose_api_is_imported(self):
+        """Build #17: verticalScroll and rememberScrollState were used, never imported.
+
+        A compiler catches this in one line; the point of checking here is that the
+        loop is three minutes shorter and the class of mistake is now known.
+        """
+        watch = ["verticalScroll", "rememberScrollState", "combinedClickable",
+                 "mutableStateOf", "rememberSaveable", "LaunchedEffect",
+                 "rememberCoroutineScope", "withContext", "Dispatchers"]
+        for f in kt_files():
+            text = f.read_text()
+            for api in watch:
+                if not re.search(r"\b" + api + r"\b", text):
+                    continue
+                imported = f"import" in text and re.search(
+                    r"(?m)^import [\w.]*\b" + api + r"$", text)
+                self.assertTrue(imported, f"{f.name} uses {api} without importing it")
+
+    def test_a_parameter_is_never_assigned(self):
+        """Build #17, caught for real this time.
+
+        `selectionMode` was a `val` parameter of `ScreenBody` and the code assigned
+        it inside a lambda passed to `TopBar`. Two earlier versions of this test
+        passed on the broken source: one anchored on an end marker that never
+        matched, one looked for assignments in a window that contained none.
+
+        This version knows the parameter names of every function and checks the
+        whole body. A named argument is not an assignment: it either ends with a
+        comma or opens a lambda with `{`.
+        """
+        checked = 0
+        for f in kt_files():
+            text = f.read_text()
+            for m in re.finditer(r"(?:private |internal |public )?fun (\w+)\(", text):
+                head = text[m.end():]
+                close = head.find(")\n") if head.find(")\n") > 0 else head.find("})")
+                parsed = head[:head.find("\n)")]
+                if not parsed:
+                    continue
+                params = [
+                    a.split(":")[0].strip()
+                    for a in parsed.replace("\n", " ").split(",")
+                    if ": " in a and a.split(":")[0].strip().isidentifier()
+                ]
+                brace = text.find("{", m.end() + len(parsed))
+                if brace < 0 or not params:
+                    continue
+                depth, i = 0, brace
+                while i < len(text):
+                    if text[i] == "{":
+                        depth += 1
+                    elif text[i] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    i += 1
+                body = text[brace:i]
+                for name in params:
+                    checked += 1
+                    for line in body.splitlines():
+                        st = line.strip()
+                        if not st.startswith(name + " =") and not st.startswith(name + "="):
+                            continue
+                        value = st.split("=", 1)[1].strip()
+                        if value.startswith("{") or line.rstrip().endswith(","):
+                            continue  # named argument
+                        self.fail(f"{f.name}: val parameter '{name}' assigned in {m.group(1)}: {st}")
+        self.assertGreaterEqual(checked, 100, "parameter scan found suspiciously little")
+
     def test_gradle_version_satisfies_the_android_plugin(self):
         # AGP 8.7.3 rejects anything below Gradle 8.9; the first CI run died on
         # exactly this, so it is pinned in the workflow.
