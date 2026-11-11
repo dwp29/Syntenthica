@@ -1129,6 +1129,20 @@ class RootAndTerminal(unittest.TestCase):
         self.assertIn("showSystemPlaces", browser)
 
 
+class GuardsActuallyRunInCi(unittest.TestCase):
+    """A guard nobody runs is a comment with a name.
+
+    Every check in this file exists because something broke. They were only ever
+    run by hand here until this step existed, which means a bug they would have
+    caught could still have shipped green.
+    """
+
+    def test_the_workflow_runs_these_guards(self):
+        wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
+        self.assertIn("python3 -m unittest tests.test_pure_manager_sources", wf)
+        self.assertIn("Run source guards", wf)
+
+
 class AtoZIndexAndDeviceSearch(unittest.TestCase):
     """The last two basic features: an A-Z index and finding a file anywhere.
 

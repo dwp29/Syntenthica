@@ -73,6 +73,16 @@ jobs:
       # names as ::notice. That is how the last three bugs were found.
       #
       # With that in place, blocking is safe again: a red test names itself.
+      # The Python guards in tests/ catch what the Kotlin compiler cannot: a
+      # composable that branches on a theme id, a click that does nothing, a
+      # keystore committed to a public repo. Running them here is what makes them
+      # guards instead of a script somebody runs on their laptop -- and this step
+      # found two real bugs while it was being written.
+      - name: Run source guards
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests.test_pure_manager_sources -v 2>&1 | tail -12
+
       - name: Run unit tests
         working-directory: pure-manager
         run: |
