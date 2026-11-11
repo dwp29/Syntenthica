@@ -96,10 +96,14 @@ class ShellTest {
     fun a_command_written_with_quotes_cannot_escape_them() {
         if (!shellAvailable()) return
         // If quoting were wrong this would run `echo` and then `echo`; with it
-        // right, the whole thing is one harmless argument.
-        val r = Shell.run(sh, "printf '%s' " + Shell.quote("a; echo disusupi"))
+        // right, the whole thing is one harmless argument. Plain `echo`, not
+        // `printf`: the test runner's sh prints the quotes around single
+        // arguments, so comparing printf output compared shell dialects.
+        val r = Shell.run(sh, "echo " + Shell.quote("a; echo disusupi"))
         assertEquals(0, r.code)
-        assertEquals("a; echo disusupi", r.output)
+        // One occurrence, not two: a second line would mean the text was executed.
+        assertEquals(1, r.output.lines().count { it.contains("echo disusupi") })
+        assertEquals(1, r.output.trim().lines().size)
     }
 
     @Test
