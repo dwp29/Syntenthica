@@ -130,9 +130,15 @@ fun highlight(text: String, language: Language, limit: Int = MAX_HIGHLIGHT): Lis
 }
 
 /**
- * C-like scanning for every language that has `//` and `/* *\/` style comments,
+ * C-like scanning for every language that has slash-slash and slash-star comments,
  * with a per-language quote set. One scanner rather than eight near-copies: the
  * differences really are the keyword list and the comment markers.
+ *
+ * Those markers are spelled out above instead of written literally because Kotlin
+ * block comments nest: the two characters that open a block comment, inside a KDoc,
+ * open a second comment that runs until the next close -- swallowing the rest of the
+ * file. It cost a CI round trip with thirty cascading syntax errors whose first one
+ * pointed at a line 25 lines below the real mistake.
  */
 private fun code(text: String, end: Int, language: Language): List<Span> {
     val out = mutableListOf<Span>()

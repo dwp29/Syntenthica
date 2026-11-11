@@ -1126,6 +1126,42 @@ class CodeEditor(unittest.TestCase):
         self.assertIn("onEdit = if (canEdit(target))", self.browser)
         self.assertIn("\"Edit teks\"", self.browser)
 
+    def test_no_block_comment_opens_a_nested_one(self):
+        """Kotlin block comments nest, so a `/*` inside a KDoc swallows the file.
+
+        This cost a full CI round trip: the KDoc on `code()` mentioned the comment
+        markers, the inner `/*` opened a nested comment, and the compiler emitted
+        thirty cascading syntax errors whose first line pointed 25 lines below the
+        real one. The Python guard cannot compile Kotlin, but it can count.
+        """
+        problems = []
+        for f in kt_files():
+            depth = 0
+            i = 0
+            text = f.read_text()
+            while i < len(text) - 1:
+                two = text[i:i + 2]
+                if two == "/*":
+                    depth += 1
+                    if depth > 1:
+                        line = text[:i].count("\n") + 1
+                        problems.append(f"{f.name}:{line} opens a nested block comment")
+                    i += 2
+                    continue
+                if two == "*/":
+                    depth = max(0, depth - 1)
+                    i += 2
+                    continue
+                # A string literal may contain /* harmlessly; skip over it.
+                if text[i] == '"':
+                    j = i + 1
+                    while j < len(text) and text[j] != '"' and text[j] != "\n":
+                        j += 2 if text[j] == "\\" else 1
+                    i = j + 1
+                    continue
+                i += 1
+        self.assertEqual([], problems, "\n".join(problems))
+
     def test_the_logic_port_still_passes(self):
         """The Kotlin tests cannot run without a JDK, which this sandbox lacks.
 

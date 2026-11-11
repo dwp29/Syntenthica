@@ -58,7 +58,7 @@ object EditIO {
      */
     fun read(context: Context, path: String): Loaded {
         val bytes = readBytes(context, path)
-        if (bytes.size > MAX_BYTES) {
+        if (bytes.size.toLong() > MAX_BYTES) {
             throw NotText(
                 "Berkas ini ${formatMb(bytes.size)} MB, lebih besar dari batas " +
                     "${MAX_BYTES / (1024 * 1024)} MB untuk editor. Buka dengan aplikasi lain."
@@ -157,14 +157,14 @@ object EditIO {
             val declared = runCatching {
                 resolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
             }.getOrNull() ?: -1L
-            if (declared > MAX_BYTES) throw NotText(bigMessage(declared))
+            if (declared > MAX_BYTES.toLong()) throw NotText(bigMessage(declared))
             val stream = resolver.openInputStream(uri)
                 ?: throw IOException("Berkas tidak bisa dibuka")
             stream.use { readCapped(it, MAX_BYTES) }
         } else {
             val f = File(path)
             if (!f.exists()) throw IOException("Berkas tidak ada")
-            if (f.length() > MAX_BYTES) throw NotText(bigMessage(f.length()))
+            if (f.length() > MAX_BYTES.toLong()) throw NotText(bigMessage(f.length()))
             f.readBytes()
         }
 
