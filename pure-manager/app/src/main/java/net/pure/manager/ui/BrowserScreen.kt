@@ -47,12 +47,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.pure.manager.fs.AccessMode
+import net.pure.manager.fs.Archive
+import net.pure.manager.fs.CopyEngine
 import net.pure.manager.fs.FileEntry
 import net.pure.manager.fs.FileOps
 import net.pure.manager.fs.SortKey
 import net.pure.manager.fs.SortOrder
 import net.pure.manager.fs.Storage
 import net.pure.manager.fs.Support
+import net.pure.manager.fs.Usage
 import net.pure.manager.fs.comparatorFor
 import net.pure.manager.fs.formatDate
 import net.pure.manager.fs.formatSize
@@ -108,6 +111,21 @@ fun BrowserScreen(
     // user granted. Without it, a folder added through SAF was openable once and
     // then lost after the first navigation away from it.
     var showPlaces by remember { mutableStateOf(false) }
+    // The copy job that is currently running, and its latest numbers. Two things:
+    // a progress value for the dialog, and a cancellation flag the engine polls
+    // between chunks. Without the second, "Batal" would be decoration.
+    var job by remember { mutableStateOf<CopyEngine.Progress?>(null) }
+    // Storage analysis. Computed on demand from the folder that is open, because
+    // scanning on every navigation would make browsing slow to answer a question
+    // nobody has asked yet.
+    var usage by remember { mutableStateOf<List<Usage.Tally>?>(null) }
+    var usageBusy by remember { mutableStateOf(false) }
+    // The archive being looked into, and whether an extract is running. Extract uses
+    // the same cancellation flag as copy: one job at a time is easier to explain
+    // than a queue the user cannot see.
+    var archiveView by remember { mutableStateOf<Pair<FileEntry, List<Archive.Entry>>?>(null) }
+    var extractProgress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    val cancelToken = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     // Bumped after every write so the LaunchedEffect re-reads the folder. Keying
     // on the path alone meant a rename or delete left a stale list until the user
     // navigated away and back -- which reads as data loss.
@@ -301,6 +319,16 @@ fun BrowserScreen(
                     },
                     canGoUp = Storage.parentOf(path) != null,
                     onPlaces = { showPlaces = true },
+                    onUsage = {
+                        usageBusy = true
+                        scope.launch {
+                            val here = path
+                            usage = withContext(Dispatchers.IO) {
+                                Usage.scan(here, true).getOrDefault(emptyList())
+                            }
+                            usageBusy = false
+                        }
+                    },
                     onSort = {
                         // One button cycles Name -> Size -> Date -> Type and then
                         // flips direction. A dropdown for four options costs more
@@ -362,6 +390,10 @@ fun BrowserScreen(
                                                         onClick = { onTap(e) },
                                                         onLongClick = { onLongPress(e) },
                                                         selected = e.path in selected,
+                                                        // Only images and videos ask for a
+                                                        // thumbnail; a text file would
+                                                        // spend a decode to draw its glyph.
+                                                        thumbnailOf = e.path.takeIf { wantsThumbnail(e) },
                                                     )
                                                 }
                                             }
@@ -469,6 +501,43 @@ fun BrowserScreen(
                                 toast = "Tidak ada aplikasi untuk membagikan berkas ini"
                             }
                         },
+                        onArchive = if (!target.isDirectory && Archive.isZip(target.name)) {
+                            {
+                                actionTarget = null
+                                val listing = Archive.list(target.path)
+                                val entries = listing.getOrNull()
+                                if (entries == null) {
+                                    toast = listing.exceptionOrNull()?.message ?: "Arsip tidak bisa dibaca"
+                                } else {
+                                    archiveView = target to entries
+                                }
+                            }
+                        } else null,
+                        onExtract = if (!target.isDirectory && Archive.isZip(target.name)) {
+                            {
+                                actionTarget = null
+                                val archive = target
+                                val destination = Archive.destinationFor(archive.path, path)
+                                cancelToken.set(false)
+                                extractProgress = 0L to 0L
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        Archive.extract(
+                                            archive.path,
+                                            destination,
+                                            cancelled = { cancelToken.get() },
+                                        ) { done, total, _ -> extractProgress = done to total }
+                                    }
+                                    extractProgress = null
+                                    toast = result.fold(
+                                        { "$it berkas diekstrak" },
+                                        { it.message ?: "Gagal mengekstrak" },
+                                    )
+                                    goTo(destination, Storage.displayName(destination))
+                                    reload()
+                                }
+                            }
+                        } else null,
                         onRename = { actionTarget = null; prompt = Prompt.Rename(target) },
                         onCopy = {
                             actionTarget = null
@@ -613,29 +682,82 @@ fun BrowserScreen(
                             picker = null
                             clipboard = null
                             if (clip != null) {
+                                // One job at a time. A second copy started while the
+                                // first is running would fight over the same token.
+                                cancelToken.set(false)
                                 scope.launch {
                                     val outcome = withContext(Dispatchers.IO) {
-                                        clip.paths.map { source ->
-                                            if (clip.move) {
-                                                FileOps.move(source, destination)
-                                            } else {
-                                                FileOps.copy(source, destination)
-                                            }
+                                        val report: (CopyEngine.Progress) -> Unit = { p ->
+                                            // Called on the worker thread; writing a
+                                            // Compose state from there is allowed and is
+                                            // cheaper than bouncing every chunk back.
+                                            job = p
+                                        }
+                                        val token = { cancelToken.get() }
+                                        if (clip.move) {
+                                            CopyEngine.move(clip.paths, destination, token, report)
+                                        } else {
+                                            CopyEngine.copy(clip.paths, destination, token, report)
                                         }
                                     }
+                                    job = null
+                                    val cancelledCount =
+                                        outcome.count { it.exceptionOrNull() is CopyEngine.Cancelled }
                                     val failed = outcome.count { it.isFailure }
                                     toast = when {
+                                        cancelledCount > 0 -> "Dibatalkan"
                                         failed == 0 -> "${outcome.size} selesai"
                                         failed == outcome.size ->
                                             outcome.first().exceptionOrNull()?.message ?: "Gagal"
                                         else -> "$failed dari ${outcome.size} gagal"
                                     }
+                                    // A cancelled move must not clear the selection: the
+                                    // files are still where they were.
                                     if (failed == 0 && clip.move) selected = emptySet()
                                     onSelectedCount(0)
                                     reload()
                                 }
                             }
                         },
+                    )
+                }
+
+                archiveView?.let { (archive, entries) ->
+                    ArchiveDialog(
+                        spec = spec,
+                        title = archive.name,
+                        entries = entries,
+                        onDismiss = { archiveView = null },
+                    )
+                }
+
+                extractProgress?.let { (done, total) ->
+                    ExtractProgressDialog(
+                        spec = spec,
+                        done = done,
+                        total = total,
+                        onCancel = { cancelToken.set(true) },
+                    )
+                }
+
+                if (usage != null || usageBusy) {
+                    UsageDialog(
+                        spec = spec,
+                        busy = usageBusy,
+                        tallies = usage.orEmpty(),
+                        onDismiss = { usage = null; usageBusy = false },
+                        onOpen = { tally ->
+                            usage = null
+                            if (tally.isDirectory) goTo(tally.path, tally.name)
+                        },
+                    )
+                }
+
+                job?.let { progress ->
+                    CopyProgressDialog(
+                        spec = spec,
+                        progress = progress,
+                        onCancel = { cancelToken.set(true) },
                     )
                 }
 
@@ -662,6 +784,13 @@ fun BrowserScreen(
             }
         }
     }
+}
+
+/** True for the file types where a picture beats a glyph. */
+private fun wantsThumbnail(e: FileEntry): Boolean {
+    if (e.isDirectory) return false
+    val mime = Support.mimeFor(e.name)
+    return mime.startsWith("image/") || mime.startsWith("video/")
 }
 
 private fun glyphFor(e: FileEntry): String = when {
@@ -718,6 +847,7 @@ private fun Toolbar(
     showHidden: Boolean,
     canGoUp: Boolean,
     onPlaces: () -> Unit,
+    onUsage: () -> Unit,
     onAddFolder: () -> Unit,
     onUp: () -> Unit,
     onSort: () -> Unit,
@@ -766,6 +896,8 @@ private fun Toolbar(
         ToolButton(if (showHidden) "\u25C9" else "\u25CB", showHidden, onToggleHidden)
         Spacer(Modifier.size(6.dp))
         ToolButton(if (grid) "\u2637" else "\u2263", true, onToggleGrid)
+        Spacer(Modifier.size(6.dp))
+        ToolButton("\u25E7", false, onUsage)
         Spacer(Modifier.size(6.dp))
         ToolButton("\u2302", false, onHome)
         Spacer(Modifier.size(6.dp))
@@ -900,6 +1032,303 @@ private fun Toast(spec: PureThemeSpec, message: String, onDismiss: () -> Unit) {
  * anywhere, so "add a folder" was a one-way door, and a file manager that cannot
  * switch volume is stuck inside whichever one it opened.
  */
+/**
+ * The copy, while it happens.
+ *
+ * Deliberately not dismissible by tapping outside: a dialog that can be dismissed
+ * while work continues underneath is a dialog that lies about what a tap did. The
+ * only ways out are finishing and Batal, and both are visible.
+ */
+/**
+ * Which folders are using the space.
+ *
+ * Bars are relative to the largest child, not to the sum: the job is to find the
+ * biggest thing, and a folder holding 99% of the bytes would otherwise draw every
+ * other row as a sliver too small to see.
+ */
+/**
+ * What is inside a zip.
+ *
+ * Read-only on purpose. Showing the contents answers the question people actually
+ * have ("did this download work?"), and extraction stays an explicit choice rather
+ * than something that starts because a row was tapped.
+ */
+@Composable
+private fun ArchiveDialog(
+    spec: PureThemeSpec,
+    title: String,
+    entries: List<Archive.Entry>,
+    onDismiss: () -> Unit,
+) {
+    val p = spec.palette
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = { Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1) },
+        text = {
+            Column {
+                Text(
+                    "${entries.size} entri \u00b7 " +
+                        formatSize(entries.sumOf { it.bytes }, false),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    entries.forEach { entry ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                if (entry.isDirectory) "\u25A0 " else "\u00b7 ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.accent,
+                            )
+                            Text(
+                                entry.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.onBackground,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (!entry.isDirectory) {
+                                Text(
+                                    formatSize(entry.bytes, false),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = p.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Tutup", color = p.accent) }
+        },
+    )
+}
+
+/**
+ * Extraction progress, in the same shape as the copy dialog.
+ *
+ * An archive with a single 2 GB video reports a size that only moves at the end, so
+ * the percentage and the cancel button are what makes the wait tolerable.
+ */
+@Composable
+private fun ExtractProgressDialog(
+    spec: PureThemeSpec,
+    done: Long,
+    total: Long,
+    onCancel: () -> Unit,
+) {
+    val p = spec.palette
+    val fraction = if (total <= 0L) 0f else (done.toDouble() / total).toFloat().coerceIn(0f, 1f)
+    AlertDialog(
+        onDismissRequest = { /* only Batal stops the job */ },
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = { Text("Mengekstrak", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                Text(
+                    "${(fraction * 100).toInt()}%",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = p.onBackground,
+                )
+                Spacer(Modifier.height(10.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(p.surfaceVariant),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(fraction)
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(p.accent),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    formatSize(done, false) + " dari " + formatSize(total, false),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onCancel) {
+                Text("Batal", color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
+            }
+        },
+    )
+}
+
+@Composable
+private fun UsageDialog(
+    spec: PureThemeSpec,
+    busy: Boolean,
+    tallies: List<Usage.Tally>,
+    onDismiss: () -> Unit,
+    onOpen: (Usage.Tally) -> Unit,
+) {
+    val p = spec.palette
+    val top = tallies.maxOfOrNull { it.bytes } ?: 0L
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = { Text("Analisis penyimpanan", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            if (busy) {
+                CircularProgressIndicator(color = p.accent)
+            } else {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (tallies.isEmpty()) {
+                        Text(
+                            "Folder ini kosong.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = p.onSurfaceVariant,
+                        )
+                    }
+                    tallies.forEach { tally ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(spec.cornerDp.dp))
+                                .clickable { onOpen(tally) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (tally.isDirectory) IosFolder(size = 20f)
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    tally.name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = p.onBackground,
+                                    maxLines = 1,
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(p.surfaceVariant),
+                                ) {
+                                    val share = if (top <= 0L) 0f
+                                        else (tally.bytes.toDouble() / top).toFloat()
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth(share.coerceIn(0f, 1f))
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(p.accent),
+                                    )
+                                }
+                            }
+                            Text(
+                                formatSize(tally.bytes, tally.isDirectory),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = p.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Tutup", color = p.accent) }
+        },
+    )
+}
+
+@Composable
+private fun CopyProgressDialog(
+    spec: PureThemeSpec,
+    progress: CopyEngine.Progress,
+    onCancel: () -> Unit,
+) {
+    val p = spec.palette
+    val percent = (progress.fraction * 100).toInt().coerceIn(0, 100)
+    AlertDialog(
+        onDismissRequest = { /* only Batal stops the job */ },
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = { Text("Menyalin berkas", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                Text(
+                    "$percent%",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = p.onBackground,
+                )
+                Spacer(Modifier.height(10.dp))
+                // A plain filled bar instead of LinearProgressIndicator: one less
+                // component whose size changes between Compose versions.
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(p.surfaceVariant),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(progress.fraction.coerceIn(0f, 1f))
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(p.accent),
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "${progress.filesDone} dari ${progress.filesTotal} berkas \u00b7 " +
+                        formatSize(progress.bytesDone, false) + " dari " +
+                        formatSize(progress.bytesTotal, false),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    progress.currentName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onCancel) {
+                Text("Batal", color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
+            }
+        },
+    )
+}
+
 @Composable
 private fun PlacesDialog(
     spec: PureThemeSpec,
@@ -973,6 +1402,8 @@ private fun ActionSheet(
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
     onShare: () -> Unit,
+    onArchive: (() -> Unit)?,
+    onExtract: (() -> Unit)?,
     onRename: () -> Unit,
     onCopy: () -> Unit,
     onMove: () -> Unit,
@@ -998,6 +1429,8 @@ private fun ActionSheet(
                     ActionRow("Buka dengan\u2026", onOpen)
                     ActionRow("Bagikan", onShare)
                 }
+                if (onArchive != null) ActionRow("Lihat isi arsip", onArchive)
+                if (onExtract != null) ActionRow("Ekstrak ke sini", onExtract)
                 ActionRow("Ganti nama", onRename)
                 ActionRow("Salin ke\u2026", onCopy)
                 ActionRow("Pindahkan ke\u2026", onMove)

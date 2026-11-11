@@ -1,5 +1,10 @@
 package net.pure.manager.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.os.Build
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,12 +23,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.pure.manager.theme.LocalPureSpec
@@ -82,6 +97,7 @@ fun GridCell(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     selected: Boolean = false,
+    thumbnailOf: String? = null,
 ) {
     val p = spec.palette
     Column(
@@ -108,11 +124,21 @@ fun GridCell(
                     .border(0.5.dp, p.separator, RoundedCornerShape((spec.cornerDp * 0.8f).dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    glyph,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = p.accent,
-                )
+                val thumb = if (thumbnailOf != null) rememberThumbnail(thumbnailOf, 160) else null
+                if (thumb != null) {
+                    Image(
+                        bitmap = thumb.asImageBitmap(),
+                        contentDescription = title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxWidth().height(70.dp),
+                    )
+                } else {
+                    Text(
+                        glyph,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = p.accent,
+                    )
+                }
             }
         }
         Spacer(Modifier.height(7.dp))
@@ -131,6 +157,81 @@ fun GridCell(
             )
         }
     }
+}
+
+
+/**
+ * A small bitmap for an image or video, or null while it loads or if it cannot.
+ *
+ * Two things make this worth writing carefully:
+ *
+ *  - Decoding at full resolution throws a 12 MP photo into memory to draw 70 dp.
+ *    `inSampleSize` is computed from the target size first, which is the difference
+ *    between a smooth grid and an app that dies on a folder of camera photos.
+ *  - A SAF document is not a `File`, so it goes through `ContentResolver`, which can
+ *    make a sized thumbnail from Android 10 up. Below that and for anything the
+ *    resolver cannot render, the answer is null and the glyph shows: a missing
+ *    thumbnail is a smaller lie than a broken image.
+ */
+@Composable
+private fun rememberThumbnail(path: String, targetPx: Int): Bitmap? {
+    val context = LocalContext.current
+    var bitmap by remember(path, targetPx) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(path, targetPx) {
+        bitmap = withContext(Dispatchers.IO) {
+            runCatching { loadThumbnail(context, path, targetPx) }.getOrNull()
+        }
+    }
+    return bitmap
+}
+
+private fun loadThumbnail(
+    context: android.content.Context,
+    path: String,
+    targetPx: Int,
+): Bitmap? {
+    if (path.startsWith("content://")) {
+        // SAF documents: the content resolver can produce a thumbnail for images and
+        // audio on Android 10+, honouring the requested size. Decoding the stream
+        // directly would pull a full-resolution photo into memory to fill 70 dp.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        return runCatching {
+            context.contentResolver.loadThumbnail(
+                android.net.Uri.parse(path),
+                android.util.Size(targetPx, targetPx),
+                null,
+            )
+        }.getOrNull()
+    }
+
+    val file = java.io.File(path)
+    if (!file.isFile) return null
+
+    // Video: a frame from one second in, which is usually past the black start.
+    if (net.pure.manager.fs.Support.mimeFor(file.name).startsWith("video/")) {
+        return runCatching {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(file.absolutePath)
+                retriever.getFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            } finally {
+                retriever.release()
+            }
+        }.getOrNull()
+    }
+
+    // Image: decode bounds only, then decode again at a sample size that lands near
+    // the target. A 12 MP photo is about 36 MB as a full bitmap.
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= targetPx && bounds.outHeight / (sample * 2) >= targetPx) {
+        sample *= 2
+    }
+    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+    return BitmapFactory.decodeFile(file.absolutePath, opts)
 }
 
 /** The single-column list from the reference's list view: icon, name, chevron. */

@@ -235,6 +235,12 @@ class UnresolvedReferences(unittest.TestCase):
                     continue
                 if re.search(r"\b" + home_pkg + r"\." + name, body):
                     continue  # fully qualified at the use site
+                # Nested types arrive with the outer type: CopyEngine.Progress is
+                # reached through the `import ... CopyEngine` line, and demanding a
+                # separate import for `Progress` is a false alarm the guard invented.
+                outer = [o for o in re.findall(r"`?(\w+)\.`?" + name, body)]
+                if any(f"{home_pkg}.{o}" in imports for o in outer):
+                    continue
                 problems.append(f"{f.name}: uses {name} (from {home_pkg}) without import")
         self.assertEqual([], problems, "\n".join(problems))
 
@@ -713,6 +719,35 @@ class ManifestAndGradle(unittest.TestCase):
                 imported = f"import" in text and re.search(
                     r"(?m)^import [\w.]*\b" + api + r"$", text)
                 self.assertTrue(imported, f"{f.name} uses {api} without importing it")
+
+    def test_basic_features_the_owner_asked_for_are_present(self):
+        """The second round: "semua yang kamu sebutkan" -- copy progress, thumbnails,
+        storage analysis, archive extraction."""
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        self.assertIn("CopyProgressDialog(", browser)
+        self.assertIn("CopyEngine.", browser)
+        self.assertIn("copyCancel" if "copyCancel" in browser else "cancelToken", browser)
+        self.assertIn("UsageDialog(", browser)
+        self.assertIn("thumbnailOf =", browser)
+        self.assertIn("ArchiveDialog(", browser)
+        self.assertIn("onExtract", browser)
+
+    def test_a_cancel_button_actually_reaches_the_engine(self):
+        """A dialog with a Batal that only closes the dialog is the worst kind."""
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        # The token must be handed to the engine as its cancellation poll, not
+        # merely flipped by the button.
+        self.assertRegex(
+            browser, r"\{ cancelToken\.get\(\) \}",
+            "the cancel flag has to be what the engine polls",
+        )
+        self.assertRegex(browser, r"cancelToken\.set\(true\)")
+
+    def test_archive_extraction_refuses_to_escape_the_destination(self):
+        archive = (SRC / "net/pure/manager/fs/Archive.kt").read_text()
+        self.assertIn("canonicalFile", archive)
+        self.assertIn("isInside", archive)
+        self.assertIn("\"..\"", archive)
 
     def test_a_parameter_is_never_assigned(self):
         """Build #17, caught for real this time.
