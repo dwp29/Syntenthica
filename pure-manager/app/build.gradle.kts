@@ -20,11 +20,27 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    // 0.1.0 is signed with the debug key. That is deliberate but temporary: an
+    // unsigned APK cannot be installed at all, so the alternative is an artifact
+    // nobody can open. The release keystore (RSA 4096, fingerprint
+    // 5C:C7:E1:A7:...:69:7B) replaces this in stage 4, before any module is
+    // published -- modules are signed separately and must match the app key.
+    signingConfigs {
+        create("debugkey") {
+            storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // No shrinking in 0.1.0: the theme system is the only thing here and
-            // R8 would obscure the very classes the tab exercises.
+            // R8 would obscure the very classes the tab exercises. R8 lands with
+            // the file layer in stage 2, together with its keep rules.
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debugkey")
         }
     }
 
@@ -49,11 +65,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Kept out on purpose for now: libsu (root), docx4j (Office), sora-editor
     // (code), ffmpeg (audio). Each lands with the stage that needs it, so the
