@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +52,7 @@ import net.pure.manager.fs.FileOps
 import net.pure.manager.fs.SortKey
 import net.pure.manager.fs.SortOrder
 import net.pure.manager.fs.Storage
+import net.pure.manager.fs.Support
 import net.pure.manager.fs.comparatorFor
 import net.pure.manager.fs.formatDate
 import net.pure.manager.fs.formatSize
@@ -66,9 +68,9 @@ import java.io.File
  * this screen touches storage the app does not own, which is where a file manager
  * usually dies.
  *
- * Deliberately absent for now: multi-select, drag and drop, thumbnails, archive
- * extraction. They arrive with progress reporting in stage 3, where a long copy
- * can be cancelled instead of blocking the screen.
+ * Deliberately absent for now: drag and drop, thumbnails, archive extraction. They
+ * arrive with progress reporting in stage 3, where a long copy can be cancelled
+ * instead of blocking the screen.
  */
 @Composable
 fun BrowserScreen(
@@ -102,6 +104,10 @@ fun BrowserScreen(
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var picker by remember { mutableStateOf<DestinationPicker?>(null) }
     var bulkDelete by remember { mutableStateOf(false) }
+    // The "Lokasi" sheet: internal storage, the SD card, and the folders the
+    // user granted. Without it, a folder added through SAF was openable once and
+    // then lost after the first navigation away from it.
+    var showPlaces by remember { mutableStateOf(false) }
     // Bumped after every write so the LaunchedEffect re-reads the folder. Keying
     // on the path alone meant a rename or delete left a stale list until the user
     // navigated away and back -- which reads as data loss.
@@ -200,6 +206,33 @@ fun BrowserScreen(
         }
     }
 
+    // Back means "up" while inside a folder, and "cancel" while items are ticked.
+    // Without this, the system back button closed the app from any depth, which is
+    // the single most common way a file manager feels wrong.
+    BackHandler(enabled = selectionMode || Storage.parentOf(path) != null) {
+        when {
+            selectionMode -> {
+                onSelectionModeChange(false)
+                selected = emptySet()
+                onSelectedCount(0)
+            }
+            else -> {
+                val parent = Storage.parentOf(path)
+                if (parent != null) {
+                    path = parent
+                    locationLabel = Storage.displayName(parent)
+                    query = ""
+                }
+            }
+        }
+    }
+
+    fun goTo(target: String, label: String) {
+        path = target
+        locationLabel = label
+        query = ""
+    }
+
     val visible = remember(entries, query) {
         if (query.isBlank()) entries
         else entries.filter { Storage.searchKey(it.name).contains(Storage.searchKey(query)) }
@@ -208,6 +241,11 @@ fun BrowserScreen(
     // A tap either opens (normal) or ticks (selection mode). A long press opens the
     // action sheet -- the gesture every file manager uses, and the one the owner
     // pointed out was missing. In selection mode a long press also ticks.
+    //
+    // Tapping a file hands it to whatever app registered for its type. Leaving a
+    // placeholder toast here instead was the owner's complaint, and it was fair: a
+    // file manager whose files cannot be opened is a folder tree with a settings
+    // screen.
     val onTap: (FileEntry) -> Unit = { e ->
         when {
             selectionMode -> {
@@ -220,7 +258,12 @@ fun BrowserScreen(
                 locationLabel = Storage.displayName(e.path)
                 query = ""
             }
-            else -> toast = "Pembuka berkas menyusul (tahap 5)"
+            else -> {
+                val opened = Storage.open(context, e)
+                if (opened.isFailure) {
+                    toast = opened.exceptionOrNull()?.message ?: "Berkas tidak bisa dibuka"
+                }
+            }
         }
     }
 
@@ -252,14 +295,12 @@ fun BrowserScreen(
                     grid = grid,
                     showHidden = showHidden,
                     onUp = {
-                        val parent = Storage.parentOf(path)
-                        if (parent != null) {
-                            path = parent
-                            locationLabel = Storage.displayName(parent)
-                            query = ""
+                        Storage.parentOf(path)?.let { parent ->
+                            goTo(parent, Storage.displayName(parent))
                         }
                     },
                     canGoUp = Storage.parentOf(path) != null,
+                    onPlaces = { showPlaces = true },
                     onSort = {
                         // One button cycles Name -> Size -> Date -> Type and then
                         // flips direction. A dropdown for four options costs more
@@ -279,11 +320,7 @@ fun BrowserScreen(
                     onAddFolder = { folderPicker.launch(null) },
                     onHome = {
                         val first = Storage.locations(context).firstOrNull()
-                        if (first != null) {
-                            path = first.path
-                            locationLabel = first.label
-                            query = ""
-                        }
+                        if (first != null) goTo(first.path, first.label)
                     },
                 )
 
@@ -371,8 +408,7 @@ fun BrowserScreen(
 
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "${visible.count { it.isDirectory }} folder \u00b7 " +
-                                "${visible.count { !it.isDirectory }} berkas" +
+                            Support.countLabel(visible) +
                                 if (showHidden) " \u00b7 termasuk tersembunyi" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = p.onSurfaceVariant,
@@ -408,6 +444,31 @@ fun BrowserScreen(
                         spec = spec,
                         target = target,
                         onDismiss = { actionTarget = null },
+                        onOpen = {
+                            actionTarget = null
+                            if (target.isDirectory) {
+                                goTo(target.path, Storage.displayName(target.path))
+                            } else {
+                                val opened = Storage.open(context, target)
+                                if (opened.isFailure) {
+                                    toast = opened.exceptionOrNull()?.message
+                                        ?: "Berkas tidak bisa dibuka"
+                                }
+                            }
+                        },
+                        onShare = {
+                            actionTarget = null
+                            val launched = runCatching {
+                                context.startActivity(
+                                    android.content.Intent.createChooser(
+                                        Storage.shareIntent(context, target), "Bagikan lewat",
+                                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                            if (launched.isFailure) {
+                                toast = "Tidak ada aplikasi untuk membagikan berkas ini"
+                            }
+                        },
                         onRename = { actionTarget = null; prompt = Prompt.Rename(target) },
                         onCopy = {
                             actionTarget = null
@@ -578,6 +639,23 @@ fun BrowserScreen(
                     )
                 }
 
+                if (showPlaces) {
+                    PlacesDialog(
+                        spec = spec,
+                        places = Storage.places(context, trees),
+                        current = path,
+                        onDismiss = { showPlaces = false },
+                        onPick = { location ->
+                            showPlaces = false
+                            goTo(location.path, location.label)
+                        },
+                        onAddTree = {
+                            showPlaces = false
+                            folderPicker.launch(null)
+                        },
+                    )
+                }
+
                 toast?.let { message ->
                     Toast(spec, message) { toast = null }
                 }
@@ -639,6 +717,7 @@ private fun Toolbar(
     grid: Boolean,
     showHidden: Boolean,
     canGoUp: Boolean,
+    onPlaces: () -> Unit,
     onAddFolder: () -> Unit,
     onUp: () -> Unit,
     onSort: () -> Unit,
@@ -655,7 +734,13 @@ private fun Toolbar(
             ToolButton("\u2190", false, onUp)
             Spacer(Modifier.size(6.dp))
         }
-        Column(Modifier.weight(1f)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(spec.cornerDp.dp))
+                .clickable(onClick = onPlaces)
+                .padding(vertical = 2.dp),
+        ) {
             Text(
                 label,
                 style = MaterialTheme.typography.bodyLarge,
@@ -807,11 +892,87 @@ private fun Toast(spec: PureThemeSpec, message: String, onDismiss: () -> Unit) {
     }
 }
 
+/**
+ * Every place the app can browse, in one list.
+ *
+ * The reason this exists: after the first launch, a folder added through SAF could
+ * only be reached by adding it again. The trees were stored and never shown
+ * anywhere, so "add a folder" was a one-way door, and a file manager that cannot
+ * switch volume is stuck inside whichever one it opened.
+ */
+@Composable
+private fun PlacesDialog(
+    spec: PureThemeSpec,
+    places: List<net.pure.manager.fs.Location>,
+    current: String,
+    onDismiss: () -> Unit,
+    onPick: (net.pure.manager.fs.Location) -> Unit,
+    onAddTree: () -> Unit,
+) {
+    val p = spec.palette
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = { Text("Lokasi", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                places.forEach { location ->
+                    val here = location.path == current
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(spec.cornerDp.dp))
+                            .clickable { onPick(location) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        IosFolder(size = 24f)
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                location.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (here) p.accent else p.onBackground,
+                                maxLines = 1,
+                            )
+                            Text(
+                                location.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                        if (here) Text("\u2713", color = p.accent)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Tambah folder lewat sistem",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = p.accent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(spec.cornerDp.dp))
+                        .clickable(onClick = onAddTree)
+                        .padding(vertical = 10.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Tutup", color = p.accent) }
+        },
+    )
+}
+
 @Composable
 private fun ActionSheet(
     spec: PureThemeSpec,
     target: FileEntry,
     onDismiss: () -> Unit,
+    onOpen: () -> Unit,
+    onShare: () -> Unit,
     onRename: () -> Unit,
     onCopy: () -> Unit,
     onMove: () -> Unit,
@@ -827,6 +988,16 @@ private fun ActionSheet(
         title = { Text(target.name, style = MaterialTheme.typography.titleMedium) },
         text = {
             Column {
+                // A folder is opened by tapping it; a file needs an explicit row
+                // because the same tap has to stay free for "select" in selection
+                // mode. Share is separate from open: "make this available to
+                // another app" is the reason people long-press a file.
+                if (target.isDirectory) {
+                    ActionRow("Buka", onOpen)
+                } else {
+                    ActionRow("Buka dengan\u2026", onOpen)
+                    ActionRow("Bagikan", onShare)
+                }
                 ActionRow("Ganti nama", onRename)
                 ActionRow("Salin ke\u2026", onCopy)
                 ActionRow("Pindahkan ke\u2026", onMove)

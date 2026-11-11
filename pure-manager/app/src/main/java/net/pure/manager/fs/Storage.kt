@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
 import android.provider.Settings
-import android.provider.DocumentsContract
 import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
@@ -182,6 +181,16 @@ object Storage {
             Location(label = label, path = uri.toString(), description = "Folder pilihan", treeUri = uri)
         }
 
+    /** The places list, flattened, so the "Lokasi" sheet can be built from one call. */
+    fun places(context: Context, trees: List<Pair<String, Uri>>): List<Location> =
+        Support.places(
+            internalPath = Environment.getExternalStorageDirectory().absolutePath,
+            volumes = locations(context).drop(1).map {
+                Triple(it.label, it.path, it.description == "Kartu SD")
+            },
+            trees = trees.map { (label, uri) -> label to uri.toString() },
+        )
+
     /** True when this path is a SAF document URI rather than a file path. */
     fun isTreePath(path: String): Boolean = path.startsWith("content://")
 
@@ -200,35 +209,76 @@ object Storage {
     }.getOrDefault(false)
 
     /** Best-effort parent for the up button. */
-    fun parentOf(path: String): String? {
-        if (isTreePath(path)) {
-            val docId = runCatching { DocumentsContract.getDocumentId(Uri.parse(path)) }.getOrNull()
-                ?: return null
-            // Document ids are "primary:Folder/Sub"; walking up means trimming the
-            // last segment. Returning null at the root keeps the up button hidden.
-            val trimmed = docId.substringBeforeLast('/', "")
-            if (trimmed.isEmpty() || trimmed == docId) return null
-            return path
-        }
-        val f = File(path).parentFile ?: return null
-        return f.absolutePath
-    }
+    fun parentOf(path: String): String? = Support.parentOf(path)
 
     /** "12 item" or "12 item \u00b7 3 folder", matching the reference screenshots. */
-    fun describeChildren(entries: List<FileEntry>): String {
-        val folders = entries.count { it.isDirectory }
-        val files = entries.size - folders
-        val parts = mutableListOf<String>()
-        if (folders > 0) parts += "$folders folder"
-        if (files > 0) parts += "$files berkas"
-        if (parts.isEmpty()) return "Kosong"
-        return parts.joinToString(" \u00b7 ")
-    }
+    fun describeChildren(entries: List<FileEntry>): String = Support.countLabel(entries)
 
     fun displayName(path: String): String {
-        if (isTreePath(path)) return path.substringAfterLast("%2F").substringAfterLast('/')
+        if (isTreePath(path)) {
+            // The document id arrives percent-encoded; decoding it here means a folder
+            // named "Foto 2024" shows as that instead of "Foto%202024".
+            val decoded = Support.percentDecode(path.substringAfterLast("/document/", path))
+            val name = decoded.substringAfterLast('/', "")
+            return name.substringAfter(':', "").ifEmpty { "Folder" }
+        }
         val f = File(path)
         return f.name.ifEmpty { f.absolutePath }
+    }
+
+    /**
+     * Opens a file with whatever app registered for its type.
+     *
+     * There is deliberately no "is there an app for this?" query before starting.
+     * Package visibility filters that query on Android 11 and up, so a file with a
+     * perfectly good viewer would be reported as unopenable. Trying and catching
+     * cannot be filtered, and it answers the only question the user has: did it open.
+     *
+     * The message is Indonesian and says what happened, because "ActivityNotFoundException"
+     * is not a sentence.
+     */
+    fun open(context: Context, entry: FileEntry): Result<Unit> = runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uriFor(context, entry), Support.mimeFor(entry.name))
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }.recoverCatching { error ->
+        throw java.io.IOException(
+            when (error) {
+                is android.content.ActivityNotFoundException -> "Tidak ada aplikasi untuk membuka berkas ini"
+                is SecurityException -> "Aplikasi lain tidak diberi izin membaca berkas ini"
+                else -> error.message ?: "Berkas tidak bisa dibuka"
+            },
+            error,
+        )
+    }
+
+    /**
+     * The content URI the system can read.
+     *
+     * A SAF document already is one. A real file has to go through the FileProvider,
+     * because handing out a `file://` path stopped working in Android 7.
+     */
+    private fun uriFor(context: Context, entry: FileEntry): Uri =
+        if (isTreePath(entry.path)) {
+            Uri.parse(entry.path)
+        } else {
+            androidx.core.content.FileProvider.getUriForFile(
+                context, "${context.packageName}.files", File(entry.path),
+            )
+        }
+
+    /** Hands a file to whatever the user picks: chat, mail, drive, anything. */
+    fun shareIntent(context: Context, entry: FileEntry): Intent {
+        return Intent(Intent.ACTION_SEND).apply {
+            type = Support.mimeFor(entry.name)
+            putExtra(Intent.EXTRA_STREAM, uriFor(context, entry))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
     }
 
     fun searchKey(text: String): String = text.lowercase(Locale.US).trim()

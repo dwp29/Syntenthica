@@ -583,6 +583,69 @@ class BasicFileManagerDuties(unittest.TestCase):
         self.assertNotIn("clickable { }", self.shell)
         self.assertNotIn("clickable { }", self.browser)
 
+    # --- what the second round of feedback was actually about -------------
+
+    def test_tapping_a_file_opens_it(self):
+        """The toast "Pembuka berkas menyusul (tahap 5)" was a missing feature.
+
+        A file manager that cannot open a file is a folder tree; the owner was
+        right to call the opener a basic duty rather than a later stage.
+        """
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        storage = (SRC / "net/pure/manager/fs/Storage.kt").read_text()
+        self.assertIn("Storage.open(context", browser)
+        self.assertIn("fun open(context: Context, entry: FileEntry)", storage)
+        self.assertNotRegex(
+            browser, r"toast = \"Pembuka berkas",
+            "a tap on a file must open it, not promise an opener later",
+        )
+
+    def test_open_does_not_pre_check_package_visibility(self):
+        """resolveActivity is filtered on Android 11+, so it reports no app when one exists."""
+        storage = (SRC / "net/pure/manager/fs/Storage.kt").read_text()
+        self.assertNotRegex(storage, r"\.resolveActivity\(", "visibility filtering breaks this")
+        self.assertIn("ActivityNotFoundException", storage)
+
+    def test_long_press_menu_offers_open_and_share(self):
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        for label in ("Buka", "Bagikan", "Ganti nama", "Salin ke", "Pindahkan ke", "Hapus"):
+            self.assertIn(label, browser)
+
+    def test_back_button_goes_up_before_leaving(self):
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        self.assertIn("BackHandler(", browser)
+        self.assertRegex(
+            browser, r"BackHandler\([\s\S]{0,400}Storage\.parentOf\(path\)",
+            "back has to mean up while inside a folder",
+        )
+
+    def test_places_sheet_lists_trees_so_a_granted_folder_is_reachable_again(self):
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        storage = (SRC / "net/pure/manager/fs/Storage.kt").read_text()
+        self.assertIn("PlacesDialog(", browser)
+        self.assertIn("Storage.places(context", browser)
+        self.assertIn("showPlaces = true", browser)
+        self.assertIn("fun places(context: Context", storage)
+
+    def test_up_button_changes_the_path(self):
+        """The old SAF branch returned its own argument, so up did nothing.
+
+        The first version of this test matched a shape the real bug did not have,
+        which is the same trap as passing on broken source: a guard has to be
+        written against the code that was actually there.
+        """
+        support = (SRC / "net/pure/manager/fs/Support.kt").read_text()
+        body = support[support.index("fun parentOf("):]
+        body = body[:body.index("fun isInside(")]
+        # re.M matters: without it `$` anchors at the end of the whole function and
+        # every indented `return path` line slips through. That is exactly how the
+        # first version of this guard passed on broken code.
+        self.assertIsNone(
+            re.search(r"(?m)^\s*return path\s*$", body),
+            "parentOf must never return its own input; that is a no-op button",
+        )
+        self.assertIn("substringBeforeLast", body)
+
 
 class ManifestAndGradle(unittest.TestCase):
     def test_all_files_permission_arrives_with_the_feature_that_needs_it(self):
