@@ -78,6 +78,18 @@ jobs:
       # keystore committed to a public repo. Running them here is what makes them
       # guards instead of a script somebody runs on their laptop -- and this step
       # found two real bugs while it was being written.
+      # Does this runner have Maven Central? It decides whether a third-party
+      # library can be used at all: the sandbox this repo was written in has it
+      # blocked, so a dependency that resolves here might not resolve there.
+      - name: Check dependency access
+        run: |
+          set +e
+          for host in "https://repo1.maven.org/maven2/" "https://jitpack.io/"; do
+            code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$host")
+            echo "::notice title=Maven access::$host -> HTTP $code"
+          done
+          exit 0
+
       - name: Run source guards
         run: |
           set -euo pipefail
