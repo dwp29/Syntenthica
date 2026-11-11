@@ -65,22 +65,23 @@ jobs:
       # The browser's sorting, formatting, name validation and copy/move/delete
       # logic is pure Kotlin, so it can be executed here. Everything that touches
       # a device is verified by the owner instead.
-      # Tests run, but they do not get to block the artifact. Reason: a failing
-      # step on this repository produces no readable output -- no ::error, no
-      # ::group::, no blob, and the run log is EOF from here. Blocking the build on
-      # a channel I cannot read would just stop delivery without telling anyone
-      # why. The whole Gradle output is written into build.log, which IS readable
-      # (the diagnostics step publishes it), so a red test is visible on the next
-      # failure report instead of invisible in a failing step.
+      # Tests block the artifact again. They were briefly non-blocking because a
+      # failing step on this repository emitted nothing readable -- no ::error, no
+      # ::group::, no blob, and the run log is EOF from here. The way out was not a
+      # better instrumented failure but a reporter that cannot fail: a separate
+      # step that always succeeds and publishes the count AND the failing test
+      # names as ::notice. That is how the last three bugs were found.
       #
-      # This is a temporary trade, and a test that fails here will be made to fail
-      # the build once the log path is trustworthy.
+      # With that in place, blocking is safe again: a red test names itself.
       - name: Run unit tests
         working-directory: pure-manager
         run: |
           mkdir -p "$RUNNER_TEMP/pm-output"
+          set +e
           ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace \
-            > "$RUNNER_TEMP/pm-output/tests.log" 2>&1 || true
+            > "$RUNNER_TEMP/pm-output/tests.log" 2>&1
+          GRADLE_EXIT=$?
+          set -e
           tail -25 "$RUNNER_TEMP/pm-output/tests.log" || true
           {
             echo "===== testReleaseUnitTest ====="
@@ -98,7 +99,7 @@ jobs:
               e += int(root.get("errors", 0)); s += int(root.get("skipped", 0))
           print(f"unit tests: {t} run, {f} failed, {e} errored, {s} skipped")
           ' 2>&1 || echo "JUnit XML tidak ditemukan"
-          } > "$RUNNER_TEMP/pm-output/build.log"
+          } >> "$RUNNER_TEMP/pm-output/build.log"
           # Independently of the big log, keep the summary where the reporter can
           # find it without parsing anything.
           python3 -c '
@@ -113,6 +114,9 @@ jobs:
           open("'"$RUNNER_TEMP"'/pm-output/test-summary.txt", "w").write(
               f"{t} run, {f} failed, {e} errored, {sk} skipped")
           ' 2>/dev/null || echo "JUnit XML tidak ditemukan" > "$RUNNER_TEMP/pm-output/test-summary.txt"
+          # Only now fail, after both reports are written, so the reporter step
+          # still has something to say about WHY the build is red.
+          exit "$GRADLE_EXIT"
 
       - name: Ensure a signing key exists
         run: |
