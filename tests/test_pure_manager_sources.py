@@ -350,16 +350,15 @@ class NeverDeadOnArrival(unittest.TestCase):
         self.assertIn("fallback", self.glass)
         self.assertIn("glassTint", self.glass)
 
-    def test_theme_system_failure_shows_a_screen(self):
-        self.assertIn("FallbackScreen", self.main)
-        self.assertIn("catch (e: Throwable)", self.main)
+    def test_no_try_catch_around_composable_calls(self):
+        """Compose rejects it outright: "Try catch is not supported around
+        composable function invocations". Build #10 failed on exactly this."""
+        self.assertNotRegex(self.main, r"try\s*\{[\s\S]*?PureTheme\(")
 
-    def test_fallback_screen_reads_no_tokens(self):
-        """It must render even when the token system is what failed."""
-        fallback = (SRC / "net/pure/manager/ui/FallbackScreen.kt").read_text()
-        self.assertNotIn("LocalPureSpec", fallback)
-        self.assertNotIn("haze", fallback)
-        self.assertNotIn("MaterialTheme.typography", fallback)
+    def test_second_launch_after_a_crash_starts_safe(self):
+        self.assertIn("recoveredFromCrash", self.main)
+        self.assertIn("ThemePrefs(blur = false)", self.main)
+        self.assertIn("recoveredFromCrash", (SRC / "net/pure/manager/ui/PureShell.kt").read_text())
 
     def test_blur_pref_survives_rotation(self):
         saver = (SRC / "net/pure/manager/theme/ThemePrefsSaver.kt").read_text()

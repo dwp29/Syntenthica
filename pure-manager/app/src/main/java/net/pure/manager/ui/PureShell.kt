@@ -66,7 +66,11 @@ private enum class Screen(val label: String, val glyph: String) {
 }
 
 @Composable
-fun PureShell(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit) {
+fun PureShell(
+    prefs: ThemePrefs,
+    onPrefs: (ThemePrefs) -> Unit,
+    recoveredFromCrash: Boolean = false,
+) {
     val spec = LocalPureSpec.current
     val insets = LocalSystemInsets.current
     var screen by rememberSaveable { mutableStateOf(Screen.FILES) }
@@ -281,7 +285,20 @@ private fun ScreenBody(
             Spacer(Modifier.height(insets.top + 58.dp))
             Column(Modifier.padding(bottom = 96.dp)) {
                 when (screen) {
-                    Screen.FILES -> FilesScreen(spec, haze, collapsed)
+                    Screen.FILES -> {
+                if (recoveredFromCrash) {
+                    // Visible, dismissible, and it is the first thing on the
+                    // screen: the point of safe mode is that the owner knows why
+                    // the app looks different and where the report is.
+                    Banner(
+                        text = "Aplikasi sempat berhenti. Blur dimatikan dan tampilan " +
+                            "dikembalikan ke awal. Laporan ada di Setelan.",
+                        onDismiss = { onPrefs(prefs.copy(blur = false)) },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                FilesScreen(spec, haze, collapsed)
+            }
                     Screen.THEME -> ThemeScreen(prefs, onPrefs)
                     Screen.MODULES -> ModulesScreen(spec)
                     Screen.SETTINGS -> SettingsScreen(prefs, onPrefs, spec)
@@ -835,6 +852,37 @@ private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spe
 }
 
 // ------------------------------------------------------------------- components
+
+@Composable
+private fun Banner(text: String, onDismiss: () -> Unit) {
+    val spec = LocalPureSpec.current
+    val p = spec.palette
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(spec.cornerDp.dp))
+            .background(p.accent.copy(alpha = 0.14f))
+            .border(0.75.dp, p.accent, RoundedCornerShape(spec.cornerDp.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = p.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(spec.cornerDp.dp))
+                .clickable(onClick = onDismiss)
+                .padding(6.dp),
+        ) {
+            Text("OK", style = MaterialTheme.typography.labelMedium, color = p.accent)
+        }
+    }
+}
 
 @Composable
 private fun SectionLabel(text: String) {
