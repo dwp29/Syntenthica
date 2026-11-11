@@ -68,15 +68,26 @@ jobs:
       - name: Run unit tests
         working-directory: pure-manager
         run: |
-          set -euo pipefail
-          ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace 2>&1 | tail -25
-          # A green test task with zero tests is not a green test task. Read the
-          # JUnit report and fail if it is empty.
-          python3 - <<'PY'
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/pm-output"
+          LOG="$RUNNER_TEMP/pm-output/test.log"
+          ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace > "$LOG" 2>&1
+          GRADLE_EXIT=$?
+          tail -30 "$LOG"
+          if [ "$GRADLE_EXIT" -ne 0 ]; then
+            echo "::error title=Unit tests failed::Gradle exited $GRADLE_EXIT"
+            exit "$GRADLE_EXIT"
+          fi
+          # A green test task with zero tests is not a green test task. Count them
+          # from the JUnit XML, print the number, and refuse to pass on zero.
+          python3 - "$LOG" <<'PY'
           import glob, sys, xml.etree.ElementTree as ET
+          out = sys.argv[1]
           files = glob.glob('app/build/test-results/testReleaseUnitTest/*.xml')
           if not files:
-              sys.exit('no test results produced')
+              msg = 'no JUnit XML produced by testReleaseUnitTest'
+              print('::error title=No test results::' + msg)
+              sys.exit(msg)
           tests = failures = errors = skipped = 0
           for f in files:
               root = ET.parse(f).getroot()
@@ -84,10 +95,18 @@ jobs:
               failures += int(root.get('failures', 0))
               errors += int(root.get('errors', 0))
               skipped += int(root.get('skipped', 0))
-          print(f'unit tests: {tests} run, {failures} failed, {errors} errored, {skipped} skipped')
+          line = f'unit tests: {tests} run, {failures} failed, {errors} errored, {skipped} skipped'
+          print(line)
+          # Echo into the build log too, so the count survives in the artifact and
+          # in the failure annotation even when the run log is unreachable.
+          with open(out, 'a') as fh:
+              fh.write('\n' + line + '\n')
           if tests == 0:
-              sys.exit('the test task produced no tests')
-          sys.exit(1 if (failures or errors) else 0)
+              print('::error title=No tests ran::the task produced zero tests')
+              sys.exit('the test task produced zero tests')
+          if failures or errors:
+              print(f'::error title=Test failures::{failures} failed, {errors} errored')
+              sys.exit(1)
           PY
 
       - name: Ensure a signing key exists
