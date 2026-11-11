@@ -1014,11 +1014,16 @@ class TwoFlavorsAndModules(unittest.TestCase):
             # The comment above the check quotes the broken form on purpose.
             if line.lstrip().startswith("#"):
                 continue
-            if "grep -F \"package: name='net.pure.manager'" in line:
-                self.assertTrue(
-                    line.rstrip().endswith("\"' \"$OUT/badging.txt\""),
-                    f"un-anchored package check: {line.strip()}",
-                )
+            if "grep -F \"package: name='net.pure.manager'" not in line:
+                continue
+            # The property: the search string must end with the closing quote,
+            # before the file argument. Comparing the whole line was too literal
+            # and failed a correct line.
+            quoted = line.split('grep -F "', 1)[1].split('" "$OUT', 1)[0]
+            self.assertTrue(
+                quoted.endswith("' "),
+                f"package pattern is not anchored on the closing quote: {quoted!r}",
+            )
 
     def test_the_second_signer_is_compared_after_it_is_read(self):
         # SIGNER_MIN was assigned before SIGNER, so the comparison always saw an
