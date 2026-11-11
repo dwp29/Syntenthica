@@ -777,6 +777,14 @@ class ManifestAndGradle(unittest.TestCase):
         self.assertNotRegex(wf, r"versionName='0\.3\.\d+'", "the expected version is hardcoded")
         self.assertNotRegex(wf, r"PureManager-0\.\d+\.\d+-DEBUGKEY", "the artifact name is hardcoded")
 
+    def test_exported_version_is_the_name_later_steps_read(self):
+        """An exported name nobody reads is an empty variable and a red build."""
+        wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
+        exported = set(re.findall(r'echo "(\w+)=\$VERSION" >> "\$GITHUB_ENV"', wf))
+        self.assertTrue(exported, "the version is never exported to later steps")
+        self.assertIn("VERSION", exported)
+        self.assertIn("PureManager-${VERSION}-DEBUGKEY.apk", wf)
+
     def test_gradle_version_satisfies_the_android_plugin(self):
         # AGP 8.7.3 rejects anything below Gradle 8.9; the first CI run died on
         # exactly this, so it is pinned in the workflow.
