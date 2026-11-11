@@ -161,7 +161,11 @@ def sign(apk: Path, out: Path, key_path: Path, cert_path: Path, password: bytes,
     if algo not in SCHEMES:
         raise ValueError(f"unsupported algorithm {algo:#06x}")
 
-    key = serialization.load_pem_private_key(key_path.read_bytes(), password=password)
+    # An empty password file means the key is not encrypted; passing b"" instead of
+    # None makes cryptography raise "password was given but private key is not
+    # encrypted", which is a confusing way to say "no password needed".
+    key = serialization.load_pem_private_key(
+        key_path.read_bytes(), password=password if password else None)
     certificate = x509.load_pem_x509_certificate(cert_path.read_bytes()).public_bytes(
         serialization.Encoding.DER)
 

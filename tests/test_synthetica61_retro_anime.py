@@ -271,5 +271,31 @@ class BuildGateTests(unittest.TestCase):
                 self.assertNotIn(path.suffix.lower(), {'.p12', '.jks', '.keystore', '.pem', '.key', '.der'})
 
 
+class RecoveryToolingTests(unittest.TestCase):
+    """Guards for the ways this work can be lost, both of which already happened.
+
+    The workspace was reset twice mid-session; anything that existed only under
+    /home/user (the signing key, the unsigned APK, the built archive) vanished.
+    What survived was what had been pushed to git or uploaded to Drive.
+    """
+
+    def test_restore_script_resolves_the_repository_root(self):
+        script = (ROOT / 'build-kit/scripts/restore_session.sh').read_text()
+        # build-kit/scripts/x.sh -> repo root is two levels up, not one. With one,
+        # the script looked for build-kit/build-kit/scripts and failed at step 4.
+        self.assertIn('"$(dirname "${BASH_SOURCE[0]}")/../.."', script)
+
+    def test_restore_script_pins_the_unsigned_apk(self):
+        script = (ROOT / 'build-kit/scripts/restore_session.sh').read_text()
+        self.assertIn('ca65a9af30348965b35c314d190970638351ca8c16dfaefb49ec299ace781502', script)
+        self.assertIn('git cat-file -p', script)
+
+    def test_apk_and_signing_material_are_ignored_by_git(self):
+        # A private key or a signed APK reaching git would be worse than losing it.
+        ignored = (ROOT / '.gitignore').read_text()
+        for pattern in ('*.p12', '*.apk', 'dist/'):
+            self.assertIn(pattern, ignored, f'{pattern} is not ignored')
+
+
 if __name__ == '__main__':
     unittest.main()
