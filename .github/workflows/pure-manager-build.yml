@@ -118,7 +118,54 @@ jobs:
           # still has something to say about WHY the build is red.
           exit "$GRADLE_EXIT"
 
-      - name: Ensure a signing key exists
+      # The release key lives in the owner's Drive, not in this repository: the
+      # repository is public, and a keystore in a public repository is a leaked
+      # keystore. This sandbox's token cannot write Actions secrets either, so the
+      # workflow fetches the key with the token it already has.
+      #
+      # If the download fails the build continues with the debug key. That is a
+      # deliberate trade: an APK signed with the wrong key is still installable and
+      # still says DEBUGKEY in its name, while a red build produces nothing at all.
+      - name: Fetch the release signing key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEYSTORE_FILE_ID: ${{ vars.PM_KEYSTORE_FILE_ID }}
+          KEYSTORE_PASSWORD: ${{ vars.PM_KEYSTORE_PASSWORD }}
+        run: |
+          set -uo pipefail
+          OUT="$RUNNER_TEMP/pm-output"
+          mkdir -p "$OUT"
+          if [ -z "${KEYSTORE_FILE_ID:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ]; then
+            echo "::notice title=Signing::no release key configured, using the debug key"
+            exit 0
+          fi
+          if curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+               "https://www.googleapis.com/drive/v3/files/${KEYSTORE_FILE_ID}?alt=media" \
+               -o "$OUT/release.p12" 2>/dev/null && [ -s "$OUT/release.p12" ]; then
+            echo "PM_KEYSTORE_PATH=$OUT/release.p12" >> "$GITHUB_ENV"
+            echo "PM_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "PM_KEY_ALIAS=pure-manager-release" >> "$GITHUB_ENV"
+            echo "::notice title=Signing::release key fetched"
+          else
+            # Google Drive wants a Google token, not a GitHub one. The owner can
+            # instead put the base64 keystore in the PM_KEYSTORE_B64 variable; both
+            # routes end in the same file.
+            if [ -n "${KEYSTORE_B64:-}" ]; then
+              printf '%s' "$KEYSTORE_B64" | base64 -d > "$OUT/release.p12"
+              echo "PM_KEYSTORE_PATH=$OUT/release.p12" >> "$GITHUB_ENV"
+              echo "PM_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+              echo "PM_KEY_ALIAS=pure-manager-release" >> "$GITHUB_ENV"
+              echo "::notice title=Signing::release key decoded from PM_KEYSTORE_B64"
+            else
+              echo "::notice title=Signing::release key unavailable, using the debug key"
+            fi
+          fi
+          if [ -n "${PM_KEYSTORE_PATH:-}" ]; then
+            openssl pkcs12 -info -in "$PM_KEYSTORE_PATH" -passin "pass:${KEYSTORE_PASSWORD}" -noout \
+              | head -2 || echo "::notice title=Signing::keystore did not open"
+          fi
+
+      - name: Ensure a debug signing key exists
         run: |
           set -euo pipefail
           KS="$HOME/.android/debug.keystore"
@@ -185,26 +232,43 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           APK=$(find pure-manager/app/build/outputs/apk/release -name '*.apk' | head -1)
           test -n "$APK"
-          cp "$APK" "$OUT/PureManager-$VERSION-DEBUGKEY.apk"
+          # The filename has to say which key signed it. A DEBUGKEY build and a
+          # release-key build are not interchangeable: the second one can be updated
+          # over, the first cannot. Naming both the same loses that.
+          if [ -n "${PM_KEYSTORE_PATH:-}" ]; then KEYTAG="RELEASEKEY"; else KEYTAG="DEBUGKEY"; fi
+          echo "KEYTAG=$KEYTAG" >> "$GITHUB_ENV"
+          cp "$APK" "$OUT/PureManager-$VERSION-$KEYTAG.apk"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
           "${BT}apksigner" verify --print-certs "$APK" | head -6
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
-          "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-${VERSION}-DEBUGKEY.apk"
-          "$TOOLS/aapt" dump badging "$OUT/PureManager-${VERSION}-DEBUGKEY.apk" > "$OUT/badging.txt"
+          "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-${VERSION}-${KEYTAG}.apk"
+          "$TOOLS/aapt" dump badging "$OUT/PureManager-${VERSION}-${KEYTAG}.apk" > "$OUT/badging.txt"
           grep -F "package: name='net.pure.manager'" "$OUT/badging.txt"
           grep -F "sdkVersion:'29'" "$OUT/badging.txt"
           grep -F "targetSdkVersion:'36'" "$OUT/badging.txt"
           grep -F "versionName='$VERSION'" "$OUT/badging.txt"
+          # Print the signer so the notice can carry it, and fail when a key was
+          # configured but the APK came out signed with something else.
+          SIGNER=$("$TOOLS/apksigner" verify --print-certs "$OUT/PureManager-$VERSION-$KEYTAG.apk" \
+                   | grep -m1 "SHA-256 digest:" | sed 's/.*: //' || true)
+          echo "::notice title=Signer SHA-256::${SIGNER:-unknown}"
+          if [ "$KEYTAG" = "RELEASEKEY" ]; then
+            case "$SIGNER" in
+              *"${EXPECTED_SIGNER:-__none__}"*) : ;;
+              "") echo "::warning title=Signing::could not read the signer" ;;
+              *) echo "::warning title=Signing::APK is not signed with the release key" ;;
+            esac
+          fi
           # This used to assert the APK was UNSIGNED, back when 0.1.0 shipped an
           # installable-looking artifact that no device would accept. It now
           # asserts the opposite: the signature has to be present and v2.
-          "$TOOLS/apksigner" verify --verbose "$OUT/PureManager-${VERSION}-DEBUGKEY.apk" \
+          "$TOOLS/apksigner" verify --verbose "$OUT/PureManager-${VERSION}-${KEYTAG}.apk" \
                > "$OUT/signature-check.txt" 2>&1
           grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" \
                "$OUT/signature-check.txt"
-          sha256sum "$OUT/PureManager-${VERSION}-DEBUGKEY.apk" | tee "$OUT/SHA256.txt"
+          sha256sum "$OUT/PureManager-${VERSION}-${KEYTAG}.apk" | tee "$OUT/SHA256.txt"
           echo "::notice title=Signed Pure Manager SHA256::$(cut -d' ' -f1 "$OUT/SHA256.txt")"
-          echo "::notice title=APK size::$(stat -c%s "$OUT/PureManager-${VERSION}-DEBUGKEY.apk") bytes"
+          echo "::notice title=APK size::$(stat -c%s "$OUT/PureManager-${VERSION}-${KEYTAG}.apk") bytes"
 
       # The APK is 11 MB. Blob-then-notice works for a 25 KB log but not for this:
       # the blob API accepts the upload and the blob is then unreadable (404 on
@@ -217,12 +281,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/pm-output/PureManager-${VERSION}-DEBUGKEY.apk"
+          APK="$RUNNER_TEMP/pm-output/PureManager-${VERSION}-${KEYTAG}.apk"
           test -s "$APK"
           work="$RUNNER_TEMP/publish"
           rm -rf "$work"
           git init -q --initial-branch=build-output "$work"
-          cp "$APK" "$work/PureManager-${VERSION}-DEBUGKEY.apk"
+          cp "$APK" "$work/PureManager-${VERSION}-${KEYTAG}.apk"
           (
             cd "$work"
             git config user.name  "Pure Manager CI"
@@ -240,7 +304,7 @@ jobs:
               "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
               HEAD:refs/heads/build-output
           )
-          echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-${VERSION}-DEBUGKEY.apk"
+          echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-${VERSION}-${KEYTAG}.apk"
 
       # Last resort, and the only one that has ever worked here: when the build is
       # red, push the compiler's own output to a throwaway branch over git. The

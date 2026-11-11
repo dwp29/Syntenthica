@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import unittest
 import pathlib
+import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "pure-manager/app/src/main/java"
@@ -879,7 +880,32 @@ class ManifestAndGradle(unittest.TestCase):
         exported = set(re.findall(r'echo "(\w+)=\$VERSION" >> "\$GITHUB_ENV"', wf))
         self.assertTrue(exported, "the version is never exported to later steps")
         self.assertIn("VERSION", exported)
-        self.assertIn("PureManager-${VERSION}-DEBUGKEY.apk", wf)
+        self.assertIn("PureManager-${VERSION}-${KEYTAG}.apk", wf)
+
+    def test_no_keystore_is_committed_to_a_public_repository(self):
+        """A keystore in a public repository is a leaked keystore.
+
+        The release key is archived in the owner's Drive and handed to the build
+        through the environment; nothing of it may live in git.
+        """
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=str(ROOT), capture_output=True, text=True,
+        ).stdout.splitlines()
+        leaks = [f for f in tracked if f.lower().endswith((".jks", ".keystore", ".p12", ".pfx"))]
+        self.assertEqual([], leaks, "signing material must never be committed")
+
+    def test_the_signing_key_comes_from_the_environment(self):
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        self.assertIn('System.getenv("PM_KEYSTORE_PATH")', gradle)
+        self.assertIn('create("release")', gradle)
+        # And the build type must pick the key that exists, not always the debug one.
+        self.assertIn("releaseKey.storeFile != null", gradle)
+
+    def test_the_artifact_name_says_which_key_signed_it(self):
+        wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
+        self.assertIn("KEYTAG", wf)
+        self.assertIn("RELEASEKEY", wf)
+        self.assertIn("Signer SHA-256", wf)
 
     def test_gradle_version_satisfies_the_android_plugin(self):
         # AGP 8.7.3 rejects anything below Gradle 8.9; the first CI run died on

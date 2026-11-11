@@ -25,7 +25,29 @@ android {
     // nobody can open. The release keystore (RSA 4096, fingerprint
     // 5C:C7:E1:A7:...:69:7B) replaces this in stage 4, before any module is
     // published -- modules are signed separately and must match the app key.
+    // Two signing configs, in order of preference.
+    //
+    // "release" reads the real key from the environment. It is absent here on
+    // purpose: this repository is public, so a keystore in it would be a keystore
+    // leaked, and the CI token in this sandbox cannot write Actions secrets. The
+    // key itself is archived in the owner's Drive; the CI workflow asks for it at
+    // build time and falls back to the debug key only when it cannot get one, in
+    // which case the APK filename says DEBUGKEY.
+    //
+    // Every APK before 0.4.0 was signed with a throwaway key generated on each
+    // runner, which meant the app could not be updated without uninstalling and
+    // could never ship a module that checks the signature. That is the bug this
+    // fixes; the archive in Drive is the durable half of the fix.
     signingConfigs {
+        create("release") {
+            val storePath = System.getenv("PM_KEYSTORE_PATH")
+            if (!storePath.isNullOrBlank() && file(storePath).exists()) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("PM_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("PM_KEY_ALIAS") ?: "pure-manager-release"
+                keyPassword = System.getenv("PM_KEY_PASSWORD") ?: System.getenv("PM_KEYSTORE_PASSWORD")
+            }
+        }
         create("debugkey") {
             storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
             storePassword = "android"
@@ -40,7 +62,12 @@ android {
             // R8 would obscure the very classes the tab exercises. R8 lands with
             // the file layer in stage 2, together with its keep rules.
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debugkey")
+            // Build type picks whichever config actually holds a key, so a build
+            // without the release material still produces something installable
+            // instead of an unsigned APK that silently "succeeds".
+            val releaseKey = signingConfigs.getByName("release")
+            signingConfig = if (releaseKey.storeFile != null) releaseKey
+                else signingConfigs.getByName("debugkey")
         }
     }
 
