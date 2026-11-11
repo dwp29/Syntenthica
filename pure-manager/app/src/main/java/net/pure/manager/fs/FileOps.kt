@@ -60,6 +60,13 @@ object FileOps {
         val dir = File(destinationDir)
         if (!src.exists()) throw IOException("Sumber tidak ditemukan")
         if (!dir.isDirectory) throw IOException("Tujuan bukan folder")
+        // Two cases, and the first one is the dangerous one: copying a folder
+        // into ITSELF recurses until the disk is full. The original guard only
+        // rejected a destination *inside* the source, so src == dir slipped
+        // through and the JVM test caught it.
+        if (src.isDirectory && dir.absolutePath == src.absolutePath) {
+            throw IOException("Tidak bisa menyalin folder ke dalam dirinya sendiri")
+        }
         if (src.isDirectory && dir.absolutePath.startsWith(src.absolutePath + File.separator)) {
             throw IOException("Tidak bisa menyalin folder ke dalam dirinya sendiri")
         }
@@ -76,6 +83,9 @@ object FileOps {
         val dir = File(destinationDir)
         if (!src.exists()) throw IOException("Sumber tidak ditemukan")
         if (!dir.isDirectory) throw IOException("Tujuan bukan folder")
+        if (src.isDirectory && src.absolutePath == dir.absolutePath) {
+            throw IOException("Tidak bisa memindahkan folder ke dalam dirinya sendiri")
+        }
         if (src.absolutePath == dir.absolutePath) throw IOException("Sudah di folder ini")
         if (src.isDirectory && dir.absolutePath.startsWith(src.absolutePath + File.separator)) {
             throw IOException("Tidak bisa memindahkan folder ke dalam dirinya sendiri")

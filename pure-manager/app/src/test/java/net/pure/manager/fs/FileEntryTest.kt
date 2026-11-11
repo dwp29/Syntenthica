@@ -103,7 +103,10 @@ class FileEntryTest {
         assertTrue(validateName("..")!!.isNotEmpty())
         assertTrue(validateName("x".repeat(300))!!.contains("panjang"))
         assertTrue(validateName("nama ")!!.contains("spasi"))
-        for (bad in listOf("a\\b", "a:b", "a*b", "a?b", "a\"b", "a<b", "a>b", "a|b")) {
+        // Backslash needs two characters, which is why it is tested separately from
+        // the one-character cases: a lone '\\' is not a valid Kotlin char literal.
+        assertTrue("backslash should be rejected", validateName("a" + 92.toChar() + "b") != null)
+        for (bad in listOf("a:b", "a*b", "a?b", "a\"b", "a<b", "a>b", "a|b")) {
             assertTrue("$bad should be rejected", validateName(bad) != null)
         }
     }
@@ -155,9 +158,16 @@ class FileEntryTest {
     fun `copying a folder into itself is refused`() {
         val root = tempDir()
         val folder = java.io.File(root, "dok").apply { mkdirs() }
-        val result = FileOps.copy(folder.absolutePath, folder.absolutePath)
-        assertTrue("must fail rather than recurse forever", result.isFailure)
-        assertTrue(result.exceptionOrNull()!!.message!!.contains("dirinya sendiri"))
+        // Into itself: the dangerous case, because it recurses until the disk is
+        // full. This is the assertion that caught a real bug in FileOps.
+        val intoItself = FileOps.copy(folder.absolutePath, folder.absolutePath)
+        assertTrue("must fail rather than recurse forever", intoItself.isFailure)
+        assertTrue(intoItself.exceptionOrNull()!!.message!!.contains("dirinya sendiri"))
+
+        // Into a child of itself: same hazard, different path shape.
+        val child = java.io.File(folder, "sub").apply { mkdirs() }
+        val intoChild = FileOps.copy(folder.absolutePath, child.absolutePath)
+        assertTrue("must also refuse a destination inside the source", intoChild.isFailure)
     }
 
     @Test
