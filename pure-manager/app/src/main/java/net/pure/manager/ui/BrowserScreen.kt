@@ -79,8 +79,8 @@ import java.io.File
 fun BrowserScreen(
     spec: PureThemeSpec,
     selectionMode: Boolean = false,
-    onSelectionModeChange: (Boolean) -> Unit = {},
-    onSelectedCount: (Int) -> Unit = {},
+    onSelectionModeChange: (Boolean) -> Unit = { _ -> },
+    onSelectedCount: (Int) -> Unit = { _ -> },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

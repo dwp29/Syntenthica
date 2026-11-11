@@ -749,6 +749,25 @@ class ManifestAndGradle(unittest.TestCase):
         self.assertIn("isInside", archive)
         self.assertIn("\"..\"", archive)
 
+    def test_an_empty_lambda_is_never_passed_for_a_callback_with_parameters(self):
+        """Build 19: 0 tests ran because the build did not compile.
+
+        `onProgress: (Progress) -> Unit = {}` and `copy(...) {}` are both errors:
+        a lambda with no parameter list only satisfies `() -> Unit`. The compiler
+        says so in one line, but this sandbox has no compiler, so it cost a round
+        trip to CI and a log endpoint that returned EOF.
+        """
+        pattern = re.compile(
+            r":\s*\([^)]+\)\s*->\s*Unit\s*=\s*\{\s*\}",
+        )
+        problems = []
+        for f in list(kt_files()) + sorted((SRC.parents[2] / "app/src/test").rglob("*.kt")):
+            text = f.read_text()
+            for m in pattern.finditer(text):
+                line = text[:m.start()].count("\n") + 1
+                problems.append(f"{f.name}:{line} empty lambda for a callback with parameters")
+        self.assertEqual([], problems, "\n".join(problems))
+
     def test_a_parameter_is_never_assigned(self):
         """Build #17, caught for real this time.
 

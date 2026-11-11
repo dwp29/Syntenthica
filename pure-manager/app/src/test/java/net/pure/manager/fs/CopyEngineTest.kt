@@ -36,7 +36,7 @@ class CopyEngineTest {
         val dst = temp.newFolder("dst")
         val original = file(src, "a.txt", 1024)
 
-        val results = CopyEngine.copy(listOf(original.absolutePath), dst.absolutePath, { false }) {}
+        val results = CopyEngine.copy(listOf(original.absolutePath), dst.absolutePath, { false }) { _ -> }
 
         assertTrue(results.single().isSuccess)
         assertTrue(File(dst, "a.txt").exists())
@@ -51,7 +51,7 @@ class CopyEngineTest {
         val original = file(src, "a.txt", 10)
         file(dst, "a.txt", 5)
 
-        CopyEngine.copy(listOf(original.absolutePath), dst.absolutePath, { false }) {}
+        CopyEngine.copy(listOf(original.absolutePath), dst.absolutePath, { false }) { _ -> }
 
         // The pre-existing file must survive: a copy that silently replaces is the
         // worst thing this app could do.
@@ -67,7 +67,7 @@ class CopyEngineTest {
         file(nested, "deep.txt", 8)
         val dst = temp.newFolder("dst")
 
-        CopyEngine.copy(listOf(src.absolutePath), dst.absolutePath, { false }) {}
+        CopyEngine.copy(listOf(src.absolutePath), dst.absolutePath, { false }) { _ -> }
 
         assertTrue(File(dst, "src/top.txt").exists())
         assertTrue(File(dst, "src/inner/deep.txt").exists())
@@ -78,7 +78,7 @@ class CopyEngineTest {
         val src = temp.newFolder("src")
         file(src, "a.txt", 8)
 
-        val result = CopyEngine.copy(listOf(src.absolutePath), src.absolutePath, { false }) {}
+        val result = CopyEngine.copy(listOf(src.absolutePath), src.absolutePath, { false }) { _ -> }
 
         assertTrue(result.single().isFailure)
         assertTrue(result.single().exceptionOrNull()!!.message!!.contains("dirinya sendiri"))
@@ -130,7 +130,7 @@ class CopyEngineTest {
             listOf(File(src, "big.bin").absolutePath),
             dst.absolutePath,
             cancelled = { calls.incrementAndGet() > 1 },
-        ) {}
+        ) { _ -> }
 
         assertTrue(results.single().isFailure)
         assertTrue(results.single().exceptionOrNull() is CopyEngine.Cancelled)
@@ -149,7 +149,7 @@ class CopyEngineTest {
             listOf(File(src, "a.txt").absolutePath, File(src, "b.txt").absolutePath),
             dst.absolutePath,
             cancelled = { true },
-        ) {}
+        ) { _ -> }
 
         assertEquals(2, results.size)
         assertTrue(results.all { it.isFailure })
@@ -163,7 +163,7 @@ class CopyEngineTest {
         val dst = temp.newFolder("dst")
         val original = file(src, "a.txt", 100)
 
-        val results = CopyEngine.move(listOf(original.absolutePath), dst.absolutePath, { false }) {}
+        val results = CopyEngine.move(listOf(original.absolutePath), dst.absolutePath, { false }) { _ -> }
 
         assertTrue(results.single().isSuccess)
         assertTrue(File(dst, "a.txt").exists())
@@ -177,7 +177,7 @@ class CopyEngineTest {
 
         val results = CopyEngine.move(
             listOf(original.absolutePath), File(src, "tidak-ada").absolutePath, { false },
-        ) {}
+        ) { _ -> }
 
         assertTrue(results.single().isFailure)
         assertTrue(original.exists())
@@ -189,7 +189,7 @@ class CopyEngineTest {
     fun `a missing source fails without touching the destination`() {
         val dst = temp.newFolder("dst")
 
-        val results = CopyEngine.copy(listOf("/tidak/ada/berkas.txt"), dst.absolutePath, { false }) {}
+        val results = CopyEngine.copy(listOf("/tidak/ada/berkas.txt"), dst.absolutePath, { false }) { _ -> }
 
         assertTrue(results.single().isFailure)
         assertEquals(0, dst.listFiles()?.size ?: 0)
@@ -203,7 +203,7 @@ class CopyEngineTest {
 
         val results = CopyEngine.copy(
             listOf("/tidak/ada", good.absolutePath), dst.absolutePath, { false },
-        ) {}
+        ) { _ -> }
 
         assertEquals(2, results.size)
         assertTrue(results[0].isFailure)
