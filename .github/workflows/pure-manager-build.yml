@@ -73,7 +73,12 @@ jobs:
           LOG="$RUNNER_TEMP/pm-output/test.log"
           ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace > "$LOG" 2>&1
           GRADLE_EXIT=$?
-          tail -30 "$LOG"
+          # ::group:: is rendered as an annotation by the notifications API even
+          # when the run log cannot be downloaded, so the reason is readable from
+          # here. ::error:: alone was silently dropped on the failing step.
+          echo "::group::testReleaseUnitTest output (last 40 lines)"
+          tail -40 "$LOG" || true
+          echo "::endgroup::"
           # Hand the log to the diagnostics step. That step is the only channel
           # that reliably reaches this sandbox: run logs and artifacts are EOF.
           cp "$LOG" "$RUNNER_TEMP/pm-output/build.log" || true
