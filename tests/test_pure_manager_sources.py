@@ -1162,6 +1162,27 @@ class CodeEditor(unittest.TestCase):
                 i += 1
         self.assertEqual([], problems, "\n".join(problems))
 
+    def test_no_declaration_is_written_inside_a_function(self):
+        """Build #31: `private data class MediaTarget` landed between two statements
+        of BrowserScreen, so Kotlin read it as a *local* class -- and a local class
+        cannot carry `private`. The compiler's message pointed at the modifier, not at
+        the placement, which sent the first fix to the wrong place entirely.
+        """
+        problems = []
+        for f in kt_files():
+            for i, line in enumerate(f.read_text().splitlines(), start=1):
+                m = re.match(r"^\s+(private |internal )?(data |sealed |enum )?(class|object) (\w+)", line)
+                if not m:
+                    continue
+                indent = len(line) - len(line.lstrip())
+                # Nested types are legitimate when they sit inside another type; they
+                # are not when they sit inside a function body. Only `private` at
+                # column > 0 is a reliable smell, and it is the exact shape of the bug.
+                depth = line[:indent].count("    ")
+                if m.group(1) and depth >= 1:
+                    problems.append(f"{f.name}:{i} {m.group(4)} declared with a modifier inside a block")
+        self.assertEqual([], problems, "\n".join(problems))
+
     def test_the_logic_port_still_passes(self):
         """The Kotlin tests cannot run without a JDK, which this sandbox lacks.
 

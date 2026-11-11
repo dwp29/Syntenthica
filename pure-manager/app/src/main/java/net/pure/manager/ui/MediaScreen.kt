@@ -320,6 +320,7 @@ fun VideoScreen(
     onClose: () -> Unit,
 ) {
     val p = spec.palette
+    val context = LocalContext.current
     var error by remember(entry.path) { mutableStateOf<String?>(null) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(-1L) }

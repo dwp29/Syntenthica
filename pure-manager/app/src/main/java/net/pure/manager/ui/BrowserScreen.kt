@@ -354,18 +354,6 @@ fun BrowserScreen(
             )
     }
 
-/**
- * A file opened in the in-app player, plus the folder it came from.
- *
- * The siblings are captured when the file is tapped rather than read again by the
- * player: the playlist has to be the folder as the user saw it, in the order they
- * saw it, not whatever the directory listing returns a second later.
- */
-private data class MediaTarget(val entry: FileEntry, val siblings: List<FileEntry>)
-
-/**
- * Text files the editor can open.
-     */
     val onLongPress: (FileEntry) -> Unit = { e ->
         if (selectionMode) {
             val next = if (e.path in selected) selected - e.path else selected + e.path
@@ -2199,3 +2187,16 @@ private fun SelectionAction(label: String, color: Color, onClick: () -> Unit) {
             .padding(horizontal = 8.dp, vertical = 6.dp),
     )
 }
+
+/**
+ * A file opened in the in-app player, plus the folder it came from.
+ *
+ * Declared at file level, not inside the screen: a `private data class` written
+ * between two statements of a function body is a *local* class, and a local class
+ * cannot carry a modifier -- which is exactly what the compiler said.
+ *
+ * The siblings are captured when the file is tapped rather than read again by the
+ * player: the playlist has to be the folder as the user saw it, in the order they
+ * saw it, not whatever the directory listing returns a second later.
+ */
+private data class MediaTarget(val entry: FileEntry, val siblings: List<FileEntry>)
