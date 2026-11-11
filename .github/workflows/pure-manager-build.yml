@@ -114,8 +114,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -s "$RUNNER_TEMP/build.log" ]; then
-            tail -c 60000 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail.log"
+          if [ -s "$RUNNER_TEMP/pm-output/build.log" ]; then
+            tail -c 60000 "$RUNNER_TEMP/pm-output/build.log" > "$RUNNER_TEMP/tail.log"
             LOG="$RUNNER_TEMP/tail.log" python3 - <<'PY'
           import base64, json, os, pathlib
           p = pathlib.Path(os.environ['LOG']); t = pathlib.Path(os.environ['RUNNER_TEMP'])
@@ -126,6 +126,12 @@ jobs:
             blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST \
                     --input "$RUNNER_TEMP/log.json" --jq .sha)
             echo "::notice title=Pure Manager build log::$blob"
+            {
+              echo "### Pure Manager build log (last 12 KB)"
+              echo '```'
+              tail -c 12000 "$RUNNER_TEMP/pm-output/build.log"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/upload-artifact@v4
