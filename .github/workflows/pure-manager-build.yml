@@ -74,6 +74,9 @@ jobs:
           ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace > "$LOG" 2>&1
           GRADLE_EXIT=$?
           tail -30 "$LOG"
+          # Hand the log to the diagnostics step. That step is the only channel
+          # that reliably reaches this sandbox: run logs and artifacts are EOF.
+          cp "$LOG" "$RUNNER_TEMP/pm-output/build.log" || true
           if [ "$GRADLE_EXIT" -ne 0 ]; then
             echo "::error title=Unit tests failed::Gradle exited $GRADLE_EXIT"
             exit "$GRADLE_EXIT"
