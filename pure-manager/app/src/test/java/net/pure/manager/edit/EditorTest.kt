@@ -216,8 +216,11 @@ class EditorTest {
 
     @Test
     fun aBracketIsClosedAutomatically() {
+        // The pair comes back as one string plus where the caret goes inside it, so
+        // one insertion produces both halves with the cursor between them.
         val r = autoCloseFor("", 0, '(')
-        assertEquals("(" to ")", r)
+        assertEquals("()", r?.first)
+        assertEquals(1, r?.second)
     }
 
     @Test
@@ -232,12 +235,12 @@ class EditorTest {
 
     @Test
     fun aQuoteAfterASpaceOpensAString() {
-        assertEquals("\"" to "\"", autoCloseFor("x = ", 4, '"'))
+        assertEquals("\"\"", autoCloseFor("x = ", 4, '"')?.first)
     }
 
     @Test
     fun wrappingASelectionReturnsBothHalves() {
-        assertEquals("\"" to "\"", autoCloseFor("kata", 0, '"', selectionLength = 4))
+        assertEquals("\"\"", autoCloseFor("kata", 0, '"', selectionLength = 4)?.first)
     }
 
     @Test
@@ -301,7 +304,9 @@ class EditorTest {
     fun anUnclosedQuoteStopsAtTheEndOfTheLine() {
         val spans = highlight("x = 'abc\ny = 1", Language.PYTHON)
         val string = spans.first { it.kind == TokenKind.STRING }
-        assertTrue(string.end <= 7)
+        // The apostrophe is at 4 and the newline at 8, so the literal ends at 8.
+        assertEquals(4, string.start)
+        assertEquals(8, string.end)
         assertTrue(spans.any { it.kind == TokenKind.NUMBER })
     }
 
@@ -309,9 +314,10 @@ class EditorTest {
     fun aCommentRunsToTheEndOfTheLineOnly() {
         val spans = highlight("x = 1 // catatan\nval y = 2", Language.KOTLIN)
         val comment = spans.first { it.kind == TokenKind.COMMENT }
+        // "x = 1 // catatan": the slashes are at 6, the newline at 16, "val" at 17.
         assertEquals(6, comment.start)
-        assertEquals(15, comment.end)
-        assertTrue(spans.any { it.kind == TokenKind.KEYWORD && it.start == 16 })
+        assertEquals(16, comment.end)
+        assertTrue(spans.any { it.kind == TokenKind.KEYWORD && it.start == 17 })
     }
 
     @Test
