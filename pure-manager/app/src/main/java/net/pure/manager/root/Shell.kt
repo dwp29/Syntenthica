@@ -36,7 +36,7 @@ object Shell {
         "/debug_ramdisk/su",
     )
 
-    /** Result of one command. [code] is -1 when it never ran. */
+    /** What one command produced. [code] is -1 when it never ran. */
     data class Output(val code: Int, val output: String, val error: String) {
         val ok: Boolean get() = code == 0
         /** The one line worth showing when something fails. */
@@ -70,7 +70,7 @@ object Shell {
         command: String,
         timeoutSeconds: Long = 15L,
         env: Map<String, String> = emptyMap(),
-    ): Result {
+    ): Output {
         val process = runCatching {
             ProcessBuilder(binary, "-c", command)
                 .redirectErrorStream(false)

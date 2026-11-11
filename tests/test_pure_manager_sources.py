@@ -953,6 +953,22 @@ class RootAndTerminal(unittest.TestCase):
         self.assertIn("Belum ada akses root", self.terminal)
         self.assertIn("tanpa-root", self.terminal)
 
+    def test_no_project_type_shadows_a_kotlin_stdlib_type(self):
+        """A `data class Result` inside an object silently shadows kotlin.Result.
+
+        Build 011 died on `One type argument expected for class 'Result'` in a file
+        that never mentions Result on purpose. The guard looks for the declaration
+        itself, because a compiler error two files away from the cause costs a
+        three minute round trip.
+        """
+        shadowed = ("Result", "Pair", "Triple", "Lazy", "Nothing")
+        for f in kt_files():
+            for name in shadowed:
+                self.assertIsNone(
+                    re.search(r"\b(?:data )?class " + name + r"\b", f.read_text()),
+                    f"{f.name} declares {name}, which shadows the stdlib type",
+                )
+
     def test_su_is_probed_without_asking_for_a_grant(self):
         self.assertIn("fun suBinary(", self.shell)
         # Probing must not run a command: a grant dialog on launch is how an app
