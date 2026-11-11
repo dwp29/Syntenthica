@@ -32,3 +32,8 @@ wip/
 # Unsigned APKs produced by build-kit/scripts/build_manager_60_standalone.py.
 # They are build output; the pinned inputs stay in git, this does not.
 artifacts/unsigned/
+
+# Local distribution bundles (APKs and signing material must never be committed).
+dist/
+Synthetica-Manager-6.1-Themes-SIGNED.apk
+*.apk
