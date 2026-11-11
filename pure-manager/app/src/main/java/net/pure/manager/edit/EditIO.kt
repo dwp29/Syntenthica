@@ -179,6 +179,9 @@ object EditIO {
         "Berkas ini ${formatMb(bytes)} MB, lebih besar dari batas " +
             "${MAX_BYTES / (1024 * 1024)} MB untuk editor. Buka dengan aplikasi lain."
 
+    /** Overload for the Int call sites, so no caller has to remember the cast. */
+    private fun formatMb(bytes: Int): String = formatMb(bytes.toLong())
+
     private fun formatMb(bytes: Long): String = String.format(java.util.Locale.US, "%.1f", bytes / (1024.0 * 1024))
 
     /**
