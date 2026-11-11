@@ -24,6 +24,16 @@ def kt_files() -> list[pathlib.Path]:
     return sorted(SRC.rglob("*.kt"))
 
 
+def _composable_params(text: str) -> dict[str, set[str]]:
+    """name -> parameter names, for every private composable in the file."""
+    out = {}
+    for m in re.finditer(r"private fun (\w+)\(([^)]*)\)", text, re.S):
+        name, args = m.group(1), m.group(2)
+        params = {a.split(":")[0].strip() for a in args.split(",") if ":" in a}
+        out[name] = params
+    return out
+
+
 class SourceShape(unittest.TestCase):
     def test_sources_exist(self):
         files = kt_files()
@@ -234,6 +244,21 @@ class Interactions(unittest.TestCase):
     def test_scrollable_content(self):
         self.assertIn("verticalScroll", self.shell,
                       "content longer than the viewport would be unreachable")
+
+
+    def test_parameters_are_passed_to_the_calls_that_use_them(self):
+        """Build #11: ScreenBody grew a banner that read `recoveredFromCrash`
+        without that name existing inside ScreenBody -- the caller passed it to
+        the wrong function. Compilers catch it; so does this."""
+        text = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+        bodies = re.split(r"(?m)^private fun ", text)
+        for body in bodies[1:]:
+            header, _, rest = body.partition(")\n")
+            name = header.split("(")[0].strip()
+            declared = {p.split(":")[0].strip() for p in header.split(",", 1)[-1].split(",") if ":" in p} if "(" in header else set()
+            for candidate in ("recoveredFromCrash",):
+                if re.search(r"\b" + candidate + r"\b", rest) and candidate not in declared:
+                    self.fail(f"{name}() uses {candidate} but never receives it")
 
     def test_no_hardcoded_font_sizes(self):
         """Build 0.1.0 hardcoded 8.5.sp-22.sp, bypassing the type ramp entirely."""

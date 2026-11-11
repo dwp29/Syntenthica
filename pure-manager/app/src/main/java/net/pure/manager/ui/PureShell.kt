@@ -83,21 +83,21 @@ fun PureShell(
             NavModel.RAIL -> Row(Modifier.fillMaxSize()) {
                 LeftRail(spec, screen, onSelect = { screen = it })
                 Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, spec, haze)
+                    ScreenBody(screen, prefs, onPrefs, spec, haze, recoveredFromCrash)
                 }
             }
             NavModel.COMMAND_BAR -> Column(
                 Modifier.fillMaxSize().padding(top = insets.top, bottom = insets.bottom)
             ) {
                 Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, spec, haze)
+                    ScreenBody(screen, prefs, onPrefs, spec, haze, recoveredFromCrash)
                 }
                 CommandBar(spec, screen, onSelect = { screen = it })
             }
             NavModel.TAB_BAR -> Box(Modifier.fillMaxSize()) {
                 // Content runs full-height underneath both bars so the blur has
                 // something to work with; each screen pads its own content.
-                ScreenBody(screen, prefs, onPrefs, spec, haze)
+                ScreenBody(screen, prefs, onPrefs, spec, haze, recoveredFromCrash)
                 Column(Modifier.fillMaxSize()) {
                     Spacer(Modifier.weight(1f))
                     TabBar(spec, screen, haze, onSelect = { screen = it })
@@ -260,9 +260,11 @@ private fun ScreenBody(
     onPrefs: (ThemePrefs) -> Unit,
     spec: PureThemeSpec,
     haze: HazeState,
+    recoveredFromCrash: Boolean,
 ) {
     val insets = LocalSystemInsets.current
     val scroll = rememberScrollState()
+    var showRecoveryBanner by rememberSaveable { mutableStateOf(recoveredFromCrash) }
     // The large title collapses once the content has moved, which is when the
     // blurred top bar takes over and the small title appears in it.
     val collapsed = scroll.value > 40
@@ -286,14 +288,14 @@ private fun ScreenBody(
             Column(Modifier.padding(bottom = 96.dp)) {
                 when (screen) {
                     Screen.FILES -> {
-                if (recoveredFromCrash) {
+                if (showRecoveryBanner) {
                     // Visible, dismissible, and it is the first thing on the
                     // screen: the point of safe mode is that the owner knows why
                     // the app looks different and where the report is.
                     Banner(
                         text = "Aplikasi sempat berhenti. Blur dimatikan dan tampilan " +
                             "dikembalikan ke awal. Laporan ada di Setelan.",
-                        onDismiss = { onPrefs(prefs.copy(blur = false)) },
+                        onDismiss = { showRecoveryBanner = false },
                     )
                     Spacer(Modifier.height(12.dp))
                 }
