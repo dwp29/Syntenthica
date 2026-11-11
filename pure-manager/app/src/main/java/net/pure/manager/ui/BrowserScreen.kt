@@ -9,11 +9,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,13 +42,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.pure.manager.fs.AccessMode
+import net.pure.manager.fs.Alphabet
 import net.pure.manager.fs.Archive
 import net.pure.manager.fs.CopyEngine
 import net.pure.manager.fs.FileEntry
@@ -55,6 +60,7 @@ import net.pure.manager.fs.SortKey
 import net.pure.manager.fs.SortOrder
 import net.pure.manager.fs.Storage
 import net.pure.manager.fs.Support
+import net.pure.manager.fs.Search
 import net.pure.manager.fs.Usage
 import net.pure.manager.fs.comparatorFor
 import net.pure.manager.fs.formatDate
@@ -124,6 +130,21 @@ fun BrowserScreen(
     // the same cancellation flag as copy: one job at a time is easier to explain
     // than a queue the user cannot see.
     var archiveView by remember { mutableStateOf<Pair<FileEntry, List<Archive.Entry>>?>(null) }
+    // Device-wide search. Opened from the magnifier in the search field, not from
+    // the field itself: typing stays a filter of the folder you are looking at,
+    // which is what the field does in Files too.
+    var searchDevice by remember { mutableStateOf(false) }
+    // The letter the A-Z strip is filtered to, or null for everything. The strip
+    // filters rather than scroll-jumps: this list scrolls inside the shell's own
+    // scroll state, which this screen does not own, and a strip that cannot move
+    // the list would be decoration.
+    var letterFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var deviceQuery by remember { mutableStateOf("") }
+    var deviceResults by remember { mutableStateOf<List<FileEntry>>(emptyList()) }
+    var deviceBusy by remember { mutableStateOf(false) }
+    // Separate flag from the copy job: closing the search sheet must stop the
+    // walk, and sharing one token with a running copy would cancel that instead.
+    val searchCancel = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     var extractProgress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
     val cancelToken = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     // Bumped after every write so the LaunchedEffect re-reads the folder. Keying
@@ -216,6 +237,7 @@ fun BrowserScreen(
     LaunchedEffect(path) {
         selected = emptySet()
         onSelectedCount(0)
+        letterFilter = null
     }
     LaunchedEffect(selectionMode) {
         if (!selectionMode) {
@@ -250,6 +272,10 @@ fun BrowserScreen(
         locationLabel = label
         query = ""
     }
+
+    // Column count for the grid. Read once here instead of wrapping the list in a
+    // BoxWithConstraints, which would add a nested scroll container.
+    val widthDp = LocalConfiguration.current.screenWidthDp
 
     val visible = remember(entries, query) {
         if (query.isBlank()) entries
@@ -303,7 +329,41 @@ fun BrowserScreen(
                 onPickFolder = { folderPicker.launch(null) },
             )
             else -> {
-                SearchField(spec, query, onValueChange = { query = it })
+                SearchField(
+                    spec = spec,
+                    value = query,
+                    onValueChange = { query = it },
+                    onSearchDevice = {
+                        // The device search takes the text already typed, so the
+                        // button continues what the user was doing instead of
+                        // opening an empty box.
+                        searchDevice = true
+                        if (query.isNotBlank()) {
+                            // Captured before the coroutine starts: reading a
+                            // Compose state from a background thread is the kind of
+                            // thing that works until it does not.
+                            val needle = query
+                            val includeHidden = showHidden
+                            deviceQuery = needle
+                            deviceBusy = true
+                            deviceResults = emptyList()
+                            searchCancel.set(false)
+                            scope.launch {
+                                val roots = Storage.locations(context).map { it.path }
+                                val hits = withContext(Dispatchers.IO) {
+                                    Search.find(
+                                        roots = roots,
+                                        query = needle,
+                                        showHidden = includeHidden,
+                                        cancelled = { searchCancel.get() },
+                                    )
+                                }
+                                if (!searchCancel.get()) deviceResults = hits
+                                deviceBusy = false
+                            }
+                        }
+                    },
+                )
                 Spacer(Modifier.height(10.dp))
                 Toolbar(
                     spec = spec,
@@ -373,67 +433,96 @@ fun BrowserScreen(
 
                     else -> {
                         if (grid) {
-                            GroupCard(spec) {
-                                Column(Modifier.padding(horizontal = 6.dp, vertical = 8.dp)) {
-                                    visible.chunked(3).forEach { row ->
-                                        Row(Modifier.fillMaxWidth()) {
-                                            row.forEach { e ->
-                                                Box(Modifier.weight(1f)) {
-                                                    GridCell(
-                                                        spec = spec,
-                                                        title = e.name,
-                                                        subtitle = if (e.isDirectory)
-                                                            "${e.childCount} item"
-                                                        else formatSize(e.sizeBytes, false),
-                                                        isFolder = e.isDirectory,
-                                                        glyph = glyphFor(e),
-                                                        onClick = { onTap(e) },
-                                                        onLongClick = { onLongPress(e) },
-                                                        selected = e.path in selected,
-                                                        // Only images and videos ask for a
-                                                        // thumbnail; a text file would
-                                                        // spend a decode to draw its glyph.
-                                                        thumbnailOf = e.path.takeIf { wantsThumbnail(e) },
-                                                    )
-                                                }
+                            // iPhone in portrait gets three columns; a tablet or a
+                            // folded phone in landscape has room for four. Compute
+                            // it from the width rather than hardcoding three and
+                            // leaving a thumb-wide margin on a large screen.
+                            val columns = if (widthDp >= 600) 4 else 3
+                            // No card here. In Files the icons sit straight on the
+                            // page, and the earlier version wrapped them in a white
+                            // rounded card, which is what made it read as Android
+                            // settings rather than a file manager.
+                            Column(Modifier.padding(vertical = 6.dp)) {
+                                visible.chunked(columns).forEach { row ->
+                                    Row(Modifier.fillMaxWidth()) {
+                                        row.forEach { e ->
+                                            Box(Modifier.weight(1f)) {
+                                                GridCell(
+                                                    spec = spec,
+                                                    title = e.name,
+                                                    subtitle = if (e.isDirectory)
+                                                        "${e.childCount} item"
+                                                    else formatSize(e.sizeBytes, false),
+                                                    isFolder = e.isDirectory,
+                                                    glyph = glyphFor(e),
+                                                    onClick = { onTap(e) },
+                                                    onLongClick = { onLongPress(e) },
+                                                    selected = e.path in selected,
+                                                    // Only images and videos ask for a
+                                                    // thumbnail; a text file would
+                                                    // spend a decode to draw its glyph.
+                                                    thumbnailOf = e.path.takeIf { wantsThumbnail(e) },
+                                                )
                                             }
-                                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                                         }
+                                        repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                                     }
                                 }
                             }
                         } else {
-                            GroupCard(spec) {
-                                visible.forEach { e ->
-                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.weight(1f)) {
-                                            ListRow(
-                                                spec = spec,
-                                                title = e.name,
-                                                subtitle = subtitleFor(e),
-                                                isFolder = e.isDirectory,
-                                                glyph = glyphFor(e),
-                                                showChevron = !selectionMode && e.isDirectory,
-                                                onClick = { onTap(e) },
-                                                onLongClick = { onLongPress(e) },
-                                                selected = e.path in selected,
-                                            )
-                                        }
-                                        Box(
-                                            Modifier
-                                                .size(36.dp)
-                                                .clip(CircleShape)
-                                                .clickable { actionTarget = e }
-                                                .padding(8.dp),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(
-                                                "\u22EF",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = p.onSurfaceVariant,
-                                            )
+                            // Sections, not one long card: the letter is the whole
+                            // point of the index, and a single card gave no place
+                            // to put it.
+                            val grouped = Alphabet.group(
+                                if (letterFilter == null) visible
+                                else visible.filter { Alphabet.sectionOf(it.name) == letterFilter },
+                            )
+                            Row(Modifier.fillMaxWidth()) {
+                                Column(Modifier.weight(1f)) {
+                                    if (grouped.isEmpty()) {
+                                        MessageCard(
+                                            spec = spec,
+                                            title = "Tidak ada di \u201c$letterFilter\u201d",
+                                            body = "Tidak ada nama yang mulai dengan huruf itu.",
+                                        )
+                                    }
+                                    grouped.forEach { (letter, items) ->
+                                        SectionHeader(spec, letter)
+                                        GroupCard(spec) {
+                                            items.forEachIndexed { i, e ->
+                                                // Files shows the size or the item
+                                                // count under the name and a chevron
+                                                // only for folders. The ellipsis
+                                                // button that used to sit on every
+                                                // row pushed the size out and made a
+                                                // long list look like settings; the
+                                                // menu is still on long-press.
+                                                ListRow(
+                                                    spec = spec,
+                                                    title = e.name,
+                                                    subtitle = subtitleFor(e),
+                                                    isFolder = e.isDirectory,
+                                                    glyph = glyphFor(e),
+                                                    showChevron = !selectionMode && e.isDirectory,
+                                                    onClick = { onTap(e) },
+                                                    onLongClick = { onLongPress(e) },
+                                                    selected = e.path in selected,
+                                                    flush = i == items.lastIndex,
+                                                    thumbnailOf = e.path.takeIf { wantsThumbnail(e) },
+                                                )
+                                            }
                                         }
                                     }
+                                }
+                                if (visible.size >= 8) {
+                                    AlphabetStrip(
+                                        spec = spec,
+                                        letters = Alphabet.group(visible).map { it.first },
+                                        active = letterFilter,
+                                        onPick = { letter ->
+                                            letterFilter = if (letterFilter == letter) null else letter
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -630,6 +719,36 @@ fun BrowserScreen(
                                     { it.message ?: "Gagal" },
                                 )
                                 reload()
+                            }
+                        },
+                    )
+                }
+
+                if (searchDevice) {
+                    DeviceSearchDialog(
+                        spec = spec,
+                        query = deviceQuery.ifBlank { "ketik sesuatu dulu" },
+                        results = deviceResults,
+                        busy = deviceBusy,
+                        onDismiss = {
+                            // Closing stops the walk rather than letting it read
+                            // the card in the background for a list nobody sees.
+                            searchCancel.set(true)
+                            searchDevice = false
+                        },
+                        onOpen = { e ->
+                            val opened = Storage.open(context, e)
+                            if (opened.isFailure) {
+                                toast = opened.exceptionOrNull()?.message
+                                    ?: "Berkas tidak bisa dibuka"
+                            }
+                        },
+                        onReveal = { e ->
+                            searchDevice = false
+                            searchCancel.set(true)
+                            val folder = Support.parentOf(e.path)
+                            if (folder != null) {
+                                goTo(folder, Storage.displayName(folder))
                             }
                         },
                     )
@@ -856,52 +975,137 @@ private fun Toolbar(
     onHome: () -> Unit,
 ) {
     val p = spec.palette
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (canGoUp) {
-            ToolButton("\u2190", false, onUp)
-            Spacer(Modifier.size(6.dp))
+    // Two rows, the way Files does it: the location and the sort order sit under
+    // the bar, and the controls are round buttons on one line. The earlier version
+    // packed six buttons and two lines of text into a single row, which on a
+    // 360 dp screen left about 90 dp for the folder name.
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (canGoUp) {
+                ToolButton("\u2190", false, onUp)
+                Spacer(Modifier.size(4.dp))
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape((spec.cornerDp * 0.6f).dp))
+                    .clickable(onClick = onPlaces)
+                    .padding(vertical = 2.dp, horizontal = 2.dp),
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = p.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape((spec.cornerDp * 0.5f).dp))
+                        .clickable(onClick = onSort)
+                        .padding(vertical = 2.dp, horizontal = 2.dp),
+                ) {
+                    Text(
+                        when (sortKey) {
+                            SortKey.NAME -> "Nama"
+                            SortKey.SIZE -> "Ukuran"
+                            SortKey.DATE -> "Tanggal"
+                            SortKey.TYPE -> "Jenis"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = p.accent,
+                    )
+                    Text(
+                        if (descending) " \u25BE" else " \u25B4",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = p.accent,
+                    )
+                }
+            }
         }
-        Column(
-            Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(spec.cornerDp.dp))
-                .clickable(onClick = onPlaces)
-                .padding(vertical = 2.dp),
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(
-                label,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = p.onBackground,
-                maxLines = 1,
-            )
-            Text(
-                when (sortKey) {
-                    SortKey.NAME -> "Nama"
-                    SortKey.SIZE -> "Ukuran"
-                    SortKey.DATE -> "Tanggal"
-                    SortKey.TYPE -> "Jenis"
-                } + if (descending) " \u25BE" else " \u25B4",
-                style = MaterialTheme.typography.bodySmall,
-                color = p.accent,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .clickable(onClick = onSort)
-                    .padding(vertical = 2.dp),
-            )
+            ToolButton(if (showHidden) "\u25C9" else "\u25CB", showHidden, onToggleHidden)
+            ToolButton(if (grid) "\u2637" else "\u2263", true, onToggleGrid)
+            ToolButton("\u25E7", false, onUsage)
+            ToolButton("\u2302", false, onHome)
+            ToolButton("\u2295", false, onAddFolder)
+            Spacer(Modifier.weight(1f))
         }
-        ToolButton(if (showHidden) "\u25C9" else "\u25CB", showHidden, onToggleHidden)
-        Spacer(Modifier.size(6.dp))
-        ToolButton(if (grid) "\u2637" else "\u2263", true, onToggleGrid)
-        Spacer(Modifier.size(6.dp))
-        ToolButton("\u25E7", false, onUsage)
-        Spacer(Modifier.size(6.dp))
-        ToolButton("\u2302", false, onHome)
-        Spacer(Modifier.size(6.dp))
-        ToolButton("\u2295", false, onAddFolder)
+    }
+}
+
+/**
+ * The letter above a group in the list.
+ *
+ * Left-aligned and small, the way Files and Contacts draw it. The `#` group keeps
+ * its header: an unlabelled pile of files whose names start with a digit is the
+ * one place a reader cannot guess what they are looking at.
+ */
+@Composable
+private fun SectionHeader(spec: PureThemeSpec, letter: String) {
+    val p = spec.palette
+    Text(
+        letter,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = p.accent,
+        modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 4.dp),
+    )
+}
+
+/**
+ * The A–Z strip down the right edge.
+ *
+ * Two things it deliberately does not do:
+ *
+ *  - It does not draw all 27 letters when the folder only has four of them. An
+ *    index with 23 dead letters is a scrollbar pretending to be a menu.
+ *  - It is not a scroll-jump. The list lives inside the shell's scroll state,
+ *    which this screen does not own, so the strip filters instead: tapping "L"
+ *    shows the names that start with L, tapping it again goes back. Filtering is
+ *    what the owner asked for when they said "indeks A–Z", and it works on a list
+ *    of any length without a scroll position to fight over.
+ */
+@Composable
+private fun AlphabetStrip(
+    spec: PureThemeSpec,
+    letters: List<String>,
+    active: String?,
+    onPick: (String) -> Unit,
+) {
+    val p = spec.palette
+    Column(
+        Modifier
+            .padding(start = 2.dp)
+            .padding(top = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        letters.forEach { letter ->
+            val on = letter == active
+            Box(
+                Modifier
+                    .width(22.dp)
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (on) p.accent else Color.Transparent)
+                    .clickable { onPick(letter) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    letter,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                    color = if (on) p.onAccent else p.accent,
+                )
+            }
+        }
     }
 }
 
@@ -1387,6 +1591,125 @@ private fun PlacesDialog(
                         .clickable(onClick = onAddTree)
                         .padding(vertical = 10.dp),
                 )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Tutup", color = p.accent) }
+        },
+    )
+}
+
+@Composable
+private fun DeviceSearchDialog(
+    spec: PureThemeSpec,
+    query: String,
+    results: List<FileEntry>,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onOpen: (FileEntry) -> Unit,
+    onReveal: (FileEntry) -> Unit,
+) {
+    val p = spec.palette
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = {
+            Column {
+                Text("Cari di perangkat", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (busy) "Mencari \u201c$query\u201d\u2026"
+                    else "${results.size} hasil untuk \u201c$query\u201d",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                )
+            }
+        },
+        text = {
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                if (busy && results.isEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = p.accent,
+                            strokeWidth = 2.dp,
+                        )
+                        Text(
+                            "Menelusuri penyimpanan\u2026",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = p.onSurfaceVariant,
+                        )
+                    }
+                } else if (results.isEmpty()) {
+                    Text(
+                        "Tidak ada berkas yang namanya mengandung \u201c$query\u201d. " +
+                            "Pencarian menyusuri penyimpanan sampai " +
+                            "${Search.MAX_DEPTH} tingkat dan berhenti di " +
+                            "folder milik aplikasi lain.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = p.onSurfaceVariant,
+                    )
+                } else {
+                    results.forEachIndexed { i, e ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(spec.cornerDp.dp))
+                                .clickable { onOpen(e) }
+                                .padding(vertical = 8.dp, horizontal = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(7.dp))
+                                    .background(p.surfaceVariant),
+                                contentAlignment = Alignment.Center,
+                            ) { Text(glyphFor(e), style = MaterialTheme.typography.labelLarge, color = p.accent) }
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    e.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = p.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    Support.trimPath(e.path, 44) + " \u00b7 " +
+                                        formatSize(e.sizeBytes, false),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = p.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Text(
+                                "Buka",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = p.accent,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(spec.cornerDp.dp))
+                                    .clickable { onReveal(e) }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                            )
+                        }
+                        if (i != results.lastIndex) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 44.dp)
+                                    .height(0.5.dp)
+                                    .background(p.separator),
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {

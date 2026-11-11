@@ -117,6 +117,21 @@ object Support {
     }
 
     /**
+     * The tail of a path, shortened in the middle so both ends stay readable.
+     *
+     * A search result from /storage/emulated/0/Download/...../laporan.pdf has to
+     * show where it lives; truncating at the end would drop the folder that
+     * distinguishes two files with the same name. Below the limit the path is
+     * returned untouched, so the common case pays nothing.
+     */
+    fun trimPath(path: String, max: Int): String {
+        if (max <= 8 || path.length <= max) return path
+        val head = max * 2 / 5
+        val tail = max - head - 1
+        return path.take(head) + "\u2026" + path.takeLast(tail)
+    }
+
+    /**
      * The MIME type to hand the system when opening a file.
      *
      * Guessing wrong is the difference between "Buka dengan" showing a text editor

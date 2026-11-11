@@ -915,5 +915,96 @@ class ManifestAndGradle(unittest.TestCase):
         self.assertNotIn("gradle-version 8.7", wf)
 
 
+class AtoZIndexAndDeviceSearch(unittest.TestCase):
+    """The last two basic features: an A-Z index and finding a file anywhere.
+
+    Both are the kind of thing that looks finished in a screenshot and is not: an
+    index is only useful if the letter rule handles digits and accents, and a
+    device search is only safe if it cannot walk forever or read another app's
+    private storage.
+    """
+
+    def setUp(self):
+        self.alphabet = (SRC / "net/pure/manager/fs/Alphabet.kt").read_text()
+        self.search = (SRC / "net/pure/manager/fs/Search.kt").read_text()
+        self.browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        self.parts = (SRC / "net/pure/manager/ui/IosParts.kt").read_text()
+
+    def test_the_index_has_a_group_for_digits_and_symbols(self):
+        self.assertIn("const val OTHER", self.alphabet)
+        # A name that starts with a digit must not be bucketed by char code, which
+        # is what puts "2026-Apk" under "2" and makes it unreachable.
+        self.assertIn("in 'a'..'z'", self.alphabet)
+
+    def test_accents_fold_instead_of_forming_unreachable_groups(self):
+        for accented in ("'à', 'á', 'â'", "'é', 'ê', 'ë'", "'ñ'"):
+            self.assertIn(accented, self.alphabet)
+
+    def test_the_strip_filters_the_list_it_does_not_pretend_to_scroll(self):
+        self.assertIn("AlphabetStrip(", self.browser)
+        self.assertIn("letterFilter", self.browser)
+        # The list lives in the shell's scroll state, which the browser does not
+        # own. A scroll-to-letter index would need that state and would silently
+        # do nothing; filtering is what this screen can actually honour.
+        self.assertIn("Alphabet.group(", self.browser)
+        self.assertIn("items.forEachIndexed", self.browser)
+
+    def test_the_filter_clears_when_the_folder_changes(self):
+        self.assertRegex(
+            self.browser,
+            r"LaunchedEffect\(path\)[\s\S]{0,220}letterFilter = null",
+            "a filter left over from the previous folder hides files",
+        )
+
+    def test_device_search_is_bounded_in_depth_and_results(self):
+        self.assertIn("const val MAX_DEPTH", self.search)
+        self.assertIn("const val MAX_RESULTS", self.search)
+        self.assertIn("MAX_DEPTH", self.search)
+
+    def test_device_search_skips_other_apps_private_trees(self):
+        self.assertIn("/Android/data", self.search)
+        self.assertIn("/Android/obb", self.search)
+
+    def test_device_search_is_cancellable_and_has_its_own_token(self):
+        self.assertIn("cancelled: () -> Boolean", self.search)
+        # Sharing the copy job's token would make closing the search sheet cancel
+        # a running copy instead.
+        self.assertIn("searchCancel", self.browser)
+        self.assertNotIn("cancelToken.get()", self.browser.split("onSearchDevice")[1][:900])
+
+    def test_device_search_does_not_read_compose_state_off_the_main_thread(self):
+        body = self.browser.split("onSearchDevice = {")[1][:2000]
+        self.assertIn("val needle = query", body)
+        self.assertIn("deviceQuery = needle", body)
+        self.assertIn("query = needle,", body)
+
+    def test_search_does_not_match_a_folder_called_data_in_documents(self):
+        # The skip rule keys on the full suffix, not on the folder's own name.
+        self.assertNotIn('contains("data")', self.search)
+        self.assertIn("skippedSuffixes.any", self.search)
+
+    def test_a_long_path_is_shortened_in_the_middle(self):
+        support = (SRC / "net/pure/manager/fs/Support.kt").read_text()
+        self.assertIn("fun trimPath", support)
+        self.assertIn("takeLast", support)
+        self.assertIn("Support.trimPath", self.browser)
+
+    def test_the_grid_no_longer_runs_on_a_card(self):
+        # Files puts its icon grid straight on the page. Wrapping it in a rounded
+        # card was the specific thing that made the screen read as Android
+        # settings -- it was the owner's complaint.
+        grid = self.browser.split("if (grid) {")[1].split("} else {")[0]
+        self.assertIn("GridCell(", grid)
+        self.assertNotIn("GroupCard(", grid)
+
+    def test_folders_get_a_colour_dot_like_the_reference(self):
+        self.assertIn("fun folderTint(", self.parts)
+        self.assertIn(".background(tint)", self.parts)
+
+    def test_a_folder_colour_is_stable_for_the_same_name(self):
+        # A colour that changes on every recomposition is worse than no colour.
+        self.assertRegex(self.parts, r"fun folderTint\(name: String\): Color \{[\s\S]{0,400}for \(c in name\)")
+
+
 if __name__ == "__main__":
     unittest.main()
