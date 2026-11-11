@@ -3,6 +3,16 @@
 Status: **dokumen saran, belum ada kode.** Tanggal: 2026-10-31.
 Ditulis setelah pelajaran dari proyek Manager 6.1 (lihat `docs/` lain di repo ini).
 
+Keputusan yang sudah dikunci oleh Anda (2026-10-31):
+
+| Hal | Keputusan | Akibatnya |
+|---|---|---|
+| Distribusi | **Di luar Play Store** (APK langsung) | `MANAGE_EXTERNAL_STORAGE` bebas dipakai tanpa peninjauan manual; fitur yang ditolak Play bukan penghalang |
+| Root | **KernelSU atau Magisk**, keduanya harus jalan | Wajib `libsu`; tidak boleh ada asumsi khusus satu implementasi |
+| Tanpa root | **Harus berfungsi normal** | Root adalah lapisan opsional di atas aplikasi yang sudah utuh, bukan syarat |
+
+Tiga keputusan ini saling menguatkan dan menyederhanakan banyak hal — lihat §11.
+
 ---
 
 ## 0. Ringkasan jujur di depan
@@ -245,10 +255,123 @@ Kalau saya yang memutuskan:
 
 ---
 
-## 10. Pertanyaan yang perlu Anda jawab sebelum mulai
+## 10. Yang masih perlu Anda jawab
 
-1. Root apa yang dipakai di HP Anda sekarang — Magisk, KernelSU, atau APatch?
-2. Aplikasi ini akan masuk Play Store, atau disebar sebagai APK langsung?
-3. Prioritas pertama: **file manager sehari-hari** atau **alat bedah APK**?
-4. Target perangkat minimum (Android 11? 13?) — menentukan banyak keputusan storage.
-5. Anda mengerjakan sendiri atau ada orang lain? Ini menentukan apakah tahap 5 realistis.
+Dari lima pertanyaan sebelumnya, dua sudah terjawab (§ header). Tiga tersisa:
+
+1. **Target Android minimum.** Saran: **Android 11 (API 30)**, karena di situlah model
+   storage modern berlaku. Di bawah itu Anda harus memelihara dua jalur kode sekaligus
+   tanpa manfaat nyata.
+2. **Prioritas pertama:** file manager sehari-hari, atau alat bedah APK? Kalau Anda
+   memilih bedah APK lebih dulu, saya sarankan menolak pilihan itu — lihat §7.
+3. **Satu orang atau ada tim?** Ini menentukan apakah tahap 5 realistis atau sebaiknya
+   tidak dijanjikan sama sekali.
+
+---
+
+## 11. Konsekuensi dari keputusan Anda
+
+Bagian ini yang berubah karena jawaban Anda: **di luar Play**, **KSU atau Magisk**,
+**jalan tanpa root**.
+
+### 11.1 Di luar Play Store — ini melonggarkan banyak hal
+
+- **`MANAGE_EXTERNAL_STORAGE` tidak perlu ditinjau siapa pun.** Ini izin yang di Play
+  ditolak untuk banyak aplikasi. Di luar Play, Anda tetap wajib mengarahkan pengguna
+  ke layar setelan "Semua akses file", tapi tidak ada risiko penolakan.
+- **Fitur yang ditolak Play jadi mungkin** — misalnya akses penuh `Android/data`.
+  Kalau nanti Anda tetap ingin masuk Play, fitur-fitur itu harus jadi build terpisah.
+- **Anda bertanggung jawab penuh atas pembaruan sendiri.** Tidak ada Play yang
+  memaksa update. Konsekuensi: **jangan pernah ganti keystore**. Kalau kunci hilang,
+  semua pengguna harus uninstall — persis yang baru terjadi. Ini alasan nomor satu
+  untuk menyimpan kunci di tiga tempat sejak hari pertama.
+- **Tanda tangan APK Anda adalah identitas Anda.** Tidak ada Play App Signing yang
+  menyelamatkan. Pelajaran dari Manager 6.1 berlaku mutlak di sini.
+
+### 11.2 KSU atau Magisk — `libsu` wajib, dan ada satu jebakan
+
+`libsu` dari topjohnwu menangani keduanya dengan cara yang sama: memanggil `su`,
+membaca hasil, shell bersama. Yang perlu Anda sadari:
+
+| Hal | Magisk | KernelSU |
+|---|---|---|
+| Deteksi versi | `su -v` mengembalikan nomor versi | `su -v` juga ada, tapi formatnya lain |
+| Manajer aplikasi | `magisk --list` | `ksud` lewat shell |
+| Mount `/system` rw | `magisk --mount-master` | Perilaku berbeda, tergantung mode |
+| Modul | `/data/adb/modules` | `/data/adb/modules` (sama) |
+
+**Jebakan yang sudah menggigit di Manager 6.1:** `su --mount-master` dijalankan lebih
+dulu daripada `su` polos, dan hasilnya root tampak tidak terdeteksi. **Selalu coba
+`su` polos lebih dulu**, baru jatuh ke varian khusus kalau perlu. Ini sudah tercatat
+di repo ini sebagai perbaikan `fix(root): su polos harus jalan lebih dulu`.
+
+**Yang harus diuji, bukan diasumsikan:** satu perangkat Magisk dan satu perangkat
+KernelSU, minimal. Kalau hanya diuji di satu, Anda tidak akan tahu bedanya sampai
+pengguna melapor.
+
+### 11.3 Jalan tanpa root — ini yang mengubah arsitektur
+
+Karena aplikasi harus berguna **tanpa root**, root tidak boleh jadi fondasi.
+Root adalah **lapisan tambahan**. Konsekuensi desainnya konkret:
+
+**a. Lapisan akses berkas harus punya dua implementasi di balik satu antarmuka.**
+
+```
+FileOps (antarmuka)
+├── SafeFileOps     -> MediaStore + SAF, untuk mode tanpa root
+└── RootFileOps     -> shell root via libsu, untuk mode root
+```
+
+UI tidak boleh tahu mana yang aktif. Kalau ada `if (isRoot)` yang berserakan di
+tampilan, Anda akan menulis ulang semuanya saat menambah implementasi ketiga
+(misalnya: shizuku/ADB).
+
+**b. Dua mode ini punya batasan berbeda — tampilkan, jangan sembunyikan.**
+
+| Operasi | Tanpa root | Dengan root |
+|---|---|---|
+| Baca/tulis storage utama | Ya (all-files access) | Ya |
+| `Android/data` aplikasi lain | **Tidak** | Ya |
+| `/system`, `/vendor`, `/data` | Tidak | Ya |
+| `chmod` / `chown` | Sebagian (milik sendiri) | Ya |
+| Mount rw | Tidak | Ya |
+| Jalankan skrip shell | Tidak | Ya |
+
+Saran UI: tampilkan badge kecil "butuh root" pada aksi yang tidak tersedia, dan
+saat ditekan beri penjelasan — **bukan** tombol mati tanpa alasan. Pengguna harus
+paham kenapa, karena ini yang membedakan aplikasi bagus dari aplikasi membingungkan.
+
+**c. Turunkan kelas, jangan gagal.** Kalau root dicabut di tengah sesi (pengguna
+mencabut izin), aplikasi harus otomatis turun ke `SafeFileOps` dan tetap jalan,
+bukan crash. Ini skenario nyata: orang mencabut root saat aplikasi terbuka.
+
+**d. Arsip, thumbnail, cari, tema, editor teks — semuanya jalan tanpa root.**
+Justru ini bagian terbesar aplikasi. Kalau tahap 1 dikerjakan benar, aplikasi sudah
+layak dipakai sebelum root disentuh sama sekali.
+
+### 11.4 Yang berubah dari urutan pengerjaan
+
+Tahap 2 di §7 (root) sekarang menjadi **tambahan**, bukan fondasi. Urutannya bisa
+dibalik: bangun dulu seluruh pengalaman tanpa root, lalu tambahkan root sebagai
+lapisan. Ini lebih aman karena:
+
+- Anda punya aplikasi yang bisa diuji di perangkat apa pun, termasuk yang belum root.
+- Bug root tidak memblokir fitur lain.
+- Kalau dukungan root bermasalah di satu OEM, aplikasi tetap berguna.
+
+Satu penyesuaian: **antarmuka `FileOps` harus dibuat sejak tahap 1**, walau baru
+implementasi `SafeFileOps` yang ada. Menambahkan abstraksi itu belakangan berarti
+membongkar seluruh UI — itu kesalahan yang mahal dan mudah dihindari.
+
+### 11.5 Distribusi tanpa Play: yang harus disiapkan
+
+- **Kanal pembaruan sendiri.** Cek versi ke GitHub Releases (atau server Anda), beri
+  tahu pengguna kalau ada versi baru. Tanpa ini, pengguna akan tertinggal di versi lama.
+- **Dua ABI atau universal.** `arm64-v8a` menutup hampir semua HP modern, tapi
+  `armeabi-v7a` masih dipakai perangkat lama. Native lib untuk arsip/7z membuat
+  ukuran APK naik — pertimbangkan ABI split.
+- **Peringatan sideload.** Pengguna harus menyalakan "instal dari sumber tidak dikenal".
+  Jelaskan di README, jangan biarkan mereka menebak.
+- **Kunci tanda tangan disimpan di tiga tempat** (lokal terenkripsi, penyimpanan
+  offline, dan satu salinan terpisah) — beserta sidik jari SHA-256 di dokumen.
+  Ini bukan formalitas; ini yang mencegah bencana yang sudah terjadi sekali.
