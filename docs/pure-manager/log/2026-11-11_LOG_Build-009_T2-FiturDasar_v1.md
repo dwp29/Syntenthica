@@ -10,7 +10,8 @@ Status: **✅ APK siap uji** — run `43005944967` hijau, **65/65 tes JVM lolos*
 | Ukuran | **18.789.613 byte** |
 | SHA256 | `d1bd732a93f0bc0d11fb7c086cbc44abe0d1f2ddb68d5a57ebdc3b778bb230d0` |
 | Tanda tangan | v2 ✅ |
-| Drive | `1dHbfiLXX0QWng__ohcHS6H1ILn_Sc3D2` |
+| Drive (folder 02) | `1dHbfiLXX0QWng__ohcHS6H1ILn_Sc3D2` |
+| Log ini di Drive (folder 04) | `1oi1ueZt430DAA8y1xhlNqyywB3CvejWU` |
 | GitHub | https://github.com/dwp29/Synthentica/raw/build-output/PureManager-0.4.0-DEBUGKEY.apk |
 
 ---
