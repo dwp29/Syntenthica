@@ -141,6 +141,10 @@ fun BrowserScreen(
     // system, which is the right default; these three formats have no viewer on a
     // clean Android phone.
     var previewing by remember { mutableStateOf<FileEntry?>(null) }
+    // A text file being edited. Separate from `previewing` because the two screens
+    // have different consequences: leaving a preview loses nothing, while leaving an
+    // edit can lose work, so the editor refuses a silent close.
+    var editing by remember { mutableStateOf<FileEntry?>(null) }
     // The letter the A-Z strip is filtered to, or null for everything. The strip
     // filters rather than scroll-jumps: this list scrolls inside the shell's own
     // scroll state, which this screen does not own, and a strip that cannot move
@@ -309,7 +313,10 @@ fun BrowserScreen(
                 locationLabel = Storage.displayName(e.path)
                 query = ""
             }
-            e.extension in setOf("docx", "xlsx", "pdf") -> previewing = e
+            e.extension in setOf("docx", "xlsx", "pdf") -> {
+                editing = null
+                previewing = e
+            }
             else -> {
                 val opened = Storage.open(context, e)
                 if (opened.isFailure) {
@@ -317,6 +324,24 @@ fun BrowserScreen(
                 }
             }
         }
+    }
+
+    /**
+     * Text files the editor can open.
+     *
+     * An explicit list rather than "anything that is not a binary": offering Edit on
+     * a video produces only an error message, and a menu that offers what it cannot
+     * do is worse than a shorter menu.
+     */
+    val canEdit: (FileEntry) -> Boolean = { e ->
+        !e.isDirectory && (
+            e.extension in setOf(
+                "txt", "text", "log", "md", "markdown", "csv", "tsv", "json", "jsonl",
+                "xml", "html", "htm", "css", "js", "mjs", "ts", "kt", "kts", "java",
+                "py", "sh", "bash", "properties", "cfg", "conf", "ini", "toml", "yml",
+                "yaml", "gradle", "sql", "c", "h", "cpp", "hpp", "rs", "go", "svg",
+            ) || e.name in setOf("gradlew", "Makefile", "Dockerfile")
+            )
     }
 
     val onLongPress: (FileEntry) -> Unit = { e ->
@@ -648,6 +673,13 @@ fun BrowserScreen(
                         },
                         onDelete = { actionTarget = null; deleteTarget = target },
                         onInfo = { actionTarget = null; prompt = Prompt.Info(target) },
+                        onEdit = if (canEdit(target)) {
+                            {
+                                actionTarget = null
+                                previewing = null
+                                editing = target
+                            }
+                        } else null,
                     )
                 }
 
@@ -729,6 +761,15 @@ fun BrowserScreen(
                                 reload()
                             }
                         },
+                    )
+                }
+
+                editing?.let { file ->
+                    EditorScreen(
+                        spec = spec,
+                        entry = file,
+                        onClose = { editing = null },
+                        onSaved = { toast = "Tersimpan" },
                     )
                 }
 
@@ -1786,6 +1827,8 @@ private fun ActionSheet(
     onMove: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit,
+    /** Null when the selected file is not text the editor can open. */
+    onEdit: (() -> Unit)? = null,
 ) {
     val p = spec.palette
     AlertDialog(
@@ -1806,6 +1849,7 @@ private fun ActionSheet(
                     ActionRow("Buka dengan\u2026", onOpen)
                     ActionRow("Bagikan", onShare)
                 }
+                if (onEdit != null) ActionRow("Edit teks", onEdit)
                 if (onArchive != null) ActionRow("Lihat isi arsip", onArchive)
                 if (onExtract != null) ActionRow("Ekstrak ke sini", onExtract)
                 ActionRow("Ganti nama", onRename)

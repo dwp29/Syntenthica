@@ -15,8 +15,8 @@ android {
         // later does not change this code.
         minSdk = 29
         targetSdk = 36
-        versionCode = 14
-        versionName = "0.8.0"
+        versionCode = 15
+        versionName = "0.9.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -143,6 +143,8 @@ dependencies {
     //  - docx4j / Apache POI: .docx and .xlsx are ZIPs of XML, so they are read
     //    with ZipInputStream and the platform parser. POI alone is tens of MB.
     //  - PDFBox: Android ships PdfRenderer, which renders pages for free.
-    //  - sora-editor: stage 6, and LGPL-2.1 means a licence decision before a
-    //    dependency decision.
+    //  - sora-editor: dropped in stage 6. LGPL-2.1 is a licence decision before it
+    //    is a dependency decision, and Maven Central is blocked from this sandbox, so
+    //    the artifact could not be resolved let alone inspected. The editor in
+    //    `edit/` plus EditText is a few hundred lines and its arithmetic is tested.
 }

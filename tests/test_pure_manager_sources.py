@@ -1015,6 +1015,139 @@ class OfficeAndPdf(unittest.TestCase):
         # right escape hatch.
         self.assertIn("onOpen =", self.browser)
 
+class CodeEditor(unittest.TestCase):
+    """Stage 6. A text/code editor written in the repo, not imported.
+
+    sora-editor was the plan until two facts met: it is LGPL-2.1, which is a licence
+    decision before it is a dependency decision, and Maven Central is blocked from the
+    sandbox this code was written in, so the artifact could not be resolved or even
+    inspected. A dependency that cannot be resolved here is a build that can only fail
+    in CI, three minutes at a time. The editor below is plain Kotlin plus
+    BasicTextField, and its arithmetic is pinned by `EditorTest.kt`.
+    """
+
+    def setUp(self):
+        self.dir = SRC / "net/pure/manager/edit"
+        self.text = (self.dir / "Text.kt").read_text()
+        self.syntax = (self.dir / "Syntax.kt").read_text()
+        self.search = (self.dir / "Search.kt").read_text()
+        self.brackets = (self.dir / "Brackets.kt").read_text()
+        self.io = (self.dir / "EditIO.kt").read_text()
+        self.screen = (SRC / "net/pure/manager/ui/EditorScreen.kt").read_text()
+        self.browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+
+    def test_no_editor_library_was_added(self):
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        deps = re.sub(r"//[^\n]*", "", gradle.split("dependencies {")[1]).lower()
+        for banned in ("sora", "editor", "codeview", "prism4j"):
+            self.assertNotIn(banned, deps, f"{banned} is a dependency decision we did not take")
+
+    def test_the_undo_stack_records_what_an_edit_deleted(self):
+        """The first version stored only the inserted text.
+
+        Undo then computed what to remove from the buffer it had already changed and
+        pasted the new text back over itself, so Undo looked like it did nothing. The
+        deleted text has to travel with the edit.
+        """
+        self.assertIn("val removed: String", self.text)
+        self.assertIn("e.removed", self.text)
+
+    def test_typing_a_word_merges_into_one_undo_step(self):
+        # Mergeability used to be "the previous step inserted exactly one character",
+        # which stops being true the moment two keystrokes merge -- so a word became
+        # two steps and then three.
+        self.assertIn("val typed: Boolean", self.text)
+        self.assertIn("a.typed && b.typed", self.text)
+
+    def test_loading_a_file_is_not_an_undo_step(self):
+        # The screen used to load by replacing and then undoing in a loop, which left
+        # the buffer empty while the editor showed the file.
+        self.assertIn("fun load(text: String)", self.text)
+        self.assertIn("buffer.load(", self.screen)
+        self.assertIn("history.clear()", self.text)
+
+    def test_syntax_colours_are_drawn_by_a_transformation(self):
+        """A coloured copy behind an invisible field was the first attempt.
+
+        It desynchronises the moment the two copies wrap differently, and it never
+        rendered at all because the Text sat under `if (false)`. A VisualTransformation
+        colours the field the user is actually typing into.
+        """
+        self.assertIn("VisualTransformation", self.screen)
+        self.assertIn("TransformedText", self.screen)
+        self.assertNotIn("if (false)", self.screen)
+
+    def test_highlight_spans_cannot_overlap(self):
+        # The editor appends spans into one AnnotatedString, where an overlap is a
+        # crash rather than a cosmetic bug, so the list is normalised first.
+        self.assertIn("fun sortedSpans(", self.syntax)
+        self.assertIn("sortedSpans(highlight(", self.screen)
+
+    def test_an_unclosed_quote_stops_at_the_end_of_the_line(self):
+        # Without this, an apostrophe turned the rest of the file into a string and
+        # the highlighter looked broken.
+        self.assertIn("quote != '`'", self.syntax)
+
+    def test_find_compares_in_place_instead_of_lowercasing(self):
+        # Lowercasing is not length-preserving for every script, so an offset measured
+        # in the lowercased copy can point at the wrong characters in the original.
+        self.assertIn("regionMatches(", self.search)
+        self.assertNotIn(".lowercase()", self.search)
+
+    def test_replace_all_never_re_reads_its_own_output(self):
+        self.assertIn("fun replaceAll(", self.search)
+        self.assertIn("var at = 0", self.search)
+        self.assertIn("at = m.end", self.search)
+
+    def test_a_bracket_is_never_paired_with_itself(self):
+        # Counting from the character made every bracket match at depth zero, so
+        # `f(a` reported a match. The scan starts at the neighbour.
+        self.assertIn("var i = index + step", self.brackets)
+        self.assertNotIn("var i = index\n", self.brackets)
+
+    def test_the_editor_refuses_binary_and_oversized_files(self):
+        self.assertIn("MAX_BYTES", self.io)
+        self.assertIn("it == 0.toByte()", self.io)
+        self.assertIn("readCapped(", self.io)
+        # A provider that lies about its length is the reason the cap is enforced
+        # while reading rather than only up front.
+        self.assertIn("total > cap", self.io)
+
+    def test_a_save_does_not_leave_half_a_file_or_append(self):
+        self.assertIn("\"wt\"", self.io)      # truncate a SAF document
+        self.assertIn("renameTo(target)", self.io)  # atomic-ish for a real file
+
+    def test_the_editor_says_what_it_cannot_do(self):
+        self.assertIn("Belum ada", self.screen)
+        self.assertIn("belum disimpan", self.screen)
+
+    def test_editing_is_reached_from_the_long_press_sheet(self):
+        self.assertIn("EditorScreen(", self.browser)
+        self.assertIn("onEdit = if (canEdit(target))", self.browser)
+        self.assertIn("\"Edit teks\"", self.browser)
+
+    def test_the_logic_port_still_passes(self):
+        """The Kotlin tests cannot run without a JDK, which this sandbox lacks.
+
+        `tools/editor_logic_check.py` is the same algorithms in Python, asserted with
+        the same expectations. It is not a substitute for `EditorTest.kt` -- it
+        catches offset arithmetic, not Kotlin syntax -- and it is what turned seven
+        real bugs up before CI ever saw them.
+        """
+        result = subprocess.run(
+            ["python3", str(ROOT / "pure-manager/tools/editor_logic_check.py")],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_the_port_covers_the_cases_the_kotlin_tests_assert(self):
+        kotlin = (ROOT / "pure-manager/app/src/test/java/net/pure/manager/edit/EditorTest.kt").read_text()
+        port = (ROOT / "pure-manager/tools/editor_logic_check.py").read_text()
+        self.assertGreaterEqual(kotlin.count("@Test"), 40, "the Kotlin suite lost cases")
+        for marker in ("newline_insertion", "dedent_range", "matching_bracket", "replace_all"):
+            self.assertIn(marker, port, f"the port lost {marker}")
+
+
 class TwoFlavorsAndModules(unittest.TestCase):
     """Stage 4: the module client and the split into two installable apps."""
 
