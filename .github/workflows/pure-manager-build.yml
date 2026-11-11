@@ -256,7 +256,11 @@ jobs:
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
           "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-${VERSION}-${KEYTAG}.apk"
           "$TOOLS/aapt" dump badging "$OUT/PureManager-${VERSION}-${KEYTAG}.apk" > "$OUT/badging.txt"
-          grep -F "package: name='net.pure.manager'" "$OUT/badging.txt"
+          # `grep -F "package: name='net.pure.manager'"` also matches
+          # `net.pure.manager.minimal`, so a correct minimal APK would satisfy the
+          # full-flavor check and a wrong package id would pass silently. Anchor on
+          # the closing quote.
+          grep -F "package: name='net.pure.manager' " "$OUT/badging.txt"
           grep -F "sdkVersion:'29'" "$OUT/badging.txt"
           grep -F "targetSdkVersion:'36'" "$OUT/badging.txt"
           grep -F "versionName='$VERSION'" "$OUT/badging.txt"
@@ -268,6 +272,11 @@ jobs:
           grep -F "versionName='${VERSION}-minimal'" "$OUT/badging-minimal.txt"
           grep -F "sdkVersion:'29'" "$OUT/badging-minimal.txt"
           "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-${VERSION}-minimal-${KEYTAG}.apk"
+          # Print the signer so the notice can carry it, and fail when a key was
+          # configured but the APK came out signed with something else.
+          SIGNER=$("$TOOLS/apksigner" verify --print-certs "$OUT/PureManager-$VERSION-$KEYTAG.apk" \
+                   | grep -m1 "SHA-256 digest:" | sed 's/.*: //' || true)
+          echo "::notice title=Signer SHA-256::${SIGNER:-unknown}"
           # Both flavors must be signed by the same key: a module signed for one
           # has to verify against the other.
           SIGNER_MIN=$("$TOOLS/apksigner" verify --print-certs "$OUT/PureManager-${VERSION}-minimal-${KEYTAG}.apk" \
@@ -275,11 +284,6 @@ jobs:
           if [ "$SIGNER_MIN" != "$(echo "$SIGNER" | tr -d ' ')" ] && [ -n "$SIGNER" ] && [ -n "$SIGNER_MIN" ]; then
             echo "::warning title=Signing::the two flavors are signed by different keys"
           fi
-          # Print the signer so the notice can carry it, and fail when a key was
-          # configured but the APK came out signed with something else.
-          SIGNER=$("$TOOLS/apksigner" verify --print-certs "$OUT/PureManager-$VERSION-$KEYTAG.apk" \
-                   | grep -m1 "SHA-256 digest:" | sed 's/.*: //' || true)
-          echo "::notice title=Signer SHA-256::${SIGNER:-unknown}"
           if [ "$KEYTAG" = "RELEASEKEY" ]; then
             case "$SIGNER" in
               *"${EXPECTED_SIGNER:-__none__}"*) : ;;

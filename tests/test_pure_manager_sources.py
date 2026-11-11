@@ -1003,6 +1003,33 @@ class TwoFlavorsAndModules(unittest.TestCase):
         # Both must be published, not just the full one.
         self.assertIn("PureManager-${VERSION}-minimal-${KEYTAG}.apk", self.wf)
 
+    def test_the_full_package_check_cannot_be_satisfied_by_the_minimal_apk(self):
+        """grep -F "package: name='net.pure.manager'" also matches the minimal id.
+
+        The minimal package is net.pure.manager.minimal, which contains the full
+        package id as a prefix, so a correct minimal APK satisfied the full-flavor
+        check. The line has to anchor on the closing quote.
+        """
+        for line in self.wf.splitlines():
+            # The comment above the check quotes the broken form on purpose.
+            if line.lstrip().startswith("#"):
+                continue
+            if "grep -F \"package: name='net.pure.manager'" in line:
+                self.assertTrue(
+                    line.rstrip().endswith("\"' \"$OUT/badging.txt\""),
+                    f"un-anchored package check: {line.strip()}",
+                )
+
+    def test_the_second_signer_is_compared_after_it_is_read(self):
+        # SIGNER_MIN was assigned before SIGNER, so the comparison always saw an
+        # empty string and silently passed.
+        verify = self.wf.split("Verify the APK")[1]
+        read_signer = verify.index("SIGNER=$(")
+        read_min = verify.index("SIGNER_MIN=$(")
+        compare = verify.index('if [ "$SIGNER_MIN" !=')
+        self.assertLess(read_signer, compare)
+        self.assertLess(read_min, compare)
+
     def test_the_test_task_is_named_for_a_flavor(self):
         """With a flavor dimension, `testReleaseUnitTest` becomes ambiguous.
 
