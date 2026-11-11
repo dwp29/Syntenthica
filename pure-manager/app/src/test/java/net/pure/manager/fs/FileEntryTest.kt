@@ -65,12 +65,32 @@ class FileEntryTest {
 
     @Test
     fun `dates collapse to time today and month this year`() {
-        val now = 1_760_000_000_000L // fixed clock, so the assertion is stable
+        // Wall clock must be pinned deliberately, not by "now minus a minute":
+        // that subtraction is only "today" when the test does not run across
+        // midnight, and "minus 40 days" is only "this year" when it does not run
+        // in January. Both failed in CI for exactly that reason.
+        val zone = java.util.TimeZone.getDefault()
+        val cal = java.util.Calendar.getInstance(zone).apply {
+            set(2026, java.util.Calendar.JUNE, 15, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val now = cal.timeInMillis
+        val oneHourAgo = now - 60L * 60 * 1000
+
         assertEquals("\u2014", formatDate(0, now))
-        val sameDay = formatDate(now - 60_000, now)
-        assertTrue("today should be a clock time, was $sameDay", sameDay.contains(":"))
-        val thisYear = formatDate(now - 1000L * 60 * 60 * 24 * 40, now)
-        assertTrue("should omit the year, was $thisYear", !thisYear.contains("2026"))
+        assertTrue("same day should be a clock time", formatDate(oneHourAgo, now).contains(":"))
+        // 20 February this year: same year, different month.
+        val earlierThisYear = java.util.Calendar.getInstance(zone).apply {
+            set(2026, java.util.Calendar.FEBRUARY, 20, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        assertTrue("same year should omit the year", !formatDate(earlierThisYear, now).contains("2026"))
+        // Previous year: the year has to appear.
+        val lastYear = java.util.Calendar.getInstance(zone).apply {
+            set(2025, java.util.Calendar.MARCH, 2, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        assertTrue("older should show the year", formatDate(lastYear, now).contains("2025"))
     }
 
     @Test
