@@ -53,7 +53,18 @@ data class Palette(
     /** AMOLED relies on this because tonal elevation is invisible on pure black. */
     val outline: Color,
     val useShadow: Boolean,
+    /** Hairline between list rows. Unspecified falls back to [outline]. */
+    val separator: Color = Color.Unspecified,
 )
+
+/** How the bars above and below the content are drawn. */
+enum class ChromeStyle {
+    /** Opaque surface with a hairline edge. */
+    SOLID,
+
+    /** Translucent, blurred copy of whatever scrolls underneath. */
+    GLASS,
+}
 
 data class PureThemeSpec(
     val id: String,
@@ -67,7 +78,29 @@ data class PureThemeSpec(
     val motion: MotionSpec,
     /** Compact themes show the size column inline; roomy ones use a subtitle. */
     val compactRows: Boolean,
+    val chrome: ChromeStyle = ChromeStyle.SOLID,
+    /** Blur strength for [ChromeStyle.GLASS]. Ignored when SOLID. */
+    val blurDp: Int = 0,
+    /**
+     * Tint laid over the blur. Glass is not "transparent grey": iOS uses a white
+     * veil in light mode and a thin white one on dark, otherwise text loses
+     * contrast against whatever is scrolling behind it.
+     */
+    val glassTint: Color = Color.Unspecified,
+    /** Large title above the content, collapsing as it scrolls. */
+    val useLargeTitle: Boolean = false,
+    /** Folder grid rather than a row list when the browser opens. */
+    val defaultGrid: Boolean = false,
+    /** Floating action button instead of a toolbar button. */
+    val floatingAction: Boolean = false,
 )
+
+/** The tint iOS puts over its blurred bars, per mode. */
+private fun iosGlassTint(mode: AppMode): Color = when (mode) {
+    AppMode.LIGHT -> Color(0xCCFFFFFF)
+    AppMode.DARK -> Color(0x991C1C1E)
+    AppMode.AMOLED -> Color(0xE6000000)
+}
 
 // ------------------------------------------------------------------ palettes
 // AMOLED is deliberately not "dark but darker". On pure black a tonal surface is
@@ -77,17 +110,17 @@ private fun ios(mode: AppMode, accent: Color) = when (mode) {
     AppMode.LIGHT -> Palette(
         Color(0xFFF2F2F7), Color(0xFFFFFFFF), Color(0xFFE4E4EA),
         Color(0xFF1C1C1E), Color(0xFF8E8E93), accent, Color.White,
-        Color.Transparent, useShadow = true,
+        Color.Transparent, useShadow = true, separator = Color(0x593C3C43),
     )
     AppMode.DARK -> Palette(
         Color(0xFF000000), Color(0xFF1C1C1E), Color(0xFF2C2C2E),
         Color(0xFFFFFFFF), Color(0xFF98989F), accent, Color.White,
-        Color.Transparent, useShadow = false,
+        Color.Transparent, useShadow = false, separator = Color(0x9948485A),
     )
     AppMode.AMOLED -> Palette(
         Color(0xFF000000), Color(0xFF0E0E10), Color(0xFF1A1A1C),
         Color(0xFFFFFFFF), Color(0xFF98989F), accent, Color.White,
-        Color(0xFF2A2A2E), useShadow = false,
+        Color(0xFF2A2A2E), useShadow = false, separator = Color(0xFF2C2C2E),
     )
 }
 
@@ -217,6 +250,12 @@ fun specFor(themeId: String, mode: AppMode, accent: Color): PureThemeSpec =
             fontFamily = FontFamily.SansSerif,
             motion = MotionSpec(pressScale = 0.97f, shortMs = 160, longMs = 380, overshoot = true),
             compactRows = false,
+            chrome = ChromeStyle.GLASS,
+            blurDp = 28,
+            glassTint = iosGlassTint(mode),
+            useLargeTitle = true,
+            defaultGrid = true,
+            floatingAction = true,
         )
     }
 

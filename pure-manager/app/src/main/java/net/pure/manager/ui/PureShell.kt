@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,8 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
 import net.pure.manager.theme.AccentChoices
 import net.pure.manager.theme.AppMode
+import net.pure.manager.theme.ChromeStyle
 import net.pure.manager.theme.LocalPureSpec
 import net.pure.manager.theme.LocalSystemInsets
 import net.pure.manager.theme.NavModel
@@ -44,17 +47,16 @@ import net.pure.manager.theme.ThemePrefs
 /**
  * Shell = the part of the screen that changes shape between themes.
  *
- * Three navigation models live here, and all three are driven by the same tokens.
- * The four screens below are shared by all three models, which is the whole
- * argument for putting the navigation model in the token set: switching from
- * iOS to Cyberpunk changes the frame, not the content.
+ * Layout follows the reference the owner supplied (iCloud Drive): grey page,
+ * white grouped cards, a large title that becomes a blurred bar when you scroll,
+ * a toolbar with sort and view toggles, and a rounded floating button.
  *
- * Every text size comes from MaterialTheme.typography, which [PureThemeSpec]
- * scales. Nothing in this file names an sp value, so the density control in the
- * Customisation tab actually moves the UI.
+ * Three navigation models are still driven by the same tokens, and every text
+ * size comes from MaterialTheme.typography. Nothing here names an sp value or
+ * compares a theme id against a literal except the Pixel pill, which is a
+ * navigation-model detail rather than a screen concern.
  */
 
-/** Which of the four screens is showing. Saved across rotation. */
 private enum class Screen(val label: String, val glyph: String) {
     FILES("Berkas", "\u25A4"),
     THEME("Tema", "\u25C8"),
@@ -65,37 +67,36 @@ private enum class Screen(val label: String, val glyph: String) {
 @Composable
 fun PureShell(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit) {
     val spec = LocalPureSpec.current
-    val p = spec.palette
     val insets = LocalSystemInsets.current
     var screen by rememberSaveable { mutableStateOf(Screen.FILES) }
+    // One state shared by the blurred chrome: content registers as the source,
+    // the bars draw the blur of it.
+    val haze = remember { HazeState() }
 
-    Box(Modifier.fillMaxSize().background(p.background)) {
+    Box(Modifier.fillMaxSize().background(spec.palette.background)) {
         when (spec.nav) {
             NavModel.RAIL -> Row(Modifier.fillMaxSize()) {
                 LeftRail(spec, screen, onSelect = { screen = it })
                 Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, compact = spec.compactRows)
+                    ScreenBody(screen, prefs, onPrefs, spec, haze)
                 }
             }
             NavModel.COMMAND_BAR -> Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = insets.top, bottom = insets.bottom)
+                Modifier.fillMaxSize().padding(top = insets.top, bottom = insets.bottom)
             ) {
                 Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, compact = spec.compactRows)
+                    ScreenBody(screen, prefs, onPrefs, spec, haze)
                 }
                 CommandBar(spec, screen, onSelect = { screen = it })
             }
-            NavModel.TAB_BAR -> Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(top = insets.top, bottom = insets.bottom)
-            ) {
-                Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, compact = spec.compactRows)
+            NavModel.TAB_BAR -> Box(Modifier.fillMaxSize()) {
+                // Content runs full-height underneath both bars so the blur has
+                // something to work with; each screen pads its own content.
+                ScreenBody(screen, prefs, onPrefs, spec, haze)
+                Column(Modifier.fillMaxSize()) {
+                    Spacer(Modifier.weight(1f))
+                    TabBar(spec, screen, haze, onSelect = { screen = it })
                 }
-                TabBar(spec, screen, onSelect = { screen = it })
             }
         }
     }
@@ -188,51 +189,58 @@ private fun CommandBar(
 private fun TabBar(
     spec: PureThemeSpec,
     current: Screen,
+    haze: HazeState,
     onSelect: (Screen) -> Unit,
 ) {
     val p = spec.palette
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(p.surface)
-            .border(0.5.dp, p.outline)
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+    val insets = LocalSystemInsets.current
+    GlassBar(
+        spec = spec,
+        state = haze,
+        edge = true,
+        modifier = Modifier.padding(bottom = insets.bottom),
     ) {
-        Screen.entries.forEach { s ->
-            val selected = s == current
-            Column(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .clickable { onSelect(s) }
-                    .padding(vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (selected && spec.id == "pixel") {
-                    // M3 pill indicator, drawn from the theme's radius rather than
-                    // dropped in as a Material component.
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(spec.cornerDp.dp))
-                            .background(p.accent.copy(alpha = 0.22f))
-                            .padding(horizontal = 16.dp, vertical = 2.dp),
-                    ) {
-                        Text(s.glyph, style = MaterialTheme.typography.titleMedium, color = p.accent)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            Screen.entries.forEach { s ->
+                val selected = s == current
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(spec.cornerDp.dp))
+                        .clickable { onSelect(s) }
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (selected && spec.id == "pixel") {
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(spec.cornerDp.dp))
+                                .background(p.accent.copy(alpha = 0.22f))
+                                .padding(horizontal = 16.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                s.glyph,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = p.accent,
+                            )
+                        }
+                    } else {
+                        Text(
+                            s.glyph,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (selected) p.accent else p.onSurfaceVariant,
+                        )
                     }
-                } else {
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        s.glyph,
-                        style = MaterialTheme.typography.titleMedium,
+                        s.label,
+                        style = MaterialTheme.typography.labelSmall,
                         color = if (selected) p.accent else p.onSurfaceVariant,
                     )
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    s.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (selected) p.accent else p.onSurfaceVariant,
-                )
             }
         }
     }
@@ -245,114 +253,263 @@ private fun ScreenBody(
     screen: Screen,
     prefs: ThemePrefs,
     onPrefs: (ThemePrefs) -> Unit,
-    compact: Boolean,
+    spec: PureThemeSpec,
+    haze: HazeState,
 ) {
-    val spec = LocalPureSpec.current
     val insets = LocalSystemInsets.current
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(
-                start = spec.contentPaddingDp.dp + insets.start,
-                end = spec.contentPaddingDp.dp + insets.end,
-            )
-            .padding(top = if (spec.nav == NavModel.RAIL) 12.dp else 16.dp, bottom = 20.dp),
-    ) {
-        Text(
-            screen.label,
-            style = MaterialTheme.typography.headlineMedium,
-            color = spec.palette.onBackground,
+    val scroll = rememberScrollState()
+    // The large title collapses once the content has moved, which is when the
+    // blurred top bar takes over and the small title appears in it.
+    val collapsed = scroll.value > 40
+
+    Box(Modifier.fillMaxSize().glassSource(spec, haze)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(
+                    start = insets.start,
+                    end = insets.end,
+                )
+                .padding(
+                    start = spec.contentPaddingDp.dp,
+                    end = spec.contentPaddingDp.dp,
+                ),
+        ) {
+            // Space for the bar that floats above this content.
+            Spacer(Modifier.height(insets.top + if (spec.useLargeTitle) 58.dp else 52.dp))
+            Column(Modifier.padding(bottom = 96.dp)) {
+                when (screen) {
+                    Screen.FILES -> FilesScreen(spec, haze, collapsed)
+                    Screen.THEME -> ThemeScreen(prefs, onPrefs)
+                    Screen.MODULES -> ModulesScreen(spec)
+                    Screen.SETTINGS -> SettingsScreen(prefs, onPrefs, spec)
+                }
+            }
+        }
+
+        // The bar is drawn last so it sits above the scrolling content, which is
+        // also what its blur needs.
+        TopBar(
+            screen = screen,
+            spec = spec,
+            haze = haze,
+            collapsed = collapsed,
         )
-        Spacer(Modifier.height(12.dp))
-        when (screen) {
-            Screen.FILES -> FilesScreen(spec, compact)
-            Screen.THEME -> ThemeScreen(prefs, onPrefs)
-            Screen.MODULES -> ModulesScreen(spec)
-            Screen.SETTINGS -> SettingsScreen(prefs, onPrefs, spec)
+    }
+}
+
+@Composable
+private fun TopBar(
+    screen: Screen,
+    spec: PureThemeSpec,
+    haze: HazeState,
+    collapsed: Boolean,
+) {
+    val p = spec.palette
+    val insets = LocalSystemInsets.current
+    GlassBar(
+        spec = spec,
+        state = haze,
+        edge = false,
+        modifier = Modifier.padding(top = insets.top),
+    ) {
+        Column(Modifier.padding(horizontal = spec.contentPaddingDp.dp)) {
+            Row(
+                Modifier.fillMaxWidth().height(48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    screen.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = p.onBackground,
+                )
+                Spacer(Modifier.weight(1f))
+                if (screen == Screen.FILES) {
+                    Text(
+                        "Pilih",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = p.accent,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(spec.cornerDp.dp))
+                            .clickable { }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            // The big title only exists while the page is at the top; that is the
+            // whole iOS idiom and it needs no animation to read correctly.
+            if (spec.useLargeTitle && !collapsed) {
+                Text(
+                    screen.label,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = p.onBackground,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun FilesScreen(spec: PureThemeSpec, compact: Boolean) {
+private fun FilesScreen(spec: PureThemeSpec, haze: HazeState, collapsed: Boolean) {
     val p = spec.palette
-    val files = listOf(
-        "R" to ("Retro-Arcade.apk" to "24.1 MB"),
-        "Z" to ("Manager-6.1.zip" to "18.7 MB"),
-        "P" to ("banner-review.png" to "640 KB"),
-        "T" to ("theme-signing.key" to "3.4 KB"),
-        "A" to ("voice-note.m4a" to "2.1 MB"),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)) {
-        files.forEach { (letter, rest) ->
-            val (name, size) = rest
+    var query by rememberSaveable { mutableStateOf("") }
+    var grid by rememberSaveable { mutableStateOf(spec.defaultGrid) }
+    var sortDescending by rememberSaveable { mutableStateOf(false) }
+
+    Column {
+        SearchField(spec, query, onValueChange = { query = it })
+        Spacer(Modifier.height(10.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // New folder, the blue folder-plus in the reference toolbar.
             Row(
                 Modifier
-                    .fillMaxWidth()
-                    .height(spec.rowHeightDp.dp)
                     .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .background(p.surface)
-                    .border(
-                        width = if (p.outline == Color.Transparent) 0.dp else 0.75.dp,
-                        color = p.outline,
-                        shape = RoundedCornerShape(spec.cornerDp.dp),
-                    )
-                    .padding(horizontal = 12.dp),
+                    .clickable { }
+                    .padding(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                IosFolder(size = 24f)
+                Text("Baru", style = MaterialTheme.typography.bodyLarge, color = p.accent)
+            }
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(spec.cornerDp.dp))
+                    .clickable { sortDescending = !sortDescending }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (sortDescending) "Nama \u25BE" else "Nama \u25B4",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = p.accent,
+                )
+            }
+            Spacer(Modifier.width(2.dp))
+            ToolButton(
+                glyph = if (grid) "\u2637" else "\u2263",
+                active = true,
+                onClick = { grid = !grid },
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        val folders = listOf(
+            Triple("Foto", "15 item", "\u25A4"),
+            Triple("Musik", "0 item", "\u25A4"),
+            Triple("Dokumen", "4 item", "\u25A4"),
+            Triple("Unduhan", "1 item", "\u25A4"),
+            Triple("Contoh", "6 item", "\u25A4"),
+        )
+        val files = listOf(
+            Triple("banner-review.png", "640 KB", "P"),
+            Triple("Retro-Arcade.apk", "24,1 MB", "A"),
+            Triple("Manager-6.1.zip", "18,7 MB", "Z"),
+            Triple("voice-note.m4a", "2,1 MB", "M"),
+        )
+
+        if (grid) {
+            GroupCard(spec) {
+                Column(Modifier.padding(horizontal = 6.dp, vertical = 10.dp)) {
+                    folders.chunked(3).forEach { row ->
+                        Row(Modifier.fillMaxWidth()) {
+                            row.forEach { (name, count, _) ->
+                                Box(Modifier.weight(1f)) {
+                                    GridCell(
+                                        spec = spec,
+                                        title = name,
+                                        subtitle = count,
+                                        isFolder = true,
+                                        glyph = "",
+                                        onClick = { },
+                                    )
+                                }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+            }
+        } else {
+            GroupCard(spec) {
+                folders.forEach { (name, count, _) ->
+                    ListRow(
+                        spec = spec,
+                        title = name,
+                        subtitle = count,
+                        isFolder = true,
+                        glyph = "",
+                        showChevron = true,
+                        onClick = { },
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(22.dp))
+        if (spec.defaultGrid) {
+            Text(
+                "Berkas",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = p.onBackground,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        GroupCard(spec) {
+            files.forEach { (name, size, glyph) ->
+                ListRow(
+                    spec = spec,
+                    title = name,
+                    subtitle = size,
+                    isFolder = false,
+                    glyph = glyph,
+                    showChevron = true,
+                    onClick = { },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Daftar contoh \u2014 tahap 2 membaca berkas asli di perangkat.",
+            style = MaterialTheme.typography.bodySmall,
+            color = p.onSurfaceVariant,
+        )
+
+        // Floating action button, the orange plus in the reference.
+        if (spec.floatingAction) {
+            Spacer(Modifier.height(24.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Box(
                     Modifier
-                        .size(spec.rowHeightDp.dp * 0.52f)
-                        .clip(RoundedCornerShape((spec.cornerDp * 0.55f).dp))
-                        .background(p.accent),
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(p.accent)
+                        .clickable { }
+                        .border(0.5.dp, Color.White.copy(alpha = 0.25f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        letter,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
+                        "+",
+                        style = MaterialTheme.typography.headlineMedium,
                         color = p.onAccent,
-                    )
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = p.onBackground,
-                    )
-                    if (!compact) {
-                        Text(
-                            size,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = p.onSurfaceVariant,
-                        )
-                    }
-                }
-                if (compact) {
-                    Text(
-                        size,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = p.onSurfaceVariant,
-                    )
-                } else {
-                    Text(
-                        "\u203A",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = p.onSurfaceVariant,
                     )
                 }
             }
         }
     }
-    Spacer(Modifier.height(14.dp))
-    Text(
-        "Ini daftar contoh. Tahap 2 menggantinya dengan berkas asli di perangkat.",
-        style = MaterialTheme.typography.bodySmall,
-        color = p.onSurfaceVariant,
-    )
 }
 
 @Composable
@@ -361,162 +518,255 @@ private fun ThemeScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit) {
     val p = spec.palette
 
     SectionLabel("TEMA")
-    ThemeCatalog.forEach { t ->
-        val selected = prefs.themeId == t.id
-        // Tapping applies the theme immediately. That is the whole point of the
-        // token system, and it is what the previous build could not do at all.
-        OptionRow(
-            selected = selected,
-            onClick = { onPrefs(prefs.copy(themeId = t.id)) },
-            leading = {
-                Box(
-                    Modifier
-                        .size(spec.rowHeightDp.dp * 0.5f)
-                        .clip(RoundedCornerShape((spec.cornerDp * 0.5f).dp))
-                        .background(t.swatch),
-                )
-            },
-            title = t.label,
-            subtitle = t.note,
-        )
-    }
-
-    SectionLabel("MODE")
-    AppMode.entries.forEach { m ->
-        OptionRow(
-            selected = prefs.mode == m,
-            onClick = { onPrefs(prefs.copy(mode = m)) },
-            title = when (m) {
-                AppMode.LIGHT -> "Terang"
-                AppMode.DARK -> "Gelap"
-                AppMode.AMOLED -> "AMOLED hitam total"
-            },
-            subtitle = when (m) {
-                AppMode.LIGHT -> null
-                AppMode.DARK -> "Abu-abu gelap, elevasi terlihat"
-                AppMode.AMOLED -> "Hemat daya OLED; pemisah pakai garis, bukan bayangan"
-            },
-        )
-    }
-
-    SectionLabel("AKSEN")
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        AccentChoices.forEachIndexed { i, (name, colour) ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .clickable { onPrefs(prefs.copy(accentIndex = i)) }
-                    .padding(4.dp),
+    GroupCard(spec) {
+        ThemeCatalog.forEach { t ->
+            val selected = prefs.themeId == t.id
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onPrefs(prefs.copy(themeId = t.id)) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
                     Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(colour)
-                        .border(
-                            width = if (prefs.accentIndex == i) 3.dp else 0.dp,
-                            color = p.onBackground,
-                            shape = CircleShape,
-                        ),
+                        .size(28.dp)
+                        .clip(RoundedCornerShape((spec.cornerDp * 0.6f).dp))
+                        .background(t.swatch),
                 )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (prefs.accentIndex == i) p.accent else p.onSurfaceVariant,
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        t.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = p.onBackground,
+                    )
+                    Text(
+                        t.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = p.onSurfaceVariant,
+                    )
+                }
+                if (selected) {
+                    Text(
+                        "\u2713",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = p.accent,
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 54.dp)
+                    .height(0.5.dp)
+                    .background(p.separator),
+            )
+        }
+    }
+
+    SectionLabel("MODE")
+    GroupCard(spec) {
+        AppMode.entries.forEach { m ->
+            ChoiceRow(
+                spec = spec,
+                label = when (m) {
+                    AppMode.LIGHT -> "Terang"
+                    AppMode.DARK -> "Gelap"
+                    AppMode.AMOLED -> "AMOLED hitam total"
+                },
+                selected = prefs.mode == m,
+                onClick = { onPrefs(prefs.copy(mode = m)) },
+            )
+        }
+    }
+
+    SectionLabel("AKSEN")
+    GroupCard(spec) {
+        Row(
+            Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            AccentChoices.forEachIndexed { i, (name, colour) ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(spec.cornerDp.dp))
+                        .clickable { onPrefs(prefs.copy(accentIndex = i)) }
+                        .padding(4.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(colour)
+                            .border(
+                                width = if (prefs.accentIndex == i) 3.dp else 0.dp,
+                                color = p.onBackground,
+                                shape = CircleShape,
+                            ),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (prefs.accentIndex == i) p.accent else p.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
 
     SectionLabel("BENTUK & KEPADATAN")
-    StepRow(
-        title = "Sudut",
-        value = "x${"%.1f".format(prefs.cornerScale)}",
-        onLess = { onPrefs(prefs.copy(cornerScale = (prefs.cornerScale - 0.25f).coerceIn(0f, 2f))) },
-        onMore = { onPrefs(prefs.copy(cornerScale = (prefs.cornerScale + 0.25f).coerceIn(0f, 2f))) },
-    )
-    StepRow(
-        title = "Ukuran teks & baris",
-        value = "${(prefs.densityScale * 100).toInt()}%",
-        onLess = { onPrefs(prefs.copy(densityScale = (prefs.densityScale - 0.05f).coerceIn(0.8f, 1.4f))) },
-        onMore = { onPrefs(prefs.copy(densityScale = (prefs.densityScale + 0.05f).coerceIn(0.8f, 1.4f))) },
-    )
-    OptionRow(
-        selected = prefs.animations,
-        onClick = { onPrefs(prefs.copy(animations = !prefs.animations)) },
-        title = "Animasi",
-        subtitle = if (prefs.animations) "Aktif" else "Mati",
-    )
+    GroupCard(spec) {
+        StepRow(
+            title = "Sudut",
+            value = "x${"%.1f".format(prefs.cornerScale)}",
+            onLess = {
+                onPrefs(prefs.copy(cornerScale = (prefs.cornerScale - 0.25f).coerceIn(0f, 2f)))
+            },
+            onMore = {
+                onPrefs(prefs.copy(cornerScale = (prefs.cornerScale + 0.25f).coerceIn(0f, 2f)))
+            },
+        )
+        StepRow(
+            title = "Ukuran teks",
+            value = "${(prefs.densityScale * 100).toInt()}%",
+            onLess = {
+                onPrefs(prefs.copy(densityScale = (prefs.densityScale - 0.05f).coerceIn(0.8f, 1.4f)))
+            },
+            onMore = {
+                onPrefs(prefs.copy(densityScale = (prefs.densityScale + 0.05f).coerceIn(0.8f, 1.4f)))
+            },
+        )
+        ChoiceRow(
+            spec = spec,
+            label = "Animasi",
+            selected = prefs.animations,
+            onClick = { onPrefs(prefs.copy(animations = !prefs.animations)) },
+        )
+    }
+}
+
+@Composable
+private fun ChoiceRow(
+    spec: PureThemeSpec,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val p = spec.palette
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = p.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Text(
+                "\u2713",
+                style = MaterialTheme.typography.titleLarge,
+                color = p.accent,
+            )
+        }
+    }
 }
 
 @Composable
 private fun ModulesScreen(spec: PureThemeSpec) {
     val p = spec.palette
-    // Honest placeholder. Stage 4 wires this to GitHub Releases; until then the
-    // tab exists, is reachable, and says what it will do rather than showing
-    // invented modules that cannot be installed.
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    GroupCard(spec) {
         listOf(
             "Terminal" to "Belum tersedia \u2014 tahap 3",
             "Editor kode" to "Belum tersedia \u2014 tahap 6",
             "PDF & Office" to "Belum tersedia \u2014 tahap 5",
             "AI" to "Ditahan atas permintaan",
         ).forEach { (name, state) ->
-            Row(
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .background(p.surface)
-                    .border(0.75.dp, p.outline, RoundedCornerShape(spec.cornerDp.dp))
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 14.dp, vertical = 13.dp)
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = p.onBackground,
-                    )
-                    Text(
-                        state,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = p.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = p.onBackground,
+                )
+                Text(
+                    state,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                )
             }
+            Box(
+                Modifier.fillMaxWidth().padding(start = 14.dp).height(0.5.dp).background(p.separator)
+            )
         }
     }
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Modul diunduh dari GitHub Releases pada tahap 4. Tidak ada modul yang " +
+            "bisa dipasang sekarang, jadi tidak ada yang ditampilkan seolah bisa.",
+        style = MaterialTheme.typography.bodySmall,
+        color = p.onSurfaceVariant,
+    )
 }
 
 @Composable
 private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spec: PureThemeSpec) {
     val p = spec.palette
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        InfoRow("Versi", "0.1.1")
-        InfoRow("Tahap", "T1 \u2014 tema dan kerangka")
-        InfoRow("Paket", "net.pure.manager")
-        InfoRow("Android", "10\u201316")
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Setelan aplikasi yang sebenarnya (izin, bahasa, tema ikon) menyusul " +
-                "bersama lapisan berkas di tahap 2. Yang bisa diubah sekarang ada di tab Tema.",
-            style = MaterialTheme.typography.bodySmall,
-            color = p.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        OptionRow(
+    GroupCard(spec) {
+        listOf(
+            "Versi" to "0.1.2",
+            "Tahap" to "T1 \u2014 tema dan kerangka",
+            "Paket" to "net.pure.manager",
+            "Android" to "10\u201316",
+            "Tema" to spec.label,
+            "Blur" to if (spec.chrome == ChromeStyle.GLASS) "Aktif (${spec.blurDp} dp)" else "Mati",
+        ).forEach { (label, value) ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = p.onBackground,
+                    modifier = Modifier.width(96.dp),
+                )
+                Text(
+                    value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = p.onSurfaceVariant,
+                )
+            }
+            Box(
+                Modifier.fillMaxWidth().padding(start = 14.dp).height(0.5.dp).background(p.separator)
+            )
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    GroupCard(spec) {
+        ChoiceRow(
+            spec = spec,
+            label = "Setel ulang tampilan",
             selected = false,
             onClick = { onPrefs(ThemePrefs()) },
-            title = "Setel ulang tampilan",
-            subtitle = "Kembali ke iOS, gelap, aksen biru, ukuran 100%",
         )
     }
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Kembali ke iOS, gelap, aksen biru, ukuran 100%.",
+        style = MaterialTheme.typography.bodySmall,
+        color = p.onSurfaceVariant,
+    )
 }
 
 // ------------------------------------------------------------------- components
@@ -527,59 +777,10 @@ private fun SectionLabel(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         color = p.onSurfaceVariant,
-        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
+        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp, start = 4.dp),
     )
-}
-
-@Composable
-private fun OptionRow(
-    selected: Boolean,
-    onClick: () -> Unit,
-    title: String,
-    subtitle: String? = null,
-    leading: (@Composable () -> Unit)? = null,
-) {
-    val spec = LocalPureSpec.current
-    val p = spec.palette
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(spec.cornerDp.dp))
-            .background(if (selected) p.accent.copy(alpha = 0.12f) else p.surface)
-            .border(
-                width = if (selected) 1.5.dp else 0.75.dp,
-                color = if (selected) p.accent else p.outline,
-                shape = RoundedCornerShape(spec.cornerDp.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        leading?.invoke()
-        Column(Modifier.weight(1f)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = p.onBackground,
-            )
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = p.onSurfaceVariant,
-                )
-            }
-        }
-        Text(
-            if (selected) "\u2713" else "",
-            style = MaterialTheme.typography.titleLarge,
-            color = p.accent,
-        )
-    }
 }
 
 @Composable
@@ -594,9 +795,6 @@ private fun StepRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(spec.cornerDp.dp))
-            .background(p.surface)
-            .border(0.75.dp, p.outline, RoundedCornerShape(spec.cornerDp.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -608,43 +806,30 @@ private fun StepRow(
             )
             Text(value, style = MaterialTheme.typography.bodySmall, color = p.onSurfaceVariant)
         }
-        StepButton("\u2212", onLess)
+        StepButton("\u2212", p.onBackground, onLess)
         Spacer(Modifier.width(8.dp))
-        StepButton("+", onMore)
+        StepButton("+", p.onAccent, onMore, filled = true)
     }
+    Box(Modifier.fillMaxWidth().padding(start = 14.dp).height(0.5.dp).background(p.separator))
 }
 
 @Composable
-private fun StepButton(label: String, onClick: () -> Unit) {
+private fun StepButton(
+    label: String,
+    contentColor: Color,
+    onClick: () -> Unit,
+    filled: Boolean = false,
+) {
     val spec = LocalPureSpec.current
     val p = spec.palette
     Box(
         Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(spec.cornerDp.dp))
-            .background(p.surfaceVariant)
-            .border(0.75.dp, p.outline, RoundedCornerShape(spec.cornerDp.dp))
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(if (filled) p.accent else p.surfaceVariant)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = MaterialTheme.typography.titleLarge, color = p.onBackground)
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    val p = LocalPureSpec.current.palette
-    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = p.onSurfaceVariant,
-            modifier = Modifier.width(96.dp),
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = p.onBackground,
-        )
+        Text(label, style = MaterialTheme.typography.titleMedium, color = contentColor)
     }
 }

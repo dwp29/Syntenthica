@@ -15,8 +15,8 @@ android {
         // later does not change this code.
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -67,6 +67,11 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // Real blurred chrome, not a translucent rectangle. Pinned to 1.1.1 because
+    // it is the last Haze built against Kotlin 2.0.21 / Compose 1.7.5; 1.2+
+    // requires Kotlin 2.1 and would drag the whole toolchain up with it.
+    implementation("dev.chrisbanes.haze:haze:1.1.1")
 
     // Kept out on purpose for now: libsu (root), docx4j (Office), sora-editor
     // (code), ffmpeg (audio). Each lands with the stage that needs it, so the

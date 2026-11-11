@@ -254,6 +254,67 @@ class Interactions(unittest.TestCase):
         self.assertIn("scale)", tokens, "typographyFor ignores its scale argument")
 
 
+class IosLook(unittest.TestCase):
+    """The reference the owner gave: iCloud Drive, with real blur.
+
+    Pins the parts that are easy to lose in a rewrite. Uses Text blocks and
+    presence checks rather than counting exact call sites, because the previous
+    version of this suite failed on its own arithmetic rather than on the code.
+    """
+
+    def setUp(self):
+        self.shell = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+        self.tokens = (SRC / "net/pure/manager/theme/Tokens.kt").read_text()
+        self.glass = (SRC / "net/pure/manager/ui/Glass.kt").read_text()
+
+    def test_blur_is_real_and_pinned(self):
+        """A translucent rectangle is not glass; the dependency has to be present."""
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        self.assertIn("dev.chrisbanes.haze:haze:", gradle,
+                      "no blur library, so 'glass' would be a grey box")
+        self.assertIn("hazeChild(", self.glass)
+        self.assertIn("blurRadius", self.glass)
+
+    def test_haze_version_matches_the_toolchain(self):
+        """Haze 1.2+ requires Kotlin 2.1; this project is on 2.0.21."""
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        version = re.search(r"dev\.chrisbanes\.haze:haze:([\d.]+)", gradle).group(1)
+        major, minor, _ = (int(x) for x in version.split("."))
+        self.assertLessEqual((major, minor), (1, 1),
+                             f"haze {version} needs a newer Kotlin than this project pins")
+
+    def test_glass_is_a_token_not_a_theme_check(self):
+        self.assertIn("enum class ChromeStyle", self.tokens)
+        self.assertIn("ChromeStyle.GLASS", self.tokens)
+        # The chrome decision must come from the spec, never from the id.
+        self.assertNotRegex(self.glass, r'"(ios|pixel|windows|cyber)"',
+                            "Glass.kt branches on a theme id")
+
+    def test_only_ios_gets_glass_for_now(self):
+        ios_block = self.tokens[self.tokens.index('id = "ios"'):]
+        end = ios_block.find(chr(41) + chr(10))
+        ios_block = ios_block[: end + 2]
+        self.assertIn("ChromeStyle.GLASS", ios_block)
+        for other in ('id = "pixel"', 'id = "windows"', 'id = "cyber"'):
+            block = self.tokens[self.tokens.index(other):]
+            end = block.find(chr(41) + chr(10))
+            block = block[: end + 2]
+            self.assertNotIn("ChromeStyle.GLASS", block,
+                             f"{other} should stay solid")
+
+    def test_ios_keeps_its_distinctive_parts(self):
+        for token in ("useLargeTitle", "defaultGrid", "floatingAction", "separator"):
+            self.assertIn(token, self.tokens)
+        self.assertIn("SearchField(", self.shell)
+        self.assertIn("IosFolder(", self.shell)
+        self.assertGreaterEqual(self.shell.count("GroupCard("), 3)
+        self.assertIn("grid = !grid", self.shell, "the grid/list toggle is not wired")
+
+    def test_every_screen_reads_the_type_ramp(self):
+        self.assertNotRegex(self.shell, r"fontSize\s*=",
+                           "shell went back to hardcoded text sizes")
+
+
 class ManifestAndGradle(unittest.TestCase):
     def test_manifest_does_not_request_all_files_on_a_build_that_cannot_use_it(self):
         manifest = (ROOT / "pure-manager/app/src/main/AndroidManifest.xml").read_text()
