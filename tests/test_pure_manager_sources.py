@@ -1184,6 +1184,94 @@ class CodeEditor(unittest.TestCase):
             self.assertIn(marker, port, f"the port lost {marker}")
 
 
+class MediaPlayers(unittest.TestCase):
+    """Stage 7. Images, audio and video played in-app, with no new dependency.
+
+    ExoPlayer would be ~1.5 MB and a licence review for what MediaPlayer and
+    VideoView already do on the owner's phone. What the platform lacks is the
+    arithmetic around them -- a seek bar that survives a drag, a "next" that never
+    picks the playing track -- and that is in `media/` as plain functions.
+    """
+
+    def setUp(self):
+        self.timeline = (SRC / "net/pure/manager/media/Timeline.kt").read_text()
+        self.players = (SRC / "net/pure/manager/media/Players.kt").read_text()
+        self.screen = (SRC / "net/pure/manager/ui/MediaScreen.kt").read_text()
+        self.browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+
+    def test_no_media_library_was_added(self):
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        deps = re.sub(r"//[^\n]*", "", gradle.split("dependencies {")[1]).lower()
+        for banned in ("exoplayer", "media3", "vlc", "glide", "coil", "picasso"):
+            self.assertNotIn(banned, deps, f"{banned} was not a decision we made")
+
+    def test_the_audio_player_is_released(self):
+        """A leaked MediaPlayer keeps audio focus, so every other app goes silent."""
+        self.assertIn("fun release()", self.players)
+        self.assertIn("mp.release()", self.players)
+        self.assertIn("onDispose { player.release() }", self.screen)
+
+    def test_the_audio_player_stops_polling_when_it_stops(self):
+        # A ticker that keeps running after pause is a battery bug that looks like a
+        # UI bug: the position keeps creeping while nothing is playing.
+        self.assertIn("private fun stopTicker()", self.players)
+        self.assertIn("ticker?.cancel()", self.players)
+
+    def test_a_seek_does_not_spring_back_under_the_thumb(self):
+        # The player reports its pre-seek position for a frame or two after a seek.
+        self.assertIn("fun shownPosition(", self.timeline)
+        self.assertIn("dragPositionMs ?: positionMs", self.timeline)
+
+    def test_shuffle_cannot_pick_the_playing_track(self):
+        # `random` picks the current track a third of the time with three files,
+        # which reads as the button being broken.
+        self.assertIn("fun nextIndex(", self.timeline)
+        self.assertIn("Math.floorMod", self.timeline)
+        self.assertNotIn("Random()", self.timeline)
+
+    def test_previous_restarts_before_going_back(self):
+        self.assertIn("fun previousRestartsInsteadOfGoingBack(", self.timeline)
+        self.assertIn("previousRestartsInsteadOfGoingBack(state.positionMs)", self.screen)
+
+    def test_a_large_photo_is_decoded_at_display_size(self):
+        # Decoding a 48 MP photo whole is 190 MB of heap, and the owner's phone is the
+        # one that dies, not a test device.
+        self.assertIn("inJustDecodeBounds", self.screen)
+        self.assertIn("inSampleSize", self.screen)
+
+    def test_rotation_is_read_without_adding_a_dependency(self):
+        # android.media.ExifInterface is not in the public SDK any more, and
+        # androidx.exifinterface is a dependency this project does not carry.
+        self.assertIn("MediaMetadataRetriever", self.screen)
+        # The prose explains WHY not; the dependency block is where it must not be.
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        deps = re.sub(r"//[^\n]*", "", gradle.split("dependencies {")[1]).lower()
+        self.assertNotIn("exifinterface", deps)
+
+    def test_panning_is_pinned_to_the_image_not_to_zero(self):
+        """The first clamp used maxX = 0f, which is correct at fit scale and dead
+        at every other scale -- the image could never be moved."""
+        self.assertIn("viewportWidth * (scale - 1f) / 2f", self.timeline)
+        self.assertNotIn("val maxX = 0f", self.timeline)
+
+    def test_the_players_say_what_they_cannot_do(self):
+        for phrase in ("tag ID3", "Subtitle tidak didukung", "tidak bisa diedit"):
+            self.assertIn(phrase, self.screen)
+
+    def test_tapping_media_opens_it_and_still_offers_the_other_app(self):
+        self.assertIn("MediaKind.of(e.extension) != null", self.browser)
+        self.assertIn("MediaTarget(e, entries)", self.browser)
+        for call in ("ImageViewer(", "AudioScreen(", "VideoScreen("):
+            self.assertIn(call, self.screen + self.browser)
+
+    def test_the_media_logic_port_still_passes(self):
+        result = subprocess.run(
+            ["python3", str(ROOT / "pure-manager/tools/media_logic_check.py")],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+
 class TwoFlavorsAndModules(unittest.TestCase):
     """Stage 4: the module client and the split into two installable apps."""
 

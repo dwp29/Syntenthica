@@ -60,6 +60,7 @@ import net.pure.manager.fs.SortKey
 import net.pure.manager.fs.SortOrder
 import net.pure.manager.fs.Storage
 import net.pure.manager.fs.Support
+import net.pure.manager.media.MediaKind
 import net.pure.manager.fs.Search
 import net.pure.manager.fs.Usage
 import net.pure.manager.fs.comparatorFor
@@ -145,6 +146,10 @@ fun BrowserScreen(
     // have different consequences: leaving a preview loses nothing, while leaving an
     // edit can lose work, so the editor refuses a silent close.
     var editing by remember { mutableStateOf<FileEntry?>(null) }
+    // Media opened inside the app. One field for all three screens rather than
+    // three: only one can be on screen at a time, and a single value makes that
+    // impossible to get wrong.
+    var media by remember { mutableStateOf<MediaTarget?>(null) }
     // The letter the A-Z strip is filtered to, or null for everything. The strip
     // filters rather than scroll-jumps: this list scrolls inside the shell's own
     // scroll state, which this screen does not own, and a strip that cannot move
@@ -317,6 +322,11 @@ fun BrowserScreen(
                 editing = null
                 previewing = e
             }
+            MediaKind.of(e.extension) != null -> {
+                editing = null
+                previewing = null
+                media = MediaTarget(e, entries)
+            }
             else -> {
                 val opened = Storage.open(context, e)
                 if (opened.isFailure) {
@@ -344,6 +354,18 @@ fun BrowserScreen(
             )
     }
 
+/**
+ * A file opened in the in-app player, plus the folder it came from.
+ *
+ * The siblings are captured when the file is tapped rather than read again by the
+ * player: the playlist has to be the folder as the user saw it, in the order they
+ * saw it, not whatever the directory listing returns a second later.
+ */
+private data class MediaTarget(val entry: FileEntry, val siblings: List<FileEntry>)
+
+/**
+ * Text files the editor can open.
+     */
     val onLongPress: (FileEntry) -> Unit = { e ->
         if (selectionMode) {
             val next = if (e.path in selected) selected - e.path else selected + e.path
@@ -762,6 +784,16 @@ fun BrowserScreen(
                             }
                         },
                     )
+                }
+
+                media?.let { target ->
+                    when (MediaKind.of(target.entry.extension)) {
+                        MediaKind.IMAGE -> ImageViewer(spec, target.entry, onClose = { media = null })
+                        MediaKind.AUDIO -> AudioScreen(
+                            spec, target.entry, target.siblings, onClose = { media = null },
+                        )
+                        else -> VideoScreen(spec, target.entry, onClose = { media = null })
+                    }
                 }
 
                 editing?.let { file ->
