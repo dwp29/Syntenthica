@@ -51,11 +51,11 @@ jobs:
           set -euo pipefail
           # No wrapper is committed yet; the first build produces one so that later
           # runs are reproducible against a pinned Gradle version.
-          gradle wrapper --gradle-version 8.7 --distribution-type bin 2>&1 | tail -5 \
+          gradle wrapper --gradle-version 8.9 --distribution-type bin 2>&1 | tail -5 \
             || {
-              curl -fsSLo /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip
+              curl -fsSLo /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip
               unzip -q /tmp/gradle.zip -d /opt
-              /opt/gradle-8.7/bin/gradle wrapper --gradle-version 8.7 --distribution-type bin
+              /opt/gradle-8.9/bin/gradle wrapper --gradle-version 8.9 --distribution-type bin
             }
           ls -la gradlew gradle/wrapper/
 
