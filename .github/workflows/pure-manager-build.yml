@@ -99,6 +99,20 @@ jobs:
           print(f"unit tests: {t} run, {f} failed, {e} errored, {s} skipped")
           ' 2>&1 || echo "JUnit XML tidak ditemukan"
           } > "$RUNNER_TEMP/pm-output/build.log"
+          # Independently of the big log, keep the summary where the reporter can
+          # find it without parsing anything.
+          python3 -c '
+          import glob
+          import xml.etree.ElementTree as ET
+          files = glob.glob("app/build/test-results/testReleaseUnitTest/*.xml")
+          t = f = e = sk = 0
+          for path in files:
+              root = ET.parse(path).getroot()
+              t += int(root.get("tests", 0)); f += int(root.get("failures", 0))
+              e += int(root.get("errors", 0)); sk += int(root.get("skipped", 0))
+          open("'"$RUNNER_TEMP"'/pm-output/test-summary.txt", "w").write(
+              f"{t} run, {f} failed, {e} errored, {sk} skipped")
+          ' 2>/dev/null || echo "JUnit XML tidak ditemukan" > "$RUNNER_TEMP/pm-output/test-summary.txt"
 
       - name: Ensure a signing key exists
         run: |
@@ -130,7 +144,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          SUMMARY=$(sed -n '/===== JUnit summary =====/,$p' "$RUNNER_TEMP/pm-output/build.log" 2>/dev/null | tail -1)
+          SUMMARY=$(cat "$RUNNER_TEMP/pm-output/test-summary.txt" 2>/dev/null | tr -d '\n')
           echo "::notice title=Unit tests::${SUMMARY:-no summary}"
           if [ -n "${SUMMARY:-}" ]; then
             echo "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
