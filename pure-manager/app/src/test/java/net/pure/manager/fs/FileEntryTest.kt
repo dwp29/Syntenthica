@@ -103,6 +103,7 @@ class FileEntryTest {
         assertTrue(validateName("..")!!.isNotEmpty())
         assertTrue(validateName("x".repeat(300))!!.contains("panjang"))
         assertTrue(validateName("nama ")!!.contains("spasi"))
+        assertTrue("leading space too", validateName(" nama")!!.contains("spasi"))
         // Backslash needs two characters, which is why it is tested separately from
         // the one-character cases: a lone '\\' is not a valid Kotlin char literal.
         assertTrue("backslash should be rejected", validateName("a" + 92.toChar() + "b") != null)

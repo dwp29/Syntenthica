@@ -86,6 +86,14 @@ fun formatDate(epochMillis: Long, now: Long = System.currentTimeMillis()): Strin
  * Indonesian and names the offending character instead of failing silently.
  */
 fun validateName(name: String): String? {
+    // Checked before trimming. The original version trimmed first and then asked
+    // whether the result ended in a space -- a condition that can never be true,
+    // so "nama " was silently accepted. The JVM test caught it by asserting on the
+    // message rather than just on the result.
+    if (name.isNotEmpty() && name != name.trim()) {
+        return if (name.trim().isEmpty()) "Nama tidak boleh kosong"
+        else "Nama tidak boleh diawali atau diakhiri spasi"
+    }
     val trimmed = name.trim()
     if (trimmed.isEmpty()) return "Nama tidak boleh kosong"
     if (trimmed == "." || trimmed == "..") return "Nama itu tidak bisa dipakai"
@@ -95,7 +103,6 @@ fun validateName(name: String): String? {
         if (c in forbidden) return "Nama tidak boleh mengandung $c"
         if (c.code < 32) return "Nama mengandung karakter kontrol"
     }
-    if (trimmed.endsWith(" ")) return "Nama tidak boleh berakhir dengan spasi"
     return null
 }
 
