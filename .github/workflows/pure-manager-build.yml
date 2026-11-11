@@ -146,6 +146,13 @@ jobs:
         run: |
           SUMMARY=$(cat "$RUNNER_TEMP/pm-output/test-summary.txt" 2>/dev/null | tr -d '\n')
           echo "::notice title=Unit tests::${SUMMARY:-no summary}"
+          # Nama tes yang gagal, langsung dari log Gradle ("... FAILED"). Langkah
+          # ini selalu sukses, jadi notice-nya pasti terkirim -- berbeda dari
+          # langkah tes yang gagal, yang pesannya hilang di repo ini.
+          FAILS=$(grep -E "^[A-Za-z].* FAILED$" "$RUNNER_TEMP/pm-output/tests.log" 2>/dev/null | head -6 | tr '\n' ';' || true)
+          if [ -n "${FAILS:-}" ]; then
+            echo "::notice title=Gagal::${FAILS}"
+          fi
           if [ -n "${SUMMARY:-}" ]; then
             echo "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
           fi
