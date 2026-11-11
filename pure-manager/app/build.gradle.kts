@@ -15,8 +15,8 @@ android {
         // later does not change this code.
         minSdk = 29
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.7.0"
+        versionCode = 14
+        versionName = "0.8.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -136,7 +136,13 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
 
-    // Kept out on purpose for now: libsu (root), docx4j (Office), sora-editor
-    // (code), ffmpeg (audio). Each lands with the stage that needs it, so the
-    // first APK stays small and the licence surface stays empty.
+    // Still kept out, and now with reasons per stage rather than a wish list:
+    //
+    //  - libsu: root runs through ProcessBuilder and `su` directly, which is a
+    //    hundred lines and, more importantly, testable with `sh` on the JVM.
+    //  - docx4j / Apache POI: .docx and .xlsx are ZIPs of XML, so they are read
+    //    with ZipInputStream and the platform parser. POI alone is tens of MB.
+    //  - PDFBox: Android ships PdfRenderer, which renders pages for free.
+    //  - sora-editor: stage 6, and LGPL-2.1 means a licence decision before a
+    //    dependency decision.
 }

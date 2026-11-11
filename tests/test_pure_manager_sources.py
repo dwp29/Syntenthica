@@ -944,6 +944,77 @@ class ManifestAndGradle(unittest.TestCase):
         self.assertNotIn("gradle-version 8.7", wf)
 
 
+class OfficeAndPdf(unittest.TestCase):
+    """Stage 5. Reading .docx/.xlsx/.pdf without a 12 MB library.
+
+    The formats are ZIPs of XML and Android ships a PDF renderer, so the app gains
+    three viewers and no dependency. The limitation is stated on screen, because a
+    viewer that silently drops layout gets blamed for the document.
+    """
+
+    def setUp(self):
+        self.office = (SRC / "net/pure/manager/doc/Office.kt").read_text()
+        self.pdf = (SRC / "net/pure/manager/doc/PdfPages.kt").read_text()
+        self.screen = (SRC / "net/pure/manager/ui/DocumentScreen.kt").read_text()
+        self.browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+
+    def test_office_formats_are_read_without_a_new_dependency(self):
+        """No 12 MB library: the dependency BLOCK is what matters, not prose.
+
+        The first version of this check scanned the whole Gradle file and tripped on
+        a comment that explains why those libraries are not used.
+        """
+        gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        deps = gradle.split("dependencies {")[1]
+        # Stripping comments from the dependency block: a reason is not a dependency.
+        deps = re.sub(r"//[^\n]*", "", deps).lower()
+        for banned in ("poi", "docx4j", "pdfbox"):
+            self.assertNotIn(banned, deps, f"{banned} would add tens of MB")
+        self.assertIn("java.util.zip.ZipInputStream", self.office)
+
+    def test_excel_shared_strings_are_resolved(self):
+        # Skipping sharedStrings.xml shows column text as its index number, which
+        # looks like data corruption rather than a missing feature.
+        self.assertIn("sharedStrings.xml", self.office)
+        self.assertIn("s\" -> raw.toIntOrNull()", self.office)
+
+    def test_cell_references_are_base_26(self):
+        self.assertIn("fun columnIndex(", self.office)
+        self.assertIn("n * 26", self.office)
+
+    def test_untrusted_xml_cannot_read_local_files(self):
+        # XXE: a .docx from the internet is untrusted input.
+        self.assertIn("disallow-doctype-decl", self.office)
+        self.assertIn("external-general-entities", self.office)
+        self.assertIn("isExpandEntityReferences = false", self.office)
+
+    def test_a_zip_part_is_capped(self):
+        # A zip bomb would otherwise expand until the process is killed.
+        self.assertIn("readNBytes(32 * 1024 * 1024)", self.office)
+
+    def test_pdf_is_rendered_by_the_platform_and_closed(self):
+        self.assertIn("PdfRenderer", self.pdf)
+        self.assertIn("ParcelFileDescriptor.open", self.pdf)
+        # The descriptor and the renderer must both be inside use, or the next open
+        # of the same file fails with "file already open".
+        self.assertGreaterEqual(self.pdf.count("use"), 3)
+
+    def test_only_the_page_on_screen_is_rendered(self):
+        self.assertIn("render(file: File, index: Int", self.pdf)
+        self.assertNotIn("List<Bitmap>", self.pdf)
+
+    def test_the_viewer_states_what_it_drops(self):
+        for phrase in ("teks saja", "nilai sel", "tidak bisa diisi"):
+            self.assertIn(phrase, self.screen)
+        self.assertIn("PdfRenderer", self.screen)
+
+    def test_tapping_a_document_opens_it_inside_the_app(self):
+        self.assertIn('setOf("docx", "xlsx", "pdf")', self.browser)
+        self.assertIn("DocumentScreen(", self.browser)
+        # Long-press -> Buka still hands the file to another app, which stays the
+        # right escape hatch.
+        self.assertIn("onOpen =", self.browser)
+
 class TwoFlavorsAndModules(unittest.TestCase):
     """Stage 4: the module client and the split into two installable apps."""
 

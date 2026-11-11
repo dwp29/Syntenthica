@@ -137,6 +137,10 @@ fun BrowserScreen(
     // the field itself: typing stays a filter of the folder you are looking at,
     // which is what the field does in Files too.
     var searchDevice by remember { mutableStateOf(false) }
+    // A document this app can render itself. Everything else still goes to the
+    // system, which is the right default; these three formats have no viewer on a
+    // clean Android phone.
+    var previewing by remember { mutableStateOf<FileEntry?>(null) }
     // The letter the A-Z strip is filtered to, or null for everything. The strip
     // filters rather than scroll-jumps: this list scrolls inside the shell's own
     // scroll state, which this screen does not own, and a strip that cannot move
@@ -305,6 +309,7 @@ fun BrowserScreen(
                 locationLabel = Storage.displayName(e.path)
                 query = ""
             }
+            e.extension in setOf("docx", "xlsx", "pdf") -> previewing = e
             else -> {
                 val opened = Storage.open(context, e)
                 if (opened.isFailure) {
@@ -725,6 +730,15 @@ fun BrowserScreen(
                             }
                         },
                     )
+                }
+
+                previewing?.let { doc ->
+                    DocumentScreen(
+                        spec = spec,
+                        entry = doc,
+                        onClose = { previewing = null },
+                    )
+                    Spacer(Modifier.height(16.dp))
                 }
 
                 if (searchDevice) {
