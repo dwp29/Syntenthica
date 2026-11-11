@@ -62,6 +62,13 @@ jobs:
       # assembleRelease with no signingConfig produces an unsigned APK, which
       # cannot be installed. Generate the debug keystore if the runner has none,
       # then sign with it.
+      # The browser's sorting, formatting, name validation and copy/move/delete
+      # logic is pure Kotlin, so it can be executed here. Everything that touches
+      # a device is verified by the owner instead.
+      - name: Run unit tests
+        working-directory: pure-manager
+        run: ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace 2>&1 | tail -40
+
       - name: Ensure a signing key exists
         run: |
           set -euo pipefail
@@ -92,26 +99,26 @@ jobs:
           mkdir -p "$OUT"
           APK=$(find pure-manager/app/build/outputs/apk/release -name '*.apk' | head -1)
           test -n "$APK"
-          cp "$APK" "$OUT/PureManager-0.1.4-DEBUGKEY.apk"
+          cp "$APK" "$OUT/PureManager-0.2.0-DEBUGKEY.apk"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
           "${BT}apksigner" verify --print-certs "$APK" | head -6
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
-          "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-0.1.4-DEBUGKEY.apk"
-          "$TOOLS/aapt" dump badging "$OUT/PureManager-0.1.4-DEBUGKEY.apk" > "$OUT/badging.txt"
+          "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-0.2.0-DEBUGKEY.apk"
+          "$TOOLS/aapt" dump badging "$OUT/PureManager-0.2.0-DEBUGKEY.apk" > "$OUT/badging.txt"
           grep -F "package: name='net.pure.manager'" "$OUT/badging.txt"
           grep -F "sdkVersion:'29'" "$OUT/badging.txt"
           grep -F "targetSdkVersion:'36'" "$OUT/badging.txt"
-          grep -F "versionName='0.1.4'" "$OUT/badging.txt"
+          grep -F "versionName='0.2.0'" "$OUT/badging.txt"
           # This used to assert the APK was UNSIGNED, back when 0.1.0 shipped an
           # installable-looking artifact that no device would accept. It now
           # asserts the opposite: the signature has to be present and v2.
-          "$TOOLS/apksigner" verify --verbose "$OUT/PureManager-0.1.4-DEBUGKEY.apk" \
+          "$TOOLS/apksigner" verify --verbose "$OUT/PureManager-0.2.0-DEBUGKEY.apk" \
                > "$OUT/signature-check.txt" 2>&1
           grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" \
                "$OUT/signature-check.txt"
-          sha256sum "$OUT/PureManager-0.1.4-DEBUGKEY.apk" | tee "$OUT/SHA256.txt"
+          sha256sum "$OUT/PureManager-0.2.0-DEBUGKEY.apk" | tee "$OUT/SHA256.txt"
           echo "::notice title=Signed Pure Manager SHA256::$(cut -d' ' -f1 "$OUT/SHA256.txt")"
-          echo "::notice title=APK size::$(stat -c%s "$OUT/PureManager-0.1.4-DEBUGKEY.apk") bytes"
+          echo "::notice title=APK size::$(stat -c%s "$OUT/PureManager-0.2.0-DEBUGKEY.apk") bytes"
 
       # The APK is 11 MB. Blob-then-notice works for a 25 KB log but not for this:
       # the blob API accepts the upload and the blob is then unreadable (404 on
@@ -124,12 +131,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/pm-output/PureManager-0.1.4-DEBUGKEY.apk"
+          APK="$RUNNER_TEMP/pm-output/PureManager-0.2.0-DEBUGKEY.apk"
           test -s "$APK"
           work="$RUNNER_TEMP/publish"
           rm -rf "$work"
           git init -q --initial-branch=build-output "$work"
-          cp "$APK" "$work/PureManager-0.1.4-DEBUGKEY.apk"
+          cp "$APK" "$work/PureManager-0.2.0-DEBUGKEY.apk"
           (
             cd "$work"
             git config user.name  "Pure Manager CI"
@@ -147,7 +154,7 @@ jobs:
               "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
               HEAD:refs/heads/build-output
           )
-          echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-0.1.4-DEBUGKEY.apk"
+          echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-0.2.0-DEBUGKEY.apk"
 
       - name: Upload diagnostics on failure
         if: failure()

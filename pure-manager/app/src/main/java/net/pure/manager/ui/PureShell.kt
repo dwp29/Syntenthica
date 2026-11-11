@@ -306,7 +306,7 @@ private fun ScreenBody(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
-                FilesScreen(spec, haze, collapsed)
+                BrowserScreen(spec)
             }
                     Screen.THEME -> ThemeScreen(prefs, onPrefs)
                     Screen.MODULES -> ModulesScreen(spec)
@@ -375,165 +375,6 @@ private fun TopBar(
                     color = p.onBackground,
                     modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilesScreen(spec: PureThemeSpec, haze: HazeState, collapsed: Boolean) {
-    val p = spec.palette
-    var query by rememberSaveable { mutableStateOf("") }
-    var grid by rememberSaveable { mutableStateOf(spec.defaultGrid) }
-    var sortDescending by rememberSaveable { mutableStateOf(false) }
-
-    Column {
-        SearchField(spec, query, onValueChange = { query = it })
-        Spacer(Modifier.height(10.dp))
-
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // New folder, the blue folder-plus in the reference toolbar.
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .clickable { }
-                    .padding(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                IosFolder(size = 24f)
-                Text("Baru", style = MaterialTheme.typography.bodyLarge, color = p.accent)
-            }
-            Spacer(Modifier.weight(1f))
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    .clickable { sortDescending = !sortDescending }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (sortDescending) "Nama \u25BE" else "Nama \u25B4",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = p.accent,
-                )
-            }
-            Spacer(Modifier.width(2.dp))
-            ToolButton(
-                glyph = if (grid) "\u2637" else "\u2263",
-                active = true,
-                onClick = { grid = !grid },
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        val folders = listOf(
-            Triple("Foto", "15 item", "\u25A4"),
-            Triple("Musik", "0 item", "\u25A4"),
-            Triple("Dokumen", "4 item", "\u25A4"),
-            Triple("Unduhan", "1 item", "\u25A4"),
-            Triple("Contoh", "6 item", "\u25A4"),
-        )
-        val files = listOf(
-            Triple("banner-review.png", "640 KB", "P"),
-            Triple("Retro-Arcade.apk", "24,1 MB", "A"),
-            Triple("Manager-6.1.zip", "18,7 MB", "Z"),
-            Triple("voice-note.m4a", "2,1 MB", "M"),
-        )
-
-        if (grid) {
-            GroupCard(spec) {
-                Column(Modifier.padding(horizontal = 6.dp, vertical = 10.dp)) {
-                    folders.chunked(3).forEach { row ->
-                        Row(Modifier.fillMaxWidth()) {
-                            row.forEach { (name, count, _) ->
-                                Box(Modifier.weight(1f)) {
-                                    GridCell(
-                                        spec = spec,
-                                        title = name,
-                                        subtitle = count,
-                                        isFolder = true,
-                                        glyph = "",
-                                        onClick = { },
-                                    )
-                                }
-                            }
-                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                        }
-                    }
-                }
-            }
-        } else {
-            GroupCard(spec) {
-                folders.forEach { (name, count, _) ->
-                    ListRow(
-                        spec = spec,
-                        title = name,
-                        subtitle = count,
-                        isFolder = true,
-                        glyph = "",
-                        showChevron = true,
-                        onClick = { },
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(22.dp))
-        if (spec.defaultGrid) {
-            Text(
-                "Berkas",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = p.onBackground,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        GroupCard(spec) {
-            files.forEach { (name, size, glyph) ->
-                ListRow(
-                    spec = spec,
-                    title = name,
-                    subtitle = size,
-                    isFolder = false,
-                    glyph = glyph,
-                    showChevron = true,
-                    onClick = { },
-                )
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-        Text(
-            "Daftar contoh \u2014 tahap 2 membaca berkas asli di perangkat.",
-            style = MaterialTheme.typography.bodySmall,
-            color = p.onSurfaceVariant,
-        )
-
-        // Floating action button, the orange plus in the reference.
-        if (spec.floatingAction) {
-            Spacer(Modifier.height(24.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Box(
-                    Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(p.accent)
-                        .clickable { }
-                        .border(0.5.dp, Color.White.copy(alpha = 0.25f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "+",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = p.onAccent,
-                    )
-                }
             }
         }
     }
@@ -754,8 +595,8 @@ private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spe
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     GroupCard(spec) {
         listOf(
-            "Versi" to "0.1.4",
-            "Tahap" to "T1 \u2014 tema dan kerangka",
+            "Versi" to "0.2.0",
+            "Tahap" to "T2 \u2014 peramban berkas",
             "Paket" to "net.pure.manager",
             "Android" to "10\u201316",
             "Tema" to spec.label,

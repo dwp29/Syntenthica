@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Places the FileProvider may hand out. Kept narrow on purpose: sharing a file
+     the app opened should not expose the whole storage volume. -->
+<paths>
+    <external-path name="external" path="." />
+    <cache-path name="cache" path="." />
+    <files-path name="files" path="." />
+</paths>

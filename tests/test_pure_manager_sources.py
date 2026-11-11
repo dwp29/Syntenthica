@@ -53,17 +53,49 @@ class SourceShape(unittest.TestCase):
 
     def test_braces_and_parens_balance(self):
         for f in kt_files():
+            depth = {"{": 0, "(": 0}
+            pairs = {"}": "{", ")": "("}
+            in_string = False
+            in_char = False
+            escape = False
+            i = 0
             text = f.read_text()
-            # Strip comments and string literals so braces inside them do not count.
-            stripped = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-            stripped = re.sub(r"//[^\n]*", "", stripped)
-            stripped = re.sub(r'"(?:[^"\\]|\\.)*"', '""', stripped)
-            for open_c, close_c in (("{", "}"), ("(", ")")):
-                self.assertEqual(
-                    stripped.count(open_c), stripped.count(close_c),
-                    f"{f.name}: unbalanced {open_c}{close_c}",
-                )
-
+            while i < len(text):
+                ch = text[i]
+                # Line comments: skip to end of line, but not inside a string.
+                if not in_string and not in_char and ch == "/" and text[i:i + 2] == "//":
+                    i = text.find("\n", i)
+                    if i == -1:
+                        break
+                    continue
+                # Block comments.
+                if not in_string and not in_char and ch == "/" and text[i:i + 2] == "/*":
+                    end = text.find("*/", i + 2)
+                    i = len(text) if end == -1 else end + 2
+                    continue
+                if escape:
+                    escape = False
+                elif ch == "\\" and (in_string or in_char):
+                    escape = True
+                elif in_string:
+                    if ch == '"':
+                        in_string = False
+                elif in_char:
+                    if ch == "'":
+                        in_char = False
+                elif ch == '"':
+                    in_string = True
+                elif ch == "'":
+                    in_char = True
+                elif ch in depth:
+                    depth[ch] += 1
+                elif ch in pairs:
+                    depth[pairs[ch]] -= 1
+                    if depth[pairs[ch]] < 0:
+                        self.fail(f"{f.name}: '{ch}' closes nothing at offset {i}")
+                i += 1
+            for opener, count in depth.items():
+                self.assertEqual(0, count, f"{f.name}: {count} unclosed '{opener}'")
 
 class ThemeContracts(unittest.TestCase):
     """The token model is the load-bearing part of stage 1."""
@@ -328,12 +360,14 @@ class IosLook(unittest.TestCase):
                              f"{other} should stay solid")
 
     def test_ios_keeps_its_distinctive_parts(self):
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
         for token in ("useLargeTitle", "defaultGrid", "floatingAction", "separator"):
             self.assertIn(token, self.tokens)
-        self.assertIn("SearchField(", self.shell)
-        self.assertIn("IosFolder(", self.shell)
-        self.assertGreaterEqual(self.shell.count("GroupCard("), 3)
-        self.assertIn("grid = !grid", self.shell, "the grid/list toggle is not wired")
+        # The Berkas screen moved into its own file when it stopped being a mock.
+        self.assertIn("SearchField(", browser)
+        self.assertIn("GroupCard(", browser)
+        self.assertIn("grid = !grid", browser, "the grid/list toggle is not wired")
+        self.assertIn("IosFolder(", (SRC / "net/pure/manager/ui/IosParts.kt").read_text())
 
     def test_every_screen_reads_the_type_ramp(self):
         self.assertNotRegex(self.shell, r"fontSize\s*=",
@@ -463,11 +497,19 @@ class HazeStructure(unittest.TestCase):
 
 
 class ManifestAndGradle(unittest.TestCase):
-    def test_manifest_does_not_request_all_files_on_a_build_that_cannot_use_it(self):
+    def test_all_files_permission_arrives_with_the_feature_that_needs_it(self):
+        """Stage 1 must not ask; stage 2 must, because it reads real files."""
         manifest = (ROOT / "pure-manager/app/src/main/AndroidManifest.xml").read_text()
         body = re.sub(r"<!--.*?-->", "", manifest, flags=re.S)
-        self.assertNotIn("MANAGE_EXTERNAL_STORAGE", body,
-                         "stage 1 does not read the file system yet")
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        reads_files = "Storage.list(" in browser
+        asks = "MANAGE_EXTERNAL_STORAGE" in body
+        self.assertEqual(reads_files, asks,
+                         "permission and capability must land together, never apart")
+
+    def test_legacy_storage_is_capped_at_android_10(self):
+        manifest = (ROOT / "pure-manager/app/src/main/AndroidManifest.xml").read_text()
+        self.assertIn('android:maxSdkVersion="29"', manifest)
 
     def test_package_and_sdk_levels(self):
         gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()

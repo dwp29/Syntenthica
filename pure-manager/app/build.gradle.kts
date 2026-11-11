@@ -15,8 +15,8 @@ android {
         // later does not change this code.
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.1.4"
+        versionCode = 6
+        versionName = "0.2.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -51,6 +51,8 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
 
+    testOptions { unitTests.isReturnDefaultValues = true }
+
     packaging {
         resources.excludes += setOf(
             "/META-INF/{AL2.0,LGPL2.1}",
@@ -72,6 +74,13 @@ dependencies {
     // it is the last Haze built against Kotlin 2.0.21 / Compose 1.7.5; 1.2+
     // requires Kotlin 2.1 and would drag the whole toolchain up with it.
     implementation("dev.chrisbanes.haze:haze:1.1.1")
+
+    // Stage 2: the browser reads the real file system, so it needs permission to
+    // ask for all-files access and a choice between the two ways of getting it.
+    // Core-ktx already provides ActivityResultContracts; nothing extra is added.
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
+    testImplementation("junit:junit:4.13.2")
 
     // Kept out on purpose for now: libsu (root), docx4j (Office), sora-editor
     // (code), ffmpeg (audio). Each lands with the stage that needs it, so the
