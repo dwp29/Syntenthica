@@ -1001,6 +1001,25 @@ class AtoZIndexAndDeviceSearch(unittest.TestCase):
         self.assertIn("fun folderTint(", self.parts)
         self.assertIn(".background(tint)", self.parts)
 
+    def test_a_trailing_lambda_is_never_passed_to_a_button_with_optional_params(self):
+        """Build 010: `ToolButton(glyph, active) { ... }` bound the lambda to tint.
+
+        ToolButton takes (glyph, active, onClick, tint = null). A trailing lambda
+        fills the LAST parameter, so it lands on tint and the compiler reports
+        "no value passed for onClick" two files away from the cause.
+        """
+        offenders = []
+        for f in kt_files():
+            for i, line in enumerate(f.read_text().splitlines(), 1):
+                # Comments quote the broken form on purpose, so they are skipped;
+                # a guard that trips on its own documentation is a guard that gets
+                # deleted.
+                if line.lstrip().startswith("//"):
+                    continue
+                if re.search(r"ToolButton\([^()]*\)\s*\{\s*$", line):
+                    offenders.append(f"{f.name}:{i} {line.strip()}")
+        self.assertEqual([], offenders, "\n".join(offenders))
+
     def test_a_folder_colour_is_stable_for_the_same_name(self):
         # A colour that changes on every recomposition is worse than no colour.
         self.assertRegex(self.parts, r"fun folderTint\(name: String\): Color \{[\s\S]{0,400}for \(c in name\)")

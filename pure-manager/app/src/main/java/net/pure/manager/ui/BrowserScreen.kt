@@ -1939,12 +1939,19 @@ private fun DestinationDialog(
         text = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ToolButton("\u2190", false) {
-                        Storage.parentOf(here)?.let {
-                            here = it
-                            label = Storage.displayName(it)
-                        }
-                    }
+                    // Named arguments, not a trailing lambda: ToolButton takes
+                    // tint = null after onClick, so `ToolButton(a, b) { ... }`
+                    // binds the lambda to tint and fails to compile.
+                    ToolButton(
+                        glyph = "\u2190",
+                        active = false,
+                        onClick = {
+                            Storage.parentOf(here)?.let { up ->
+                                here = up
+                                label = Storage.displayName(up)
+                            }
+                        },
+                    )
                     Spacer(Modifier.size(8.dp))
                     Text(
                         label,
