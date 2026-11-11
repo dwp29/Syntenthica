@@ -517,6 +517,22 @@ class ManifestAndGradle(unittest.TestCase):
         self.assertIn("minSdk = 29", gradle)
         self.assertIn("compileSdk = 36", gradle)
 
+
+    def test_java_api_level_matches_min_sdk(self):
+        """Locale.ID is Java 19; minSdk 29 means Android 10. Use the tag form."""
+        for f in kt_files():
+            text = f.read_text()
+            self.assertNotIn("Locale.ID", text, f"{f.name}: Locale.ID needs Java 19")
+            self.assertNotIn("List.of(", text, f"{f.name}: List.of needs Java 9")
+            self.assertNotIn("String.isBlank()", text, f"{f.name}: not a Kotlin API")
+
+    def test_generic_helpers_are_typed_where_inference_fails(self):
+        """compareBy(comparator) { } needs explicit <T, K>; build #12 failed on it."""
+        fe = (SRC / "net/pure/manager/fs/FileEntry.kt").read_text()
+        for m in re.finditer(r"compareBy\(String\.CASE_INSENSITIVE_ORDER\)", fe):
+            line = fe[:m.start()].count("\n") + 1
+            self.fail(f"FileEntry.kt:{line}: untyped compareBy with a comparator")
+
     def test_gradle_version_satisfies_the_android_plugin(self):
         # AGP 8.7.3 rejects anything below Gradle 8.9; the first CI run died on
         # exactly this, so it is pinned in the workflow.

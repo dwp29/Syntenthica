@@ -43,10 +43,11 @@ data class SortOrder(val key: SortKey = SortKey.NAME, val descending: Boolean = 
  */
 fun comparatorFor(order: SortOrder): Comparator<FileEntry> {
     val byKey: Comparator<FileEntry> = when (order.key) {
-        SortKey.NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }
-        SortKey.SIZE -> compareBy { it.sizeBytes }
-        SortKey.DATE -> compareBy { it.lastModified }
-        SortKey.TYPE -> compareBy { it.extension }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
+        SortKey.NAME -> compareBy<FileEntry, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
+        SortKey.SIZE -> compareBy<FileEntry> { it.sizeBytes }
+        SortKey.DATE -> compareBy<FileEntry> { it.lastModified }
+        SortKey.TYPE -> compareBy<FileEntry, String>(String.CASE_INSENSITIVE_ORDER) { it.extension }
+            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
     }
     val directed = if (order.descending) byKey.reversed() else byKey
     return compareByDescending<FileEntry> { it.isDirectory }.then(directed)
@@ -73,8 +74,8 @@ fun formatDate(epochMillis: Long, now: Long = System.currentTimeMillis()): Strin
     return when {
         that == today -> SimpleDateFormat("HH:mm", Locale.US).format(then)
         that.substring(0, 4) == today.substring(0, 4) ->
-            SimpleDateFormat("d MMM", Locale.ID).format(then)
-        else -> SimpleDateFormat("d MMM yyyy", Locale.ID).format(then)
+            SimpleDateFormat("d MMM", Locale("in", "ID")).format(then)
+        else -> SimpleDateFormat("d MMM yyyy", Locale("in", "ID")).format(then)
     }
 }
 
