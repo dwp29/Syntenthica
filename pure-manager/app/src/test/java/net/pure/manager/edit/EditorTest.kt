@@ -177,9 +177,8 @@ class EditorTest {
     @Test
     fun tabIndentsEverySelectedLine() {
         val text = "a\nb\nc"
-        val block = indentBlock(text, 0, 5, outdent = false)
-        assertNotNull(block)
-        assertEquals(3, block!!.splices.size)
+        val block = indentBlock(text, 0, 5, outdent = false)!!
+        assertEquals(3, block.splices.size)
         // Applied bottom-up, the text becomes one level deeper on all three lines.
         var out = text
         block.splices.forEach { e ->
@@ -191,8 +190,9 @@ class EditorTest {
     @Test
     fun shiftTabOutdentsSelectedLines() {
         val text = "  a\n  b"
-        val block = indentBlock(text, 0, 7, outdent = true)
-        assertNotNull(block)
+        // `!!` after the assert: assertNotNull is not a smart cast in Kotlin 2, so a
+        // call through the nullable result does not compile.
+        val block = indentBlock(text, 0, 7, outdent = true)!!
         var out = text
         block.splices.forEach { e ->
             out = out.substring(0, e.start) + e.inserted + out.substring(e.start + e.removed.length)
@@ -208,8 +208,8 @@ class EditorTest {
     /** A selection ending exactly at a line start does not own that line. */
     @Test
     fun theLineAfterTheSelectionIsLeftAlone() {
-        val block = indentBlock("a\nb", 0, 2, outdent = false)
-        assertEquals(1, block!!.splices.size)
+        val block = indentBlock("a\nb", 0, 2, outdent = false)!!
+        assertEquals(1, block.splices.size)
     }
 
     // ------------------------------------------------------------- brackets
