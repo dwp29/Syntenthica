@@ -3,6 +3,7 @@ package net.pure.manager.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,6 +71,7 @@ fun IosFolder(
 private fun h(w: Float, fraction: Float) = w * fraction
 
 /** A grid cell: folder or file, name underneath, item count in grey. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun GridCell(
     spec: PureThemeSpec,
@@ -78,12 +80,20 @@ fun GridCell(
     isFolder: Boolean,
     glyph: String,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    selected: Boolean = false,
 ) {
     val p = spec.palette
     Column(
         Modifier
             .clip(RoundedCornerShape(spec.cornerDp.dp))
-            .clickable(onClick = onClick)
+            .background(
+                if (selected) spec.palette.accent.copy(alpha = 0.16f) else Color.Transparent,
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
             .padding(vertical = 8.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -124,6 +134,7 @@ fun GridCell(
 }
 
 /** The single-column list from the reference's list view: icon, name, chevron. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ListRow(
     spec: PureThemeSpec,
@@ -133,12 +144,20 @@ fun ListRow(
     glyph: String,
     showChevron: Boolean,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    selected: Boolean = false,
 ) {
     val p = spec.palette
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(
+                if (selected) p.accent.copy(alpha = 0.16f) else Color.Transparent,
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
             .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

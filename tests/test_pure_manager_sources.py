@@ -532,6 +532,58 @@ class AccessRoutes(unittest.TestCase):
         self.assertEqual([], empties, "a click that does nothing")
 
 
+class BasicFileManagerDuties(unittest.TestCase):
+    """What the owner found missing, pinned so it cannot regress.
+
+    The browser could rename, copy into its own folder, move, and delete. It could
+    not long-press for a menu, select more than one item, or copy to a folder that
+    was not already open -- and the top bar drew the title twice, which covered the
+    search field.
+    """
+
+    def setUp(self):
+        self.browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        self.parts = (SRC / "net/pure/manager/ui/IosParts.kt").read_text()
+        self.shell = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+
+    def test_long_press_opens_the_action_menu(self):
+        self.assertIn("combinedClickable", self.parts)
+        self.assertIn("onLongClick", self.parts)
+        self.assertIn("onLongPress", self.browser)
+        self.assertIn("actionTarget = e", self.browser)
+
+    def test_multi_selection_is_real(self):
+        self.assertIn("SelectionBar(", self.browser)
+        self.assertIn("onSelectAll", self.browser)
+        # Selecting also has to be reachable from the top bar, not only by
+        # long-pressing, or bulk work is undiscoverable.
+        self.assertIn("selectionMode", self.shell)
+        self.assertIn("onToggleSelection", self.shell)
+
+    def test_copy_goes_to_a_chosen_destination(self):
+        """'Salin ke folder ini' is not copying; it is duplicating in place."""
+        self.assertIn("DestinationDialog(", self.browser)
+        self.assertIn("DestinationPicker.Choosing", self.browser)
+        self.assertIn("Salin ke\\u2026", self.browser)
+        self.assertIn("Pindahkan ke\\u2026", self.browser)
+
+    def test_selection_clears_when_the_folder_changes(self):
+        self.assertRegex(self.browser, r"LaunchedEffect\(path\)[\s\S]{0,200}selected = emptySet\(\)",
+                         "selection from another folder would delete the wrong file")
+
+    def test_title_is_not_drawn_twice(self):
+        """The screenshot showed 'Berkas' twice and a bar tall enough to cover search."""
+        self.assertRegex(
+            self.shell,
+            r"if \(!spec\.useLargeTitle \|\| collapsed\)",
+            "the small title must depend on the large one having collapsed",
+        )
+
+    def test_no_dead_pick_button(self):
+        self.assertNotIn("clickable { }", self.shell)
+        self.assertNotIn("clickable { }", self.browser)
+
+
 class ManifestAndGradle(unittest.TestCase):
     def test_all_files_permission_arrives_with_the_feature_that_needs_it(self):
         """Stage 1 must not ask; stage 2 must, because it reads real files."""

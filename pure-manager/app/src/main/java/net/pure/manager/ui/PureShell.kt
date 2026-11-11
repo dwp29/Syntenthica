@@ -74,6 +74,10 @@ fun PureShell(
     val spec = LocalPureSpec.current
     val insets = LocalSystemInsets.current
     var screen by rememberSaveable { mutableStateOf(Screen.FILES) }
+    // Selection mode is a browser concept but its on/off control sits in the top
+    // bar, so the state lives here and is passed to both.
+    var selectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedCount by remember { mutableStateOf(0) }
     // One state shared by the blurred chrome: content registers as the source,
     // the bars draw the blur of it.
     val haze = remember { HazeState() }
@@ -83,21 +87,30 @@ fun PureShell(
             NavModel.RAIL -> Row(Modifier.fillMaxSize()) {
                 LeftRail(spec, screen, onSelect = { screen = it })
                 Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, spec, haze, recoveredFromCrash)
+                    ScreenBody(
+                        screen, prefs, onPrefs, spec, haze, recoveredFromCrash,
+                        selectionMode, { selectionMode = it }, { selectedCount = it },
+                    )
                 }
             }
             NavModel.COMMAND_BAR -> Column(
                 Modifier.fillMaxSize().padding(top = insets.top, bottom = insets.bottom)
             ) {
                 Box(Modifier.weight(1f)) {
-                    ScreenBody(screen, prefs, onPrefs, spec, haze, recoveredFromCrash)
+                    ScreenBody(
+                        screen, prefs, onPrefs, spec, haze, recoveredFromCrash,
+                        selectionMode, { selectionMode = it }, { selectedCount = it },
+                    )
                 }
                 CommandBar(spec, screen, onSelect = { screen = it })
             }
             NavModel.TAB_BAR -> Box(Modifier.fillMaxSize()) {
                 // Content runs full-height underneath both bars so the blur has
                 // something to work with; each screen pads its own content.
-                ScreenBody(screen, prefs, onPrefs, spec, haze, recoveredFromCrash)
+                ScreenBody(
+                        screen, prefs, onPrefs, spec, haze, recoveredFromCrash,
+                        selectionMode, { selectionMode = it }, { selectedCount = it },
+                    )
                 Column(Modifier.fillMaxSize()) {
                     Spacer(Modifier.weight(1f))
                     TabBar(spec, screen, haze, onSelect = { screen = it })
@@ -261,6 +274,9 @@ private fun ScreenBody(
     spec: PureThemeSpec,
     haze: HazeState,
     recoveredFromCrash: Boolean,
+    selectionMode: Boolean,
+    onSelectionModeChange: (Boolean) -> Unit,
+    onSelectedCount: (Int) -> Unit,
 ) {
     val insets = LocalSystemInsets.current
     val scroll = rememberScrollState()
@@ -306,7 +322,12 @@ private fun ScreenBody(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
-                BrowserScreen(spec)
+                BrowserScreen(
+                    spec = spec,
+                    selectionMode = selectionMode,
+                    onSelectionModeChange = onSelectionModeChange,
+                    onSelectedCount = onSelectedCount,
+                )
             }
                     Screen.THEME -> ThemeScreen(prefs, onPrefs)
                     Screen.MODULES -> ModulesScreen(spec)
@@ -322,6 +343,11 @@ private fun ScreenBody(
             spec = spec,
             haze = haze,
             collapsed = collapsed,
+            selectionActive = selectionMode,
+            onToggleSelection = {
+                selectionMode = !selectionMode
+                if (!selectionMode) selectedCount = 0
+            },
         )
     }
 }
@@ -332,6 +358,8 @@ private fun TopBar(
     spec: PureThemeSpec,
     haze: HazeState,
     collapsed: Boolean,
+    selectionActive: Boolean,
+    onToggleSelection: () -> Unit,
 ) {
     val p = spec.palette
     val insets = LocalSystemInsets.current
@@ -346,21 +374,27 @@ private fun TopBar(
                 Modifier.fillMaxWidth().height(48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    screen.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = p.onBackground,
-                )
+                // The small title appears only once the large one has collapsed --
+                // that is the iOS idiom. Drawing both at rest put "Berkas" twice on
+                // the screen and made the glass bar tall enough to cover the search
+                // field, which is what the owner's screenshot showed.
+                if (!spec.useLargeTitle || collapsed) {
+                    Text(
+                        screen.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = p.onBackground,
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 if (screen == Screen.FILES) {
                     Text(
-                        "Pilih",
+                        if (selectionActive) "Batal" else "Pilih",
                         style = MaterialTheme.typography.bodyLarge,
                         color = p.accent,
                         modifier = Modifier
                             .clip(RoundedCornerShape(spec.cornerDp.dp))
-                            .clickable { }
+                            .clickable(onClick = onToggleSelection)
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
@@ -595,7 +629,7 @@ private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spe
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     GroupCard(spec) {
         listOf(
-            "Versi" to "0.2.1",
+            "Versi" to "0.3.0",
             "Tahap" to "T2 \u2014 peramban berkas",
             "Paket" to "net.pure.manager",
             "Android" to "10\u201316",

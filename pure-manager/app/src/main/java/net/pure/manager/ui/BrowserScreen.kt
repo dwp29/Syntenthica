@@ -2,7 +2,9 @@ package net.pure.manager.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -66,7 +69,12 @@ import java.io.File
  * can be cancelled instead of blocking the screen.
  */
 @Composable
-fun BrowserScreen(spec: PureThemeSpec) {
+fun BrowserScreen(
+    spec: PureThemeSpec,
+    selectionMode: Boolean = false,
+    onSelectionModeChange: (Boolean) -> Unit = {},
+    onSelectedCount: (Int) -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val p = spec.palette
@@ -86,6 +94,12 @@ fun BrowserScreen(spec: PureThemeSpec) {
     var deleteTarget by remember { mutableStateOf<FileEntry?>(null) }
     var prompt by remember { mutableStateOf<Prompt?>(null) }
     var toast by remember { mutableStateOf<String?>(null) }
+    // What "Salin"/"Pindahkan" put on the clipboard. Shared between the long-press
+    // menu and multi-select because they are the same operation.
+    var clipboard by remember { mutableStateOf<Clipboard?>(null) }
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var picker by remember { mutableStateOf<DestinationPicker?>(null) }
+    var bulkDelete by remember { mutableStateOf(false) }
     // Bumped after every write so the LaunchedEffect re-reads the folder. Keying
     // on the path alone meant a rename or delete left a stale list until the user
     // navigated away and back -- which reads as data loss.
@@ -171,19 +185,50 @@ fun BrowserScreen(spec: PureThemeSpec) {
         refreshKey++
     }
 
+    // Selection is keyed by path, and cleared whenever the folder changes: keeping
+    // paths from another directory selected is how a delete hits the wrong file.
+    LaunchedEffect(path) {
+        selected = emptySet()
+        onSelectedCount(0)
+    }
+    LaunchedEffect(selectionMode) {
+        if (!selectionMode) {
+            selected = emptySet()
+            onSelectedCount(0)
+        }
+    }
+
     val visible = remember(entries, query) {
         if (query.isBlank()) entries
         else entries.filter { Storage.searchKey(it.name).contains(Storage.searchKey(query)) }
     }
 
-    // Defined before the tree so the tap handler closes over the same state.
-    val openEntry: (FileEntry) -> Unit = { e ->
-        if (e.isDirectory) {
-            path = e.path
-            locationLabel = Storage.displayName(e.path)
-            query = ""
+    // A tap either opens (normal) or ticks (selection mode). A long press opens the
+    // action sheet -- the gesture every file manager uses, and the one the owner
+    // pointed out was missing. In selection mode a long press also ticks.
+    val onTap: (FileEntry) -> Unit = { e ->
+        when {
+            selectionMode -> {
+                val next = if (e.path in selected) selected - e.path else selected + e.path
+                selected = next
+                onSelectedCount(next.size)
+            }
+            e.isDirectory -> {
+                path = e.path
+                locationLabel = Storage.displayName(e.path)
+                query = ""
+            }
+            else -> toast = "Pembuka berkas menyusul (tahap 5)"
+        }
+    }
+
+    val onLongPress: (FileEntry) -> Unit = { e ->
+        if (selectionMode) {
+            val next = if (e.path in selected) selected - e.path else selected + e.path
+            selected = next
+            onSelectedCount(next.size)
         } else {
-            toast = "Pembuka berkas menyusul (tahap 5)"
+            actionTarget = e
         }
     }
 
@@ -275,7 +320,9 @@ fun BrowserScreen(spec: PureThemeSpec) {
                                                         else formatSize(e.sizeBytes, false),
                                                         isFolder = e.isDirectory,
                                                         glyph = glyphFor(e),
-                                                        onClick = { openEntry(e) },
+                                                        onClick = { onTap(e) },
+                                                        onLongClick = { onLongPress(e) },
+                                                        selected = e.path in selected,
                                                     )
                                                 }
                                             }
@@ -295,8 +342,10 @@ fun BrowserScreen(spec: PureThemeSpec) {
                                                 subtitle = subtitleFor(e),
                                                 isFolder = e.isDirectory,
                                                 glyph = glyphFor(e),
-                                                showChevron = true,
-                                                onClick = { openEntry(e) },
+                                                showChevron = !selectionMode && e.isDirectory,
+                                                onClick = { onTap(e) },
+                                                onLongClick = { onLongPress(e) },
+                                                selected = e.path in selected,
                                             )
                                         }
                                         Box(
@@ -358,8 +407,16 @@ fun BrowserScreen(spec: PureThemeSpec) {
                         target = target,
                         onDismiss = { actionTarget = null },
                         onRename = { actionTarget = null; prompt = Prompt.Rename(target) },
-                        onCopy = { actionTarget = null; prompt = Prompt.CopyHere(target) },
-                        onMove = { actionTarget = null; prompt = Prompt.MoveHere(target) },
+                        onCopy = {
+                            actionTarget = null
+                            clipboard = Clipboard(listOf(target.path), move = false)
+                            picker = DestinationPicker.Choosing(path, pickMode = false, startLabel = locationLabel)
+                        },
+                        onMove = {
+                            actionTarget = null
+                            clipboard = Clipboard(listOf(target.path), move = true)
+                            picker = DestinationPicker.Choosing(path, pickMode = false, startLabel = locationLabel)
+                        },
                         onDelete = { actionTarget = null; deleteTarget = target },
                         onInfo = { actionTarget = null; prompt = Prompt.Info(target) },
                     )
@@ -390,6 +447,36 @@ fun BrowserScreen(spec: PureThemeSpec) {
                     )
                 }
 
+                if (bulkDelete && selected.isNotEmpty()) {
+                    ConfirmDialog(
+                        spec = spec,
+                        title = "Hapus ${selected.size} item?",
+                        body = "Semua yang dipilih akan dihapus beserta isinya. " +
+                            "Tidak ada tong sampah: ini langsung terhapus.",
+                        confirm = "Hapus",
+                        onDismiss = { bulkDelete = false },
+                        onConfirm = {
+                            val doomed = selected.toList()
+                            bulkDelete = false
+                            scope.launch {
+                                val outcome = withContext(Dispatchers.IO) {
+                                    doomed.map { path ->
+                                        FileOps.delete(
+                                            FileEntry(path, Storage.displayName(path), File(path).isDirectory, 0, 0, false, true),
+                                        )
+                                    }
+                                }
+                                val failed = outcome.count { it.isFailure }
+                                toast = if (failed == 0) "${outcome.size} terhapus"
+                                else "$failed gagal dihapus"
+                                selected = emptySet()
+                                onSelectedCount(0)
+                                reload()
+                            }
+                        },
+                    )
+                }
+
                 prompt?.let { pr ->
                     NamePrompt(
                         spec = spec,
@@ -403,8 +490,6 @@ fun BrowserScreen(spec: PureThemeSpec) {
                                     when (pr) {
                                         Prompt.NEW_FOLDER -> FileOps.createFolder(parent, value)
                                         is Prompt.Rename -> FileOps.rename(pr.entry, value)
-                                        is Prompt.CopyHere -> FileOps.copy(pr.entry.path, parent)
-                                        is Prompt.MoveHere -> FileOps.move(pr.entry.path, parent)
                                         is Prompt.Info -> Result.success(File(parent))
                                     }
                                 }
@@ -413,6 +498,79 @@ fun BrowserScreen(spec: PureThemeSpec) {
                                     { it.message ?: "Gagal" },
                                 )
                                 reload()
+                            }
+                        },
+                    )
+                }
+
+                if (selectionMode) {
+                    Spacer(Modifier.height(10.dp))
+                    SelectionBar(
+                        spec = spec,
+                        count = selected.size,
+                        onSelectAll = {
+                            val all = visible.map { it.path }.toSet()
+                            selected = all
+                            onSelectedCount(all.size)
+                        },
+                        onCopy = {
+                            clipboard = Clipboard(selected.toList(), move = false)
+                            picker = DestinationPicker.Choosing(
+                                path, pickMode = false, startLabel = locationLabel,
+                            )
+                        },
+                        onMove = {
+                            clipboard = Clipboard(selected.toList(), move = true)
+                            picker = DestinationPicker.Choosing(
+                                path, pickMode = false, startLabel = locationLabel,
+                            )
+                        },
+                        onDelete = {
+                            // Bulk delete goes through the same confirmation as a
+                            // single file, naming the count instead of one name.
+                            bulkDelete = true
+                        },
+                        onCancel = {
+                            onSelectionModeChange(false)
+                            selected = emptySet()
+                            onSelectedCount(0)
+                        },
+                    )
+                }
+
+                (picker as? DestinationPicker.Choosing)?.let { choosing ->
+                    DestinationDialog(
+                        spec = spec,
+                        initialPath = choosing.startPath,
+                        move = clipboard?.move == true,
+                        count = clipboard?.paths?.size ?: 0,
+                        onDismiss = { picker = null; clipboard = null },
+                        onConfirm = { destination ->
+                            val clip = clipboard
+                            picker = null
+                            clipboard = null
+                            if (clip != null) {
+                                scope.launch {
+                                    val outcome = withContext(Dispatchers.IO) {
+                                        clip.paths.map { source ->
+                                            if (clip.move) {
+                                                FileOps.move(source, destination)
+                                            } else {
+                                                FileOps.copy(source, destination)
+                                            }
+                                        }
+                                    }
+                                    val failed = outcome.count { it.isFailure }
+                                    toast = when {
+                                        failed == 0 -> "${outcome.size} selesai"
+                                        failed == outcome.size ->
+                                            outcome.first().exceptionOrNull()?.message ?: "Gagal"
+                                        else -> "$failed dari ${outcome.size} gagal"
+                                    }
+                                    if (failed == 0 && clip.move) selected = emptySet()
+                                    onSelectedCount(0)
+                                    reload()
+                                }
                             }
                         },
                     )
@@ -441,12 +599,32 @@ private fun subtitleFor(e: FileEntry): String =
     if (e.isDirectory) "${e.childCount} item \u00b7 ${formatDate(e.lastModified)}"
     else "${formatSize(e.sizeBytes, false)} \u00b7 ${formatDate(e.lastModified)}"
 
+/**
+ * The clipboard.
+ *
+ * One type with a mode instead of two flows: "Salin" and "Pindahkan" differ only in
+ * what happens after the destination is chosen, and building them as separate
+ * journeys is how one of them ends up half-implemented.
+ */
+private data class Clipboard(val paths: List<String>, val move: Boolean)
+
+/** Which destination dialog is open. */
+private sealed interface DestinationPicker {
+    /** Browsing to choose where the clipboard lands. */
+    data class Choosing(
+        val startPath: String,
+        val pickMode: Boolean,
+        val startLabel: String = "Internal",
+    ) : DestinationPicker
+
+    /** Confirming the folder currently browsed. */
+    data class Confirm(val destination: String) : DestinationPicker
+}
+
 /** What the prompt dialog is for. One dialog, five jobs. */
 private sealed interface Prompt {
     data object NEW_FOLDER : Prompt
     data class Rename(val entry: FileEntry) : Prompt
-    data class CopyHere(val entry: FileEntry) : Prompt
-    data class MoveHere(val entry: FileEntry) : Prompt
     data class Info(val entry: FileEntry) : Prompt
 }
 
@@ -648,8 +826,8 @@ private fun ActionSheet(
         text = {
             Column {
                 ActionRow("Ganti nama", onRename)
-                ActionRow("Salin ke folder ini", onCopy)
-                ActionRow("Pindahkan ke folder ini", onMove)
+                ActionRow("Salin ke\u2026", onCopy)
+                ActionRow("Pindahkan ke\u2026", onMove)
                 ActionRow("Info", onInfo)
                 ActionRow("Hapus", onDelete, danger = true)
             }
@@ -713,13 +891,10 @@ private fun NamePrompt(
     val initial = when (prompt) {
         Prompt.NEW_FOLDER -> ""
         is Prompt.Rename -> prompt.entry.name
-        is Prompt.CopyHere -> prompt.entry.name
-        is Prompt.MoveHere -> prompt.entry.name
         is Prompt.Info -> prompt.entry.name
     }
     var value by remember { mutableStateOf(initial) }
     val isInfo = prompt is Prompt.Info
-    val isDestructive = prompt is Prompt.MoveHere
 
     val infoText = if (prompt is Prompt.Info) {
         val e = prompt.entry
@@ -742,8 +917,6 @@ private fun NamePrompt(
                 when (prompt) {
                     Prompt.NEW_FOLDER -> "Folder baru"
                     is Prompt.Rename -> "Ganti nama"
-                    is Prompt.CopyHere -> "Salin berkas"
-                    is Prompt.MoveHere -> "Pindahkan berkas"
                     is Prompt.Info -> "Info"
                 },
                 style = MaterialTheme.typography.titleMedium,
@@ -761,16 +934,6 @@ private fun NamePrompt(
                         label = { Text("Nama") },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    if (prompt is Prompt.CopyHere || prompt is Prompt.MoveHere) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Akan ${if (isDestructive) "dipindahkan" else "disalin"} ke " +
-                                "folder yang sedang dibuka. Nama yang sudah ada tidak " +
-                                "ditimpa: berkas baru mendapat akhiran (1).",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = p.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         },
@@ -789,5 +952,184 @@ private fun NamePrompt(
                 Text(if (isInfo) "Tutup" else "Batal", color = p.accent)
             }
         },
+    )
+}
+
+// ---------------------------------------------------------- destination picker
+
+/**
+ * Choose where copied or moved files land.
+ *
+ * The earlier build could only copy into the folder that was already open, which
+ * is not copying: it is duplicating in place. This is a real browser with an up
+ * button, a folder list, and an explicit confirmation, because "paste here" while
+ * the destination is ambiguous is how files end up somewhere unexpected.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun DestinationDialog(
+    spec: PureThemeSpec,
+    initialPath: String,
+    move: Boolean,
+    count: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val p = spec.palette
+    var here by remember { mutableStateOf(initialPath) }
+    var label by rememberSaveable { mutableStateOf(Storage.displayName(initialPath)) }
+    var children by remember { mutableStateOf<List<FileEntry>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
+
+    LaunchedEffect(here) {
+        busy = true
+        children = if (Storage.isTreePath(here)) {
+            withContext(Dispatchers.IO) { Storage.listTree(context, android.net.Uri.parse(here), false) }
+                .getOrDefault(emptyList())
+        } else {
+            withContext(Dispatchers.IO) { Storage.list(here, false) }
+                .getOrDefault(emptyList())
+        }
+            .filter { it.isDirectory }
+            .sortedWith(comparatorFor(SortOrder(SortKey.NAME, false)))
+        busy = false
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = p.surface,
+        titleContentColor = p.onBackground,
+        textContentColor = p.onSurfaceVariant,
+        title = {
+            Text(
+                "${if (move) "Pindahkan" else "Salin"} $count item",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        },
+        text = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ToolButton("\u2190", false) {
+                        Storage.parentOf(here)?.let {
+                            here = it
+                            label = Storage.displayName(it)
+                        }
+                    }
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = p.onBackground,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(color = p.accent)
+                    } else if (children.isEmpty()) {
+                        Text(
+                            "Tidak ada subfolder di sini.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = p.onSurfaceVariant,
+                        )
+                    } else {
+                        children.forEach { child ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        here = child.path
+                                        label = child.name
+                                    }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                IosFolder(size = 26f)
+                                Text(
+                                    child.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = p.onBackground,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Nama yang sudah ada tidak ditimpa: berkas baru mendapat akhiran (1).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(here) }) {
+                Text(
+                    if (move) "Pindahkan ke sini" else "Salin ke sini",
+                    color = p.accent,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal", color = p.accent) }
+        },
+    )
+}
+
+/** Bar shown while items are ticked: every bulk action in one row. */
+@Composable
+private fun SelectionBar(
+    spec: PureThemeSpec,
+    count: Int,
+    onCopy: () -> Unit,
+    onMove: () -> Unit,
+    onDelete: () -> Unit,
+    onSelectAll: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val p = spec.palette
+    GroupCard(spec) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                "$count dipilih",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = p.onBackground,
+                modifier = Modifier.padding(start = 8.dp).weight(1f),
+            )
+            SelectionAction("Pilih semua", p.accent, onSelectAll)
+            SelectionAction("Salin", p.accent, onCopy)
+            SelectionAction("Pindah", p.accent, onMove)
+            SelectionAction("Hapus", Color(0xFFEF4444), onDelete)
+            SelectionAction("Batal", p.onSurfaceVariant, onCancel)
+        }
+    }
+}
+
+@Composable
+private fun SelectionAction(label: String, color: Color, onClick: () -> Unit) {
+    val spec = LocalPureSpec.current
+    Text(
+        label,
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+        modifier = Modifier
+            .clip(RoundedCornerShape(spec.cornerDp.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
     )
 }
