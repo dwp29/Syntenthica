@@ -15,9 +15,31 @@ android {
         // later does not change this code.
         minSdk = 29
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.6.0"
+        versionCode = 13
+        versionName = "0.7.0"
         vectorDrawables.useSupportLibrary = true
+    }
+
+    // Two variants, one signing key.
+    //
+    // "full" carries the module client and the terminal; "minimal" is the file
+    // manager alone, for a phone where the extra screens are noise. The flavor
+    // name ends up in the applicationId so both can be installed side by side,
+    // which is the only way to compare them without uninstalling one.
+    flavorDimensions += "edition"
+    productFlavors {
+        create("full") {
+            dimension = "edition"
+            applicationIdSuffix = ""
+            versionNameSuffix = ""
+            buildConfigField("boolean", "HAS_MODULES", "true")
+        }
+        create("minimal") {
+            dimension = "edition"
+            applicationIdSuffix = ".minimal"
+            versionNameSuffix = "-minimal"
+            buildConfigField("boolean", "HAS_MODULES", "false")
+        }
     }
 
     // 0.1.0 is signed with the debug key. That is deliberate but temporary: an
@@ -76,7 +98,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        // buildConfigField is how the source knows which variant it is; without
+        // this the two flavors compile to the same class and the flag is ignored.
+        buildConfig = true
+    }
 
     testOptions { unitTests.isReturnDefaultValues = true }
 

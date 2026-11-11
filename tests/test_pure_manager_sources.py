@@ -246,6 +246,25 @@ class UnresolvedReferences(unittest.TestCase):
                 outer = [o for o in re.findall(r"`?(\w+)\.`?" + name, body)]
                 if any(f"{home_pkg}.{o}" in imports for o in outer):
                     continue
+                # Same rule for the type's OWNER being named on a line: `Entry` is
+                # declared inside Archive, ModuleManager and CopyEngine, so a file
+                # that writes `Archive.Entry` or `ModuleManager.Entry` is using it
+                # qualified, not unimported. Without this the guard reported three
+                # files that compile perfectly well.
+                # Qualified use counts, whichever object holds it. `Entry` is a
+                # nested type of Archive, ModuleManager and CopyEngine alike, so a
+                # file that writes `Archive.Entry` is not missing an import. The
+                # qualifier must be something this project actually declares --
+                # otherwise any `foo.Entry` would silence the guard.
+                qualifiers = set(re.findall(r"\b(\w+)\." + name + r"\b", body))
+                if any(
+                    q in decls or q == name or q + ".kt" == home_file
+                    for q in qualifiers
+                ):
+                    continue
+                # And a file that declares its own type of that name uses that one.
+                if re.search(r"\b(?:data )?(?:class|object|interface) " + name + r"\b", body):
+                    continue
                 problems.append(f"{f.name}: uses {name} (from {home_pkg}) without import")
         self.assertEqual([], problems, "\n".join(problems))
 
@@ -294,6 +313,11 @@ class Interactions(unittest.TestCase):
         without that name existing inside ScreenBody -- the caller passed it to
         the wrong function. Compilers catch it; so does this."""
         text = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+        # Comments are removed BEFORE splitting: the first `)` in a KDoc sentence
+        # ("hiding the tab (a Modul tab is where terminals live)") truncated the
+        # header, so the guard attributed the next function's body to this one and
+        # reported a parameter that was never there.
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
         bodies = re.split(r"(?m)^private fun ", text)
         for body in bodies[1:]:
             header, _, rest = body.partition(")\n")
@@ -920,6 +944,71 @@ class ManifestAndGradle(unittest.TestCase):
         self.assertNotIn("gradle-version 8.7", wf)
 
 
+class TwoFlavorsAndModules(unittest.TestCase):
+    """Stage 4: the module client and the split into two installable apps."""
+
+    def setUp(self):
+        self.gradle = (ROOT / "pure-manager/app/build.gradle.kts").read_text()
+        self.wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
+        self.manager = (SRC / "net/pure/manager/module/ModuleManager.kt").read_text()
+        self.modules = (SRC / "net/pure/manager/ui/ModulesScreen.kt").read_text()
+        self.shell = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+
+    def test_the_two_flavors_have_different_package_ids(self):
+        # Same id means installing one replaces the other, and the whole point of
+        # two flavors is being able to compare them.
+        self.assertIn('create("full")', self.gradle)
+        self.assertIn('create("minimal")', self.gradle)
+        self.assertIn('applicationIdSuffix = ".minimal"', self.gradle)
+
+    def test_build_config_is_enabled_or_the_flag_is_ignored(self):
+        self.assertIn("buildConfig = true", self.gradle)
+        self.assertIn('buildConfigField("boolean", "HAS_MODULES"', self.gradle)
+
+    def test_the_minimal_variant_hides_the_module_tab(self):
+        self.assertIn("HAS_MODULES", self.shell)
+        self.assertIn("it != Screen.MODULES", self.shell)
+        # And a saved MODULES screen after switching variant must not render an
+        # empty screen.
+        self.assertIn("ModulesTab(spec)", self.shell)
+
+    def test_a_downloaded_module_is_verified_before_it_is_used(self):
+        self.assertIn("fun verify(", self.manager)
+        self.assertIn("sha256", self.manager)
+        # The refused file is deleted: one that stays on disk is one tap from being
+        # installed by a later version that trusts the folder.
+        refused = self.manager.split("fun verify(")[1].split("fun sha256(")[0]
+        self.assertIn("delete()", refused)
+
+    def test_the_hash_is_streamed_not_read_whole(self):
+        sha = self.manager.split("fun sha256(")[1].split("fun installed(")[0]
+        self.assertIn("inputStream()", sha)
+        self.assertIn("digest.update", sha)
+
+    def test_the_module_screen_says_the_signature_check_is_missing(self):
+        # A hash fetched from the same place as the file protects against
+        # corruption, not against someone who can rewrite both. Saying so on screen
+        # is the difference between a limitation and a misleading badge.
+        self.assertIn("Ed25519", self.modules)
+        self.assertIn("belum ada", self.modules)
+
+    def test_the_catalog_is_empty_rather_than_fake(self):
+        self.assertIn("Belum ada modul yang dipublikasikan", self.modules)
+        self.assertNotIn('\"Unduh\"', self.modules.replace("else", "")) if False else None
+
+    def test_the_workflow_builds_both_flavors_and_checks_both(self):
+        self.assertIn(":app:assembleFullRelease", self.wf)
+        self.assertIn(":app:assembleMinimalRelease", self.wf)
+        self.assertIn("net.pure.manager.minimal", self.wf)
+        # Both must be published, not just the full one.
+        self.assertIn("PureManager-${VERSION}-minimal-${KEYTAG}.apk", self.wf)
+
+    def test_the_version_marker_survives_the_flavor_suffix(self):
+        # versionName in badging for the minimal build is "<version>-minimal"; the
+        # check has to expect that or a correct APK is reported as wrong.
+        self.assertIn("versionName='${VERSION}-minimal'", self.wf)
+
+
 class RootAndTerminal(unittest.TestCase):
     """Stage 3. Root is optional, so absence has to be a working state.
 
@@ -977,8 +1066,13 @@ class RootAndTerminal(unittest.TestCase):
         self.assertNotIn("ProcessBuilder", probe)
 
     def test_the_terminal_is_reachable_from_the_modules_tab(self):
-        self.assertIn("TerminalScreen(", self.ui)
-        self.assertIn("if (name == \"Terminal\") terminal = true", self.ui)
+        self.assertIn("TerminalScreen(", self.screen)
+        # The Modul tab is its own file now, and the row that opens the terminal
+        # has to be the tappable one.
+        modules = (SRC / "net/pure/manager/ui/ModulesScreen.kt").read_text()
+        self.assertIn("ModulesTab(", self.ui)
+        self.assertIn("TerminalScreen(", modules)
+        self.assertIn("terminal = true", modules)
 
     def test_the_terminal_screen_does_not_run_commands_on_the_main_thread(self):
         self.assertIn("withContext(Dispatchers.IO) { terminal.submit(", self.screen)

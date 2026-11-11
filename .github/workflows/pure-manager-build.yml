@@ -185,7 +185,10 @@ jobs:
           # tee into the artifact directory as well: the run-log download endpoint
           # returns EOF for this repo, so the compiler output has to travel with
           # the artifact instead.
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace \
+          # Both flavors, one signing key. assembleRelease would build both
+          # anyway, but naming the tasks makes a missing flavor a build error
+          # instead of a silently shorter artifact list.
+          ./gradlew :app:assembleFullRelease :app:assembleMinimalRelease --no-daemon --stacktrace \
             2>&1 | tee "$RUNNER_TEMP/pm-output/build.log" | tail -40
 
       # Even when everything passes, say how many tests ran: "success" alone has
@@ -230,14 +233,20 @@ jobs:
           # Exported under the name the later steps read. Exporting PM_VERSION while
           # they read VERSION is how run 42994597044 failed with a green APK.
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          APK=$(find pure-manager/app/build/outputs/apk/release -name '*.apk' | head -1)
+          # Two APKs now: full and minimal. Each is verified and named on its own,
+          # because a build that publishes one flavor and calls it done is how the
+          # smaller variant silently stops existing.
+          APK=$(find pure-manager/app/build/outputs/apk/full/release -name '*.apk' | head -1)
+          APK_MIN=$(find pure-manager/app/build/outputs/apk/minimal/release -name '*.apk' | head -1)
           test -n "$APK"
+          test -n "$APK_MIN"
           # The filename has to say which key signed it. A DEBUGKEY build and a
           # release-key build are not interchangeable: the second one can be updated
           # over, the first cannot. Naming both the same loses that.
           if [ -n "${PM_KEYSTORE_PATH:-}" ]; then KEYTAG="RELEASEKEY"; else KEYTAG="DEBUGKEY"; fi
           echo "KEYTAG=$KEYTAG" >> "$GITHUB_ENV"
           cp "$APK" "$OUT/PureManager-$VERSION-$KEYTAG.apk"
+          cp "$APK_MIN" "$OUT/PureManager-$VERSION-minimal-$KEYTAG.apk"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
           "${BT}apksigner" verify --print-certs "$APK" | head -6
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
@@ -247,6 +256,21 @@ jobs:
           grep -F "sdkVersion:'29'" "$OUT/badging.txt"
           grep -F "targetSdkVersion:'36'" "$OUT/badging.txt"
           grep -F "versionName='$VERSION'" "$OUT/badging.txt"
+          # The minimal flavor is the same code with a different package id, and
+          # that difference is the only way to install both side by side. If it
+          # ever matched the full package, installing one would replace the other.
+          "$TOOLS/aapt" dump badging "$OUT/PureManager-${VERSION}-minimal-${KEYTAG}.apk" > "$OUT/badging-minimal.txt"
+          grep -F "package: name='net.pure.manager.minimal'" "$OUT/badging-minimal.txt"
+          grep -F "versionName='${VERSION}-minimal'" "$OUT/badging-minimal.txt"
+          grep -F "sdkVersion:'29'" "$OUT/badging-minimal.txt"
+          "$TOOLS/zipalign" -c -p 4 "$OUT/PureManager-${VERSION}-minimal-${KEYTAG}.apk"
+          # Both flavors must be signed by the same key: a module signed for one
+          # has to verify against the other.
+          SIGNER_MIN=$("$TOOLS/apksigner" verify --print-certs "$OUT/PureManager-${VERSION}-minimal-${KEYTAG}.apk" \
+                   | grep -m1 "SHA-256 digest:" | sed 's/.*: //' || true)
+          if [ "$SIGNER_MIN" != "$(echo "$SIGNER" | tr -d ' ')" ] && [ -n "$SIGNER" ] && [ -n "$SIGNER_MIN" ]; then
+            echo "::warning title=Signing::the two flavors are signed by different keys"
+          fi
           # Print the signer so the notice can carry it, and fail when a key was
           # configured but the APK came out signed with something else.
           SIGNER=$("$TOOLS/apksigner" verify --print-certs "$OUT/PureManager-$VERSION-$KEYTAG.apk" \
@@ -266,7 +290,8 @@ jobs:
                > "$OUT/signature-check.txt" 2>&1
           grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" \
                "$OUT/signature-check.txt"
-          sha256sum "$OUT/PureManager-${VERSION}-${KEYTAG}.apk" | tee "$OUT/SHA256.txt"
+          sha256sum "$OUT/PureManager-${VERSION}-${KEYTAG}.apk" \
+                    "$OUT/PureManager-${VERSION}-minimal-${KEYTAG}.apk" | tee "$OUT/SHA256.txt"
           echo "::notice title=Signed Pure Manager SHA256::$(cut -d' ' -f1 "$OUT/SHA256.txt")"
           echo "::notice title=APK size::$(stat -c%s "$OUT/PureManager-${VERSION}-${KEYTAG}.apk") bytes"
 
@@ -283,16 +308,25 @@ jobs:
           set -euo pipefail
           APK="$RUNNER_TEMP/pm-output/PureManager-${VERSION}-${KEYTAG}.apk"
           test -s "$APK"
+          # APK_MIN lives in the job's environment, written by the verify step; it
+          # is re-derived here rather than assumed, because a publish step that
+          # silently skips the second flavor is the failure this whole split invites.
+          APK_MIN="$RUNNER_TEMP/pm-output/PureManager-${VERSION}-minimal-${KEYTAG}.apk"
+          test -s "$APK_MIN"
           work="$RUNNER_TEMP/publish"
           rm -rf "$work"
           git init -q --initial-branch=build-output "$work"
           cp "$APK" "$work/PureManager-${VERSION}-${KEYTAG}.apk"
+          cp "$APK_MIN" "$work/PureManager-${VERSION}-minimal-${KEYTAG}.apk"
           (
             cd "$work"
             git config user.name  "Pure Manager CI"
             git config user.email "ci@users.noreply.github.com"
             printf '%s\n' \
-              "Pure Manager ${VERSION} — debug-key signed APK" \
+              "Pure Manager ${VERSION} — two flavors" \
+              "" \
+              "PureManager-${VERSION}-${KEYTAG}.apk          full: modules + terminal" \
+              "PureManager-${VERSION}-minimal-${KEYTAG}.apk  minimal: file manager only" \
               "" \
               "Built from $GITHUB_SHA by run $GITHUB_RUN_ID." \
               "This branch is overwritten by every build and is never merged." \
@@ -304,7 +338,8 @@ jobs:
               "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
               HEAD:refs/heads/build-output
           )
-          echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-${VERSION}-${KEYTAG}.apk"
+          echo "::notice title=Pure Manager APK (full)::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-${VERSION}-${KEYTAG}.apk"
+          echo "::notice title=Pure Manager APK (minimal)::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-${VERSION}-minimal-${KEYTAG}.apk"
 
       # Last resort, and the only one that has ever worked here: when the build is
       # red, push the compiler's own output to a throwaway branch over git. The

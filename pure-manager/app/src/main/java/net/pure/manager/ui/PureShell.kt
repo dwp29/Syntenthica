@@ -65,6 +65,19 @@ private enum class Screen(val label: String, val glyph: String) {
     SETTINGS("Setelan", "\u2699"),
 }
 
+/**
+ * Tabs this build shows.
+ *
+ * The minimal variant is the file manager alone: Modul is where terminals and
+ * downloads live, and hiding the tab is the difference between a smaller app and
+ * a smaller app with a dead tab in it. Read from BuildConfig so the two flavors
+ * cannot drift apart from a hand-edited list.
+ */
+private val HAS_MODULES: Boolean = net.pure.manager.BuildConfig.HAS_MODULES
+
+private fun visibleScreens(): List<Screen> =
+    Screen.entries.filter { HAS_MODULES || it != Screen.MODULES }
+
 @Composable
 fun PureShell(
     prefs: ThemePrefs,
@@ -140,7 +153,7 @@ private fun LeftRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Screen.entries.forEach { s ->
+        visibleScreens().forEach { s ->
             val selected = s == current
             Column(
                 Modifier
@@ -181,7 +194,7 @@ private fun CommandBar(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Screen.entries.forEachIndexed { i, s ->
+        visibleScreens().forEachIndexed { i, s ->
             val selected = s == current
             Box(
                 Modifier
@@ -222,7 +235,7 @@ private fun TabBar(
             Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            Screen.entries.forEach { s ->
+            visibleScreens().forEach { s ->
                 val selected = s == current
                 Column(
                     Modifier
@@ -330,7 +343,14 @@ private fun ScreenBody(
                 )
             }
                     Screen.THEME -> ThemeScreen(prefs, onPrefs)
-                    Screen.MODULES -> ModulesScreen(spec)
+                    Screen.MODULES -> if (HAS_MODULES) {
+                        ModulesTab(spec)
+                    } else {
+                        // Unreachable from the tab bar, but reachable from saved
+                        // state after switching variant. An empty screen would
+                        // read as a broken build.
+                        BrowserScreen(spec, selectionMode, onSelectionModeChange, onSelectedCount)
+                    }
                     Screen.SETTINGS -> SettingsScreen(prefs, onPrefs, spec)
                 }
             }
@@ -584,58 +604,6 @@ private fun ChoiceRow(
             )
         }
     }
-}
-
-@Composable
-private fun ModulesScreen(spec: PureThemeSpec) {
-    val p = spec.palette
-    var terminal by rememberSaveable { mutableStateOf(false) }
-    if (terminal) {
-        TerminalScreen(spec = spec, onClose = { terminal = false })
-        Spacer(Modifier.height(16.dp))
-    }
-    GroupCard(spec) {
-        listOf(
-            "Terminal" to if (terminal) "Terbuka di atas" else "Root + shell \u2014 siap dipakai",
-            "Editor kode" to "Belum tersedia \u2014 tahap 6",
-            "PDF & Office" to "Belum tersedia \u2014 tahap 5",
-            "AI" to "Ditahan atas permintaan",
-        ).forEach { (name, state) ->
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(spec.cornerDp.dp))
-                    // The terminal row opens it; every other row is a label for a
-                    // module that does not exist yet, and a row that looks tappable
-                    // and does nothing is the thing this project keeps fixing.
-                    .clickable(enabled = name == "Terminal") {
-                        if (name == "Terminal") terminal = true
-                    }
-                    .padding(horizontal = 14.dp, vertical = 13.dp)
-            ) {
-                Text(
-                    name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = p.onBackground,
-                )
-                Text(
-                    state,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = p.onSurfaceVariant,
-                )
-            }
-            Box(
-                Modifier.fillMaxWidth().padding(start = 14.dp).height(0.5.dp).background(p.separator)
-            )
-        }
-    }
-    Spacer(Modifier.height(12.dp))
-    Text(
-        "Modul diunduh dari GitHub Releases pada tahap 4. Tidak ada modul yang " +
-            "bisa dipasang sekarang, jadi tidak ada yang ditampilkan seolah bisa.",
-        style = MaterialTheme.typography.bodySmall,
-        color = p.onSurfaceVariant,
-    )
 }
 
 @Composable
