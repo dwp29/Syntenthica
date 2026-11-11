@@ -117,6 +117,9 @@ fun BrowserScreen(
     // user granted. Without it, a folder added through SAF was openable once and
     // then lost after the first navigation away from it.
     var showPlaces by remember { mutableStateOf(false) }
+    // Root-only places are opt-in. Listing /system to someone who cannot read it
+    // is a row that fails when tapped; the toggle says why before it is used.
+    var showSystemPlaces by rememberSaveable { mutableStateOf(false) }
     // The copy job that is currently running, and its latest numbers. Two things:
     // a progress value for the dialog, and a cancellation flag the engine polls
     // between chunks. Without the second, "Batal" would be decoration.
@@ -883,7 +886,7 @@ fun BrowserScreen(
                 if (showPlaces) {
                     PlacesDialog(
                         spec = spec,
-                        places = Storage.places(context, trees),
+                        places = Storage.places(context, trees, showSystemPlaces),
                         current = path,
                         onDismiss = { showPlaces = false },
                         onPick = { location ->
@@ -894,6 +897,8 @@ fun BrowserScreen(
                             showPlaces = false
                             folderPicker.launch(null)
                         },
+                        showSystem = showSystemPlaces,
+                        onToggleSystem = { showSystemPlaces = !showSystemPlaces },
                     )
                 }
 
@@ -1541,6 +1546,8 @@ private fun PlacesDialog(
     onDismiss: () -> Unit,
     onPick: (net.pure.manager.fs.Location) -> Unit,
     onAddTree: () -> Unit,
+    showSystem: Boolean,
+    onToggleSystem: () -> Unit,
 ) {
     val p = spec.palette
     AlertDialog(
@@ -1581,6 +1588,37 @@ private fun PlacesDialog(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
+                // Root-only shortcuts, behind a switch. Without root the rows
+                // would open and fail; with it they are the only way to reach
+                // /system and /data from this screen at all.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(spec.cornerDp.dp))
+                        .clickable(onClick = onToggleSystem)
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Folder sistem",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = p.onBackground,
+                        )
+                        Text(
+                            if (showSystem) "/system, /data, /data/adb \u00b7 butuh root"
+                            else "Tampilkan /system dan /data (butuh root)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = p.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        if (showSystem) "\u25C9" else "\u25CB",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = p.accent,
+                    )
+                }
                 Text(
                     "Tambah folder lewat sistem",
                     style = MaterialTheme.typography.bodyLarge,

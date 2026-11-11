@@ -227,6 +227,10 @@ class UnresolvedReferences(unittest.TestCase):
             body = re.sub(r"(?m)^import .*$", "", text)
             body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
             body = re.sub(r"//[^\n]*", "", body)
+            # A word inside a string literal is text, not a type reference.
+            # "Terminal" is a row label in the Modul tab, and it is not an
+            # implicit import of the Terminal class.
+            body = re.sub(r'"(?:[^"\\]|\\.)*"', '""', body)
             for name, (home_pkg, home_file) in decls.items():
                 if home_pkg == pkg or home_file == f.name:
                     continue
@@ -632,7 +636,8 @@ class BasicFileManagerDuties(unittest.TestCase):
         self.assertIn("PlacesDialog(", browser)
         self.assertIn("Storage.places(context", browser)
         self.assertIn("showPlaces = true", browser)
-        self.assertIn("fun places(context: Context", storage)
+        self.assertIn("fun places(", storage)
+        self.assertIn("includeSystem: Boolean = false", storage)
 
     def test_up_never_leaves_user_storage(self):
         """A JVM test on the real run showed "up" walking to /storage/emulated.
@@ -913,6 +918,64 @@ class ManifestAndGradle(unittest.TestCase):
         wf = (ROOT / ".github/workflows/pure-manager-build.yml").read_text()
         self.assertIn("gradle-version 8.9", wf)
         self.assertNotIn("gradle-version 8.7", wf)
+
+
+class RootAndTerminal(unittest.TestCase):
+    """Stage 3. Root is optional, so absence has to be a working state.
+
+    The code that runs commands must be testable without a rooted phone, otherwise
+    the only machine that ever exercises it is the owner's, after it ships.
+    """
+
+    def setUp(self):
+        self.shell = (SRC / "net/pure/manager/root/Shell.kt").read_text()
+        self.terminal = (SRC / "net/pure/manager/root/Terminal.kt").read_text()
+        self.screen = (SRC / "net/pure/manager/ui/TerminalScreen.kt").read_text()
+        self.ui = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+
+    def test_commands_have_a_timeout_and_are_killed(self):
+        # An unanswered root prompt must not freeze the app.
+        self.assertIn("timeoutSeconds", self.shell)
+        self.assertIn("destroyForcibly", self.shell)
+        self.assertIn("waitFor(timeoutSeconds", self.shell)
+
+    def test_arguments_are_quoted_for_a_posix_shell(self):
+        self.assertIn("fun quote(", self.shell)
+        # Single quotes with the embedded-quote escape; anything else breaks on a
+        # file name the user is allowed to have.
+        self.assertIn("'\\''", self.shell)
+
+    def test_the_runner_is_injected_so_a_test_can_use_sh(self):
+        self.assertIn("runner: (String, String) -> Shell.Output", self.terminal)
+        self.assertIn("timeoutSeconds = timeoutSeconds", self.terminal)
+
+    def test_a_phone_without_root_gets_a_sentence_not_a_crash(self):
+        self.assertIn("Belum ada akses root", self.terminal)
+        self.assertIn("tanpa-root", self.terminal)
+
+    def test_su_is_probed_without_asking_for_a_grant(self):
+        self.assertIn("fun suBinary(", self.shell)
+        # Probing must not run a command: a grant dialog on launch is how an app
+        # gets denied.
+        probe = self.shell.split("fun suBinary(")[1].split("fun run(")[0]
+        self.assertNotIn("ProcessBuilder", probe)
+
+    def test_the_terminal_is_reachable_from_the_modules_tab(self):
+        self.assertIn("TerminalScreen(", self.ui)
+        self.assertIn("if (name == \"Terminal\") terminal = true", self.ui)
+
+    def test_the_terminal_screen_does_not_run_commands_on_the_main_thread(self):
+        self.assertIn("withContext(Dispatchers.IO) { terminal.submit(", self.screen)
+
+    def test_system_folders_are_offered_but_not_forced(self):
+        storage = (SRC / "net/pure/manager/fs/Storage.kt").read_text()
+        self.assertIn("fun rootPlaces()", storage)
+        self.assertIn("includeSystem", storage)
+        # A shortcut to /system on a non-rooted phone must be a switch, not a
+        # permanent row that fails when tapped.
+        browser = (SRC / "net/pure/manager/ui/BrowserScreen.kt").read_text()
+        self.assertIn("onToggleSystem", browser)
+        self.assertIn("showSystemPlaces", browser)
 
 
 class AtoZIndexAndDeviceSearch(unittest.TestCase):

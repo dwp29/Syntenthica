@@ -182,14 +182,18 @@ object Storage {
         }
 
     /** The places list, flattened, so the "Lokasi" sheet can be built from one call. */
-    fun places(context: Context, trees: List<Pair<String, Uri>>): List<Location> =
+    fun places(
+        context: Context,
+        trees: List<Pair<String, Uri>>,
+        includeSystem: Boolean = false,
+    ): List<Location> =
         Support.places(
             internalPath = Environment.getExternalStorageDirectory().absolutePath,
             volumes = locations(context).drop(1).map {
                 Triple(it.label, it.path, it.description == "Kartu SD")
             },
             trees = trees.map { (label, uri) -> label to uri.toString() },
-        )
+        ) + if (includeSystem) rootPlaces() else emptyList()
 
     /** True when this path is a SAF document URI rather than a file path. */
     fun isTreePath(path: String): Boolean = path.startsWith("content://")
@@ -213,6 +217,31 @@ object Storage {
 
     /** "12 item" or "12 item \u00b7 3 folder", matching the reference screenshots. */
     fun describeChildren(entries: List<FileEntry>): String = Support.countLabel(entries)
+
+    /**
+     * Where the terminal starts.
+     *
+     * Not `/`: a terminal that opens at the filesystem root on a non-rooted phone
+     * cannot go anywhere useful, and `ls` there lists directories it may not read.
+     * The primary volume is where the user's files are.
+     */
+    fun homeDirectory(): String = Environment.getExternalStorageDirectory().absolutePath
+
+    /**
+     * Root-only places worth offering as a shortcut, with whether su exists.
+     *
+     * The browser can already open any path the app is allowed to read; what was
+     * missing is a way to learn that /system and /data even exist. They are listed
+     * only as shortcuts, and a failure to read them is reported the same way as any
+     * other folder, rather than being hidden behind a separate "root browser" that
+     * would need its own listing code and its own bugs.
+     */
+    fun rootPlaces(): List<Location> = listOf(
+        Location("/system", "/system", "Berkas sistem"),
+        Location("/data", "/data", "Data aplikasi (perlu root)"),
+        Location("/data/adb", "/data/adb", "Modul Magisk / KernelSU"),
+        Location("/", "/", "Akar sistem berkas"),
+    )
 
     fun displayName(path: String): String {
         if (isTreePath(path)) {

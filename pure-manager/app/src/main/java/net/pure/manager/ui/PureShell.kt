@@ -589,9 +589,14 @@ private fun ChoiceRow(
 @Composable
 private fun ModulesScreen(spec: PureThemeSpec) {
     val p = spec.palette
+    var terminal by rememberSaveable { mutableStateOf(false) }
+    if (terminal) {
+        TerminalScreen(spec = spec, onClose = { terminal = false })
+        Spacer(Modifier.height(16.dp))
+    }
     GroupCard(spec) {
         listOf(
-            "Terminal" to "Belum tersedia \u2014 tahap 3",
+            "Terminal" to if (terminal) "Terbuka di atas" else "Root + shell \u2014 siap dipakai",
             "Editor kode" to "Belum tersedia \u2014 tahap 6",
             "PDF & Office" to "Belum tersedia \u2014 tahap 5",
             "AI" to "Ditahan atas permintaan",
@@ -599,6 +604,13 @@ private fun ModulesScreen(spec: PureThemeSpec) {
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(spec.cornerDp.dp))
+                    // The terminal row opens it; every other row is a label for a
+                    // module that does not exist yet, and a row that looks tappable
+                    // and does nothing is the thing this project keeps fixing.
+                    .clickable(enabled = name == "Terminal") {
+                        if (name == "Terminal") terminal = true
+                    }
                     .padding(horizontal = 14.dp, vertical = 13.dp)
             ) {
                 Text(
