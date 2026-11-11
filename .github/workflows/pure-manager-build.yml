@@ -268,6 +268,11 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # The whole pm-output directory, including tests.log. The run-log endpoint
+      # returns EOF for this repository and the blob API accepts an upload then 404s
+      # on read-back; an artifact is the only transport left, and `gh run download`
+      # uses a different host. On a red build this file is the only account of what
+      # the compiler said.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
