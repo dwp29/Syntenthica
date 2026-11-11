@@ -67,7 +67,28 @@ jobs:
       # a device is verified by the owner instead.
       - name: Run unit tests
         working-directory: pure-manager
-        run: ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace 2>&1 | tail -40
+        run: |
+          set -euo pipefail
+          ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace 2>&1 | tail -25
+          # A green test task with zero tests is not a green test task. Read the
+          # JUnit report and fail if it is empty.
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+          files = glob.glob('app/build/test-results/testReleaseUnitTest/*.xml')
+          if not files:
+              sys.exit('no test results produced')
+          tests = failures = errors = skipped = 0
+          for f in files:
+              root = ET.parse(f).getroot()
+              tests += int(root.get('tests', 0))
+              failures += int(root.get('failures', 0))
+              errors += int(root.get('errors', 0))
+              skipped += int(root.get('skipped', 0))
+          print(f'unit tests: {tests} run, {failures} failed, {errors} errored, {skipped} skipped')
+          if tests == 0:
+              sys.exit('the test task produced no tests')
+          sys.exit(1 if (failures or errors) else 0)
+          PY
 
       - name: Ensure a signing key exists
         run: |
