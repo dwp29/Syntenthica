@@ -1003,6 +1003,15 @@ class TwoFlavorsAndModules(unittest.TestCase):
         # Both must be published, not just the full one.
         self.assertIn("PureManager-${VERSION}-minimal-${KEYTAG}.apk", self.wf)
 
+    def test_the_test_task_is_named_for_a_flavor(self):
+        """With a flavor dimension, `testReleaseUnitTest` becomes ambiguous.
+
+        Gradle refuses to guess between testFullReleaseUnitTest and
+        testMinimalReleaseUnitTest, and the run dies before a single test executes.
+        """
+        self.assertIn(":app:testFullReleaseUnitTest", self.wf)
+        self.assertNotIn(":app:testReleaseUnitTest ", self.wf)
+
     def test_the_version_marker_survives_the_flavor_suffix(self):
         # versionName in badging for the minimal build is "<version>-minimal"; the
         # check has to expect that or a correct APK is reported as wrong.

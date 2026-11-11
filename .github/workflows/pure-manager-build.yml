@@ -78,20 +78,24 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pm-output"
           set +e
-          ./gradlew :app:testReleaseUnitTest --no-daemon --stacktrace \
+          # The flavor dimension renamed this task: with two editions the plain
+          # testReleaseUnitTest is ambiguous and Gradle refuses to guess. Tests only
+          # need to run once, and the unit tests are the same code in both
+          # flavors, so the full one carries them.
+          ./gradlew :app:testFullReleaseUnitTest --no-daemon --stacktrace \
             > "$RUNNER_TEMP/pm-output/tests.log" 2>&1
           GRADLE_EXIT=$?
           set -e
           tail -25 "$RUNNER_TEMP/pm-output/tests.log" || true
           {
-            echo "===== testReleaseUnitTest ====="
+            echo "===== testFullReleaseUnitTest ====="
             tail -c 30000 "$RUNNER_TEMP/pm-output/tests.log" || true
             echo
             echo "===== JUnit summary ====="
             python3 -c '
           import glob
           import xml.etree.ElementTree as ET
-          files = glob.glob("app/build/test-results/testReleaseUnitTest/*.xml")
+          files = glob.glob("app/build/test-results/testFullReleaseUnitTest/*.xml")
           t = f = e = s = 0
           for path in files:
               root = ET.parse(path).getroot()
@@ -105,7 +109,7 @@ jobs:
           python3 -c '
           import glob
           import xml.etree.ElementTree as ET
-          files = glob.glob("app/build/test-results/testReleaseUnitTest/*.xml")
+          files = glob.glob("app/build/test-results/testFullReleaseUnitTest/*.xml")
           t = f = e = sk = 0
           for path in files:
               root = ET.parse(path).getroot()
