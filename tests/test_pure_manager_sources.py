@@ -315,6 +315,58 @@ class IosLook(unittest.TestCase):
                            "shell went back to hardcoded text sizes")
 
 
+class NeverDeadOnArrival(unittest.TestCase):
+    """0.1.2 force-closed on launch. These pin the ways back in.
+
+    The cause could not be read -- no logcat, no artifact download -- so the app
+    now has to survive its own theme system rather than be trusted to.
+    """
+
+    def setUp(self):
+        self.main = (SRC / "net/pure/manager/MainActivity.kt").read_text()
+        self.glass = (SRC / "net/pure/manager/ui/Glass.kt").read_text()
+        self.crash = (SRC / "net/pure/manager/PureCrash.kt").read_text()
+
+    def test_crash_recorder_is_installed_before_the_first_frame(self):
+        self.assertIn("PureCrash.install(this)", self.main)
+        install_at = self.main.index("PureCrash.install(this)")
+        content_at = self.main.index("        setContent {")
+        self.assertLess(install_at, content_at,
+                        "crash recorder must be installed before composition")
+
+    def test_crash_recorder_does_not_swallow_the_crash(self):
+        """A handler that never calls through hides the system dialog and tombstones."""
+        self.assertIn("previous?.uncaughtException(thread, error)", self.crash)
+        self.assertIn("Thread.setDefaultUncaughtExceptionHandler", self.crash)
+
+    def test_blur_is_gated_and_can_be_turned_off(self):
+        # A device whose RenderEffect rejects the radius must not be able to kill
+        # the process from inside a draw pass.
+        self.assertIn("blurSupported", self.glass)
+        self.assertIn("SDK_INT >= 31", self.glass)
+        self.assertIn("LocalBlurEnabled", self.glass)
+
+    def test_glass_falls_back_to_a_tint_not_to_nothing(self):
+        self.assertIn("fallback", self.glass)
+        self.assertIn("glassTint", self.glass)
+
+    def test_theme_system_failure_shows_a_screen(self):
+        self.assertIn("FallbackScreen", self.main)
+        self.assertIn("catch (e: Throwable)", self.main)
+
+    def test_fallback_screen_reads_no_tokens(self):
+        """It must render even when the token system is what failed."""
+        fallback = (SRC / "net/pure/manager/ui/FallbackScreen.kt").read_text()
+        self.assertNotIn("LocalPureSpec", fallback)
+        self.assertNotIn("haze", fallback)
+        self.assertNotIn("MaterialTheme.typography", fallback)
+
+    def test_blur_pref_survives_rotation(self):
+        saver = (SRC / "net/pure/manager/theme/ThemePrefsSaver.kt").read_text()
+        self.assertIn("p.blur", saver)
+        self.assertIn("blur =", saver)
+
+
 class ManifestAndGradle(unittest.TestCase):
     def test_manifest_does_not_request_all_files_on_a_build_that_cannot_use_it(self):
         manifest = (ROOT / "pure-manager/app/src/main/AndroidManifest.xml").read_text()

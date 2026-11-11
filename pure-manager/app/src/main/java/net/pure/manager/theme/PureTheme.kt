@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalLayoutDirection
+import net.pure.manager.ui.LocalBlurEnabled
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -48,6 +49,13 @@ data class ThemePrefs(
     val densityScale: Float = 1f,
     /** Honours the system "remove animations" setting when false. */
     val animations: Boolean = true,
+    /**
+     * Turns the blurred chrome off.
+     *
+     * Present because no theme may be a one-way door: if blur misbehaves on a
+     * device, the owner needs a way back that does not involve reinstalling.
+     */
+    val blur: Boolean = true,
 ) {
     fun spec(): PureThemeSpec {
         val base = specFor(themeId, mode, AccentChoices[accentIndex].second)
@@ -97,7 +105,11 @@ fun PureTheme(prefs: ThemePrefs, content: @Composable () -> Unit) {
         end = nav.calculateEndPadding(layout),
     )
 
-    CompositionLocalProvider(LocalPureSpec provides spec, LocalSystemInsets provides insets) {
+    CompositionLocalProvider(
+        LocalPureSpec provides spec,
+        LocalSystemInsets provides insets,
+        LocalBlurEnabled provides prefs.blur,
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             typography = typographyFor(spec, prefs.densityScale),

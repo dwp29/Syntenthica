@@ -13,7 +13,7 @@ val ThemePrefsSaver: Saver<ThemePrefs, Any> = listSaver(
     save = { p ->
         listOf(
             p.themeId, p.mode.name, p.accentIndex,
-            p.cornerScale, p.densityScale, p.animations,
+            p.cornerScale, p.densityScale, p.animations, p.blur,
         )
     },
     restore = { v ->
@@ -24,6 +24,7 @@ val ThemePrefsSaver: Saver<ThemePrefs, Any> = listSaver(
             cornerScale = v[3] as Float,
             densityScale = v[4] as Float,
             animations = v[5] as Boolean,
+            blur = if (v.size > 6) v[6] as Boolean else true,
         )
     },
 )

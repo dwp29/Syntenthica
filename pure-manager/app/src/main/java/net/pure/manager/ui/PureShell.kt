@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
+import net.pure.manager.PureCrash
 import net.pure.manager.theme.AccentChoices
 import net.pure.manager.theme.AppMode
 import net.pure.manager.theme.ChromeStyle
@@ -277,7 +278,7 @@ private fun ScreenBody(
                 ),
         ) {
             // Space for the bar that floats above this content.
-            Spacer(Modifier.height(insets.top + if (spec.useLargeTitle) 58.dp else 52.dp))
+            Spacer(Modifier.height(insets.top + 58.dp))
             Column(Modifier.padding(bottom = 96.dp)) {
                 when (screen) {
                     Screen.FILES -> FilesScreen(spec, haze, collapsed)
@@ -722,9 +723,12 @@ private fun ModulesScreen(spec: PureThemeSpec) {
 @Composable
 private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spec: PureThemeSpec) {
     val p = spec.palette
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var crash by remember { mutableStateOf(PureCrash.read(context)) }
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     GroupCard(spec) {
         listOf(
-            "Versi" to "0.1.2",
+            "Versi" to "0.1.3",
             "Tahap" to "T1 \u2014 tema dan kerangka",
             "Paket" to "net.pure.manager",
             "Android" to "10\u201316",
@@ -752,6 +756,67 @@ private fun SettingsScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit, spe
             )
         }
     }
+    if (spec.chrome == ChromeStyle.GLASS) {
+        Spacer(Modifier.height(16.dp))
+        SectionLabel("EFEK KACA")
+        GroupCard(spec) {
+            ChoiceRow(
+                spec = spec,
+                label = "Blur di balik bar",
+                selected = prefs.blur,
+                onClick = { onPrefs(prefs.copy(blur = !prefs.blur)) },
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (!blurSupported) {
+                "Perangkat ini (Android ${android.os.Build.VERSION.SDK_INT}) belum mendukung " +
+                    "blur RenderEffect. Yang tampil adalah lapisan tembus pandang, " +
+                    "bukan kegagalan."
+            } else {
+                "Matikan kalau tampilan terasa berat atau bermasalah. " +
+                    "Bar akan memakai lapisan tembus pandang, bukan kabur."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = p.onSurfaceVariant,
+        )
+    }
+
+    Spacer(Modifier.height(16.dp))
+    SectionLabel("LAPORAN CRASH")
+    if (crash == null) {
+        Text(
+            "Belum ada crash tercatat sejak aplikasi ini dipasang.",
+            style = MaterialTheme.typography.bodySmall,
+            color = p.onSurfaceVariant,
+        )
+    } else {
+        GroupCard(spec) {
+            Text(
+                crash!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = p.onBackground,
+                modifier = Modifier.padding(14.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PillButton("Salin") {
+                clipboard.setText(androidx.compose.ui.text.AnnotatedString(crash!!))
+            }
+            PillButton("Hapus") {
+                PureCrash.clear(context)
+                crash = null
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Tidak dikirim ke mana pun. Tekan Salin, lalu tempel di chat.",
+            style = MaterialTheme.typography.bodySmall,
+            color = p.onSurfaceVariant,
+        )
+    }
+
     Spacer(Modifier.height(16.dp))
     GroupCard(spec) {
         ChoiceRow(
@@ -811,6 +876,22 @@ private fun StepRow(
         StepButton("+", p.onAccent, onMore, filled = true)
     }
     Box(Modifier.fillMaxWidth().padding(start = 14.dp).height(0.5.dp).background(p.separator))
+}
+
+@Composable
+private fun PillButton(label: String, onClick: () -> Unit) {
+    val spec = LocalPureSpec.current
+    val p = spec.palette
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(spec.cornerDp.dp))
+            .background(p.surface)
+            .border(0.75.dp, p.separator, RoundedCornerShape(spec.cornerDp.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = p.accent)
+    }
 }
 
 @Composable
