@@ -63,8 +63,12 @@ jobs:
         working-directory: pure-manager
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pm-output"
+          # tee into the artifact directory as well: the run-log download endpoint
+          # returns EOF for this repo, so the compiler output has to travel with
+          # the artifact instead.
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
-            2>&1 | tee "$RUNNER_TEMP/build.log" | tail -40
+            2>&1 | tee "$RUNNER_TEMP/pm-output/build.log" | tail -40
 
       - name: Verify the APK
         run: |
