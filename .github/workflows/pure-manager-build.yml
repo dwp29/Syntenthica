@@ -391,7 +391,7 @@ jobs:
               "" \
               "Built from $GITHUB_SHA by run $GITHUB_RUN_ID." \
               "This branch is overwritten by every build and is never merged." \
-              "The APK is debug-key signed by AGP until the release keystore is wired in." \
+              "Signed with: ${KEYTAG} (certificate SHA-256 ${SIGNER:-unread})." \
               > README.md
             git add -A
             git commit -q -m "build: Pure Manager ${VERSION} APK (run $GITHUB_RUN_ID)"
