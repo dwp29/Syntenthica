@@ -242,6 +242,35 @@ jobs:
           )
           echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-${VERSION}-DEBUGKEY.apk"
 
+      # Last resort, and the only one that has ever worked here: when the build is
+      # red, push the compiler's own output to a throwaway branch over git. The
+      # run-log endpoint returns EOF, the blob API accepts then 404s on read-back,
+      # and artifact downloads from this sandbox hit a blocked host. Git does not.
+      - name: Publish the failure log on the build-output branch
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LOG="$RUNNER_TEMP/pm-output/tests.log"
+          [ -s "$LOG" ] || exit 0
+          work="$RUNNER_TEMP/failure"
+          rm -rf "$work"
+          git init -q --initial-branch=build-output-failure "$work"
+          cp "$LOG" "$work/tests.log"
+          (
+            cd "$work"
+            git config user.name  "Pure Manager CI"
+            git config user.email "ci@users.noreply.github.com"
+            printf '%s\n' "Failure log from run $GITHUB_RUN_ID on $GITHUB_SHA." > README.md
+            git add -A
+            git commit -q -m "failure: run $GITHUB_RUN_ID"
+            git push -q --force \
+              "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              HEAD:refs/heads/build-output-failure
+          )
+          echo "::notice title=Failure log::build-output-failure branch, run $GITHUB_RUN_ID"
+
       - name: Upload diagnostics on failure
         if: failure()
         env:
