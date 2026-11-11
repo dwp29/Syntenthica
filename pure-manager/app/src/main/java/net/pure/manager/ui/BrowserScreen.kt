@@ -1212,8 +1212,10 @@ private fun SecondaryButton(spec: PureThemeSpec, label: String, onClick: () -> U
     }
 }
 
+// internal, not private: the document viewer shows the same card when a file
+// cannot be read, and one empty-state style is better than two that drift.
 @Composable
-private fun MessageCard(spec: PureThemeSpec, title: String, body: String) {
+internal fun MessageCard(spec: PureThemeSpec, title: String, body: String) {
     val p = spec.palette
     GroupCard(spec) {
         Column(Modifier.padding(16.dp)) {
