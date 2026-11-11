@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d">
+<title>Pure Manager — Prototipe Tema</title>
+<style>
+/* ============================================================
+   Semua warna/bentuk lewat variabel. Satu set token, empat tema.
+   Ini persis arsitektur yang akan dipakai di aplikasi: komponen
+   tidak pernah tahu tema mana yang aktif.
+   ============================================================ */
+:root{
+  --bg:#F2F2F7; --surface:#FFFFFF; --surface2:#E4E4EA;
+  --text:#1C1C1E; --sub:#8E8E93; --accent:#007AFF;
+  --radius:16px; --radius-sm:12px; --row:54px; --pad:14px;
+  --border:transparent; --shadow:0 1px 3px rgba(0,0,0,.08);
+  --font:-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --gap:10px; --nav:tab;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;background:#0b0b0d;color:#fff;
+  font-family:var(--font);
+  padding-bottom:40px;
+}
+.wrap{max-width:520px;margin:0 auto;padding:14px}
+
+/* ---------- kontrol di atas (bukan bagian aplikasi) ---------- */
+.panel{
+  background:#15151a;border:1px solid #26262e;border-radius:14px;
+  padding:12px;margin-bottom:14px;
+}
+.panel h1{font-size:15px;margin:0 0 2px;font-weight:700;letter-spacing:-.2px}
+.panel p{font-size:11px;color:#8a8a92;margin:0 0 12px;line-height:1.45}
+.ctl{margin-bottom:10px}
+.ctl:last-child{margin-bottom:0}
+.ctl label{display:block;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:#7a7a84;margin-bottom:6px;font-weight:600}
+.seg{display:flex;gap:5px;flex-wrap:wrap}
+.seg button{
+  flex:1;min-width:64px;padding:9px 6px;border-radius:9px;cursor:pointer;
+  border:1px solid #2c2c36;background:#1c1c22;color:#b8b8c2;
+  font-size:11.5px;font-family:inherit;font-weight:600;transition:.15s;
+}
+.seg button[aria-pressed="true"]{
+  background:#fff;color:#111;border-color:#fff;
+}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:30px;height:30px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:.15s}
+.sw[aria-pressed="true"]{border-color:#fff;transform:scale(1.12)}
+.chk{display:flex;align-items:center;gap:8px;font-size:12px;color:#b8b8c2}
+.chk input{width:16px;height:16px;accent-color:#fff}
+
+/* ---------- kerangka HP ---------- */
+.phone{
+  border-radius:26px;overflow:hidden;background:var(--bg);
+  color:var(--text);border:1px solid #26262e;
+  transition:background .25s,color .25s;
+  min-height:600px;display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;padding:8px 16px 0;
+  font-size:11px;color:var(--sub);font-weight:600;
+}
+.content{flex:1;padding:0 var(--pad);overflow:hidden}
+
+.title{font-size:22px;font-weight:700;letter-spacing:-.5px;margin:10px 0 12px}
+.search{
+  display:flex;align-items:center;gap:8px;height:34px;padding:0 11px;
+  background:var(--surface2);border-radius:var(--radius-sm);
+  color:var(--sub);font-size:12.5px;margin-bottom:14px;
+}
+
+.rows{display:flex;flex-direction:column;gap:var(--gap)}
+.row{
+  display:flex;align-items:center;gap:11px;height:var(--row);
+  background:var(--surface);border-radius:var(--radius-sm);
+  padding:0 12px;box-shadow:var(--shadow);
+  border:1px solid var(--border);
+  transition:transform .12s,background .2s;
+}
+.row:active{transform:scale(.985)}
+.ico{
+  width:30px;height:30px;border-radius:8px;flex:none;
+  display:grid;place-items:center;font-size:11px;font-weight:700;
+  background:var(--accent);color:#fff;
+}
+.meta{flex:1;min-width:0}
+.name{font-size:13px;font-weight:600;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.size{font-size:11px;color:var(--sub);margin-top:1px}
+.chev{color:var(--sub);font-size:16px}
+
+/* ---------- navigasi ---------- */
+.nav{margin-top:auto;border-top:1px solid var(--border)}
+.nav.tab{display:flex;justify-content:space-around;padding:9px 0 14px;
+  background:var(--surface)}
+.nav.rail{position:absolute;left:0;top:64px;bottom:0;width:46px;
+  display:flex;flex-direction:column;gap:6px;padding:14px 0;
+  background:var(--surface2);border-right:1px solid var(--border)}
+.nav.rail ~ .content{padding-left:56px}
+.nav.cmd{padding:9px 14px;font-family:var(--mono);font-size:10px;
+  color:var(--accent);background:var(--surface);letter-spacing:.02em}
+.navitem{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:9.5px;color:var(--sub);font-weight:600;padding:4px 9px;
+  border-radius:14px;cursor:pointer;
+}
+.navitem.on{color:var(--accent)}
+.nav.rail .navitem{font-size:15px;padding:7px 0;border-radius:0;width:100%}
+.nav.rail .navitem .lab{display:none}
+
+/* ---------- sheet AI ---------- */
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:20;
+  background:var(--surface);border-radius:20px 20px 0 0;
+  border-top:1px solid var(--border);
+  padding:14px 14px 22px;transform:translateY(101%);
+  transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 -8px 40px rgba(0,0,0,.35);
+}
+.sheet.open{transform:translateY(0)}
+.grab{width:34px;height:4px;border-radius:2px;background:var(--sub);
+  opacity:.5;margin:0 auto 12px}
+.sheet h3{margin:0 0 3px;font-size:14px}
+.sheet .hint{font-size:11px;color:var(--sub);margin:0 0 12px}
+.agent{
+  display:flex;align-items:center;gap:10px;padding:11px 12px;
+  border-radius:11px;border:1px solid var(--border);
+  background:var(--surface2);margin-bottom:8px;cursor:pointer;
+}
+.agent .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.agent .nm{font-size:12.5px;font-weight:600}
+.agent .ds{font-size:10.5px;color:var(--sub);margin-top:1px}
+.badge{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.04em;
+  padding:3px 7px;border-radius:20px;background:var(--accent);color:#fff;
+  white-space:nowrap}
+.badge.off{background:var(--sub)}
+.overlay{
+  position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:10;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.on{opacity:1;pointer-events:auto}
+
+.note{
+  font-size:11px;color:#8a8a92;line-height:1.55;margin-top:12px;
+  padding-top:12px;border-top:1px solid #26262e;
+}
+.note b{color:#d8d8e0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="panel">
+    <h1>Pure Manager — prototipe interaktif</h1>
+    <p>Ketuk untuk ganti tema, mode, aksen. Tekan lama salah satu berkas untuk melihat menu AI.</p>
+
+    <div class="ctl">
+      <label>Tema</label>
+      <div class="seg" id="themes">
+        <button data-theme="ios" aria-pressed="true">iOS</button>
+        <button data-theme="pixel" aria-pressed="false">Pixel</button>
+        <button data-theme="win" aria-pressed="false">Windows</button>
+        <button data-theme="cyber" aria-pressed="false">Cyberpunk</button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <label>Mode</label>
+      <div class="seg" id="modes">
+        <button data-mode="light" aria-pressed="false">Light</button>
+        <button data-mode="dark" aria-pressed="true">Dark</button>
+        <button data-mode="amoled" aria-pressed="false">AMOLED</button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <label>Aksen</label>
+      <div class="swatches" id="accents">
+        <div class="sw" data-accent="#007AFF" style="background:#007AFF"></div>
+        <div class="sw" data-accent="#8B5CF6" style="background:#8B5CF6"></div>
+        <div class="sw" data-accent="#10B981" style="background:#10B981"></div>
+        <div class="sw" data-accent="#F59E0B" style="background:#F59E0B"></div>
+        <div class="sw" data-accent="#EF4444" style="background:#EF4444"></div>
+        <div class="sw" data-accent="#EC4899" style="background:#EC4899"></div>
+        <div class="sw" data-accent="#00F0FF" style="background:#00F0FF"></div>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <label>Tampilan</label>
+      <div class="seg" id="density">
+        <button data-density="normal" aria-pressed="true">Normal</button>
+        <button data-density="compact" aria-pressed="false">Padat</button>
+      </div>
+    </div>
+
+    <div class="ctl">
+      <label class="chk"><input type="checkbox" id="anim" checked> Animasi aktif</label>
+    </div>
+  </div>
+
+  <!-- ================= HP ================= -->
+  <div class="phone" id="phone">
+    <div class="statusbar"><span>09:41</span><span>▮▮▮ 87%</span></div>
+
+    <div class="nav" id="nav">
+      <div class="navitem on"><span>▤</span><span class="lab">Berkas</span></div>
+      <div class="navitem"><span>◈</span><span class="lab">Tema</span></div>
+      <div class="navitem"><span>✦</span><span class="lab">AI</span></div>
+      <div class="navitem"><span>⚙</span><span class="lab">Setelan</span></div>
+    </div>
+
+    <div class="content">
+      <div class="title" id="title">Berkas</div>
+      <div class="search"><span>⌕</span><span>Cari berkas</span></div>
+
+      <div class="rows" id="rows"></div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="sheet" id="sheet">
+      <div class="grab"></div>
+      <h3 id="sheetTitle">Retro-Arcade.apk</h3>
+      <p class="hint">Apa yang ingin dilakukan dengan berkas ini?</p>
+
+      <div class="agent" data-agent="edit">
+        <span class="dot" style="background:#10B981"></span>
+        <div><div class="nm">Edit gambar / berkas</div>
+          <div class="ds">Crop, filter, hapus background</div></div>
+        <span class="badge">Lokal</span>
+      </div>
+
+      <div class="agent" data-agent="local">
+        <span class="dot" style="background:#F59E0B"></span>
+        <div><div class="nm">Gemini Nano (on-device)</div>
+          <div class="ds" id="nanoDesc">Memeriksa perangkat…</div></div>
+        <span class="badge off" id="nanoBadge">—</span>
+      </div>
+
+      <div class="agent" data-agent="cloud">
+        <span class="dot" style="background:#007AFF"></span>
+        <div><div class="nm">AI gratis (cloud)</div>
+          <div class="ds">Butuh API key milikmu sendiri</div></div>
+        <span class="badge">BYOK</span>
+      </div>
+
+      <div class="agent" data-agent="rename">
+        <span class="dot" style="background:#8B5CF6"></span>
+        <div><div class="nm">Beri nama otomatis</div>
+          <div class="ds">Baca isi berkas, usulkan nama</div></div>
+        <span class="badge">Lokal</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    <b>Catatan penting:</b> prototipe ini hanya HTML/CSS — bukan aplikasi Android.
+    Tujuannya agar Anda bisa menilai tema dan alur AI langsung di browser HP,
+    tanpa perlu memasang APK. Warna, radius, kepadatan, dan model navigasi di sini
+    adalah token yang sama yang akan dipakai di aplikasi.
+  </p>
+</div>
+
+<script>
+/* Token per tema: bukan sekadar warna, tapi bentuk dan ritme. */
+const THEMES = {
+  ios: {
+    light:{bg:'#F2F2F7',surface:'#FFFFFF',surface2:'#E4E4EA',text:'#1C1C1E',sub:'#8E8E93',border:'transparent',shadow:'0 1px 3px rgba(0,0,0,.08)'},
+    dark:{bg:'#000000',surface:'#1C1C1E',surface2:'#2C2C2E',text:'#FFFFFF',sub:'#98989F',border:'transparent',shadow:'none'},
+    amoled:{bg:'#000000',surface:'#0E0E10',surface2:'#1A1A1C',text:'#FFFFFF',sub:'#98989F',border:'#2A2A2E',shadow:'none'}
+  },
+  pixel: {
+    light:{bg:'#FFFBFE',surface:'#F3EDF7',surface2:'#E8DEF8',text:'#1C1B1F',sub:'#79747E',border:'transparent',shadow:'none'},
+    dark:{bg:'#141218',surface:'#211F26',surface2:'#2B2930',text:'#E6E0E9',sub:'#938F99',border:'transparent',shadow:'none'},
+    amoled:{bg:'#000000',surface:'#101014',surface2:'#1C1B20',text:'#E6E0E9',sub:'#938F99',border:'#2B2930',shadow:'none'}
+  },
+  win: {
+    light:{bg:'#F3F3F3',surface:'#FFFFFF',surface2:'#EAEAEA',text:'#1A1A1A',sub:'#5D5D5D',border:'#D6D6D6',shadow:'none'},
+    dark:{bg:'#202020',surface:'#2B2B2B',surface2:'#333333',text:'#FFFFFF',sub:'#A6A6A6',border:'#3D3D3D',shadow:'none'},
+    amoled:{bg:'#000000',surface:'#141414',surface2:'#1E1E1E',text:'#FFFFFF',sub:'#A6A6A6',border:'#2E2E2E',shadow:'none'}
+  },
+  cyber: {
+    light:{bg:'#F4F0FF',surface:'#FFFFFF',surface2:'#E9E0FF',text:'#12081F',sub:'#6B5B85',border:'#D5C2FF',shadow:'none'},
+    dark:{bg:'#08000F',surface:'#12081F',surface2:'#1B0E2E',text:'#E8FFFB',sub:'#7A6B8F',border:'#FF2E97',shadow:'none'},
+    amoled:{bg:'#000000',surface:'#07000D',surface2:'#12081F',text:'#E8FFFB',sub:'#7A6B8F',border:'#00F0FF',shadow:'none'}
+  }
+};
+const SHAPE = {
+  ios:{radius:'16px',radiusSm:'12px',row:'54px',pad:'14px',gap:'10px',
+       font:'-apple-system,"Segoe UI",Roboto,sans-serif',nav:'tab'},
+  pixel:{radius:'22px',radiusSm:'20px',row:'62px',pad:'16px',gap:'12px',
+       font:'Roboto,-apple-system,sans-serif',nav:'tab'},
+  win:{radius:'4px',radiusSm:'3px',row:'36px',pad:'8px',gap:'2px',
+       font:'"Segoe UI",Selawik,Roboto,sans-serif',nav:'rail'},
+  cyber:{radius:'3px',radiusSm:'2px',row:'32px',pad:'10px',gap:'3px',
+       font:'ui-monospace,"SF Mono",Menlo,monospace',nav:'cmd'}
+};
+
+const FILES = [
+  ['R','Retro-Arcade.apk','24.1 MB'],
+  ['Z','Manager-6.1.zip','18.7 MB'],
+  ['P','banner-review.png','640 KB'],
+  ['T','theme-signing.key','3.4 KB'],
+  ['A','voice-note.m4a','2.1 MB']
+];
+
+const root = document.documentElement;
+let state = {theme:'ios', mode:'dark', accent:'#007AFF', density:'normal', anim:true};
+let darkMode = true;
+
+function hexLuminance(hex){
+  const c = hex.replace('#','');
+  const r=parseInt(c.slice(0,2),16)/255, g=parseInt(c.slice(2,4),16)/255, b=parseInt(c.slice(4,6),16)/255;
+  const f = v => v<=.03928 ? v/12.92 : Math.pow((v+.055)/1.055,2.4);
+  return .2126*f(r)+.7152*f(g)+.0722*f(b);
+}
+
+function apply(){
+  const p = THEMES[state.theme][state.mode];
+  const sh = SHAPE[state.theme];
+  // Aksen harus tetap terbaca di atas latar. Kalau terlalu dekat, gelapkan/terangkan.
+  let accent = state.accent;
+  const bgLum = hexLuminance(p.bg);
+  const acLum = hexLuminance(accent);
+  if (Math.abs(bgLum-acLum) < 0.18) accent = bgLum > 0.5 ? '#0B4FD6' : '#7CD4FF';
+
+  root.style.setProperty('--bg',p.bg);
+  root.style.setProperty('--surface',p.surface);
+  root.style.setProperty('--surface2',p.surface2);
+  root.style.setProperty('--text',p.text);
+  root.style.setProperty('--sub',p.sub);
+  root.style.setProperty('--border',p.border);
+  root.style.setProperty('--shadow',p.shadow);
+  root.style.setProperty('--accent',accent);
+  root.style.setProperty('--radius',sh.radius);
+  root.style.setProperty('--radius-sm',sh.radiusSm);
+  root.style.setProperty('--row', state.density==='compact'
+      ? (parseInt(sh.row)-8)+'px' : sh.row);
+  root.style.setProperty('--pad',sh.pad);
+  root.style.setProperty('--gap', state.density==='compact'
+      ? '2px' : sh.gap);
+  root.style.setProperty('--font',sh.font);
+
+  document.getElementById('phone').style.transition =
+      state.anim ? 'background .25s,color .25s' : 'none';
+
+  // model navigasi ikut berubah, bukan hanya warna
+  const nav = document.getElementById('nav');
+  nav.className = 'nav ' + sh.nav;
+  if (sh.nav === 'cmd'){
+    nav.innerHTML = '<span>[F1] FILES</span> &nbsp;<span style="color:var(--sub)">[F2] ROOT</span>'
+      + ' &nbsp;<span style="color:var(--sub)">[F3] TERM</span>'
+      + ' &nbsp;<span style="color:var(--sub)">[F4] NET</span>';
+  } else {
+    nav.innerHTML = ['▤|Berkas','◈|Tema','✦|AI','⚙|Setelan']
+      .map((s,i)=>`<div class="navitem${i===0?' on':''}"><span>${s.split('|')[0]}</span>`
+        +`<span class="lab">${s.split('|')[1]}</span></div>`).join('');
+  }
+
+  renderRows();
+  document.querySelectorAll('#themes button').forEach(b=>
+    b.setAttribute('aria-pressed', b.dataset.theme===state.theme));
+  document.querySelectorAll('#modes button').forEach(b=>
+    b.setAttribute('aria-pressed', b.dataset.mode===state.mode));
+  document.querySelectorAll('#density button').forEach(b=>
+    b.setAttribute('aria-pressed', b.dataset.density===state.density));
+  document.querySelectorAll('.sw').forEach(s=>
+    s.setAttribute('aria-pressed', s.dataset.accent===state.accent));
+}
+
+function renderRows(){
+  const host = document.getElementById('rows');
+  host.innerHTML = FILES.map(([l,n,s])=>`
+    <div class="row" data-name="${n}">
+      <span class="ico">${l}</span>
+      <div class="meta"><div class="name">${n}</div><div class="size">${s}</div></div>
+      <span class="chev">›</span>
+    </div>`).join('');
+  host.querySelectorAll('.row').forEach(r=>{
+    let t;
+    const open = ()=>{ showSheet(r.dataset.name); };
+    r.addEventListener('touchstart',e=>{ t=setTimeout(open,420); },{passive:true});
+    r.addEventListener('touchend',()=>clearTimeout(t));
+    r.addEventListener('touchmove',()=>clearTimeout(t));
+    r.addEventListener('contextmenu',e=>{e.preventDefault();open();});
+    r.addEventListener('click',open);
+  });
+}
+
+function showSheet(name){
+  document.getElementById('sheetTitle').textContent = name;
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('overlay').classList.add('on');
+  checkNano();
+}
+function hideSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('overlay').classList.remove('on');
+}
+document.getElementById('overlay').onclick = hideSheet;
+
+/* Deteksi Gemini Nano yang sebenarnya: kalau peramban ini di Android,
+   kami tidak bisa membaca AICore, jadi ini menampilkan logika yang akan
+   dipakai aplikasi: ada / tidak ada / perlu unduh. */
+function checkNano(){
+  const badge = document.getElementById('nanoBadge');
+  const desc  = document.getElementById('nanoDesc');
+  const ua = navigator.userAgent;
+  const isAndroid = /Android/i.test(ua);
+  // Aplikasi akan memanggil GenerativeModel.checkStatus() dari ML Kit.
+  if (!isAndroid){
+    badge.textContent = 'N/A'; badge.className='badge off';
+    desc.textContent = 'Bukan Android — tidak tersedia';
+  } else {
+    badge.textContent = 'CEK'; badge.className='badge off';
+    desc.textContent = 'Diperiksa saat aplikasi dijalankan (bukan di browser)';
+  }
+}
+
+document.querySelectorAll('#themes button').forEach(b=>b.onclick=()=>{
+  state.theme=b.dataset.theme; apply();});
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{
+  state.mode=b.dataset.mode; apply();});
+document.querySelectorAll('#density button').forEach(b=>b.onclick=()=>{
+  state.density=b.dataset.density; apply();});
+document.querySelectorAll('.sw').forEach(s=>s.onclick=()=>{
+  state.accent=s.dataset.accent; apply();});
+document.getElementById('anim').onchange=e=>{
+  state.anim=e.target.checked;
+  document.documentElement.style.setProperty('--motion', state.anim?'1':'0');
+  apply();};
+
+apply();
+</script>
+</body>
+</html>
