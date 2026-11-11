@@ -145,6 +145,33 @@ private fun cyber(mode: AppMode, accent: Color) = when (mode) {
     )
 }
 
+/**
+ * The themes the Customisation tab offers, in display order.
+ *
+ * Screens read this list; they never compare `themeId` against a string. That is
+ * the same rule the rest of the token system follows, and it is why adding a
+ * fifth theme later touches this file and nothing else.
+ */
+data class ThemeRef(
+    val id: String,
+    val label: String,
+    val nav: NavModel,
+    /** Shown in the picker: the theme's accent-on-surface, not its background. */
+    val swatch: Color,
+    val note: String,
+)
+
+val ThemeCatalog: List<ThemeRef> = listOf(
+    ThemeRef("ios", "iOS", NavModel.TAB_BAR, Color(0xFF007AFF),
+        "Tab bar bawah, sudut membulat, baris lega"),
+    ThemeRef("pixel", "Pixel", NavModel.TAB_BAR, Color(0xFF8B5CF6),
+        "Material 3, pil indikator, sudut besar"),
+    ThemeRef("windows", "Windows", NavModel.RAIL, Color(0xFF00A4EF),
+        "Rail kiri, baris rapat, sudut nyaris tegak"),
+    ThemeRef("cyber", "Cyberpunk", NavModel.COMMAND_BAR, Color(0xFFFF2E97),
+        "Command bar F1–F4, monospace, garis neon"),
+)
+
 /** Accent choices offered by the Customisation tab. */
 val AccentChoices: List<Pair<String, Color>> = listOf(
     "Biru" to Color(0xFF007AFF),
@@ -202,25 +229,41 @@ fun shapesFor(spec: PureThemeSpec) = Shapes(
 )
 
 fun typographyFor(spec: PureThemeSpec, scale: Float = 1f) = Typography().let { base ->
-    // Only the roles this build actually uses are restated, so a future type-scale
-    // change stays in one place instead of being sprinkled through screens.
+    // Every role the UI uses is restated here, because the shell reads its text
+    // sizes from MaterialTheme.typography rather than hardcoding sp values. That
+    // is what makes the density slider in the Customisation tab mean anything --
+    // the previous version set four roles that no composable ever read, so the
+    // slider was decoration.
+    val f = spec.fontFamily
+    fun fixed(size: Float) = (size * scale).sp
     base.copy(
+        headlineMedium = base.headlineMedium.copy(
+            fontFamily = f, fontWeight = FontWeight.Bold,
+            fontSize = fixed(26f), lineHeight = fixed(32f),
+        ),
         titleLarge = base.titleLarge.copy(
-            fontFamily = spec.fontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = (22 * scale).sp,
+            fontFamily = f, fontWeight = FontWeight.Bold,
+            fontSize = fixed(19f), lineHeight = fixed(24f),
+        ),
+        titleMedium = base.titleMedium.copy(
+            fontFamily = f, fontWeight = FontWeight.SemiBold,
+            fontSize = fixed(16f), lineHeight = fixed(21f),
         ),
         bodyLarge = base.bodyLarge.copy(
-            fontFamily = spec.fontFamily,
-            fontSize = (14 * scale).sp,
+            fontFamily = f, fontSize = fixed(15.5f), lineHeight = fixed(21f),
+        ),
+        bodyMedium = base.bodyMedium.copy(
+            fontFamily = f, fontSize = fixed(14f), lineHeight = fixed(19f),
         ),
         bodySmall = base.bodySmall.copy(
-            fontFamily = spec.fontFamily,
-            fontSize = (11 * scale).sp,
+            fontFamily = f, fontSize = fixed(12.5f), lineHeight = fixed(17f),
+        ),
+        labelMedium = base.labelMedium.copy(
+            fontFamily = f, fontWeight = FontWeight.Medium,
+            fontSize = fixed(11.5f), lineHeight = fixed(15f),
         ),
         labelSmall = base.labelSmall.copy(
-            fontFamily = spec.fontFamily,
-            fontSize = (9.5 * scale).sp,
+            fontFamily = f, fontSize = fixed(10.5f), lineHeight = fixed(13f),
         ),
     )
 }

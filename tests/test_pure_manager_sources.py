@@ -197,6 +197,63 @@ class UnresolvedReferences(unittest.TestCase):
         self.assertEqual([], problems, "\n".join(problems))
 
 
+class Interactions(unittest.TestCase):
+    """The bug the owner found on a device: nothing could be tapped.
+
+    Build 0.1.0 compiled cleanly, installed, opened, and was completely inert.
+    onPrefs was declared on PureShell and never called; there was not one
+    clickable modifier in the file. A compiler cannot see that, and neither could
+    any of the checks above, so it is pinned here.
+    """
+
+    def setUp(self):
+        self.shell = (SRC / "net/pure/manager/ui/PureShell.kt").read_text()
+
+    def test_the_shell_actually_calls_back(self):
+        self.assertIn("onPrefs(", self.shell,
+                      "onPrefs is declared but never invoked; every control is inert")
+        calls = [l for l in self.shell.splitlines()
+                 if "onPrefs(" in l and "onPrefs:" not in l]
+        self.assertGreaterEqual(len(calls), 5, "expected the theme controls to write prefs")
+
+    def test_there_are_tappable_elements(self):
+        # Counting `.clickable` understates it: OptionRow and StepButton each hold
+        # one and are reused. Count the reusable rows plus the raw modifiers.
+        direct = self.shell.count(".clickable")
+        reused = self.shell.count("OptionRow(") + self.shell.count("StepButton(") \
+            - 2  # the two declarations
+        self.assertGreaterEqual(direct + reused, 12,
+                                f"{direct} direct clicks and {reused} reused rows")
+
+    def test_all_four_screens_are_reachable(self):
+        for label in ("Berkas", "Tema", "Modul", "Setelan"):
+            self.assertIn(label, self.shell, f"screen {label} missing")
+        self.assertIn("Screen.entries", self.shell,
+                      "navigation must be generated from the screen list, not hand-wired")
+
+    def test_scrollable_content(self):
+        self.assertIn("verticalScroll", self.shell,
+                      "content longer than the viewport would be unreachable")
+
+    def test_no_hardcoded_font_sizes(self):
+        """Build 0.1.0 hardcoded 8.5.sp-22.sp, bypassing the type ramp entirely."""
+        matches = re.findall(r"fontSize\s*=", self.shell)
+        self.assertEqual([], matches,
+                         "text sizes must come from MaterialTheme.typography")
+
+    def test_system_insets_are_applied(self):
+        """Edge-to-edge without insets put the title under the status bar."""
+        self.assertIn("LocalSystemInsets", self.shell)
+        self.assertGreaterEqual(self.shell.count("insets.top"), 2)
+        self.assertGreaterEqual(self.shell.count("insets.bottom"), 2)
+
+    def test_type_ramp_is_scaled(self):
+        tokens = (SRC / "net/pure/manager/theme/Tokens.kt").read_text()
+        for role in ("headlineMedium", "titleLarge", "bodyLarge", "bodySmall", "labelMedium"):
+            self.assertIn(role, tokens, f"{role} is not restated in typographyFor")
+        self.assertIn("scale)", tokens, "typographyFor ignores its scale argument")
+
+
 class ManifestAndGradle(unittest.TestCase):
     def test_manifest_does_not_request_all_files_on_a_build_that_cannot_use_it(self):
         manifest = (ROOT / "pure-manager/app/src/main/AndroidManifest.xml").read_text()
