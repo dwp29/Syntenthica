@@ -91,22 +91,41 @@ jobs:
           sha256sum "$OUT/PureManager-0.1.0-UNSIGNED.apk" | tee "$OUT/SHA256.txt"
           echo "::notice title=Unsigned Pure Manager SHA256::$(cut -d' ' -f1 "$OUT/SHA256.txt")"
 
-      - name: Store unsigned APK as a git blob
+      # The APK is 11 MB. Blob-then-notice works for a 25 KB log but not for this:
+      # the blob API accepts the upload and the blob is then unreadable (404 on
+      # read-back), and artifacts come from a host that returns EOF. Committing the
+      # APK to a throwaway branch uses the plain git transport, which is the one
+      # path proven to work for this repository. It is not merged anywhere and is
+      # replaced on every build, so nothing accumulates in history.
+      - name: Publish the APK on the build-output branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import base64, json, os, pathlib
-          t = pathlib.Path(os.environ['RUNNER_TEMP'])
-          apk = t / 'pm-output/PureManager-0.1.0-UNSIGNED.apk'
-          (t / 'blob.json').write_text(json.dumps({
-              'content': base64.b64encode(apk.read_bytes()).decode(),
-              'encoding': 'base64'}))
-          PY
-          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST \
-                  --input "$RUNNER_TEMP/blob.json" --jq .sha)
-          echo "::notice title=Unsigned Pure Manager blob::$blob"
+          APK="$RUNNER_TEMP/pm-output/PureManager-0.1.0-UNSIGNED.apk"
+          test -s "$APK"
+          work="$RUNNER_TEMP/publish"
+          rm -rf "$work"
+          git init -q --initial-branch=build-output "$work"
+          cp "$APK" "$work/PureManager-0.1.0-UNSIGNED.apk"
+          (
+            cd "$work"
+            git config user.name  "Pure Manager CI"
+            git config user.email "ci@users.noreply.github.com"
+            printf '%s\n' \
+              "Pure Manager 0.1.0 — unsigned release APK" \
+              "" \
+              "Built from $GITHUB_SHA by run $GITHUB_RUN_ID." \
+              "This branch is overwritten by every build and is never merged." \
+              "The APK is debug-key signed by AGP until the release keystore is wired in." \
+              > README.md
+            git add -A
+            git commit -q -m "build: Pure Manager 0.1.0 unsigned APK (run $GITHUB_RUN_ID)"
+            git push -q --force \
+              "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              HEAD:refs/heads/build-output
+          )
+          echo "::notice title=Unsigned Pure Manager APK::https://github.com/${GITHUB_REPOSITORY}/raw/build-output/PureManager-0.1.0-UNSIGNED.apk"
 
       - name: Upload diagnostics on failure
         if: failure()
