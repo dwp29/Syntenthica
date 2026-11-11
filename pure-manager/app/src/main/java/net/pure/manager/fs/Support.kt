@@ -30,7 +30,15 @@ object Support {
      */
     fun parentOf(path: String): String? {
         if (path.isEmpty()) return null
-        if (!isDocumentUri(path)) return File(path).parentFile?.absolutePath
+        if (!isDocumentUri(path)) {
+            val parent = File(path).parentFile?.absolutePath ?: return null
+            // The volume root is not a place to browse. /storage and /storage/emulated
+            // contain every user's storage and nothing the app should list; letting
+            // "up" walk into them shows an empty folder with no way to tell it apart
+            // from a broken one. A JVM test found this by asserting that the volume
+            // root has no parent -- true in the UI, false for java.io.File.
+            return if (parent in WALLS) null else parent
+        }
 
         val marker = path.lastIndexOf("/document/")
         if (marker < 0) return null
@@ -187,6 +195,9 @@ object Support {
         }
         return String(bytes.toByteArray(), Charsets.UTF_8)
     }
+
+    /** Paths that are containers, not places: "up" stops below them. */
+    private val WALLS = setOf("/", "/storage", "/storage/emulated", "/mnt", "/mnt/media_rw", "/data")
 
     private val HEX = "0123456789ABCDEF".toCharArray()
 }

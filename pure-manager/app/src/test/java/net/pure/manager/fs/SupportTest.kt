@@ -23,7 +23,21 @@ class SupportTest {
 
     @Test
     fun `parent of the volume root is null`() {
+        // This failed on the real run: java.io.File says the parent of
+        // /storage/emulated/0 is /storage/emulated, a container holding every
+        // user's storage rather than a folder. The wall list is what stops "up"
+        // from leaving user storage entirely.
         assertNull(Support.parentOf("/storage/emulated/0"))
+    }
+
+    @Test
+    fun `a folder inside user storage still has a parent`() {
+        assertEquals("/storage/emulated/0", Support.parentOf("/storage/emulated/0/DCIM"))
+    }
+
+    @Test
+    fun `the filesystem root is a wall`() {
+        assertNull(Support.parentOf("/"))
     }
 
     @Test

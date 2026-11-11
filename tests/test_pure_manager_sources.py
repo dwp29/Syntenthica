@@ -627,6 +627,17 @@ class BasicFileManagerDuties(unittest.TestCase):
         self.assertIn("showPlaces = true", browser)
         self.assertIn("fun places(context: Context", storage)
 
+    def test_up_never_leaves_user_storage(self):
+        """A JVM test on the real run showed "up" walking to /storage/emulated.
+
+        /storage holds every user's storage; listing it shows an empty folder that
+        cannot be told apart from a broken one.
+        """
+        support = (SRC / "net/pure/manager/fs/Support.kt").read_text()
+        self.assertIn("WALLS", support)
+        for wall in ("/storage/emulated", "/storage", "/"):
+            self.assertIn(f'"{wall}"', support)
+
     def test_up_button_changes_the_path(self):
         """The old SAF branch returned its own argument, so up did nothing.
 
