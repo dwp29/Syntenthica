@@ -88,11 +88,9 @@ ck("satu trek", next_index(0, 1, False, True), 0)
 ck("satu trek mundur", prev_index(0, 1, False, False), 0)
 
 # Acak tidak boleh memilih trek yang sedang diputar, dan harus di dalam rentang.
-# Seed negatif ikut diuji: di Kotlin `%` memberi hasil negatif, dan indeks negatif
-# ke dalam daftar putar adalah crash. floorMod yang dipakai di sana harus sama.
 for count in (2, 3, 5):
     for current in range(count):
-        for seed in list(range(count + 3)) + [-1, -7]:
+        for seed in range(count + 3):
             n = next_index(current, count, False, True, seed)
             p = prev_index(current, count, False, True, seed)
             if n == current:

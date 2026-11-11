@@ -143,10 +143,14 @@ fun clampZoom(
     // can be zoomed and then never moved.
     val maxX = (viewportWidth * (scale - 1f) / 2f).coerceAtLeast(0f)
     val maxY = (viewportHeight * (scale - 1f) / 2f).coerceAtLeast(0f)
-    return state.copy(
+    // `+ 0f` turns a negative zero into a positive one. `coerceIn(-0f, 0f)` returns
+    // -0.0f, and `Float.equals` -- which is what a JUnit assert uses -- says -0.0f is
+    // not 0.0f, so a perfectly centred image failed an equality test. It also means
+    // any later `1f / offset` is negative infinity instead of positive.
+    return ZoomState(
         scale = scale,
-        offsetX = state.offsetX.coerceIn(-maxX, maxX),
-        offsetY = state.offsetY.coerceIn(-maxY, maxY),
+        offsetX = state.offsetX.coerceIn(-maxX, maxX) + 0f,
+        offsetY = state.offsetY.coerceIn(-maxY, maxY) + 0f,
     )
 }
 
