@@ -62,7 +62,14 @@ object Archive {
         if (!root.isDirectory && !root.mkdirs()) throw IOException("Folder tujuan tidak bisa dibuat")
 
         ZipFile(file).use { zip ->
-            val entries = zip.entries().toList().filterNot { it.isUnsafe() }
+            val all = zip.entries().toList()
+            // Refusing the archive beats skipping entries. Skipping would return a
+            // success with files missing, which is the kind of quiet damage the user
+            // only notices when they need the missing file.
+            if (all.any { it.isUnsafe() }) {
+                throw IOException("Arsip berisi jalur yang keluar dari folder tujuan")
+            }
+            val entries = all
             val total = entries.filterNot { it.isDirectory }.sumOf { it.size.coerceAtLeast(0L) }
             var done = 0L
             var written = 0

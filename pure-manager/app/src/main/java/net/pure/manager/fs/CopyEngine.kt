@@ -95,31 +95,41 @@ object CopyEngine {
             val src = File(source)
             val result = runCatching {
                 if (!src.exists()) throw IOException("Sumber tidak ditemukan")
-                Support.invalidDestination(src.absolutePath, dir.absolutePath)?.let {
-                    throw IOException(it)
-                }
                 val taken = dir.list()?.toSet().orEmpty()
                 val target = File(dir, uniqueName(src.name, taken, src.isDirectory))
+                // The destination check has to compare against the name that will
+                // actually be written. "Salin src ke src" is only caught by accident
+                // when the suffix rule fires first, and it fires whenever there is a
+                // collision -- so check the resolved target, not the folder.
+                Support.invalidDestination(src.absolutePath, target.absolutePath)?.let {
+                    throw IOException(it)
+                }
                 if (move && src.renameTo(target)) {
                     doneBytes += sizes[index]
                     doneFiles += fileCounts[index]
                     target
                 } else {
-                    copyTree(src, target, cancelled) { chunkBytes, name ->
-                        doneBytes += chunkBytes
-                        onProgress(
-                            Progress(
-                                bytesDone = doneBytes,
-                                bytesTotal = totalBytes,
-                                filesDone = doneFiles,
-                                filesTotal = totalFiles,
-                                currentName = name,
-                            ),
-                        )
-                    }
-                    if (cancelled()) {
+                    // A cancelled tree copy throws from inside, so the cleanup cannot
+                    // live after the call -- it would be unreachable, which is exactly
+                    // what happened on the device test. It is caught here instead.
+                    try {
+                        copyTree(src, target, cancelled) { chunkBytes, name ->
+                            doneBytes += chunkBytes
+                            onProgress(
+                                Progress(
+                                    bytesDone = doneBytes,
+                                    bytesTotal = totalBytes,
+                                    filesDone = doneFiles,
+                                    filesTotal = totalFiles,
+                                    currentName = name,
+                                ),
+                            )
+                        }
+                    } catch (stop: Cancelled) {
+                        // Only remove what this copy created: `target` is a name that
+                        // did not exist before, because uniqueName picked it.
                         runCatching { deleteTree(target) }
-                        throw Cancelled()
+                        throw stop
                     }
                     if (move && !deleteTree(src)) {
                         throw IOException("Tersalin, tapi sumber tidak terhapus")

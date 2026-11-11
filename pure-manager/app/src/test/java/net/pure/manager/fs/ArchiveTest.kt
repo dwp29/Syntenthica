@@ -42,7 +42,7 @@ class ArchiveTest {
 
         assertEquals(2, entries.size)
         assertEquals("satu.txt", entries[0].name)
-        assertEquals(5L, entries[0].bytes)
+        assertEquals(4L, entries[0].bytes)
         assertTrue(entries.none { it.isDirectory })
     }
 

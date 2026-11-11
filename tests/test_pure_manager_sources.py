@@ -768,6 +768,27 @@ class ManifestAndGradle(unittest.TestCase):
                 problems.append(f"{f.name}:{line} empty lambda for a callback with parameters")
         self.assertEqual([], problems, "\n".join(problems))
 
+    def test_a_dangerous_archive_is_refused_not_partly_extracted(self):
+        """Skipping bad entries returns success with files missing.
+
+        The first version filtered unsafe entries out of the extract loop, which
+        made 'an archive that climbs out' extract the safe half and report success.
+        A zip is an all-or-nothing decision.
+        """
+        archive = (SRC / "net/pure/manager/fs/Archive.kt").read_text()
+        body = archive[archive.index("fun extract("):]
+        body = body[:body.index("private fun ZipEntry.isUnsafe")]
+        self.assertIn("any { it.isUnsafe() }", body)
+        self.assertNotIn("filterNot { it.isUnsafe() }", body)
+
+    def test_the_copy_engine_checks_the_name_it_will_write(self):
+        """Checking the folder instead of the resolved target let a folder copy into itself."""
+        engine = (SRC / "net/pure/manager/fs/CopyEngine.kt").read_text()
+        body = engine[engine.index("private fun copyOrMove("):]
+        check = body.index("invalidDestination(")
+        resolved = body.index("val target = File(")
+        self.assertLess(resolved, check, "the destination check must use the resolved target")
+
     def test_a_named_lambda_never_reaches_for_it(self):
         """Build 20: `sources.map { source -> ... File(it) }` does not compile.
 
