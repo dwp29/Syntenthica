@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import net.pure.manager.theme.PureTheme
 import net.pure.manager.theme.ThemePrefs
+import net.pure.manager.theme.ThemePrefsSaver
 import net.pure.manager.ui.PureShell
 
 class MainActivity : ComponentActivity() {

@@ -147,6 +147,56 @@ class KnownApiTraps(unittest.TestCase):
                                   f"never matches {line.strip()}")
 
 
+class UnresolvedReferences(unittest.TestCase):
+    """The failure that actually broke build #4.
+
+    Kotlin fails with `Unresolved reference` when a type from a sibling package is
+    used but not imported. That is a one-line mistake with a 2.5-minute feedback
+    loop, and the whole reason build #4 was red: MainActivity used ThemePrefsSaver
+    without importing it. This walks every project type and checks each use site
+    is either imported, co-located, or fully qualified.
+    """
+
+    DECL = re.compile(
+        r"(?m)^\s*(?:private |internal |public )?"
+        r"(?:data |sealed |enum |abstract |open )?"
+        r"(?:class|object|interface|typealias) (\w+)"
+    )
+    TOPVAL = re.compile(r"(?m)^(?:private |internal |public )?val (\w+)\s*[:=]")
+
+    def declarations(self):
+        """name -> package, for every exported type and top-level val."""
+        found = {}
+        for f in kt_files():
+            text = f.read_text()
+            pkg = re.search(r"(?m)^package ([\w.]+)", text).group(1)
+            for name in self.DECL.findall(text) + self.TOPVAL.findall(text):
+                found[name] = (pkg, f.name)
+        return found
+
+    def test_project_types_are_imported_where_used(self):
+        decls = self.declarations()
+        problems = []
+        for f in kt_files():
+            text = f.read_text()
+            pkg = re.search(r"(?m)^package ([\w.]+)", text).group(1)
+            imports = set(re.findall(r"(?m)^import ([\w.]+)", text))
+            body = re.sub(r"(?m)^import .*$", "", text)
+            body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+            body = re.sub(r"//[^\n]*", "", body)
+            for name, (home_pkg, home_file) in decls.items():
+                if home_pkg == pkg or home_file == f.name:
+                    continue
+                if not re.search(r"\b" + name + r"\b", body):
+                    continue
+                if f"{home_pkg}.{name}" in imports:
+                    continue
+                if re.search(r"\b" + home_pkg + r"\." + name, body):
+                    continue  # fully qualified at the use site
+                problems.append(f"{f.name}: uses {name} (from {home_pkg}) without import")
+        self.assertEqual([], problems, "\n".join(problems))
+
+
 class ManifestAndGradle(unittest.TestCase):
     def test_manifest_does_not_request_all_files_on_a_build_that_cannot_use_it(self):
         manifest = (ROOT / "pure-manager/app/src/main/AndroidManifest.xml").read_text()
