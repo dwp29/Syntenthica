@@ -84,8 +84,15 @@ jobs:
           # remaining seven were tried -- which is exactly what happened on three
           # consecutive runs while the report looked plausible.
           set -uo pipefail
+          # Report the exact line that fails. Three runs died in this step with no
+          # usable log endpoint, and "step failed" told me nothing about why.
+          trap 'echo "BARIS GAGAL: $LINENO (status $?)" >> "$REP"' ERR
           REP="$RUNNER_TEMP/probe/report.txt"
           TREE="${TREE:-}"
+          echo "### Diagnostik" >> "$REP"
+          echo "TREE=${TREE:-<kosong>}" >> "$REP"
+          echo "pwd=$(pwd)" >> "$REP"
+          echo "GITHUB_ENV=$(cat "$GITHUB_ENV" 2>/dev/null | tr "\n" " ")" >> "$REP"
           if [ -z "$TREE" ] || [ ! -d "$TREE" ]; then
             echo "Tidak ada tree yang bisa diuji. Clone gagal di semua kandidat." >> "$REP"
             # No tree is not a reason to lose the report: this exits the step, and
