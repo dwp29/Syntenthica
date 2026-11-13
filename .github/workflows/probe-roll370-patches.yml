@@ -63,18 +63,24 @@ jobs:
 
           # Pick the tree whose version starts with 4.14.37 so the patch test runs
           # against the closest thing to Roll 3.3 that is actually reachable.
-          BEST=""
+          BEST=""; BEST_PL=""
           for d in "$RUNNER_TEMP/tree-kinesis-v29" "$RUNNER_TEMP/tree-kinesis-v30" "$RUNNER_TEMP/tree-a" "$RUNNER_TEMP/tree-head"; do
             [ -d "$d" ] || continue
             v=$(cd "$d" && sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile | tr -d '\n' \
                 | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')
             echo "  -> kandidat $d versi $v" >> "$REP"
-            # 4.14.357 does not start with "4.14.37" -- the first version of this
-            # probe matched on that and concluded "no tree" while holding two
-            # perfectly good clones. Match the minor, not a guessed patch level.
-            case "$v" in 4.14.3*) BEST="$d" ;; esac
+            # Pick the highest patch level. The earlier version kept the LAST match in
+            # glob order, so tree-a (4.14.357) silently beat the Kinesis tree the owner
+            # actually named -- a run that looks like it tested Kinesis and did not.
+            case "$v" in 4.14.3*)
+              pl=${v#4.14.}
+              if [ -z "$BEST_PL" ] || [ "$pl" -gt "$BEST_PL" ]; then
+                BEST="$d"; BEST_PL="$pl"
+              fi
+              ;; esac
           done
           echo "TREE=$BEST" >> "$GITHUB_ENV"
+          echo "TREE_USED=$BEST (4.14.${BEST_PL:-?})" >> "$REP"
           case "$BEST" in
             *kinesis-v29*) echo "TREE_LABEL=kinesis-v29 (4.14.344)" >> "$GITHUB_ENV" ;;
             *kinesis-v30*) echo "TREE_LABEL=kinesis-v30 (4.14.343)" >> "$GITHUB_ENV" ;;
