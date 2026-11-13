@@ -55,6 +55,8 @@ jobs:
           echo >> "$REP"
 
           echo "### Kandidat source" >> "$REP"
+          probe_tree https://github.com/clarencelol/kernel_xiaomi_sm6250 kinesis-v29 "$RUNNER_TEMP/tree-kinesis-v29" || true
+          probe_tree https://github.com/clarencelol/kernel_xiaomi_sm6250 kinesis-v30 "$RUNNER_TEMP/tree-kinesis-v30" || true
           probe_tree https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff a "$RUNNER_TEMP/tree-a" || true
           probe_tree https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff "" "$RUNNER_TEMP/tree-head" || true
           probe_tree https://github.com/crdroidandroid/android_kernel_xiaomi_sm6250 8b4afb3dd59ea7f94bef73d61bc23a2b713b1df7 "$RUNNER_TEMP/tree-crdroid" || true
@@ -62,7 +64,7 @@ jobs:
           # Pick the tree whose version starts with 4.14.37 so the patch test runs
           # against the closest thing to Roll 3.3 that is actually reachable.
           BEST=""
-          for d in "$RUNNER_TEMP/tree-a" "$RUNNER_TEMP/tree-head"; do
+          for d in "$RUNNER_TEMP/tree-kinesis-v29" "$RUNNER_TEMP/tree-kinesis-v30" "$RUNNER_TEMP/tree-a" "$RUNNER_TEMP/tree-head"; do
             [ -d "$d" ] || continue
             v=$(cd "$d" && sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile | tr -d '\n' \
                 | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')
@@ -73,6 +75,12 @@ jobs:
             case "$v" in 4.14.3*) BEST="$d" ;; esac
           done
           echo "TREE=$BEST" >> "$GITHUB_ENV"
+          case "$BEST" in
+            *kinesis-v29*) echo "TREE_LABEL=kinesis-v29 (4.14.344)" >> "$GITHUB_ENV" ;;
+            *kinesis-v30*) echo "TREE_LABEL=kinesis-v30 (4.14.343)" >> "$GITHUB_ENV" ;;
+            *tree-a)       echo "TREE_LABEL=Saamitk branch a (4.14.357)" >> "$GITHUB_ENV" ;;
+            *)             echo "TREE_LABEL=${BEST:-none}" >> "$GITHUB_ENV" ;;
+          esac
           echo >> "$REP"
           echo "### Tree yang dipakai untuk uji patch: ${BEST:-TIDAK ADA}" >> "$REP"
           echo >> "$REP"
@@ -117,7 +125,7 @@ jobs:
             "build-kit/ci/synthetica3-root/0001-manager-fd-after-exec.patch"
           )
 
-          echo "### Hasil uji patch (git apply --check, lalu patch --dry-run)" >> "$REP"
+          echo "### Hasil uji patch terhadap ${TREE_LABEL:-$TREE}" >> "$REP"
           OK=0; FAIL=0
           # `set -e` is inherited by the loop: a non-zero status from the subshell
           # would end the step before a single line was written. The subshell's
@@ -133,6 +141,7 @@ jobs:
               if git apply --check "$OLDPWD/$p" >/dev/null 2>&1; then
                 echo "  BERSIH   $name" >> "$REP"; exit 0
               fi
+              echo "  KONFLIK  $name" >> "$REP"
               # Record where it stops, not just that it failed: a hunk offset in
               # vmscan.c means the port is mechanical; a missing function means the
               # 370 tree moved the code and the patch needs rethinking.
