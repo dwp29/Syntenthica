@@ -78,7 +78,10 @@ jobs:
           echo >> "$REP"
 
       - name: Dry-run every Synthetica patch against that tree
+        id: dryrun
+        continue-on-error: true
         run: |
+          exec > >(tee -a "$RUNNER_TEMP/probe/dryrun.out") 2>&1
           # Deliberately not `set -e`. A failing patch is the measurement here, not
           # an error, and with -e the first conflict would end the step before the
           # remaining seven were tried -- which is exactly what happened on three
@@ -149,7 +152,21 @@ jobs:
           echo >> "$REP"
           echo "Ringkasan: $OK bersih, $FAIL konflik dari ${#PATCHES[@]} patch." >> "$REP"
 
+      - name: Publish the raw script output regardless of what happened
+        if: always()
+        run: |
+          # The report file and the step's own exit status are two different things,
+          # and three runs proved I kept confusing them: the step died before the
+          # report was written, and publish was skipped because it depends on that
+          # step. This copies whatever bash managed to say, written or not.
+          echo "=== langkah uji: ${{ steps.dryrun.outcome }} ===" > "$RUNNER_TEMP/probe/step.txt"
+          echo "=== output mentah ===" >> "$RUNNER_TEMP/probe/step.txt"
+          cat "$RUNNER_TEMP/probe/dryrun.out" >> "$RUNNER_TEMP/probe/step.txt" 2>/dev/null || echo "(tidak ada)" >> "$RUNNER_TEMP/probe/step.txt"
+          echo >> "$RUNNER_TEMP/probe/step.txt"
+          cat "$RUNNER_TEMP/probe/report.txt" >> "$RUNNER_TEMP/probe/step.txt" 2>/dev/null || true
+
       - name: Publish the report on a throwaway branch
+        if: always()
         run: |
           set -uo pipefail
           # Run logs are not readable from this project's tooling and artifacts come
@@ -158,7 +175,8 @@ jobs:
           cat "$RUNNER_TEMP/probe/report.txt"
           cd "$RUNNER_TEMP/probe"
           git init -q report && cd report
-          cp ../report.txt .
+          cp ../report.txt . 2>/dev/null || true
+          cp ../step.txt . 2>/dev/null || true
           git add -A
           git -c user.email=ci@example.invalid -c user.name=probe commit -q -m "probe: Synthetica patches on the Roll 3.3 tree"
           git push -q --force "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" HEAD:probe-output
