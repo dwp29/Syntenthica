@@ -1,0 +1,138 @@
+name: "Probe — patch Synthetica di source Roll 3.3"
+
+# Cheap experiment, no compilation. The question is narrow: Roll 3.3 is 4.14.370,
+# Synthetica 3.2 was built on 4.14.357. Do the eight Synthetica patches still
+# apply to the newer tree? Guessing the answer costs hours of failed kernel
+# builds; measuring it costs two minutes and a git clone.
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-roll370-patches.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to publish the report on a throwaway branch
+
+jobs:
+  probe:
+    name: "Dry-run the eight patches"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Find the Roll base tree and read its version
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/probe"
+          REP="$RUNNER_TEMP/probe/report.txt"
+          : > "$REP"
+
+          probe_tree() {
+            local url="$1" ref="$2" dir="$3"
+            echo "=== sumber: $url${ref:+ @ $ref} ===" >> "$REP"
+            rm -rf "$dir"
+            if ! git clone --depth 1 ${ref:+-b "$ref"} "$url" "$dir" >/dev/null 2>&1; then
+              echo "  GAGAL clone" >> "$REP"
+              return 1
+            fi
+            ( cd "$dir" || exit 1
+              echo "  commit : $(git rev-parse HEAD)" >> "$REP"
+              echo "  versi  : $(make -s kernelversion 2>/dev/null || echo '?')" >> "$REP"
+              echo "  tanggal: $(git log -1 --format=%ci)" >> "$REP"
+            )
+            return 0
+          }
+
+          echo "### Lingkungan" >> "$REP"
+          echo "clang: $(clang --version 2>/dev/null | head -1)" >> "$REP"
+          echo >> "$REP"
+
+          echo "### Kandidat source" >> "$REP"
+          probe_tree https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff a "$RUNNER_TEMP/tree-a" || true
+          probe_tree https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff "" "$RUNNER_TEMP/tree-head" || true
+          probe_tree https://github.com/crdroidandroid/android_kernel_xiaomi_sm6250 8b4afb3dd59ea7f94bef73d61bc23a2b713b1df7 "$RUNNER_TEMP/tree-crdroid" || true
+
+          # Pick the tree whose version starts with 4.14.37 so the patch test runs
+          # against the closest thing to Roll 3.3 that is actually reachable.
+          BEST=""
+          for d in "$RUNNER_TEMP/tree-a" "$RUNNER_TEMP/tree-head"; do
+            [ -d "$d" ] || continue
+            v=$(cd "$d" && make -s kernelversion 2>/dev/null || echo "?")
+            echo "  -> kandidat $d versi $v" >> "$REP"
+            case "$v" in 4.14.37*) BEST="$d" ;; 4.14.36*) [ -z "$BEST" ] && BEST="$d" ;; esac
+          done
+          echo "TREE=$BEST" >> "$GITHUB_ENV"
+          echo >> "$REP"
+          echo "### Tree yang dipakai untuk uji patch: ${BEST:-TIDAK ADA}" >> "$REP"
+          echo >> "$REP"
+
+      - name: Dry-run every Synthetica patch against that tree
+        run: |
+          set -uo pipefail
+          REP="$RUNNER_TEMP/probe/report.txt"
+          TREE="${TREE:-}"
+          if [ -z "$TREE" ] || [ ! -d "$TREE" ]; then
+            echo "Tidak ada tree yang bisa diuji. Clone gagal di semua kandidat." >> "$REP"
+            exit 0
+          fi
+
+          PATCHES=(
+            "build-kit/ci/synthetica2-experimental/patches/0001-mglru-4.14.patch"
+            "build-kit/ci/synthetica2-experimental/patches/0002-uclamp-walt-stune.patch"
+            "build-kit/ci/synthetica2-experimental/patches/0003-uclamp-correctness.patch"
+            "build-kit/ci/synthetica2-experimental/patches/0004-mglru-anon-file.patch"
+            "build-kit/ci/synthetica2-experimental/patches/0005-mglru-pagewalk-caf.patch"
+            "build-kit/ci/synthetica2-experimental/patches/0006-neutron-enum-cast.patch"
+            "build-kit/ci/synthetica3-rc/0001-ksu-manager-preserve-seccomp.patch"
+            "build-kit/ci/synthetica3-root/0001-manager-fd-after-exec.patch"
+          )
+
+          echo "### Hasil uji patch (git apply --check, lalu patch --dry-run)" >> "$REP"
+          OK=0; FAIL=0
+          for p in "${PATCHES[@]}"; do
+            name=$(basename "$p")
+            if [ ! -f "$p" ]; then
+              echo "TIDAK ADA BERKAS: $p" >> "$REP"; FAIL=$((FAIL+1)); continue
+            fi
+            ( cd "$TREE" || exit 9
+              if git apply --check "$OLDPWD/$p" >/dev/null 2>&1; then
+                echo "  BERSIH   $name" >> "$REP"; exit 0
+              fi
+              # Record where it stops, not just that it failed: a hunk offset in
+              # vmscan.c means the port is mechanical; a missing function means the
+              # 370 tree moved the code and the patch needs rethinking.
+              patch -p1 --dry-run --forward < "$OLDPWD/$p" 2>&1 \
+                | grep -E "^(Hunk|Reversed|patching file|.*FAILED|.*can't find)" \
+                | head -12 | sed 's/^/      /' >> "$REP"
+              exit 1
+            )
+            if [ $? -eq 0 ]; then
+              OK=$((OK+1))
+            else
+              echo "  KONFLIK  $name" >> "$REP"; FAIL=$((FAIL+1))
+            fi
+          done
+
+          echo >> "$REP"
+          echo "Ringkasan: $OK bersih, $FAIL konflik dari ${#PATCHES[@]} patch." >> "$REP"
+
+      - name: Publish the report on a throwaway branch
+        run: |
+          set -uo pipefail
+          # Run logs are not readable from this project's tooling and artifacts come
+          # from a host that returns EOF, so the report travels the one way that has
+          # always worked here: a plain git push to a branch nobody merges.
+          cat "$RUNNER_TEMP/probe/report.txt"
+          cd "$RUNNER_TEMP/probe"
+          git init -q report && cd report
+          cp ../report.txt .
+          git add -A
+          git -c user.email=ci@example.invalid -c user.name=probe commit -q -m "probe: Synthetica patches on the Roll 3.3 tree"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" HEAD:probe-output
+
+      - name: Say it in the run summary too
+        if: always()
+        run: cat "$RUNNER_TEMP/probe/report.txt" >> "$GITHUB_STEP_SUMMARY" || true
