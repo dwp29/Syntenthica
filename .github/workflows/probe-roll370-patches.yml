@@ -62,7 +62,10 @@ jobs:
             [ -d "$d" ] || continue
             v=$(cd "$d" && make -s kernelversion 2>/dev/null || echo "?")
             echo "  -> kandidat $d versi $v" >> "$REP"
-            case "$v" in 4.14.37*) BEST="$d" ;; 4.14.36*) [ -z "$BEST" ] && BEST="$d" ;; esac
+            # 4.14.357 does not start with "4.14.37" -- the first version of this
+            # probe matched on that and concluded "no tree" while holding two
+            # perfectly good clones. Match the minor, not a guessed patch level.
+            case "$v" in 4.14.3*) BEST="$d" ;; esac
           done
           echo "TREE=$BEST" >> "$GITHUB_ENV"
           echo >> "$REP"
