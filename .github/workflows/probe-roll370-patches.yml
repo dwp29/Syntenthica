@@ -96,10 +96,13 @@ jobs:
         continue-on-error: true
         run: |
           exec > >(tee -a "$RUNNER_TEMP/probe/dryrun.out") 2>&1
-          # Deliberately not `set -e`. A failing patch is the measurement here, not
-          # an error, and with -e the first conflict would end the step before the
-          # remaining seven were tried -- which is exactly what happened on three
-          # consecutive runs while the report looked plausible.
+          # `set +e` is the whole trick. GitHub Actions runs this script as
+          # `bash -e {0}`, so -e is already ON before the first line here, and
+          # writing `set -uo pipefail` does not remove it. Every earlier version of
+          # this step therefore died at the first failing patch and reported only
+          # one conflict out of eight -- five runs, and the cause was one missing
+          # character. A failing patch is the measurement here, not an error.
+          set +e
           set -uo pipefail
           # Report the exact line that fails. Three runs died in this step with no
           # usable log endpoint, and "step failed" told me nothing about why.
