@@ -40,7 +40,11 @@ jobs:
             fi
             ( cd "$dir" || exit 1
               echo "  commit : $(git rev-parse HEAD)" >> "$REP"
-              echo "  versi  : $(make -s kernelversion 2>/dev/null || echo '?')" >> "$REP"
+              # Read the version out of the Makefile instead of asking make. make
+              # needs bison/flex/bc and this job installs nothing; asking it is how
+              # the second run of this probe reported "?" for two good trees.
+              v=$(sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile 2>/dev/null | tr -d '\n')
+              echo "  versi  : $(printf '%s' "$v" | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')" >> "$REP"
               echo "  tanggal: $(git log -1 --format=%ci)" >> "$REP"
             )
             return 0
@@ -60,7 +64,8 @@ jobs:
           BEST=""
           for d in "$RUNNER_TEMP/tree-a" "$RUNNER_TEMP/tree-head"; do
             [ -d "$d" ] || continue
-            v=$(cd "$d" && make -s kernelversion 2>/dev/null || echo "?")
+            v=$(cd "$d" && sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile | tr -d '\n' \
+                | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')
             echo "  -> kandidat $d versi $v" >> "$REP"
             # 4.14.357 does not start with "4.14.37" -- the first version of this
             # probe matched on that and concluded "no tree" while holding two
