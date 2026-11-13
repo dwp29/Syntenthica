@@ -79,13 +79,22 @@ jobs:
 
       - name: Dry-run every Synthetica patch against that tree
         run: |
+          # Deliberately not `set -e`. A failing patch is the measurement here, not
+          # an error, and with -e the first conflict would end the step before the
+          # remaining seven were tried -- which is exactly what happened on three
+          # consecutive runs while the report looked plausible.
           set -uo pipefail
           REP="$RUNNER_TEMP/probe/report.txt"
           TREE="${TREE:-}"
           if [ -z "$TREE" ] || [ ! -d "$TREE" ]; then
             echo "Tidak ada tree yang bisa diuji. Clone gagal di semua kandidat." >> "$REP"
+            # No tree is not a reason to lose the report: this exits the step, and
+            # the publish step below still needs the file to exist.
             exit 0
           fi
+          # Past this point the report must be published whatever happens, so the
+          # publish step is guarded separately rather than riding on this step's
+          # exit code.
 
           PATCHES=(
             "build-kit/ci/synthetica2-experimental/patches/0001-mglru-4.14.patch"
@@ -100,6 +109,11 @@ jobs:
 
           echo "### Hasil uji patch (git apply --check, lalu patch --dry-run)" >> "$REP"
           OK=0; FAIL=0
+          # `set -e` is inherited by the loop: a non-zero status from the subshell
+          # would end the step before a single line was written. The subshell's
+          # status is captured explicitly instead, which is what the code below
+          # always intended and what three failed probe runs proved it was not
+          # doing.
           for p in "${PATCHES[@]}"; do
             name=$(basename "$p")
             if [ ! -f "$p" ]; then
@@ -117,7 +131,8 @@ jobs:
                 | head -12 | sed 's/^/      /' >> "$REP"
               exit 1
             )
-            if [ $? -eq 0 ]; then
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
               OK=$((OK+1))
             else
               echo "  KONFLIK  $name" >> "$REP"; FAIL=$((FAIL+1))
