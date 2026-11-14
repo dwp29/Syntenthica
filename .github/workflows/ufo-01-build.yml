@@ -106,13 +106,16 @@ jobs:
           # clang, chosen the way the 3.2 recipe did: CC/LD named explicitly. LLVM=1
           # together with CROSS_COMPILE makes the 4.14 Makefile prefer
           # aarch64-linux-gnu-gcc in places and clang in others.
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          # arch/arm64/Makefile hard-errors when CROSS_COMPILE_ARM32 is unset and
-          # CONFIG_COMPAT is on, so give it the armhf compiler explicitly.
+          # CROSS_COMPILE must NOT be exported here: this tree prefixes the compiler
+          # with it, so `CC=clang` became `aarch64-linux-gnu-gcc` and every clang flag
+          # (-mllvm, -inline-threshold) was rejected by gcc. The target triple goes in
+          # CLANG_TRIPLE instead, which is what kbuild expects for clang builds.
+          export CLANG_TRIPLE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CC=clang
           export LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump STRIP=llvm-strip CLANG_TRIPLE=aarch64-linux-gnu-
+          export OBJDUMP=llvm-objdump STRIP=llvm-strip
+          echo "-- compiler: $(command -v clang) $(clang --version | head -1)" >> "$LOG"
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
 
           # mrproper refuses on a tree that already holds generated files, and its
