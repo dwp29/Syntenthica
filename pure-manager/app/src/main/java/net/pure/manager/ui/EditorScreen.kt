@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -161,10 +163,9 @@ fun EditorScreen(
     Column(Modifier.fillMaxSize().padding(horizontal = spec.contentPaddingDp.dp)) {
         // ------------------------------------------------------------- header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "\u2039 Kembali",
-                style = MaterialTheme.typography.bodyLarge,
-                color = p.accent,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(spec.cornerDp.dp))
                     .clickable {
@@ -172,7 +173,19 @@ fun EditorScreen(
                         else onClose()
                     }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
-            )
+            ) {
+                Icon(
+                    imageVector = PureIcons.Back,
+                    contentDescription = null,
+                    tint = p.accent,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    "Kembali",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = p.accent,
+                )
+            }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -482,19 +495,36 @@ private fun blend(a: Color, b: Color, t: Float): Color = Color(
 )
 
 @Composable
-private fun ToolbarText(label: String, enabled: Boolean, onClick: () -> Unit) {
+private fun ToolbarText(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
+) {
     val spec = net.pure.manager.theme.LocalPureSpec.current
     val p = spec.palette
-    Text(
-        label,
-        style = MaterialTheme.typography.labelMedium,
-        color = if (enabled) p.accent else p.onSurfaceVariant.copy(alpha = 0.5f),
+    val fg = if (enabled) p.accent else p.onSurfaceVariant.copy(alpha = 0.5f)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .clip(RoundedCornerShape(spec.cornerDp.dp))
             .background(if (enabled) p.surfaceVariant else Color.Transparent)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
-    )
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label.ifBlank { null },
+                tint = fg,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        if (label.isNotEmpty()) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = fg)
+        }
+    }
 }
 
 @Composable
@@ -530,8 +560,8 @@ private fun FindRow(
                 color = p.onSurfaceVariant,
             )
             Spacer(Modifier.width(6.dp))
-            ToolbarText("\u2191", enabled = matchCount > 0, onClick = onPrev)
-            ToolbarText("\u2193", enabled = matchCount > 0, onClick = onNext)
+            ToolbarText("", enabled = matchCount > 0, onClick = onPrev, icon = PureIcons.ArrowUp)
+            ToolbarText("", enabled = matchCount > 0, onClick = onNext, icon = PureIcons.ArrowDown)
             ToolbarText(if (showReplace) "Ganti \u2212" else "Ganti +", enabled = true, onClick = onToggleReplace)
         }
         if (showReplace) {

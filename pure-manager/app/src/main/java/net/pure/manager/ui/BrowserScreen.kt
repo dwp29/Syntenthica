@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -497,7 +499,7 @@ fun BrowserScreen(
                                                         "${e.childCount} item"
                                                     else formatSize(e.sizeBytes, false),
                                                     isFolder = e.isDirectory,
-                                                    glyph = glyphFor(e),
+                                                    glyph = iconFor(e),
                                                     onClick = { onTap(e) },
                                                     onLongClick = { onLongPress(e) },
                                                     selected = e.path in selected,
@@ -545,7 +547,7 @@ fun BrowserScreen(
                                                     title = e.name,
                                                     subtitle = subtitleFor(e),
                                                     isFolder = e.isDirectory,
-                                                    glyph = glyphFor(e),
+                                                    glyph = iconFor(e),
                                                     showChevron = !selectionMode && e.isDirectory,
                                                     onClick = { onTap(e) },
                                                     onLongClick = { onLongPress(e) },
@@ -592,10 +594,11 @@ fun BrowserScreen(
                                 .clickable { prompt = Prompt.NEW_FOLDER },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                "+",
-                                style = MaterialTheme.typography.headlineMedium,
-                                color = p.onAccent,
+                            Icon(
+                                imageVector = PureIcons.Plus,
+                                contentDescription = "Folder baru",
+                                tint = p.onAccent,
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     }
@@ -992,15 +995,19 @@ private fun wantsThumbnail(e: FileEntry): Boolean {
     return mime.startsWith("image/") || mime.startsWith("video/")
 }
 
-private fun glyphFor(e: FileEntry): String = when {
-    e.isDirectory -> ""
-    e.extension in setOf("png", "jpg", "jpeg", "webp", "gif") -> "\u25A3"
-    e.extension in setOf("mp3", "m4a", "wav", "ogg", "flac") -> "\u266A"
-    e.extension in setOf("mp4", "mkv", "avi", "webm") -> "\u25B6"
-    e.extension in setOf("zip", "rar", "7z", "tar", "gz") -> "\u25A4"
-    e.extension == "apk" -> "\u25C8"
-    e.extension in setOf("pdf") -> "\u25A4"
-    else -> "\u25A7"
+private fun iconFor(e: FileEntry): ImageVector = when {
+    e.extension in setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "heif") ->
+        PureIcons.Image
+    e.extension in setOf("mp3", "m4a", "wav", "ogg", "flac", "opus", "aac") -> PureIcons.Music
+    e.extension in setOf("mp4", "mkv", "avi", "webm", "mov", "3gp") -> PureIcons.Video
+    e.extension in setOf("zip", "rar", "7z", "tar", "gz", "xz", "bz2") -> PureIcons.Zip
+    e.extension == "apk" || e.extension == "apks" -> PureIcons.Apk
+    e.extension in setOf("doc", "docx", "odt", "rtf", "xls", "xlsx", "csv", "ppt", "pptx", "pdf") ->
+        PureIcons.Document
+    e.extension in setOf("txt", "md", "log", "json", "xml", "yml", "yaml", "ini", "conf",
+                         "js", "ts", "html", "css", "py", "sh", "kt", "java", "c", "h", "cpp") ->
+        PureIcons.TextFile
+    else -> PureIcons.Unknown
 }
 
 private fun subtitleFor(e: FileEntry): String =
@@ -1062,7 +1069,7 @@ private fun Toolbar(
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (canGoUp) {
-                ToolButton("\u2190", false, onUp)
+                ToolButton(PureIcons.Back, false, onUp)
                 Spacer(Modifier.size(4.dp))
             }
             Column(
@@ -1097,10 +1104,11 @@ private fun Toolbar(
                         style = MaterialTheme.typography.bodySmall,
                         color = p.accent,
                     )
-                    Text(
-                        if (descending) " \u25BE" else " \u25B4",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = p.accent,
+                    Icon(
+                        imageVector = if (descending) PureIcons.CaretDown else PureIcons.CaretUp,
+                        contentDescription = null,
+                        tint = p.accent,
+                        modifier = Modifier.size(12.dp),
                     )
                 }
             }
@@ -1111,11 +1119,11 @@ private fun Toolbar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            ToolButton(if (showHidden) "\u25C9" else "\u25CB", showHidden, onToggleHidden)
-            ToolButton(if (grid) "\u2637" else "\u2263", true, onToggleGrid)
-            ToolButton("\u25E7", false, onUsage)
-            ToolButton("\u2302", false, onHome)
-            ToolButton("\u2295", false, onAddFolder)
+            ToolButton(if (showHidden) PureIcons.Eye else PureIcons.EyeOff, showHidden, onToggleHidden)
+            ToolButton(if (grid) PureIcons.List else PureIcons.Grid, true, onToggleGrid)
+            ToolButton(PureIcons.Storage, false, onUsage)
+            ToolButton(PureIcons.Home, false, onHome)
+            ToolButton(PureIcons.FolderPlus, false, onAddFolder)
             Spacer(Modifier.weight(1f))
         }
     }
@@ -1212,7 +1220,7 @@ private fun PermissionCard(
                 color = p.onSurfaceVariant,
             )
             Spacer(Modifier.height(14.dp))
-            PrimaryButton(spec, "Beri izin \u201cSemua berkas\u201d", onAllFiles)
+            PrimaryButton(spec, "Beri izin \u201cSemua berkas\u201d", onAllFiles, PureIcons.Check)
             Spacer(Modifier.height(8.dp))
             Text(
                 "Membuka Setelan Android. Cari Pure Manager di daftar, lalu nyalakan " +
@@ -1222,7 +1230,7 @@ private fun PermissionCard(
                 color = p.onSurfaceVariant,
             )
             Spacer(Modifier.height(14.dp))
-            SecondaryButton(spec, "Pilih satu folder saja", onPickFolder)
+            SecondaryButton(spec, "Pilih satu folder saja", onPickFolder, PureIcons.Folder)
             Spacer(Modifier.height(8.dp))
             Text(
                 "Tanpa izin khusus. Anda memilih folder mana yang boleh dibuka, dan " +
@@ -1235,7 +1243,12 @@ private fun PermissionCard(
 }
 
 @Composable
-private fun PrimaryButton(spec: PureThemeSpec, label: String, onClick: () -> Unit) {
+private fun PrimaryButton(
+    spec: PureThemeSpec,
+    label: String,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
+) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -1245,17 +1258,35 @@ private fun PrimaryButton(spec: PureThemeSpec, label: String, onClick: () -> Uni
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            color = spec.palette.onAccent,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = spec.palette.onAccent,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = spec.palette.onAccent,
+            )
+        }
     }
 }
 
 @Composable
-private fun SecondaryButton(spec: PureThemeSpec, label: String, onClick: () -> Unit) {
+private fun SecondaryButton(
+    spec: PureThemeSpec,
+    label: String,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
+) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -1265,11 +1296,24 @@ private fun SecondaryButton(spec: PureThemeSpec, label: String, onClick: () -> U
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = spec.palette.accent,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = spec.palette.accent,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = spec.palette.accent,
+            )
+        }
     }
 }
 
@@ -1661,7 +1705,12 @@ private fun PlacesDialog(
                                 maxLines = 1,
                             )
                         }
-                        if (here) Text("\u2713", color = p.accent)
+                        if (here) Icon(
+                            imageVector = PureIcons.Check,
+                            contentDescription = null,
+                            tint = p.accent,
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 }
                 Spacer(Modifier.height(4.dp))
@@ -1691,7 +1740,7 @@ private fun PlacesDialog(
                         )
                     }
                     Text(
-                        if (showSystem) "\u25C9" else "\u25CB",
+                        if (showSystem) PureIcons.Eye else PureIcons.EyeOff,
                         style = MaterialTheme.typography.titleMedium,
                         color = p.accent,
                     )
@@ -1786,7 +1835,14 @@ private fun DeviceSearchDialog(
                                     .clip(RoundedCornerShape(7.dp))
                                     .background(p.surfaceVariant),
                                 contentAlignment = Alignment.Center,
-                            ) { Text(glyphFor(e), style = MaterialTheme.typography.labelLarge, color = p.accent) }
+                            ) {
+                                Icon(
+                                    imageVector = iconFor(e),
+                                    contentDescription = null,
+                                    tint = p.accent,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     e.name,
@@ -1864,19 +1920,19 @@ private fun ActionSheet(
                 // mode. Share is separate from open: "make this available to
                 // another app" is the reason people long-press a file.
                 if (target.isDirectory) {
-                    ActionRow("Buka", onOpen)
+                    ActionRow("Buka", PureIcons.Folder, onOpen)
                 } else {
-                    ActionRow("Buka dengan\u2026", onOpen)
-                    ActionRow("Bagikan", onShare)
+                    ActionRow("Buka dengan\u2026", PureIcons.Document, onOpen)
+                    ActionRow("Bagikan", PureIcons.Share, onShare)
                 }
-                if (onEdit != null) ActionRow("Edit teks", onEdit)
-                if (onArchive != null) ActionRow("Lihat isi arsip", onArchive)
-                if (onExtract != null) ActionRow("Ekstrak ke sini", onExtract)
-                ActionRow("Ganti nama", onRename)
-                ActionRow("Salin ke\u2026", onCopy)
-                ActionRow("Pindahkan ke\u2026", onMove)
-                ActionRow("Info", onInfo)
-                ActionRow("Hapus", onDelete, danger = true)
+                if (onEdit != null) ActionRow("Edit teks", PureIcons.Pencil, onEdit)
+                if (onArchive != null) ActionRow("Lihat isi arsip", PureIcons.Zip, onArchive)
+                if (onExtract != null) ActionRow("Ekstrak ke sini", PureIcons.Archive, onExtract)
+                ActionRow("Ganti nama", PureIcons.Pencil, onRename)
+                ActionRow("Salin ke\u2026", PureIcons.Copy, onCopy)
+                ActionRow("Pindahkan ke\u2026", PureIcons.Move, onMove)
+                ActionRow("Info", PureIcons.Info, onInfo)
+                ActionRow("Hapus", PureIcons.Trash, onDelete, danger = true)
             }
         },
         confirmButton = {
@@ -1886,17 +1942,30 @@ private fun ActionSheet(
 }
 
 @Composable
-private fun ActionRow(label: String, onClick: () -> Unit, danger: Boolean = false) {
+private fun ActionRow(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    danger: Boolean = false,
+) {
     val p = LocalPureSpec.current.palette
-    Text(
-        label,
-        style = MaterialTheme.typography.bodyLarge,
-        color = if (danger) Color(0xFFEF4444) else p.onBackground,
+    val fg = if (danger) Color(0xFFEF4444) else p.onBackground
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 11.dp),
-    )
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = fg,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = fg)
+    }
 }
 
 @Composable
@@ -2061,7 +2130,7 @@ private fun DestinationDialog(
                     // tint = null after onClick, so `ToolButton(a, b) { ... }`
                     // binds the lambda to tint and fails to compile.
                     ToolButton(
-                        glyph = "\u2190",
+                        glyph = PureIcons.Back,
                         active = false,
                         onClick = {
                             Storage.parentOf(here)?.let { up ->

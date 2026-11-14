@@ -265,6 +265,24 @@ class UnresolvedReferences(unittest.TestCase):
                 # And a file that declares its own type of that name uses that one.
                 if re.search(r"\b(?:data )?(?:class|object|interface) " + name + r"\b", body):
                     continue
+                # A member of an `object` is not a type, even when the names
+                # collide. PureIcons declares `val Document: ImageVector`, and a
+                # file that writes `PureIcons.Document` is reaching a property,
+                # not the Document class in net.pure.manager.doc -- the same
+                # false alarm as the Entry case above, one level down.
+                # A file that declares a member with the same name uses its own.
+                # PureIcons declares `val Document: ImageVector`, so the word
+                # "Document" in that file is a property of that object, not the
+                # Document class in net.pure.manager.doc. This only looks at
+                # declarations in the file itself, so a genuine missing import of
+                # a *class* (the ThemePrefsSaver failure this guard exists for)
+                # is still caught.
+                if re.search(
+                    r"(?m)^\s*(?:private |internal |public )?(?:val|var|fun) "
+                    + name + r"\s*[:=(]",
+                    text,
+                ):
+                    continue
                 problems.append(f"{f.name}: uses {name} (from {home_pkg}) without import")
         self.assertEqual([], problems, "\n".join(problems))
 

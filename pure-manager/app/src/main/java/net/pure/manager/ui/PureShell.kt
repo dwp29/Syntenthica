@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
@@ -58,11 +60,11 @@ import net.pure.manager.theme.ThemePrefs
  * navigation-model detail rather than a screen concern.
  */
 
-private enum class Screen(val label: String, val glyph: String) {
-    FILES("Berkas", "\u25A4"),
-    THEME("Tema", "\u25C8"),
-    MODULES("Modul", "\u2726"),
-    SETTINGS("Setelan", "\u2699"),
+private enum class Screen(val label: String, val icon: ImageVector) {
+    FILES("Berkas", PureIcons.Folder),
+    THEME("Tema", PureIcons.Sparkle),
+    MODULES("Modul", PureIcons.Terminal),
+    SETTINGS("Setelan", PureIcons.Gear),
 }
 
 /**
@@ -163,10 +165,11 @@ private fun LeftRail(
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    s.glyph,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (selected) p.accent else p.onSurfaceVariant,
+                Icon(
+                    imageVector = s.icon,
+                    contentDescription = s.label,
+                    tint = if (selected) p.accent else p.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp),
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
@@ -252,17 +255,19 @@ private fun TabBar(
                                 .background(p.accent.copy(alpha = 0.22f))
                                 .padding(horizontal = 16.dp, vertical = 2.dp),
                         ) {
-                            Text(
-                                s.glyph,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = p.accent,
+                            Icon(
+                                imageVector = s.icon,
+                                contentDescription = s.label,
+                                tint = p.accent,
+                                modifier = Modifier.size(22.dp),
                             )
                         }
                     } else {
-                        Text(
-                            s.glyph,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (selected) p.accent else p.onSurfaceVariant,
+                        Icon(
+                            imageVector = s.icon,
+                            contentDescription = s.label,
+                            tint = if (selected) p.accent else p.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                     Spacer(Modifier.height(2.dp))
@@ -475,10 +480,11 @@ private fun ThemeScreen(prefs: ThemePrefs, onPrefs: (ThemePrefs) -> Unit) {
                     )
                 }
                 if (selected) {
-                    Text(
-                        "\u2713",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = p.accent,
+                    Icon(
+                        imageVector = PureIcons.Check,
+                        contentDescription = "dipilih",
+                        tint = p.accent,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -597,10 +603,11 @@ private fun ChoiceRow(
             modifier = Modifier.weight(1f),
         )
         if (selected) {
-            Text(
-                "\u2713",
-                style = MaterialTheme.typography.titleLarge,
-                color = p.accent,
+            Icon(
+                imageVector = PureIcons.Check,
+                contentDescription = "dipilih",
+                tint = p.accent,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -788,9 +795,9 @@ private fun StepRow(
             )
             Text(value, style = MaterialTheme.typography.bodySmall, color = p.onSurfaceVariant)
         }
-        StepButton("\u2212", p.onBackground, onLess)
+        StepButton(PureIcons.Minus, p.onBackground, onLess)
         Spacer(Modifier.width(8.dp))
-        StepButton("+", p.onAccent, onMore, filled = true)
+        StepButton(PureIcons.Plus, p.onAccent, onMore, filled = true)
     }
     Box(Modifier.fillMaxWidth().padding(start = 14.dp).height(0.5.dp).background(p.separator))
 }
@@ -813,7 +820,7 @@ private fun PillButton(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun StepButton(
-    label: String,
+    icon: ImageVector,
     contentColor: Color,
     onClick: () -> Unit,
     filled: Boolean = false,
@@ -828,6 +835,11 @@ private fun StepButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = MaterialTheme.typography.titleMedium, color = contentColor)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }

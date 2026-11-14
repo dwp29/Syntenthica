@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -139,7 +141,7 @@ fun GridCell(
     title: String,
     subtitle: String?,
     isFolder: Boolean,
-    glyph: String,
+    glyph: ImageVector,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     selected: Boolean = false,
@@ -183,10 +185,14 @@ fun GridCell(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    Text(
-                        glyph,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = p.accent,
+                    // The file's icon at 30 dp, in the type's accent. It used to be a
+                    // text glyph in the body font, which put a hollow square where a
+                    // picture belonged and an envelope where a gear belonged.
+                    Icon(
+                        imageVector = glyph,
+                        contentDescription = null,
+                        tint = p.accent,
+                        modifier = Modifier.size(30.dp),
                     )
                 }
             }
@@ -315,7 +321,7 @@ fun ListRow(
     title: String,
     subtitle: String?,
     isFolder: Boolean,
-    glyph: String,
+    glyph: ImageVector,
     showChevron: Boolean,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -358,7 +364,12 @@ fun ListRow(
                         .background(p.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(glyph, style = MaterialTheme.typography.labelLarge, color = p.accent)
+                    Icon(
+                        imageVector = glyph,
+                        contentDescription = null,
+                        tint = p.accent,
+                        modifier = Modifier.size(19.dp),
+                    )
                 }
             }
             // Name on top, size (or item count and date) underneath, both left
@@ -384,10 +395,11 @@ fun ListRow(
                 }
             }
             if (showChevron) {
-                Text(
-                    "\u203A",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = p.onSurfaceVariant.copy(alpha = 0.55f),
+                Icon(
+                    imageVector = PureIcons.Chevron,
+                    contentDescription = null,
+                    tint = p.onSurfaceVariant.copy(alpha = 0.55f),
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
@@ -445,7 +457,12 @@ fun SearchField(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("\u2315", style = MaterialTheme.typography.titleMedium, color = p.onSurfaceVariant)
+        Icon(
+            imageVector = PureIcons.Search,
+            contentDescription = null,
+            tint = p.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
         Box(Modifier.weight(1f)) {
             if (value.isEmpty()) {
                 Text(
@@ -480,14 +497,15 @@ fun SearchField(
         // of a control that does nothing: an empty search field with a magnifier
         // already means "find", and the owner asked for a file manager that finds
         // things, not for dictation.
-        Text(
-            "\u25CF",
-            style = MaterialTheme.typography.labelSmall,
-            color = p.onSurfaceVariant,
+        Icon(
+            imageVector = PureIcons.Device,
+            contentDescription = "Cari di seluruh perangkat",
+            tint = p.onSurfaceVariant,
             modifier = Modifier
                 .clip(CircleShape)
                 .clickable(onClick = onSearchDevice)
-                .padding(4.dp),
+                .padding(4.dp)
+                .size(20.dp),
         )
     }
 }
@@ -495,7 +513,7 @@ fun SearchField(
 /** A round toolbar button, the shape Files uses for its ellipsis and view toggles. */
 @Composable
 fun ToolButton(
-    glyph: String,
+    glyph: ImageVector,
     active: Boolean,
     onClick: () -> Unit,
     tint: Color? = null,
@@ -511,10 +529,11 @@ fun ToolButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            glyph,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (active) fg else p.onBackground,
+        Icon(
+            imageVector = glyph,
+            contentDescription = null,
+            tint = if (active) fg else p.onBackground,
+            modifier = Modifier.size(21.dp),
         )
     }
 }

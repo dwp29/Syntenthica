@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -39,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -276,17 +278,20 @@ fun AudioScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MediaButton("\u23ee", enabled = audio.size > 1) {
+            MediaButton(PureIcons.Previous, enabled = audio.size > 1) {
                 index = if (previousRestartsInsteadOfGoingBack(state.positionMs) && index in audio.indices) {
                     index
                 } else {
                     previousIndex(index, audio.size, repeat, shuffle, seed = index + 3)
                 }
             }
-            MediaButton("\u221210", enabled = state.prepared) { player.seekBy(-10_000) }
-            MediaButton(if (state.playing) "\u23f8" else "\u25b6", enabled = state.prepared) { player.toggle() }
-            MediaButton("+10", enabled = state.prepared) { player.seekBy(10_000) }
-            MediaButton("\u23ed", enabled = audio.size > 1) {
+            MediaButton(PureIcons.Rewind, enabled = state.prepared) { player.seekBy(-10_000) }
+            MediaButton(
+                if (state.playing) PureIcons.Pause else PureIcons.Play,
+                enabled = state.prepared,
+            ) { player.toggle() }
+            MediaButton(PureIcons.Forward, enabled = state.prepared) { player.seekBy(10_000) }
+            MediaButton(PureIcons.Next, enabled = audio.size > 1) {
                 index = nextIndex(index, audio.size, repeat, shuffle, seed = index + 7)
             }
         }
@@ -392,7 +397,7 @@ fun VideoScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(formatClock(shown), style = MaterialTheme.typography.labelSmall, color = p.onSurfaceVariant)
-            MediaButton(if (playing) "\u23f8" else "\u25b6", enabled = true) {
+            MediaButton(if (playing) PureIcons.Pause else PureIcons.Play, enabled = true) {
                 if (playing) {
                     video.pause()
                     playing = false
@@ -401,7 +406,9 @@ fun VideoScreen(
                     playing = true
                 }
             }
-            MediaButton("\u221210", enabled = true) { video.seekTo((shown - 10_000).toInt().coerceAtLeast(0)) }
+            MediaButton(PureIcons.Rewind, enabled = true) {
+                video.seekTo((shown - 10_000).toInt().coerceAtLeast(0))
+            }
             MediaButton("+10", enabled = true) { video.seekTo((shown + 10_000).coerceAtMost(duration).toInt()) }
             Text(formatClock(duration), style = MaterialTheme.typography.labelSmall, color = p.onSurfaceVariant)
         }
@@ -439,7 +446,7 @@ private fun Header(spec: PureThemeSpec, title: String, onClose: () -> Unit) {
 }
 
 @Composable
-private fun MediaButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+private fun MediaButton(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) {
     val spec = net.pure.manager.theme.LocalPureSpec.current
     val p = spec.palette
     Box(
@@ -450,10 +457,11 @@ private fun MediaButton(label: String, enabled: Boolean, onClick: () -> Unit) {
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (enabled) p.onBackground else p.onSurfaceVariant.copy(alpha = 0.4f),
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (enabled) p.onBackground else p.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(24.dp),
         )
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,7 +89,12 @@ fun ModulesTab(spec: PureThemeSpec, catalog: List<ModuleManager.Entry> = emptyLi
                     color = p.onSurfaceVariant,
                 )
             }
-            Text("\u203A", style = MaterialTheme.typography.titleLarge, color = p.onSurfaceVariant)
+            Icon(
+                imageVector = PureIcons.Chevron,
+                contentDescription = null,
+                tint = p.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 

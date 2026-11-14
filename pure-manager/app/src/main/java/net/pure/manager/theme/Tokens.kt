@@ -4,7 +4,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight as FontWeightAlias
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -247,7 +249,7 @@ fun specFor(themeId: String, mode: AppMode, accent: Color): PureThemeSpec =
             id = "ios", label = "iOS", nav = NavModel.TAB_BAR,
             palette = ios(mode, accent),
             cornerDp = 16, rowHeightDp = 54, contentPaddingDp = 14,
-            fontFamily = FontFamily.SansSerif,
+            fontFamily = InterFamily,
             motion = MotionSpec(pressScale = 0.97f, shortMs = 160, longMs = 380, overshoot = true),
             compactRows = false,
             chrome = ChromeStyle.GLASS,
