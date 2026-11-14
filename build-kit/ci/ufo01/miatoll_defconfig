@@ -81,6 +81,11 @@ CONFIG_ARCH_SDMMAGPIE=y
 # CONFIG_QCOM_FALKOR_ERRATUM_E1041 is not set
 CONFIG_SCHED_MC=y
 CONFIG_NR_CPUS=8
+#
+# Verified against the hardware, not guessed: miatoll is a Snapdragon 720G, and
+# the mask is read LSB-first. 63 = 0b00111111 = CPU 0-5 (six Cortex-A55),
+# 192 = 0b11000000 = CPU 6-7 (two Cortex-A76).
+#
 CONFIG_LITTLE_CPU_MASK=63
 CONFIG_BIG_CPU_MASK=192
 CONFIG_PREEMPT=y
