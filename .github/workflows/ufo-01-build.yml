@@ -63,7 +63,6 @@ jobs:
           cp    "$K/susfs.c" fs/
           cp    "$K/susfs.h" "$K/susfs_def.h" include/linux/
           cp -a "$K/root-integration" tools/
-          ln -sfn ../KernelSU-Next/kernel drivers/kernelsu
 
           git apply "$K/01-synthetica32-and-susfs-tracking.patch"
           cp "$K/miatoll_defconfig" arch/arm64/configs/vendor/xiaomi/
@@ -110,20 +109,29 @@ jobs:
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
 
           # mrproper refuses on a tree that already holds generated files, and its
-          # failure was swallowed: prepare3 then died, KernelSU-Next built against
-          # an empty config, and the real error ("No hooks were defined") was three
-          # layers away from the cause. mrproper runs first, before anything is
-          # copied, and its exit code is checked.
-          # mrproper walks every driver including drivers/kernelsu, and that path
-          # only exists once the symlink is in place -- so the clean fails while
-          # cleaning the very thing that was just added. Remove the symlink for the
-          # clean, put it back after.
-          rm -f drivers/kernelsu
+          # failure was swallowed: prepare3 then died, KernelSU-Next built against an
+          # empty config, and the real error ("No hooks were defined") was three
+          # layers from the cause. Clean first, check the exit code.
+          #
+          # The drivers/kernelsu link is created HERE, once, after the clean. Making
+          # it in the copy step and again after mrproper is what produced the last
+          # failure: mrproper walks drivers/ including the link, and a link that a
+          # previous cp had turned into a directory survives `rm -f`.
+          if [ -e drivers/kernelsu ] || [ -L drivers/kernelsu ]; then
+            rm -rf drivers/kernelsu
+          fi
           make ARCH=arm64 mrproper >> "$LOG" 2>&1
           RC_CLEAN=$?
           if [ "$RC_CLEAN" -ne 0 ]; then
             echo "mrproper failed (exit $RC_CLEAN)" >> "$LOG"
             tail -20 "$LOG"
+            exit 1
+          fi
+          ln -s ../KernelSU-Next/kernel drivers/kernelsu
+          if [ ! -f drivers/kernelsu/Kconfig ]; then
+            echo "drivers/kernelsu/Kconfig does not resolve after linking" >> "$LOG"
+            ls -la drivers/ | grep -i kernelsu >> "$LOG"
+            tail -5 "$LOG"
             exit 1
           fi
           cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig .config
