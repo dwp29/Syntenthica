@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - arena/96cbd65a-syntenthica
       - arena/96cbd65a-synthentica
     paths:
       - '.github/workflows/ufo-01-build.yml'
