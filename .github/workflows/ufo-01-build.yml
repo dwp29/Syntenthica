@@ -111,10 +111,18 @@ jobs:
           # compiler: clang arrived as aarch64-linux-gnu-gcc, then as plain gcc, and
           # both rejected the clang flags. Command-line assignments win over `=`, so
           # the tools go on the make line below.
-          export CLANG_TRIPLE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          MAKEARGS="CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy"
-          MAKEARGS="$MAKEARGS OBJDUMP=llvm-objdump STRIP=llvm-strip"
+          # Two facts have to be satisfied at once, and each fix alone breaks the other:
+          #   * CROSS_COMPILE must be non-empty, or the Makefile never adds --target
+          #     and clang compiles for the host ("register 'sp' unsuitable for global
+          #     register variables on this target").
+          #   * CROSS_COMPILE must not reach CC, or `CC = $(CROSS_COMPILE)gcc` turns
+          #     clang into aarch64-linux-gnu-gcc.
+          # Make-line assignments are seen by the --target logic (it reads the
+          # variable) but CC is overridden on the same line, so both hold.
+          MAKEARGS="CC=clang CROSS_COMPILE=aarch64-linux-gnu- LD=ld.lld AR=llvm-ar"
+          MAKEARGS="$MAKEARGS NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump"
+          MAKEARGS="$MAKEARGS STRIP=llvm-strip CLANG_TRIPLE=aarch64-linux-gnu-"
           echo "-- compiler: $(command -v clang) $(clang --version | head -1)" >> "$LOG"
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
 
@@ -157,7 +165,7 @@ jobs:
           grep -cE "^CONFIG_" out/.config >> "$LOG"
           grep -E "API_MASK|CPU_MASK|CONFIG_KSU=|CONFIG_LRU_GEN=" out/.config >> "$LOG"
 
-          make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
+          make O=out ARCH=arm64 $MAKEARGS olddefconfig >> "$LOG" 2>&1
           RC_CFG=$?
           if [ "$RC_CFG" -ne 0 ]; then
             echo "olddefconfig failed (exit $RC_CFG)" >> "$LOG"
