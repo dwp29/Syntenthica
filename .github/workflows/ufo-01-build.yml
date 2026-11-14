@@ -108,6 +108,12 @@ jobs:
           export OBJDUMP=llvm-objdump STRIP=llvm-strip CLANG_TRIPLE=aarch64-linux-gnu-
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
 
+          # prepare3 refuses to run when the source tree holds build leftovers
+          # from the config probe above. mrproper clears them; the patches and
+          # the vendored KernelSU-Next/SuSFS tree are untracked and stay put.
+          make ARCH=arm64 mrproper >> "$LOG" 2>&1
+          cp "$GITHUB_WORKSPACE/build-kit/ci/ufo01/miatoll_defconfig" .config
+
           make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
           make -j"$(nproc)" O=out ARCH=arm64 Image.gz >> "$LOG" 2>&1
           RC=$?
