@@ -229,6 +229,50 @@ jobs:
           grep -nE "error:|Error [0-9]|No rule to make target|not found|Unknown" "$LOG"             | head -20 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Assemble the flashable zip
+        if: success()
+        run: |
+          set -euo pipefail
+          IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
+          K="$GITHUB_WORKSPACE/build-kit/ci/ufo01"
+
+          # The AnyKernel3 skeleton is Roll 3.3's own: the same ak3-core.sh, busybox,
+          # magiskboot, magiskpolicy, update-binary and updater-script that package
+          # shipped. Only Image.gz, anykernel.sh and the DTB differ -- and the DTB is
+          # removed, because UFO-0.1 keeps the ROM's DTB rather than replacing it.
+          rm -rf "$RUNNER_TEMP/zip"
+          cp -a "$K/anykernel/skeleton" "$RUNNER_TEMP/zip"
+          cp "$IMG" "$RUNNER_TEMP/zip/Image.gz"
+          cp "$K/anykernel/anykernel.sh" "$RUNNER_TEMP/zip/anykernel.sh"
+          cp "$K/anykernel/README-PAKET.txt" "$RUNNER_TEMP/zip/README-PAKET.txt"
+
+          # Nothing may be silently absent from a flashable package.
+          for f in anykernel.sh Image.gz tools/ak3-core.sh tools/magiskboot \
+                   META-INF/com/google/android/update-binary; do
+            if [ ! -f "$RUNNER_TEMP/zip/$f" ]; then
+              echo "::error::missing from package: $f"
+              exit 1
+            fi
+          done
+          if [ -f "$RUNNER_TEMP/zip/dtb" ]; then
+            echo "::error::a dtb slipped into the package; UFO-0.1 must not replace it"
+            exit 1
+          fi
+
+          cd "$RUNNER_TEMP/zip"
+          zip -q -r "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip" .
+          ls -l "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
+          sha256sum "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
+          {
+            echo
+            echo "#### zip siap flash"
+            echo '```'
+            sha256sum "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
+            unzip -l "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip" | tail -3
+            echo '```'
+            echo "Belum di-flash siapa pun."
+          } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
+
       - name: Report what was produced, and what was not tested
         if: always()
         run: |
@@ -310,50 +354,6 @@ jobs:
           python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/verify_image.py" "$IMG"
           # MGLRU, UCLAMP, WALT, KernelSU, SuSFS, NoMount. A green build with a
           # silently missing feature is the thing worth failing on.
-
-      - name: Assemble the flashable zip
-        if: success()
-        run: |
-          set -euo pipefail
-          IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
-          K="$GITHUB_WORKSPACE/build-kit/ci/ufo01"
-
-          # The AnyKernel3 skeleton is Roll 3.3's own: the same ak3-core.sh, busybox,
-          # magiskboot, magiskpolicy, update-binary and updater-script that package
-          # shipped. Only Image.gz, anykernel.sh and the DTB differ -- and the DTB is
-          # removed, because UFO-0.1 keeps the ROM's DTB rather than replacing it.
-          rm -rf "$RUNNER_TEMP/zip"
-          cp -a "$K/anykernel/skeleton" "$RUNNER_TEMP/zip"
-          cp "$IMG" "$RUNNER_TEMP/zip/Image.gz"
-          cp "$K/anykernel/anykernel.sh" "$RUNNER_TEMP/zip/anykernel.sh"
-          cp "$K/anykernel/README-PAKET.txt" "$RUNNER_TEMP/zip/README-PAKET.txt"
-
-          # Nothing may be silently absent from a flashable package.
-          for f in anykernel.sh Image.gz tools/ak3-core.sh tools/magiskboot \
-                   META-INF/com/google/android/update-binary; do
-            if [ ! -f "$RUNNER_TEMP/zip/$f" ]; then
-              echo "::error::missing from package: $f"
-              exit 1
-            fi
-          done
-          if [ -f "$RUNNER_TEMP/zip/dtb" ]; then
-            echo "::error::a dtb slipped into the package; UFO-0.1 must not replace it"
-            exit 1
-          fi
-
-          cd "$RUNNER_TEMP/zip"
-          zip -q -r "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip" .
-          ls -l "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
-          sha256sum "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
-          {
-            echo
-            echo "#### zip siap flash"
-            echo '```'
-            sha256sum "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
-            unzip -l "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip" | tail -3
-            echo '```'
-            echo "Belum di-flash siapa pun."
-          } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
 
       - name: Keep the image
         if: always()
