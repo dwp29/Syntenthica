@@ -1,0 +1,10 @@
+### Uji 8 patch Synthetica per pohon source
+
+| Pohon | Versi | mglru | uclamp-walt | uclamp-corr | mglru-anon | mglru-pw | neutron | ksu-seccomp | ksu-fd | Bersih |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Kinesis 4.14.344 | 4.14.344 | KONFLIK | KONFLIK | KONFLIK | BERSIH | sudah ada | BERSIH | KONFLIK | KONFLIK | 3/8 |
+| Kinesis 4.14.343 | 4.14.343 | KONFLIK | KONFLIK | KONFLIK | BERSIH | sudah ada | BERSIH | KONFLIK | KONFLIK | 3/8 |
+| Saamitk 4.14.357 | 4.14.357 | BERSIH | BERSIH | KONFLIK | BERSIH | sudah ada | BERSIH | BERSIH | BERSIH | 7/8 |
+
+Legenda: **BERSIH** = git apply --check lolos · **sudah ada** = pohonnya
+memang sudah memuat perubahan itu · **KONFLIK** = perlu ditulis ulang.
