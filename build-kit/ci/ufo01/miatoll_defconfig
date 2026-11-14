@@ -764,3 +764,9 @@ CONFIG_MSM_PERFORMANCE=y
 CONFIG_SCHED_WALT=y
 CONFIG_SCHED_CORE_CTL=y
 CONFIG_CPU_BOOST=y
+
+#
+# -O3 makes this Makefile add a hard-coded -mcpu for clang, which this clang
+# rejects. -Os is the kernel default and what the 3.2 build used.
+#
+CONFIG_CC_OPTIMIZE_FOR_SIZE=y
