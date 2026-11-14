@@ -281,7 +281,7 @@ jobs:
             python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print(len(z.namelist()), 'berkas'); [print(' ', n) for n in z.namelist() if n.endswith(('anykernel.sh','Image.gz'))]" "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
             echo '```'
             echo "Belum di-flash siapa pun."
-          } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
+          } > "$GITHUB_WORKSPACE/.ufo-evidence/zip.txt"
 
       - name: Report what was produced, and what was not tested
         if: always()
@@ -350,8 +350,11 @@ jobs:
           cp "$RUNNER_TEMP/build.log" "$GITHUB_WORKSPACE/.ufo-evidence/build-full.log" 2>/dev/null
           {
             echo
-            echo "#### catatan perakitan zip"
+            echo "#### zip siap flash"
             echo '```'
+            cat "$GITHUB_WORKSPACE/.ufo-evidence/zip.txt" 2>/dev/null || echo "(tidak ada)"
+            echo
+            echo "catatan perakitan:"
             cat "$GITHUB_WORKSPACE/.ufo-evidence/assemble.txt" 2>/dev/null || echo "(tidak ada)"
             echo '```'
           } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
