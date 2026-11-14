@@ -1,0 +1,109 @@
+name: "UFO-0.1 — Kinesis 4.14.344 + seluruh fitur Synthetica 3.2"
+
+# The tree work was done by hand first, then pinned here so it can be replayed:
+# Kinesis 4.14.344, the eight Synthetica patches, KernelSU-Next legacy-susfs-v2,
+# SuSFS v2.3.0 and NoMount v2.0.0. Everything in build-kit/ci/ufo01/ was produced
+# by that session and audited with AUDIT PASSED before this workflow existed.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/96cbd65a-synthentica
+    paths:
+      - '.github/workflows/ufo-01-build.yml'
+      - 'build-kit/ci/ufo01/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ufo-01-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the toolchain the 3.2 builds used
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            clang-18 lld-18 llvm-18 gcc-aarch64-linux-gnu bc flex bison \
+            libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils \
+            python3 patch openssl zip rsync git curl binutils kmod
+          clang-18 --version | head -1
+
+      - name: Lay the root/stealth stack onto a pristine Kinesis tree
+        run: |
+          set -euo pipefail
+          git clone -q --depth 1 -b kinesis-v29 \
+            https://github.com/clarencelol/kernel_xiaomi_sm6250 "$RUNNER_TEMP/ufo"
+          cd "$RUNNER_TEMP/ufo"
+          K="$GITHUB_WORKSPACE/build-kit/ci/ufo01"
+
+          cp -a "$K/KernelSU-Next" .
+          cp -a "$K/nomount" fs/nomount
+          cp    "$K/susfs.c" fs/
+          cp    "$K/susfs.h" "$K/susfs_def.h" include/linux/
+          cp -a "$K/root-integration" tools/
+          ln -sfn ../KernelSU-Next/kernel drivers/kernelsu
+
+          git apply "$K/01-synthetica32-and-susfs-tracking.patch"
+          cp "$K/miatoll_defconfig" arch/arm64/configs/vendor/xiaomi/
+
+      - name: Audit — must print AUDIT PASSED or the build is pointless
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ufo"
+          bash tools/root-integration/audit_hooks.sh . | tee "$RUNNER_TEMP/audit.txt"
+          grep -q "AUDIT PASSED" "$RUNNER_TEMP/audit.txt"
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ufo"
+          export ARCH=arm64 SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export LLVM=1 LLVM_IAS=1
+          export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
+          make O=out ARCH=arm64 vendor/xiaomi/miatoll_defconfig
+          make -j"$(nproc)" O=out ARCH=arm64 \
+            CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump STRIP=llvm-strip \
+            Image.gz dtbs 2>&1 | tail -60
+
+      - name: Report what was produced, and what was not tested
+        if: always()
+        run: |
+          set +e
+          cd "$RUNNER_TEMP/ufo"
+          OUT="$RUNNER_TEMP/summary.md"
+          echo "## UFO-0.1 build" > "$OUT"
+          echo >> "$OUT"
+          echo "Tree: Kinesis kinesis-v29 (4.14.344) + 8 patch Synthetica + KSU-Next + SuSFS 2.3.0 + NoMount" >> "$OUT"
+          echo >> "$OUT"
+          if [ -f out/arch/arm64/boot/Image.gz ]; then
+            ls -l out/arch/arm64/boot/Image.gz >> "$OUT"
+            python3 build-kit/ci/ufo01/show_version.py out/arch/arm64/boot/Image.gz >> "$OUT" 2>&1
+          else
+            echo "**Image.gz tidak dihasilkan.** Build gagal sebelum kompilasi selesai." >> "$OUT"
+          fi
+          echo >> "$OUT"
+          echo "Belum diuji: boot, deep sleep, drain, thermal. Itu butuh perangkat." >> "$OUT"
+          cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ufo-01-image
+          path: |
+            /home/runner/work/_temp/ufo/out/arch/arm64/boot/Image.gz
+            /home/runner/work/_temp/ufo/out/arch/arm64/boot/dts/qcom/*.dtb
+          if-no-files-found: warn
+          retention-days: 14
