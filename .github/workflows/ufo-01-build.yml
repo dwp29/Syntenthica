@@ -63,6 +63,10 @@ jobs:
           cp    "$K/susfs.c" fs/
           cp    "$K/susfs.h" "$K/susfs_def.h" include/linux/
           cp -a "$K/root-integration" tools/
+          # The audit reads drivers/kernelsu, so the link has to exist before it runs.
+          # It is rebuilt after mrproper in the build step; only its presence for the
+          # audit matters here.
+          ln -sfn ../KernelSU-Next/kernel drivers/kernelsu
 
           git apply "$K/01-synthetica32-and-susfs-tracking.patch"
           cp "$K/miatoll_defconfig" arch/arm64/configs/vendor/xiaomi/
