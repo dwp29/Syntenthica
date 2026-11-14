@@ -93,6 +93,7 @@ jobs:
           # Makefile hands goals to scripts/kconfig. Copying the file and running
           # olddefconfig works regardless of that, so the build does not hinge on a
           # detail that differs between 4.14 trees.
+          ln -sfn ../KernelSU-Next/kernel drivers/kernelsu
           cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig .config
 
           export ARCH=arm64
@@ -113,6 +114,11 @@ jobs:
           # an empty config, and the real error ("No hooks were defined") was three
           # layers away from the cause. mrproper runs first, before anything is
           # copied, and its exit code is checked.
+          # mrproper walks every driver including drivers/kernelsu, and that path
+          # only exists once the symlink is in place -- so the clean fails while
+          # cleaning the very thing that was just added. Remove the symlink for the
+          # clean, put it back after.
+          rm -f drivers/kernelsu
           make ARCH=arm64 mrproper >> "$LOG" 2>&1
           RC_CLEAN=$?
           if [ "$RC_CLEAN" -ne 0 ]; then
