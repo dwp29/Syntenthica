@@ -106,15 +106,15 @@ jobs:
           # clang, chosen the way the 3.2 recipe did: CC/LD named explicitly. LLVM=1
           # together with CROSS_COMPILE makes the 4.14 Makefile prefer
           # aarch64-linux-gnu-gcc in places and clang in others.
-          # CROSS_COMPILE must NOT be exported here: this tree prefixes the compiler
-          # with it, so `CC=clang` became `aarch64-linux-gnu-gcc` and every clang flag
-          # (-mllvm, -inline-threshold) was rejected by gcc. The target triple goes in
-          # CLANG_TRIPLE instead, which is what kbuild expects for clang builds.
+          # This Makefile writes `CC = $(CROSS_COMPILE)gcc` with a plain `=`, which
+          # overrides an exported CC. Environment variables therefore never reach the
+          # compiler: clang arrived as aarch64-linux-gnu-gcc, then as plain gcc, and
+          # both rejected the clang flags. Command-line assignments win over `=`, so
+          # the tools go on the make line below.
           export CLANG_TRIPLE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          export CC=clang
-          export LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump STRIP=llvm-strip
+          MAKEARGS="CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy"
+          MAKEARGS="$MAKEARGS OBJDUMP=llvm-objdump STRIP=llvm-strip"
           echo "-- compiler: $(command -v clang) $(clang --version | head -1)" >> "$LOG"
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
 
@@ -165,7 +165,7 @@ jobs:
             exit 1
           fi
 
-          make -j"$(nproc)" O=out ARCH=arm64 Image.gz >> "$LOG" 2>&1
+          make -j"$(nproc)" O=out ARCH=arm64 $MAKEARGS Image.gz >> "$LOG" 2>&1
           RC=$?
           echo "exit=$RC" >> "$LOG"
           tail -60 "$LOG"
