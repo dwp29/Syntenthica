@@ -171,6 +171,18 @@ jobs:
           # .config, after which olddefconfig starts from nothing and asks about
           # every NEW symbol until it aborts.
           mkdir -p out
+          # Kinesis needs three repairs before it links; each is named in an actual
+          # build log. The script verifies its own work and exits non-zero if any
+          # repair did not land.
+          bash "$GITHUB_WORKSPACE/build-kit/ci/ufo01/fixups/apply-tree-fixups.sh" . \
+            >> "$LOG" 2>&1
+          RC_FIX=$?
+          if [ "$RC_FIX" -ne 0 ]; then
+            echo "tree fixups failed (exit $RC_FIX)" >> "$LOG"
+            tail -10 "$LOG"
+            exit 1
+          fi
+
           cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig out/.config
           if [ ! -f out/.config ]; then
             echo "out/.config was not created" >> "$LOG"
