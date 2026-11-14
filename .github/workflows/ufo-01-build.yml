@@ -143,6 +143,40 @@ jobs:
           echo "Belum diuji: boot, deep sleep, drain, thermal. Itu butuh perangkat." >> "$OUT"
           cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Publish the build log, since the log endpoints are not readable here
+        if: always()
+        run: |
+          set +e
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p "$GITHUB_WORKSPACE/.ufo-evidence"
+          {
+            echo "### UFO-0.1 build"
+            echo
+            echo "commit: $GITHUB_SHA"
+            echo
+            echo "#### error pertama"
+            echo '```'
+            grep -nE "error:|Error [0-9]|No rule to make target|not found|fatal:" "$RUNNER_TEMP/build.log" 2>/dev/null | head -15
+            echo '```'
+            echo
+            echo "#### ekor log (60 baris)"
+            echo '```'
+            tail -60 "$RUNNER_TEMP/build.log" 2>/dev/null
+            echo '```'
+            echo
+            echo "#### audit"
+            echo '```'
+            tail -5 "$RUNNER_TEMP/audit.txt" 2>/dev/null
+            echo '```'
+          } > "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
+          cp "$RUNNER_TEMP/build.log" "$GITHUB_WORKSPACE/.ufo-evidence/build-full.log" 2>/dev/null
+          git config user.name "ufo-bot"
+          git config user.email "ufo@localhost"
+          git checkout -q -B ufo-evidence
+          git add -f .ufo-evidence
+          git commit -q -m "ufo-01: build log"
+          git push -q --force origin ufo-evidence
+
       - name: Keep the image
         if: always()
         uses: actions/upload-artifact@v4
