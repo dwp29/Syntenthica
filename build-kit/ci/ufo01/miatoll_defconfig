@@ -770,3 +770,18 @@ CONFIG_CPU_BOOST=y
 # rejects. -Os is the kernel default and what the 3.2 build used.
 #
 CONFIG_CC_OPTIMIZE_FOR_SIZE=y
+
+#
+# Three options the kernel itself insists on, found by reading the compile errors
+# rather than guessing:
+#   FAIR_GROUP_SCHED -- struct cfs_rq only declares `struct rq *rq` under this, and
+#       include/trace/events/sched.h uses cfs_rq->rq under CONFIG_SCHED_WALT.
+#       struct sched_entity.my_q is in the same block, so sched.h:981 needs it too.
+#   MEMCG -- MEM_CGROUP_ID_SHIFT becomes 0 with it off, so EVICTION_SHIFT in
+#       mm/workingset.c falls to 3 bits while MGLRU needs LRU_GEN_WIDTH(4) +
+#       LRU_USAGE_WIDTH(2) = 6. With MEMCG the shift is 19 and the check passes.
+#
+CONFIG_FAIR_GROUP_SCHED=y
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_MEMCG=y
+CONFIG_MEMCG_SWAP=y
