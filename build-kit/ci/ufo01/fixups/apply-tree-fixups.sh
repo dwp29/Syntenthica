@@ -52,9 +52,32 @@ fi
 #    and the link fails on an undefined path_umount. Insert it directly.
 if ! grep -q '^int path_umount(struct path \*path, int flags)$' fs/namespace.c; then
   python3 - <<'PY'
-import re, pathlib
+import pathlib
 p = pathlib.Path("fs/namespace.c")
 s = p.read_text()
+# can_umount is what path_umount calls, and Kinesis has no such function. KernelSU-Next
+# supplies it with its own sed; that sed did not fire either, so the call had no
+# declaration and clang stopped on -Wimplicit-function-declaration.
+CAN = """static int can_umount(const struct path *path, int flags)
+{
+        struct mount *mnt = real_mount(path->mnt);
+
+        if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
+                return -EINVAL;
+        if (!may_mount())
+                return -EPERM;
+        if (path->dentry != path->mnt->mnt_root)
+                return -EINVAL;
+        if (!check_mnt(mnt))
+                return -EINVAL;
+        if (mnt->mnt.mnt_flags & MNT_LOCKED)
+                return -EINVAL;
+        if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
+                return -EPERM;
+        return 0;
+}
+
+"""
 if "int path_umount(struct path *path, int flags)" not in s:
     fn = """int path_umount(struct path *path, int flags)
 {
@@ -73,7 +96,10 @@ if "int path_umount(struct path *path, int flags)" not in s:
 """
     anchor = "static bool is_mnt_ns_file(struct dentry *dentry)"
     if anchor in s:
-        s = s.replace(anchor, fn + anchor, 1)
+        if "static int can_umount" not in s:
+            s = s.replace(anchor, CAN + fn + anchor, 1)
+        else:
+            s = s.replace(anchor, fn + anchor, 1)
         p.write_text(s)
         print("-- inserted path_umount into fs/namespace.c")
     else:
@@ -88,6 +114,7 @@ fi
 fail=0
 grep -q 'obj-$(CONFIG_KSU) += kernelsu/' drivers/Makefile || { echo "FAIL: KSU not wired"; fail=1; }
 grep -q '^int path_umount(struct path \*path, int flags)$' fs/namespace.c || { echo "FAIL: path_umount missing"; fail=1; }
+grep -q '^static int can_umount' fs/namespace.c || { echo "FAIL: can_umount missing"; fail=1; }
 grep -rqs '^unsigned int sysctl_sched_conservative_pl' kernel/sched/ || { echo "FAIL: sysctl missing"; fail=1; }
 [ "$fail" -eq 0 ] && echo "-- tree fixups applied and verified"
 exit "$fail"
