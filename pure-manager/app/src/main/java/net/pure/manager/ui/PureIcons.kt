@@ -70,36 +70,6 @@ object PureIcons {
         path(fill = SolidColor(Color.Black), pathBuilder = build)
     }
 
-    /**
-     * An icon built from one character, rendered as geometry instead of text.
-     *
-     * This exists for three shapes where a glyph is genuinely the right drawing --
-     * a plus, a minus, an arrow. The difference from the text it replaces is that
-     * the character sits on a 24x24 viewport with an explicit font size, so it is
-     * centred by construction rather than by whatever line height the theme's
-     * typography picked. A `+` at 24 sp in body text sits low in its box, which is
-     * exactly the off-centre look the old toolbar had.
-     *
-     * The font is monospace on purpose: it is the one family Android guarantees to
-     * have a complete set of these marks, and no width variation between them.
-     */
-    private fun textIcon(name: String, mark: String): ImageVector =
-        ImageVector.Builder(
-            name = name,
-            defaultWidth = GRID.dp,
-            defaultHeight = GRID.dp,
-            viewportWidth = GRID,
-            viewportHeight = GRID,
-        ).addText(
-            text = mark,
-            fontSize = 17.sp,
-            fontFamily = FontFamily.Monospace,
-            x = GRID / 2f,
-            y = GRID * 0.72f,
-            textAlign = TextAlign.Center,
-            style = TextStyle(color = Color.Black),
-        ).build()
-
     // ------------------------------------------------------------------ files
 
     /** Folder, closed: the tab on the left and a body with two rounded corners. */
@@ -1129,15 +1099,47 @@ object PureIcons {
         }
     }
 
-    // -------------------------------------------------- marks the UI needs as text
+    // ------------------------------------------------------------ typographic marks
     /**
-     * Marks that are legitimately characters, given a fixed 24x24 box.
+     * A multiplication sign: the clear button in a search field.
      *
-     * They are separate from the drawn icons above: these are typographic marks,
-     * not drawings, and pretending otherwise would produce a plussign with the
-     * wrong stroke weight next to a gear drawn at 1.7 units.
+     * These three are marks rather than drawings, so they are two strokes that cross
+     * at 45 degrees instead of a character from a font. A character would inherit
+     * the body font's weight and sit on its baseline; two lines at 1.7 units match
+     * the weight of every other icon in this file.
      */
-    val Times: ImageVector by lazy { textIcon("Times", "\u00D7") }
-    val ChevronLeft: ImageVector by lazy { textIcon("ChevronLeft", "\u2039") }
-    val ChevronRight: ImageVector by lazy { textIcon("ChevronRight", "\u203A") }
+    val Times: ImageVector by lazy {
+        icon("Times") {
+            stroke(1.9f) {
+                moveTo(7.2f, 7.2f)
+                lineTo(16.8f, 16.8f)
+            }
+            stroke(1.9f) {
+                moveTo(16.8f, 7.2f)
+                lineTo(7.2f, 16.8f)
+            }
+        }
+    }
+
+    /** A single left chevron, for a back affordance that is not in a round button. */
+    val ChevronLeft: ImageVector by lazy {
+        icon("ChevronLeft") {
+            stroke {
+                moveTo(14.6f, 5.4f)
+                lineTo(8.0f, 12.0f)
+                lineTo(14.6f, 18.6f)
+            }
+        }
+    }
+
+    /** A single right chevron. */
+    val ChevronRight: ImageVector by lazy {
+        icon("ChevronRight") {
+            stroke {
+                moveTo(9.4f, 5.4f)
+                lineTo(16.0f, 12.0f)
+                lineTo(9.4f, 18.6f)
+            }
+        }
+    }
 }

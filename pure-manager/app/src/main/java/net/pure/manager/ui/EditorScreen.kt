@@ -499,6 +499,10 @@ private fun ToolbarText(
     label: String,
     enabled: Boolean,
     onClick: () -> Unit,
+    // The icon is last on purpose. Every call site before the icon existed ended in
+    // a trailing lambda; a parameter inserted before `onClick` silently rebinds that
+    // lambda to the new parameter and the compiler reports "no value passed for
+    // onClick" six times.
     icon: ImageVector? = null,
 ) {
     val spec = net.pure.manager.theme.LocalPureSpec.current

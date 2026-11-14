@@ -1739,10 +1739,11 @@ private fun PlacesDialog(
                             color = p.onSurfaceVariant,
                         )
                     }
-                    Text(
-                        if (showSystem) PureIcons.Eye else PureIcons.EyeOff,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = p.accent,
+                    Icon(
+                        imageVector = if (showSystem) PureIcons.Eye else PureIcons.EyeOff,
+                        contentDescription = null,
+                        tint = p.accent,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 Text(

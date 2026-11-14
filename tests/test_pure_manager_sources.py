@@ -190,6 +190,57 @@ class KnownApiTraps(unittest.TestCase):
                                   f"never matches {line.strip()}")
 
 
+class TrailingLambdaSafety(unittest.TestCase):
+    """Optional parameters must not precede the callback a call site trails.
+
+    ToolbarText gained `icon: ImageVector? = null` in front of `onClick`. Six call
+    sites ended in a trailing lambda, Kotlin bound that lambda to `icon`, and the
+    compiler answered with "No value passed for parameter 'onClick'" six times. The
+    fix is ordering: new optional parameters go after the callback, so a trailing
+    lambda still lands on the callback.
+    """
+
+    # The parameter list has to be read to the matching close paren: a callback
+    # type contains its own "()", so stopping at the first ')' truncates the list
+    # and the guard then sees no callback at all -- which is how the order bug got
+    # past it the first time it was run.
+    DECL = re.compile(r"private fun (\w+)\(", re.S)
+
+    @staticmethod
+    def _params(text: str, open_index: int) -> str:
+        depth = 0
+        for i in range(open_index, len(text)):
+            if text[i] == "(":
+                depth += 1
+            elif text[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    return text[open_index + 1:i]
+        return ""
+
+    def test_optional_parameters_come_after_required_callbacks(self):
+        problems = []
+        for f in kt_files():
+            text = f.read_text()
+            for m in self.DECL.finditer(text):
+                name = m.group(1)
+                params = self._params(text, m.end() - 1)
+                parts = [p.strip() for p in params.split(",") if ":" in p]
+                seen_optional = None
+                for i, part in enumerate(parts):
+                    pname = part.split(":")[0].strip().removeprefix("private ").strip()
+                    is_optional = "=" in part
+                    is_callback = re.search(r"\(\s*\)\s*->", part) is not None
+                    if is_optional and seen_optional is None:
+                        seen_optional = pname
+                    elif is_callback and not is_optional and seen_optional is not None:
+                        problems.append(
+                            f"{f.name}: {name}() has required callback '{pname}' "
+                            f"after optional parameter '{seen_optional}'"
+                        )
+        self.assertEqual([], problems, "\n".join(problems))
+
+
 class AndroidResources(unittest.TestCase):
     """Resource-directory rules the Android toolchain enforces, checked locally.
 

@@ -409,7 +409,9 @@ fun VideoScreen(
             MediaButton(PureIcons.Rewind, enabled = true) {
                 video.seekTo((shown - 10_000).toInt().coerceAtLeast(0))
             }
-            MediaButton("+10", enabled = true) { video.seekTo((shown + 10_000).coerceAtMost(duration).toInt()) }
+            MediaButton(PureIcons.Forward, enabled = true) {
+                video.seekTo((shown + 10_000).coerceAtMost(duration).toInt())
+            }
             Text(formatClock(duration), style = MaterialTheme.typography.labelSmall, color = p.onSurfaceVariant)
         }
         Text(
