@@ -1,13 +1,16 @@
-name: "Probe — patch Synthetica di source Roll 3.3"
+name: "Probe — patch Synthetica di beberapa pohon source"
 
-# Cheap experiment, no compilation. The question is narrow: Roll 3.3 is 4.14.370,
-# Synthetica 3.2 was built on 4.14.357. Do the eight Synthetica patches still
-# apply to the newer tree? Guessing the answer costs hours of failed kernel
-# builds; measuring it costs two minutes and a git clone.
+# No compilation here. The question: which reachable tree can actually carry all
+# eight Synthetica patches? Roll 3.3 says 4.14.370, but that string was written by
+# whoever built the zip -- it is not evidence of a public tree. Kinesis tops out at
+# 4.14.344 and Saamitk at 4.14.357, so the patches are measured against each.
 on:
   push:
     paths:
       - '.github/workflows/probe-roll370-patches.yml'
+      - 'build-kit/ci/synthetica2-experimental/patches/**'
+      - 'build-kit/ci/synthetica3-rc/**'
+      - 'build-kit/ci/synthetica3-root/**'
   workflow_dispatch:
 
 permissions:
@@ -15,113 +18,23 @@ permissions:
 
 jobs:
   probe:
-    name: "Dry-run the eight patches"
+    name: "Uji 8 patch di tiap kandidat source"
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
+
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
-      - name: Find the Roll base tree and read its version
-        run: |
-          set -uo pipefail
-          mkdir -p "$RUNNER_TEMP/probe"
-          REP="$RUNNER_TEMP/probe/report.txt"
-          : > "$REP"
-
-          probe_tree() {
-            local url="$1" ref="$2" dir="$3"
-            echo "=== sumber: $url${ref:+ @ $ref} ===" >> "$REP"
-            rm -rf "$dir"
-            if ! git clone --depth 1 ${ref:+-b "$ref"} "$url" "$dir" >/dev/null 2>&1; then
-              echo "  GAGAL clone" >> "$REP"
-              return 1
-            fi
-            ( cd "$dir" || exit 1
-              echo "  commit : $(git rev-parse HEAD)" >> "$REP"
-              # Read the version out of the Makefile instead of asking make. make
-              # needs bison/flex/bc and this job installs nothing; asking it is how
-              # the second run of this probe reported "?" for two good trees.
-              v=$(sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile 2>/dev/null | tr -d '\n')
-              echo "  versi  : $(printf '%s' "$v" | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')" >> "$REP"
-              echo "  tanggal: $(git log -1 --format=%ci)" >> "$REP"
-            )
-            return 0
-          }
-
-          echo "### Lingkungan" >> "$REP"
-          echo "clang: $(clang --version 2>/dev/null | head -1)" >> "$REP"
-          echo >> "$REP"
-
-          echo "### Kandidat source" >> "$REP"
-          probe_tree https://github.com/clarencelol/kernel_xiaomi_sm6250 kinesis-v29 "$RUNNER_TEMP/tree-kinesis-v29" || true
-          probe_tree https://github.com/clarencelol/kernel_xiaomi_sm6250 kinesis-v30 "$RUNNER_TEMP/tree-kinesis-v30" || true
-          probe_tree https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff a "$RUNNER_TEMP/tree-a" || true
-          probe_tree https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff "" "$RUNNER_TEMP/tree-head" || true
-          probe_tree https://github.com/crdroidandroid/android_kernel_xiaomi_sm6250 8b4afb3dd59ea7f94bef73d61bc23a2b713b1df7 "$RUNNER_TEMP/tree-crdroid" || true
-
-          # Pick the tree whose version starts with 4.14.37 so the patch test runs
-          # against the closest thing to Roll 3.3 that is actually reachable.
-          BEST=""; BEST_PL=""
-          for d in "$RUNNER_TEMP/tree-kinesis-v29" "$RUNNER_TEMP/tree-kinesis-v30" "$RUNNER_TEMP/tree-a" "$RUNNER_TEMP/tree-head"; do
-            [ -d "$d" ] || continue
-            v=$(cd "$d" && sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile | tr -d '\n' \
-                | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')
-            echo "  -> kandidat $d versi $v" >> "$REP"
-            # Pick the highest patch level. The earlier version kept the LAST match in
-            # glob order, so tree-a (4.14.357) silently beat the Kinesis tree the owner
-            # actually named -- a run that looks like it tested Kinesis and did not.
-            case "$v" in 4.14.3*)
-              pl=${v#4.14.}
-              if [ -z "$BEST_PL" ] || [ "$pl" -gt "$BEST_PL" ]; then
-                BEST="$d"; BEST_PL="$pl"
-              fi
-              ;; esac
-          done
-          echo "TREE=$BEST" >> "$GITHUB_ENV"
-          echo "TREE_USED=$BEST (4.14.${BEST_PL:-?})" >> "$REP"
-          case "$BEST" in
-            *kinesis-v29*) echo "TREE_LABEL=kinesis-v29 (4.14.344)" >> "$GITHUB_ENV" ;;
-            *kinesis-v30*) echo "TREE_LABEL=kinesis-v30 (4.14.343)" >> "$GITHUB_ENV" ;;
-            *tree-a)       echo "TREE_LABEL=Saamitk branch a (4.14.357)" >> "$GITHUB_ENV" ;;
-            *)             echo "TREE_LABEL=${BEST:-none}" >> "$GITHUB_ENV" ;;
-          esac
-          echo >> "$REP"
-          echo "### Tree yang dipakai untuk uji patch: ${BEST:-TIDAK ADA}" >> "$REP"
-          echo >> "$REP"
-
-      - name: Dry-run every Synthetica patch against that tree
-        id: dryrun
+      - name: Clone setiap kandidat, lalu uji patch
+        id: matrix
         continue-on-error: true
         run: |
-          exec > >(tee -a "$RUNNER_TEMP/probe/dryrun.out") 2>&1
-          # `set +e` is the whole trick. GitHub Actions runs this script as
-          # `bash -e {0}`, so -e is already ON before the first line here, and
-          # writing `set -uo pipefail` does not remove it. Every earlier version of
-          # this step therefore died at the first failing patch and reported only
-          # one conflict out of eight -- five runs, and the cause was one missing
-          # character. A failing patch is the measurement here, not an error.
+          # GitHub runs this block as `bash -e {0}`. -e is on before the first
+          # line, and `set -uo pipefail` does not turn it off -- five runs died at
+          # the first failing patch that way. `set +e` is the line that matters.
           set +e
-          set -uo pipefail
-          # Report the exact line that fails. Three runs died in this step with no
-          # usable log endpoint, and "step failed" told me nothing about why.
-          trap 'echo "BARIS GAGAL: $LINENO (status $?)" >> "$REP"' ERR
+          mkdir -p "$RUNNER_TEMP/probe"
           REP="$RUNNER_TEMP/probe/report.txt"
-          TREE="${TREE:-}"
-          echo "### Diagnostik" >> "$REP"
-          echo "TREE=${TREE:-<kosong>}" >> "$REP"
-          echo "pwd=$(pwd)" >> "$REP"
-          echo "GITHUB_ENV=$(cat "$GITHUB_ENV" 2>/dev/null | tr "\n" " ")" >> "$REP"
-          if [ -z "$TREE" ] || [ ! -d "$TREE" ]; then
-            echo "Tidak ada tree yang bisa diuji. Clone gagal di semua kandidat." >> "$REP"
-            # No tree is not a reason to lose the report: this exits the step, and
-            # the publish step below still needs the file to exist.
-            exit 0
-          fi
-          # Past this point the report must be published whatever happens, so the
-          # publish step is guarded separately rather than riding on this step's
-          # exit code.
 
           PATCHES=(
             "build-kit/ci/synthetica2-experimental/patches/0001-mglru-4.14.patch"
@@ -133,72 +46,78 @@ jobs:
             "build-kit/ci/synthetica3-rc/0001-ksu-manager-preserve-seccomp.patch"
             "build-kit/ci/synthetica3-root/0001-manager-fd-after-exec.patch"
           )
+          SHORT=(mglru uclamp-walt uclamp-corr mglru-anon mglru-pw neutron ksu-seccomp ksu-fd)
 
-          echo "### Hasil uji patch terhadap ${TREE_LABEL:-$TREE}" >> "$REP"
-          OK=0; FAIL=0
-          # `set -e` is inherited by the loop: a non-zero status from the subshell
-          # would end the step before a single line was written. The subshell's
-          # status is captured explicitly instead, which is what the code below
-          # always intended and what three failed probe runs proved it was not
-          # doing.
-          for p in "${PATCHES[@]}"; do
-            name=$(basename "$p")
-            if [ ! -f "$p" ]; then
-              echo "TIDAK ADA BERKAS: $p" >> "$REP"; FAIL=$((FAIL+1)); continue
+          # label|repo|ref   -- the first column is what the report shows.
+          CANDS=(
+            "Kinesis 4.14.344|https://github.com/clarencelol/kernel_xiaomi_sm6250|kinesis-v29"
+            "Kinesis 4.14.343|https://github.com/clarencelol/kernel_xiaomi_sm6250|kinesis-v30"
+            "Saamitk 4.14.357|https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff|a"
+          )
+
+          echo "### Uji 8 patch Synthetica per pohon source" >> "$REP"
+          echo >> "$REP"
+          HEADER="| Pohon | Versi |"
+          DIV="|---|---|"
+          for s in "${SHORT[@]}"; do HEADER="$HEADER $s |"; DIV="$DIV---|"; done
+          HEADER="$HEADER Bersih |"
+          DIV="$DIV---|"
+          echo "$HEADER" >> "$REP"
+          echo "$DIV" >> "$REP"
+
+          for c in "${CANDS[@]}"; do
+            label=${c%%|*}; rest=${c#*|}; repo=${rest%%|*}; ref=${rest#*|}
+            dir="$RUNNER_TEMP/tree-${ref}"
+            rm -rf "$dir"
+            if ! git clone -q --depth 1 --branch "$ref" "$repo" "$dir" 2>"$RUNNER_TEMP/probe/clone.err"; then
+              echo "| $label | *clone gagal* | | | | | | | | | - |" >> "$REP"
+              continue
             fi
-            ( cd "$TREE" || exit 9
-              if git apply --check "$OLDPWD/$p" >/dev/null 2>&1; then
-                echo "  BERSIH   $name" >> "$REP"; exit 0
+            v=$(cd "$dir" && sed -n 's/^\(VERSION\|PATCHLEVEL\|SUBLEVEL\) *= */\1=/p' Makefile | tr -d '\n' \
+                | sed 's/VERSION=\([0-9]*\)PATCHLEVEL=\([0-9]*\)SUBLEVEL=\([0-9]*\)/\1.\2.\3/')
+            row="| $label | $v |"
+            ok=0
+            for p in "${PATCHES[@]}"; do
+              name=$(basename "$p")
+              cell="?"
+              if [ ! -f "$p" ]; then
+                cell="hilang"; row="$row $cell |"; continue
               fi
-              echo "  KONFLIK  $name" >> "$REP"
-              # Record where it stops, not just that it failed: a hunk offset in
-              # vmscan.c means the port is mechanical; a missing function means the
-              # 370 tree moved the code and the patch needs rethinking.
-              patch -p1 --dry-run --forward < "$OLDPWD/$p" 2>&1 \
-                | grep -E "^(Hunk|Reversed|patching file|.*FAILED|.*can't find)" \
-                | head -12 | sed 's/^/      /' >> "$REP"
-              exit 1
-            )
-            rc=$?
-            if [ "$rc" -eq 0 ]; then
-              OK=$((OK+1))
-            else
-              echo "  KONFLIK  $name" >> "$REP"; FAIL=$((FAIL+1))
-            fi
+              if ( cd "$dir" && git apply --check "$OLDPWD/$p" >/dev/null 2>&1 ); then
+                cell="BERSIH"; ok=$((ok+1))
+              else
+                # "sudah ada" is not a conflict and must not be read as one.
+                if ( cd "$dir" && patch -p1 --dry-run --forward < "$OLDPWD/$p" 2>&1 ) \
+                     | grep -qi "Reversed (or previously applied)"; then
+                  cell="sudah ada"; ok=$((ok+1))
+                else
+                  cell="KONFLIK"
+                fi
+              fi
+              row="$row $cell |"
+            done
+            echo "$row $ok/8 |" >> "$REP"
           done
 
           echo >> "$REP"
-          echo "Ringkasan: $OK bersih, $FAIL konflik dari ${#PATCHES[@]} patch." >> "$REP"
+          echo "Legenda: **BERSIH** = git apply --check lolos · **sudah ada** = pohonnya" >> "$REP"
+          echo "memang sudah memuat perubahan itu · **KONFLIK** = perlu ditulis ulang." >> "$REP"
 
-      - name: Publish the raw script output regardless of what happened
+      - name: Publish the report regardless of what happened
         if: always()
         run: |
-          # The report file and the step's own exit status are two different things,
-          # and three runs proved I kept confusing them: the step died before the
-          # report was written, and publish was skipped because it depends on that
-          # step. This copies whatever bash managed to say, written or not.
-          echo "=== langkah uji: ${{ steps.dryrun.outcome }} ===" > "$RUNNER_TEMP/probe/step.txt"
-          echo "=== output mentah ===" >> "$RUNNER_TEMP/probe/step.txt"
-          cat "$RUNNER_TEMP/probe/dryrun.out" >> "$RUNNER_TEMP/probe/step.txt" 2>/dev/null || echo "(tidak ada)" >> "$RUNNER_TEMP/probe/step.txt"
-          echo >> "$RUNNER_TEMP/probe/step.txt"
-          cat "$RUNNER_TEMP/probe/report.txt" >> "$RUNNER_TEMP/probe/step.txt" 2>/dev/null || true
-
-      - name: Publish the report on a throwaway branch
-        if: always()
-        run: |
-          set -uo pipefail
-          # Run logs are not readable from this project's tooling and artifacts come
-          # from a host that returns EOF, so the report travels the one way that has
-          # always worked here: a plain git push to a branch nobody merges.
-          cat "$RUNNER_TEMP/probe/report.txt"
+          set +e
           cd "$RUNNER_TEMP/probe"
-          git init -q report && cd report
-          cp ../report.txt . 2>/dev/null || true
-          cp ../step.txt . 2>/dev/null || true
-          git add -A
-          git -c user.email=ci@example.invalid -c user.name=probe commit -q -m "probe: Synthetica patches on the Roll 3.3 tree"
-          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" HEAD:probe-output
-
-      - name: Say it in the run summary too
-        if: always()
-        run: cat "$RUNNER_TEMP/probe/report.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          git init -q -b probe-output .
+          cp "$GITHUB_WORKSPACE/build-kit/ci/synthetica2-experimental/patches/0001-mglru-4.14.patch" /dev/null 2>&1
+          git checkout -q --orphan probe-output 2>/dev/null || true
+          cp report.txt "$GITHUB_WORKSPACE/.probe-report.txt"
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "probe-bot"
+          git config user.email "probe@localhost"
+          git checkout -q -B probe-output
+          git add -f .probe-report.txt
+          git mv -f .probe-report.txt report.txt 2>/dev/null || mv -f .probe-report.txt report.txt
+          git add -f report.txt
+          git commit -q -m "probe: report"
+          git push -q --force origin probe-output
