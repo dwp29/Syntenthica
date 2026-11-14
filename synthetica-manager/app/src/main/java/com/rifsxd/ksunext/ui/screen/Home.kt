@@ -108,6 +108,7 @@ import com.rifsxd.ksunext.ui.theme.RetroKonami
 import com.rifsxd.ksunext.ui.theme.RetroKonamiOverlay
 import com.rifsxd.ksunext.ui.theme.RetroParticles
 import com.rifsxd.ksunext.ui.theme.RetroSfx
+import com.rifsxd.ksunext.ui.component.KeyEventBlocker
 import com.rifsxd.ksunext.ui.theme.IosBlueDark
 import com.rifsxd.ksunext.ui.theme.IosCyanDark
 import com.rifsxd.ksunext.ui.theme.IosGreenDark
@@ -716,6 +717,10 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             // CRT layer draws scanlines + vignette + tap bursts over the full screen
             RetroCrtLayer()
             RetroKonamiOverlay()
+            KeyEventBlocker { keyEvent ->
+                RetroKonami.push(keyEvent)
+                false
+            }
         }
         }
     }
