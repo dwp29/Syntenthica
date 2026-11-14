@@ -70,6 +70,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -98,7 +100,14 @@ import com.rifsxd.ksunext.ui.LocalNavBarEnabled
 import com.rifsxd.ksunext.ui.LocalScrollState
 import com.rifsxd.ksunext.ui.rememberScrollConnection
 import com.rifsxd.ksunext.ui.theme.GlassTopBar
+import com.rifsxd.ksunext.ui.theme.LocalManagerStyle
 import com.rifsxd.ksunext.ui.theme.LocalPixelMotionEnabled
+import com.rifsxd.ksunext.ui.theme.ManagerStyle
+import com.rifsxd.ksunext.ui.theme.RetroCrtLayer
+import com.rifsxd.ksunext.ui.theme.RetroKonami
+import com.rifsxd.ksunext.ui.theme.RetroKonamiOverlay
+import com.rifsxd.ksunext.ui.theme.RetroParticles
+import com.rifsxd.ksunext.ui.theme.RetroSfx
 import com.rifsxd.ksunext.ui.theme.IosBlueDark
 import com.rifsxd.ksunext.ui.theme.IosCyanDark
 import com.rifsxd.ksunext.ui.theme.IosGreenDark
@@ -340,10 +349,24 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             )
         },
     ) { innerPadding ->
-        Column(
+        val activeManagerStyle = LocalManagerStyle.current
+        val retroActive = activeManagerStyle == ManagerStyle.RETRO_ARCADE
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        if (retroActive) {
+                            RetroSfx.play(context, "select", 0.28f)
+                            RetroParticles.burst(offset, count = 12)
+                        }
+                    }
+                },
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
                 .let { mod ->
                     if (bottomBarScrollConnection != null) mod.nestedScroll(bottomBarScrollConnection) else mod
                 }
@@ -688,6 +711,12 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                     )
                 }
             }
+        }
+        if (retroActive) {
+            // CRT layer draws scanlines + vignette + tap bursts over the full screen
+            RetroCrtLayer()
+            RetroKonamiOverlay()
+        }
         }
     }
 }

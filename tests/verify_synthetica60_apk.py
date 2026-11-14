@@ -126,34 +126,33 @@ def verify(apk: Path) -> None:
                 raise ValueError(
                     f"Repository link must not appear in the APK: {banned!r}")
         emblems = ("ic_emblem_pixel", "ic_emblem_cyberpunk", "ic_emblem_ios_glass",
-                   "ic_emblem_neon", "ic_emblem_retro", "ic_emblem_anime",
-                   "ic_emblem_gothic")
+                   "ic_emblem_neon", "ic_emblem_retro")
         for emblem in emblems:
             if emblem.encode() not in arsc and not any(emblem in n for n in names):
                 raise ValueError(f"theme PNG emblem missing from APK: {emblem}")
 
-        # The three illustrated themes ship a near + far banner each. A renamed or
-        # dropped resource is invisible to the Kotlin compiler, so check the table.
-        for theme in ("retro", "gothic", "anime"):
+        # The illustrated theme ships a near + far banner. A renamed or dropped
+        # resource is invisible to the Kotlin compiler, so check the table.
+        for theme in ("retro",):
             for suffix in ("", "_far"):
                 name = f"theme_banner_{theme}{suffix}"
                 if name.encode() not in arsc:
                     raise ValueError(f"theme banner missing from APK: {name}")
 
         # The selector persists these ids, so they must survive into the dex.
-        for style_id in (b"retro_arcade", b"anime_wibu", b"gothic_crimson"):
+        for style_id in (b"retro_arcade",):
             if style_id not in dex:
                 raise ValueError(f"theme style id missing from DEX: {style_id!r}")
 
         banner_hashes = {hashlib.sha256(z.read(n)).hexdigest() for n in names
                          if n.startswith("res/") and n.endswith(".jpg")}
-        if len(banner_hashes) < 6:
-            raise ValueError("Expected 6 distinct banner layers (3 themes x near/far)")
+        if len(banner_hashes) < 2:
+            raise ValueError("Expected 2 distinct banner layers (near/far)")
 
         png_hashes = {hashlib.sha256(z.read(n)).hexdigest() for n in names
                       if n.startswith("res/") and n.endswith(".png")}
-        if len(png_hashes) < 7:
-            raise ValueError("Expected at least 7 distinct PNG emblems")
+        if len(png_hashes) < 5:
+            raise ValueError("Expected at least 5 distinct PNG emblems")
 
     print("Manager 6.0.0 static gates passed:")
     print("  identity net.ember.labs / 6.0.0, UAPI 4 JNI, pinned UAPI-4 libksud.so")

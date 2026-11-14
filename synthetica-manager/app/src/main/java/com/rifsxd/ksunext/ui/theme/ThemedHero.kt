@@ -79,8 +79,6 @@ internal fun DistinctManagerHero(
         ManagerStyle.IOS_GLASS -> IosLiquidGlassHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
         ManagerStyle.NEON -> NeonCyberHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
         ManagerStyle.RETRO_ARCADE -> RetroBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
-        ManagerStyle.ANIME_WIBU -> AnimeBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
-        ManagerStyle.GOTHIC_CRIMSON -> GothicBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
     }
 }
 
@@ -202,46 +200,6 @@ private fun HeroEmblem(
                     .background(Color(0xFF17120C))
                     .border(2.dp, border, CutCornerShape(topStart = 3.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 10.dp))
                     .padding(5.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(emblemRes),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-        ManagerStyle.GOTHIC_CRIMSON -> {
-            // Heraldic plate: near-black, hard crimson edge, no rounding.
-            val plate = CutCornerShape(topStart = 3.dp, topEnd = 12.dp, bottomEnd = 3.dp, bottomStart = 12.dp)
-            Box(
-                modifier = Modifier
-                    .size(size)
-                    .background(Color(0xFF0A0708), plate)
-                    .border(1.5.dp, border, plate)
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(emblemRes),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-        ManagerStyle.ANIME_WIBU -> {
-            // Sticker with a white die-cut edge over a pastel drop shadow.
-            val sticker = RoundedCornerShape(size * 0.32f)
-            Box(
-                modifier = Modifier
-                    .size(size)
-                    .shadow(size * 0.08f, sticker, clip = false, ambientColor = Color(0xFFFF7FB2), spotColor = Color(0xFFC9A3FF))
-                    .background(Color.White, sticker)
-                    .padding(3.dp)
-                    .background(Color(0xFFFDF1F8), RoundedCornerShape(size * 0.27f))
-                    .padding(4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
@@ -1043,53 +1001,5 @@ private fun RetroBannerHero(
         dataBackground = Color(0xFF10214A),
         dataInk = Color(0xFFEAF6FF),
         parallax = 10.dp,
-    )
-}
-
-/** Gothic crimson: moonlit castle, heraldic serif, blood-red data strip. */
-@Composable
-private fun GothicBannerHero(
-    eyebrow: String, title: String, statusPill: String, statusColor: Color, modePill: String?,
-    kernelLine: String, metaLine: String, phase: Float, clickMod: Modifier,
-) {
-    val accent = MaterialTheme.colorScheme.primary
-    IllustratedBannerHero(
-        banner = R.drawable.theme_banner_gothic,
-        bannerFar = R.drawable.theme_banner_gothic_far,
-        eyebrow = eyebrow, title = title, statusPill = statusPill, statusColor = statusColor,
-        modePill = modePill, kernelLine = kernelLine, metaLine = metaLine, phase = phase,
-        clickMod = clickMod,
-        shape = CutCornerShape(topStart = 6.dp, topEnd = 26.dp, bottomEnd = 6.dp, bottomStart = 26.dp),
-        bandHeight = 222.dp,
-        titleStyle = MaterialTheme.typography.headlineMedium,
-        titleColor = Color(0xFFF2DCDC),
-        bannerTint = Color(0xFF0A0708),
-        dataBackground = Color(0xFF170A0C),
-        dataInk = accent,
-        parallax = 14.dp,
-    )
-}
-
-/** Anime wibu: sakura night sky, lantern glow, soft pink. */
-@Composable
-private fun AnimeBannerHero(
-    eyebrow: String, title: String, statusPill: String, statusColor: Color, modePill: String?,
-    kernelLine: String, metaLine: String, phase: Float, clickMod: Modifier,
-) {
-    IllustratedBannerHero(
-        banner = R.drawable.theme_banner_anime,
-        bannerFar = R.drawable.theme_banner_anime_far,
-        eyebrow = eyebrow, title = title, statusPill = statusPill, statusColor = statusColor,
-        modePill = modePill, kernelLine = kernelLine, metaLine = metaLine, phase = phase,
-        clickMod = clickMod,
-        shape = RoundedCornerShape(28.dp),
-        bandHeight = 218.dp,
-        titleStyle = MaterialTheme.typography.headlineMedium,
-        titleColor = Color(0xFFFFF2FA),
-        bannerTint = Color(0xFF1B1438),
-        dataBackground = Color(0xFF241A44),
-        dataInk = Color(0xFFF3E6FF),
-        parallax = 12.dp,
-        pulse = true,
     )
 }

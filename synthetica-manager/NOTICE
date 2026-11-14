@@ -38,11 +38,8 @@ Additional runtime components keep their own licences:
   * Bundled shell helpers (assets/synthetica-*.sh) — GPL-3.0, part of this project
   * VT323 — SIL Open Font License 1.1, Copyright 2011 The VT323 Project Authors
   * Press Start 2P — SIL Open Font License 1.1, Copyright 2012 The Press Start 2P Project Authors
-  * Zen Maru Gothic — SIL Open Font License 1.1, Copyright 2021 The Zen Maru Gothic Project Authors
-  * Rampart One — SIL Open Font License 1.1, Copyright 2020 The Rampart Project Authors
 
-The four fonts above ship as subset builds (Latin, the kana and kanji used by the
-Anime Wibu strings, and the punctuation the themes print). Each family is licensed
+The two fonts above ship as subset Latin builds with the glyphs the themes print. Each family is licensed
 under the SIL Open Font License 1.1; the full licence text for every family travels
 with the APK in assets/font-licenses/, and the fonts are not sold on their own.
 

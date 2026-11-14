@@ -12,10 +12,6 @@
     <string name="theme50_neon_detail">Dual-neon cyber grid, glowing 3D neon emblem, laser pulse and HUD dock</string>
     <string name="theme50_retro">Retro Arcade</string>
     <string name="theme50_retro_detail">1980s cabinet CRT: scanlines, bouncing ball, VT323 marquee and 8-bit labels</string>
-    <string name="theme50_anime">Anime Wibu</string>
-    <string name="theme50_anime_detail">Sakura sky with drifting petals, sticker emblem, rounded gothic type and a floating dock</string>
-    <string name="theme50_gothic">Gothic Crimson</string>
-    <string name="theme50_gothic_detail">Blood moon over a gothic castle, heraldic serif type, thorn emblem and drifting ash</string>
     <string name="theme50_preview_splash">Preview boot splash</string>
     <string name="theme50_preview_splash_sub">Replay the selected theme\'s animated splash screen and PNG emblem</string>
 
