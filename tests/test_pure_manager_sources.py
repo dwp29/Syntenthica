@@ -190,6 +190,45 @@ class KnownApiTraps(unittest.TestCase):
                                   f"never matches {line.strip()}")
 
 
+class AndroidResources(unittest.TestCase):
+    """Resource-directory rules the Android toolchain enforces, checked locally.
+
+    `res/font/` only accepts .xml, .ttf, .ttc and .otf. Putting the OFL licence text
+    next to the fonts looked tidy and failed the resource merger -- a 50-second CI
+    round trip for a file that is not a font. Asset directories take anything.
+    """
+
+    def test_resource_directories_only_hold_what_they_accept(self):
+        allowed = {
+            "font": {".xml", ".ttf", ".ttc", ".otf"},
+            "drawable": {".xml", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".9.png"},
+            "values": {".xml"},
+            "xml": {".xml"},
+            "mipmap-anydpi-v26": {".xml"},
+        }
+        res = ROOT / "pure-manager/app/src/main/res"
+        problems = []
+        for kind, exts in allowed.items():
+            for f in (res / kind).glob("*"):
+                if f.is_dir():
+                    continue
+                ok = any(f.name.endswith(e) for e in exts)
+                if not ok:
+                    problems.append(f"res/{kind}/{f.name} is not one of {sorted(exts)}")
+        self.assertEqual([], problems, "\n".join(problems))
+
+    def test_every_font_resource_is_referenced(self):
+        """A font shipped but never asked for is 66 KB of dead weight per weight."""
+        res = ROOT / "pure-manager/app/src/main/res/font"
+        src = ROOT / "pure-manager/app/src/main/java"
+        code = "\n".join(f.read_text() for f in src.rglob("*.kt"))
+        unused = [
+            f.name for f in res.glob("*.ttf")
+            if f"R.font.{f.stem}" not in code
+        ]
+        self.assertEqual([], unused, f"fonts not referenced: {unused}")
+
+
 class UnresolvedReferences(unittest.TestCase):
     """The failure that actually broke build #4.
 
