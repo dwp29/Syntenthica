@@ -95,8 +95,19 @@ jobs:
 
           make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
           make -j"$(nproc)" O=out ARCH=arm64 Image.gz >> "$LOG" 2>&1
-          echo "exit=$?" >> "$LOG"
-          tail -80 "$LOG"
+          RC=$?
+          echo "exit=$RC" >> "$LOG"
+          tail -60 "$LOG"
+
+          # A green tick is not a kernel. The step above ran under `set +e` so the
+          # log survives a failure, and the previous run reported success with no
+          # Image.gz and no artifact at all -- 90 seconds for a whole kernel.
+          # Success is now defined as the file existing.
+          if [ ! -f out/arch/arm64/boot/Image.gz ]; then
+            echo "::error::Image.gz not produced (make exit=$RC) -- see the summary for the first error"
+            exit 1
+          fi
+          ls -l out/arch/arm64/boot/Image.gz
 
       - name: Show the first real error, since the log link is not readable
         if: always()
@@ -138,7 +149,7 @@ jobs:
         with:
           name: ufo-01-image
           path: |
-            /home/runner/work/_temp/ufo/out/arch/arm64/boot/Image.gz
-            /home/runner/work/_temp/ufo/out/arch/arm64/boot/dts/qcom/*.dtb
+            ${{ runner.temp }}/ufo/out/arch/arm64/boot/Image.gz
+            ${{ runner.temp }}/ufo/out/arch/arm64/boot/dts/qcom/*.dtb
           if-no-files-found: warn
           retention-days: 14
