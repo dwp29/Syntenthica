@@ -235,7 +235,11 @@ jobs:
           # No `set -e`: a silent abort here produced a failed step with no message,
           # and the publish step that follows can only report what it is told.
           set -uo pipefail
-          trap 'echo "::error::assemble failed at line $LINENO"' ERR
+          trap 'rc=$?; echo "::error::assemble failed at line $LINENO (status $rc)"; \
+                echo "assemble failed at line $LINENO (status $rc)" \
+                  >> "$GITHUB_WORKSPACE/.ufo-evidence/assemble.txt" 2>/dev/null' ERR
+          mkdir -p "$GITHUB_WORKSPACE/.ufo-evidence"
+          : > "$GITHUB_WORKSPACE/.ufo-evidence/assemble.txt"
           IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
           K="$GITHUB_WORKSPACE/build-kit/ci/ufo01"
 
@@ -244,10 +248,13 @@ jobs:
           # shipped. Only Image.gz, anykernel.sh and the DTB differ -- and the DTB is
           # removed, because UFO-0.1 keeps the ROM's DTB rather than replacing it.
           rm -rf "$RUNNER_TEMP/zip"
-          cp -a "$K/anykernel/skeleton" "$RUNNER_TEMP/zip"
+          mkdir -p "$RUNNER_TEMP/zip"
+          cp -a "$K/anykernel/skeleton/." "$RUNNER_TEMP/zip/"
           cp "$IMG" "$RUNNER_TEMP/zip/Image.gz"
           cp "$K/anykernel/anykernel.sh" "$RUNNER_TEMP/zip/anykernel.sh"
           cp "$K/anykernel/README-PAKET.txt" "$RUNNER_TEMP/zip/README-PAKET.txt"
+          echo "image bytes: $(stat -c%s "$IMG" 2>/dev/null)"
+          echo "files in package: $(find "$RUNNER_TEMP/zip" -type f | wc -l)"
 
           # Nothing may be silently absent from a flashable package.
           for f in anykernel.sh Image.gz tools/ak3-core.sh tools/magiskboot \
@@ -341,6 +348,13 @@ jobs:
             fi
           } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
           cp "$RUNNER_TEMP/build.log" "$GITHUB_WORKSPACE/.ufo-evidence/build-full.log" 2>/dev/null
+          {
+            echo
+            echo "#### catatan perakitan zip"
+            echo '```'
+            cat "$GITHUB_WORKSPACE/.ufo-evidence/assemble.txt" 2>/dev/null || echo "(tidak ada)"
+            echo '```'
+          } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
           git config user.name "ufo-bot"
           git config user.email "ufo@localhost"
           git checkout -q -B ufo-evidence
