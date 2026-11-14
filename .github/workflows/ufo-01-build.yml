@@ -60,7 +60,11 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/ufo"
           bash tools/root-integration/audit_hooks.sh . | tee "$RUNNER_TEMP/audit.txt"
-          grep -q "AUDIT PASSED" "$RUNNER_TEMP/audit.txt"
+          # Match the closing line only. The script prints "AUDIT PASSED" from an inner
+          # verifier even when the outer audit fails, and grepping for the bare string
+          # read that as success -- which is how a run that failed the audit still
+          # reached the build step.
+          grep -q "^AUDIT PASSED (0 errors" "$RUNNER_TEMP/audit.txt"
 
       - name: Build
         run: |
