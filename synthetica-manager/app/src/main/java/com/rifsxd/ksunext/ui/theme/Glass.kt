@@ -138,6 +138,17 @@ fun GlassBackground(
                 val gridPitch = 20.dp.toPx()
                 val baseDot = 1.8.dp.toPx()
                 val gridInk = if (glass.isDark) Color.White.copy(alpha = 0.055f) else Color.Black.copy(alpha = 0.055f)
+                // Phosphor sweep: a fat, soft vertical bar that walks the grid like a CRT refresh
+                val sweepX = size.width * ((phase + 0.37f) % 1f)
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, Color(0xFFF5F4EF).copy(alpha = if (glass.isDark) 0.10f else 0.18f), Color.Transparent),
+                        startX = (sweepX - 60.dp.toPx()).coerceAtLeast(0f),
+                        endX = (sweepX + 60.dp.toPx()).coerceAtMost(size.width),
+                    ),
+                    topLeft = Offset((sweepX - 60.dp.toPx()).coerceAtLeast(0f), 0f),
+                    size = Size(120.dp.toPx().coerceAtMost(size.width), size.height),
+                )
                 var gx = gridPitch
                 while (gx < size.width - gridPitch * 0.5f) {
                     var gy = gridPitch
@@ -204,6 +215,18 @@ fun GlassBackground(
                     end = Offset(size.width, scanY),
                     strokeWidth = 1.4.dp.toPx(),
                 )
+                // Glitch frame splices: short block segments that jump across the width
+                val glitchY = size.height * 0.22f + sin(phase * 9.1f * Math.PI.toFloat()) * 8.dp.toPx()
+                repeat(5) { i ->
+                    val wob = abs(sin(phase * (3f + i * 1.7f) * Math.PI.toFloat()))
+                    val bw = 14.dp.toPx() + i * 9.dp.toPx() + wob * 40.dp.toPx()
+                    val bx = size.width * ((i * 0.37f + phase * 0.61f + i * 0.13f) % 1f)
+                    drawRect(
+                        color = if (i % 2 == 0) accent.copy(alpha = 0.35f + 0.35f * wob) else Color(0xFF00F0FF).copy(alpha = 0.30f + 0.30f * wob),
+                        topLeft = Offset(bx, glitchY + i * 6.dp.toPx()),
+                        size = Size(bw, 3.2.dp.toPx()),
+                    )
+                }
                 // Top-right industrial hazard slashes
                 val gap = 11.dp.toPx()
                 val activeSlash = (phase * 7f).roundToInt()
@@ -220,6 +243,17 @@ fun GlassBackground(
             ManagerStyle.IOS_GLASS -> {
                 // Orbiting 2.0 iOS Liquid Glass aurora blooms that refract through blurred cards
                 val angle = phase * (2f * Math.PI.toFloat())
+                // Refraction glare: a thin specular smear that slides diagonally with phase
+                val glareT = phase
+                val glareOffset = glareT * (size.width + size.height) - size.height * 0.6f
+                drawRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.Transparent, Color.White.copy(alpha = if (glass.isDark) 0.20f else 0.36f), Color.Transparent),
+                        start = Offset(glareOffset, 0f),
+                        end = Offset(glareOffset + 160.dp.toPx(), size.height),
+                    ),
+                    size = Size(size.width, size.height),
+                )
                 val radius = size.width * 0.88f
                 val first = Offset(
                     x = size.width * (0.76f + 0.14f * cos(angle)),
@@ -254,6 +288,17 @@ fun GlassBackground(
                 val angle = phase * (2f * Math.PI.toFloat())
                 val magenta = Color(0xFFFF4DCD)
                 val radius = size.width * 0.82f
+                // Slow aurora pillars; they rise and fall on the sin of phase so they read as breathing neon
+                repeat(4) { i ->
+                    val wob = abs(sin(phase * (2.4f + i * 0.8f) * Math.PI.toFloat()))
+                    val px = size.width * (0.14f + i * 0.24f)
+                    val ph = size.height * (0.22f + 0.28f * wob)
+                    drawRect(
+                        brush = Brush.verticalGradient(listOf(Color.Transparent, accent.copy(alpha = 0.14f + 0.16f * wob), Color.Transparent)),
+                        topLeft = Offset(px - 8.dp.toPx(), size.height - ph),
+                        size = Size(16.dp.toPx(), ph),
+                    )
+                }
                 val first = Offset(
                     x = size.width * (0.85f + 0.10f * cos(angle)),
                     y = size.height * (0.16f + 0.07f * sin(angle)),
@@ -289,6 +334,13 @@ fun GlassBackground(
                 // Amber CRT bloom in a corner plus a horizon sweep, kept dim so
                 // the cream-on-brown text stays the loudest thing on screen.
                 val ball = Color(0xFFFF8A3D)
+                // Rolling CRT refresh band: drifts up like an old cabinet degaussing
+                val bandY = size.height * (1f - phase)
+                drawRect(
+                    brush = Brush.verticalGradient(listOf(Color.Transparent, accent.copy(alpha = if (glass.isDark) 0.12f else 0.10f), Color.Transparent)),
+                    topLeft = Offset(0f, bandY - 45.dp.toPx()),
+                    size = Size(size.width, 90.dp.toPx()),
+                )
                 val radius = size.width * 0.9f
                 drawCircle(
                     brush = Brush.radialGradient(
