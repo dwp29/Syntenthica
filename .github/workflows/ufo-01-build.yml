@@ -108,13 +108,28 @@ jobs:
           export OBJDUMP=llvm-objdump STRIP=llvm-strip CLANG_TRIPLE=aarch64-linux-gnu-
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
 
-          # prepare3 refuses to run when the source tree holds build leftovers
-          # from the config probe above. mrproper clears them; the patches and
-          # the vendored KernelSU-Next/SuSFS tree are untracked and stay put.
+          # mrproper refuses on a tree that already holds generated files, and its
+          # failure was swallowed: prepare3 then died, KernelSU-Next built against
+          # an empty config, and the real error ("No hooks were defined") was three
+          # layers away from the cause. mrproper runs first, before anything is
+          # copied, and its exit code is checked.
           make ARCH=arm64 mrproper >> "$LOG" 2>&1
-          cp "$GITHUB_WORKSPACE/build-kit/ci/ufo01/miatoll_defconfig" .config
+          RC_CLEAN=$?
+          if [ "$RC_CLEAN" -ne 0 ]; then
+            echo "mrproper failed (exit $RC_CLEAN)" >> "$LOG"
+            tail -20 "$LOG"
+            exit 1
+          fi
+          cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig .config
 
           make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
+          RC_CFG=$?
+          if [ "$RC_CFG" -ne 0 ]; then
+            echo "olddefconfig failed (exit $RC_CFG)" >> "$LOG"
+            tail -20 "$LOG"
+            exit 1
+          fi
+
           make -j"$(nproc)" O=out ARCH=arm64 Image.gz >> "$LOG" 2>&1
           RC=$?
           echo "exit=$RC" >> "$LOG"
