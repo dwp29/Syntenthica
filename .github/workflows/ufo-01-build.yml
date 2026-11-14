@@ -14,7 +14,7 @@ on:
       - 'build-kit/ci/ufo01/**'
 
 permissions:
-  contents: read
+  contents: write   # the build log is only readable on an evidence branch
 
 concurrency:
   group: ufo-01-${{ github.ref }}
