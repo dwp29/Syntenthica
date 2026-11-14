@@ -97,7 +97,10 @@ jobs:
           # olddefconfig works regardless of that, so the build does not hinge on a
           # detail that differs between 4.14 trees.
           ln -sfn ../KernelSU-Next/kernel drivers/kernelsu
-          cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig .config
+          # With O=out the config belongs in out/. A .config in the source tree makes
+          # prepare3 declare the tree unclean (see Makefile prepare3) and abort -- which
+          # is what killed every run up to this one.
+          cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig out/.config
 
           export ARCH=arm64
           # clang, chosen the way the 3.2 recipe did: CC/LD named explicitly. LLVM=1
