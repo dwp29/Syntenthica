@@ -141,7 +141,7 @@ jobs:
             tail -5 "$LOG"
             exit 1
           fi
-          cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig .config
+          cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig out/.config
 
           make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
           RC_CFG=$?
