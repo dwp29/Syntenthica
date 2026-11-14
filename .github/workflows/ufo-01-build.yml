@@ -241,7 +241,7 @@ jobs:
           echo >> "$OUT"
           if [ -f out/arch/arm64/boot/Image.gz ]; then
             ls -l out/arch/arm64/boot/Image.gz >> "$OUT"
-            python3 build-kit/ci/ufo01/show_version.py out/arch/arm64/boot/Image.gz >> "$OUT" 2>&1
+            python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/show_version.py" out/arch/arm64/boot/Image.gz >> "$OUT" 2>&1
           else
             echo "**Image.gz tidak dihasilkan.** Build gagal sebelum kompilasi selesai." >> "$OUT"
           fi
@@ -275,6 +275,23 @@ jobs:
             tail -5 "$RUNNER_TEMP/audit.txt" 2>/dev/null
             echo '```'
           } > "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
+          # The artifact cannot be downloaded from outside the runner, so the proof
+          # that matters travels in the evidence branch: size, hash and the version
+          # string baked into the image itself.
+          IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
+          {
+            echo
+            echo "#### hasil"
+            if [ -f "$IMG" ]; then
+              echo '```'
+              ls -l "$IMG"
+              sha256sum "$IMG"
+              python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/show_version.py" "$IMG" 2>&1
+              echo '```'
+            else
+              echo "Image.gz tidak ada."
+            fi
+          } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
           cp "$RUNNER_TEMP/build.log" "$GITHUB_WORKSPACE/.ufo-evidence/build-full.log" 2>/dev/null
           git config user.name "ufo-bot"
           git config user.email "ufo@localhost"
