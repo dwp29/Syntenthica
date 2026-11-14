@@ -63,6 +63,21 @@ jobs:
           cp    "$K/susfs.c" fs/
           cp    "$K/susfs.h" "$K/susfs_def.h" include/linux/
           cp -a "$K/root-integration" tools/
+
+          # Kinesis ships plain KernelSU at drivers/staging/kernelsu and wires it to
+          # CONFIG_KSU in drivers/staging/{Kconfig,Makefile}. With KernelSU-Next also
+          # present, both compile and the linker stops on 20 duplicate symbols
+          # (ksu_type, is_manager_apk, track_throne...). This build wants
+          # KernelSU-Next + SuSFS, so the stock one is unhooked from the build.
+          # It is left on disk: deleting vendored source is not this workflow's job.
+          sed -i 's|^obj-$(CONFIG_KSU)[[:space:]]*+= kernelsu/kernel/|#&   # disabled: KernelSU-Next is used instead|' drivers/staging/Makefile
+          sed -i 's|^source "drivers/staging/kernelsu/kernel/Kconfig"|#&   # disabled: KernelSU-Next is used instead|' drivers/staging/Kconfig
+          if grep -qE '^obj-\$\(CONFIG_KSU\).*kernelsu' drivers/staging/Makefile; then
+            echo "-- stock KernelSU is still wired in drivers/staging/Makefile"
+            exit 1
+          fi
+          echo "-- stock KernelSU unhooked; KernelSU-Next supplies CONFIG_KSU"
+
           # The audit reads drivers/kernelsu, so the link has to exist before it runs.
           # It is rebuilt after mrproper in the build step; only its presence for the
           # audit matters here.
