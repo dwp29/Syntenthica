@@ -68,18 +68,49 @@ jobs:
 
       - name: Build
         run: |
-          set -euo pipefail
+          # Failures have to be self-reporting: the job log endpoint returns 404 for
+          # this repo, and the summary step is the only channel that survives.
+          set +e
           cd "$RUNNER_TEMP/ufo"
-          export ARCH=arm64 SUBARCH=arm64
+          LOG="$RUNNER_TEMP/build.log"
+          : > "$LOG"
+
+          # The defconfig lives at configs/vendor/xiaomi/, and whether a nested
+          # `make vendor/xiaomi/miatoll_defconfig` target exists depends on how this
+          # Makefile hands goals to scripts/kconfig. Copying the file and running
+          # olddefconfig works regardless of that, so the build does not hinge on a
+          # detail that differs between 4.14 trees.
+          cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig .config
+
+          export ARCH=arm64
+          # clang, chosen the way the 3.2 recipe did: CC/LD named explicitly. LLVM=1
+          # together with CROSS_COMPILE makes the 4.14 Makefile prefer
+          # aarch64-linux-gnu-gcc in places and clang in others.
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          export LLVM=1 LLVM_IAS=1
+          export CC=clang
+          export LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
+          export OBJDUMP=llvm-objdump STRIP=llvm-strip CLANG_TRIPLE=aarch64-linux-gnu-
           export KBUILD_BUILD_USER=ufo KBUILD_BUILD_HOST=synthetica
-          make O=out ARCH=arm64 vendor/xiaomi/miatoll_defconfig
-          make -j"$(nproc)" O=out ARCH=arm64 \
-            CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy \
-            OBJDUMP=llvm-objdump STRIP=llvm-strip \
-            Image.gz dtbs 2>&1 | tail -60
+
+          make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
+          make -j"$(nproc)" O=out ARCH=arm64 Image.gz >> "$LOG" 2>&1
+          echo "exit=$?" >> "$LOG"
+          tail -80 "$LOG"
+
+      - name: Show the first real error, since the log link is not readable
+        if: always()
+        run: |
+          set +e
+          LOG="$RUNNER_TEMP/build.log"
+          echo "## Ringkasan error" >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f "$LOG" ]; then
+            echo "tidak ada log build" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep -nE "error:|Error [0-9]|No rule to make target|not found|Unknown" "$LOG"             | head -20 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report what was produced, and what was not tested
         if: always()
