@@ -287,6 +287,7 @@ jobs:
               ls -l "$IMG"
               sha256sum "$IMG"
               python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/show_version.py" "$IMG" 2>&1
+              python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/verify_image.py" "$IMG" 2>&1 || echo "VERIFIKASI GAGAL"
               echo '```'
             else
               echo "Image.gz tidak ada."
@@ -299,6 +300,16 @@ jobs:
           git add -f .ufo-evidence
           git commit -q -m "ufo-01: build log"
           git push -q --force origin ufo-evidence
+
+      - name: Fail if a requested feature is not actually in the image
+        if: always()
+        run: |
+          set +e
+          IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
+          if [ ! -f "$IMG" ]; then exit 0; fi   # the build step already failed
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/verify_image.py" "$IMG"
+          # MGLRU, UCLAMP, WALT, KernelSU, SuSFS, NoMount. A green build with a
+          # silently missing feature is the thing worth failing on.
 
       - name: Keep the image
         if: always()
