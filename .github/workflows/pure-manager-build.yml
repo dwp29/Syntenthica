@@ -4,7 +4,7 @@ name: "Pure Manager — build APK"
 # Android SDK, and dl.google.com is not reachable from it. The runner has both.
 on:
   push:
-    branches: [arena/96cbd65a-synthentica]
+    branches: [arena/96cbd65a-syntenthica]
     paths:
       - 'pure-manager/**'
       - 'build-kit/scripts/apk_v2_sign.py'
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: arena/96cbd65a-synthentica
+          ref: arena/96cbd65a-syntenthica
           persist-credentials: false
 
       - uses: actions/setup-java@v4
