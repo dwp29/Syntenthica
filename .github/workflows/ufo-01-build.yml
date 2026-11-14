@@ -232,7 +232,10 @@ jobs:
       - name: Assemble the flashable zip
         if: success()
         run: |
-          set -euo pipefail
+          # No `set -e`: a silent abort here produced a failed step with no message,
+          # and the publish step that follows can only report what it is told.
+          set -uo pipefail
+          trap 'echo "::error::assemble failed at line $LINENO"' ERR
           IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
           K="$GITHUB_WORKSPACE/build-kit/ci/ufo01"
 
@@ -268,7 +271,7 @@ jobs:
             echo "#### zip siap flash"
             echo '```'
             sha256sum "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
-            unzip -l "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip" | tail -3
+            python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print(len(z.namelist()), 'berkas'); [print(' ', n) for n in z.namelist() if n.endswith(('anykernel.sh','Image.gz'))]" "$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
             echo '```'
             echo "Belum di-flash siapa pun."
           } >> "$GITHUB_WORKSPACE/.ufo-evidence/BUILD-LOG.md"
