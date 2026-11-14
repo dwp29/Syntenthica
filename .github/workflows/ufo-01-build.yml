@@ -375,6 +375,26 @@ jobs:
           # MGLRU, UCLAMP, WALT, KernelSU, SuSFS, NoMount. A green build with a
           # silently missing feature is the thing worth failing on.
 
+      - name: Publish the flashable zip on its own branch
+        if: success()
+        run: |
+          # The artifact download is blocked from outside the runner, and a zip the
+          # owner cannot obtain is not a deliverable. A branch can carry it.
+          set +e
+          cd "$GITHUB_WORKSPACE"
+          Z="$RUNNER_TEMP/UFO-0.1-miatoll-4.14.344.zip"
+          if [ ! -f "$Z" ]; then echo "zip missing"; exit 1; fi
+          mkdir -p "$GITHUB_WORKSPACE/.ufo-release"
+          cp "$Z" "$GITHUB_WORKSPACE/.ufo-release/"
+          sha256sum "$Z" > "$GITHUB_WORKSPACE/.ufo-release/UFO-0.1-miatoll-4.14.344.sha256"
+          git config user.name "ufo-bot"
+          git config user.email "ufo@localhost"
+          git checkout -q -B ufo-release
+          git add -f .ufo-release
+          git commit -q -m "ufo-0.1: flashable zip (image sha $GITHUB_SHA)"
+          git push -q --force origin ufo-release
+          echo "pushed to branch ufo-release"
+
       - name: Keep the image
         if: always()
         uses: actions/upload-artifact@v4
