@@ -141,7 +141,18 @@ jobs:
             tail -5 "$LOG"
             exit 1
           fi
+          # out/ may not exist yet; cp into a missing directory fails and leaves no
+          # .config, after which olddefconfig starts from nothing and asks about
+          # every NEW symbol until it aborts.
+          mkdir -p out
           cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig out/.config
+          if [ ! -f out/.config ]; then
+            echo "out/.config was not created" >> "$LOG"
+            exit 1
+          fi
+          echo "-- config in use (KSU/LRU/UCLAMP rows):" >> "$LOG"
+          grep -cE "^CONFIG_" out/.config >> "$LOG"
+          grep -E "API_MASK|CPU_MASK|CONFIG_KSU=|CONFIG_LRU_GEN=" out/.config >> "$LOG"
 
           make O=out ARCH=arm64 olddefconfig >> "$LOG" 2>&1
           RC_CFG=$?
