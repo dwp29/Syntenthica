@@ -33,10 +33,22 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            clang-18 lld-18 llvm-18 gcc-aarch64-linux-gnu bc flex bison \
-            libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils \
-            python3 patch openssl zip rsync git curl binutils kmod
-          clang-18 --version | head -1
+            clang-18 lld-18 llvm-18 libclang-18-dev gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi bc flex bison libssl-dev libelf-dev \
+            device-tree-compiler cpio lz4 xz-utils python3 patch openssl zip \
+            rsync git curl binutils kmod
+          # Debian ships these versioned. The 4.14 Makefile invokes bare `ld.lld`
+          # and `aarch64-linux-gnu-*`, so unversioned names must exist on PATH.
+          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-18 100 || true
+          for t in clang clang++ llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-strip; do
+            if ! command -v "$t" >/dev/null 2>&1; then
+              sudo update-alternatives --install "/usr/bin/$t" "$t" "/usr/bin/$t-18" 100 || true
+            fi
+          done
+          ld.lld --version | head -1
+          clang --version | head -1
+          aarch64-linux-gnu-gcc --version | head -1
+          arm-linux-gnueabi-gcc --version | head -1
 
       - name: Lay the root/stealth stack onto a pristine Kinesis tree
         run: |
@@ -88,6 +100,8 @@ jobs:
           # together with CROSS_COMPILE makes the 4.14 Makefile prefer
           # aarch64-linux-gnu-gcc in places and clang in others.
           export CROSS_COMPILE=aarch64-linux-gnu-
+          # arch/arm64/Makefile hard-errors when CROSS_COMPILE_ARM32 is unset and
+          # CONFIG_COMPAT is on, so give it the armhf compiler explicitly.
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CC=clang
           export LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
