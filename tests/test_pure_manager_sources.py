@@ -191,20 +191,23 @@ class KnownApiTraps(unittest.TestCase):
 
 
 class TrailingLambdaSafety(unittest.TestCase):
-    """Optional parameters must not precede the callback a call site trails.
+    """A trailing lambda binds to the LAST parameter, whatever its name is.
 
-    ToolbarText gained `icon: ImageVector? = null` in front of `onClick`. Six call
-    sites ended in a trailing lambda, Kotlin bound that lambda to `icon`, and the
-    compiler answered with "No value passed for parameter 'onClick'" six times. The
-    fix is ordering: new optional parameters go after the callback, so a trailing
-    lambda still lands on the callback.
+    ToolbarText gained `icon: ImageVector? = null` after `onClick`. It compiled, the
+    guard I wrote first approved it, and six call sites still failed on the runner
+    with "No value passed for parameter 'onClick'" -- because Kotlin gives a trailing
+    lambda to the final parameter and the final parameter was now `icon`.
+
+    Two rules follow, and this class enforces both:
+
+      - A function whose last parameter is a callback may not have an optional
+        parameter after it. If it is modelled that way, the caller's trailing lambda
+        lands on the optional.
+      - A function that HAS an optional last parameter and is called with a trailing
+        lambda is the same bug from the other side.
     """
 
-    # The parameter list has to be read to the matching close paren: a callback
-    # type contains its own "()", so stopping at the first ')' truncates the list
-    # and the guard then sees no callback at all -- which is how the order bug got
-    # past it the first time it was run.
-    DECL = re.compile(r"private fun (\w+)\(", re.S)
+    CALLBACK = re.compile(r"\(\s*\)\s*->|Function0<")
 
     @staticmethod
     def _params(text: str, open_index: int) -> str:
@@ -218,26 +221,112 @@ class TrailingLambdaSafety(unittest.TestCase):
                     return text[open_index + 1:i]
         return ""
 
-    def test_optional_parameters_come_after_required_callbacks(self):
+    def _split(self, params: str) -> list[str]:
+        out, depth, cur = [], 0, ""
+        for ch in params:
+            if ch in "(<[":
+                depth += 1
+            elif ch in ")>]":
+                depth -= 1
+            if ch == "," and depth == 0:
+                out.append(cur.strip())
+                cur = ""
+            else:
+                cur += ch
+        if cur.strip():
+            out.append(cur.strip())
+
+        # A parameter split across lines leaves the next one glued to it:
+        # "onClick: () -> Unit,\n    icon: X" arrives here as one string, and a
+        # naive "=" in part then reads the callback as optional. The first version
+        # of this guard did exactly that and approved the bug it exists for. Split
+        # again on a newline followed by an identifier and a colon.
+        split = []
+        for part in out:
+            split.extend(re.split(r",?\n\s*(?=\w+\s*:)", part))
+        return [part.strip() for part in split if ":" in part]
+
+    def test_no_optional_parameter_after_a_callback(self):
+        """The exact shape that broke: callback at 3, an optional sitting at 4.
+
+        Scoped to functions that are ACTUALLY called with a trailing lambda in this
+        code base. A callback followed by an optional is only a hazard when some
+        caller writes `f(...) { ... }`; StepButton takes an onClick and a `filled`
+        flag and is called with positional arguments only, so flagging it would be
+        noise that pushes real problems out of view.
+        """
         problems = []
         for f in kt_files():
             text = f.read_text()
-            for m in self.DECL.finditer(text):
+            # Call sites only: a declaration matches the same shape, so drop the
+            # names that appear right after "fun ".
+            trails = set(re.findall(r"\b(\w+)\([^()]*(?:\([^()]*\)[^()]*)*\)[ \t]*\{", text))
+            declared = set(re.findall(r"fun (\w+)\(", text))
+            trails = {t for t in trails if t not in declared}
+            for m in re.finditer(r"private fun (\w+)\(", text):
                 name = m.group(1)
-                params = self._params(text, m.end() - 1)
-                parts = [p.strip() for p in params.split(",") if ":" in p]
-                seen_optional = None
-                for i, part in enumerate(parts):
-                    pname = part.split(":")[0].strip().removeprefix("private ").strip()
-                    is_optional = "=" in part
-                    is_callback = re.search(r"\(\s*\)\s*->", part) is not None
-                    if is_optional and seen_optional is None:
-                        seen_optional = pname
-                    elif is_callback and not is_optional and seen_optional is not None:
+                if name not in trails:
+                    continue
+                parts = self._split(self._params(text, m.end() - 1))
+                if not parts:
+                    continue
+                last_part = parts[-1]
+                # A defaulted callback as the last parameter is safe: a trailing
+                # lambda handed to it is still a lambda.
+                if "=" in last_part and self.CALLBACK.search(last_part):
+                    continue
+                for i, part in enumerate(parts[:-1]):
+                    if not self.CALLBACK.search(part) or "=" in part:
+                        continue
+                    optional_after = [
+                        q.split(":")[0].strip()
+                        for q in parts[i + 1:]
+                        if "=" in q and not self.CALLBACK.search(q)
+                    ]
+                    if optional_after:
                         problems.append(
-                            f"{f.name}: {name}() has required callback '{pname}' "
-                            f"after optional parameter '{seen_optional}'"
+                            f"{f.name}: {name}() has callback "
+                            f"'{part.split(':')[0].strip()}' at position {i + 1}, "
+                            f"followed by optional {optional_after}; a trailing "
+                            f"lambda would bind to "
+                            f"'{last_part.split(':')[0].strip()}'"
                         )
+        self.assertEqual([], problems, "\n".join(problems))
+
+    def test_trailing_lambda_is_not_swallowed_by_an_optional_last_parameter(self):
+        """Only the call sites are checked, and only the ones that end in a lambda.
+
+        A declaration looks like a call followed by a lambda, so this searches for
+        `name(...)` matches and skips any whose start coincides with a declaration
+        of that name. Optional parameters after a required callback are handled by
+        the rule above; this one is the blunt second net for the same mistake.
+        """
+        problems = []
+        for f in kt_files():
+            text = f.read_text()
+            decl_positions: dict[str, set[int]] = {}
+            decls: dict[str, str] = {}
+            for m in re.finditer(r"private fun (\w+)\(", text):
+                parts = self._split(self._params(text, m.end() - 1))
+                if parts:
+                    decls[m.group(1)] = parts[-1]
+                    # m.start(1) is the position of the NAME, which is where the
+                    # call pattern below starts matching inside the declaration.
+                    decl_positions.setdefault(m.group(1), set()).add(m.start(1))
+            for name, last in decls.items():
+                if self.CALLBACK.search(last) or "=" not in last:
+                    continue
+                pattern = re.compile(
+                    r"\b" + name + r"\([^()]*(?:\([^()]*\)[^()]*)*\)[ \t]*\{"
+                )
+                for hit in pattern.finditer(text):
+                    if hit.start() in decl_positions.get(name, set()):
+                        continue
+                    problems.append(
+                        f"{f.name}: {name}(...) ends with optional "
+                        f"'{last.split(':')[0].strip()}' and is called with a trailing "
+                        f"lambda -- {hit.group(0)[:60]!r}"
+                    )
         self.assertEqual([], problems, "\n".join(problems))
 
 
