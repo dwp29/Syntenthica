@@ -11,6 +11,9 @@
     <string name="ios_home_rooted">Rooted</string>
     <string name="ios_home_tap_install">Tap to install</string>
     <string name="ios_home_status">Status</string>
+    <string name="ios_home_hook">Hook mode</string>
+    <string name="ios_home_uapi">Manager UAPI</string>
+    <string name="ios_home_pager_dot">Show status page %1$d</string>
     <string name="ios_home_kernel">Kernel</string>
     <string name="ios_home_manager">Manager</string>
     <string name="ios_home_root_access">Root access</string>

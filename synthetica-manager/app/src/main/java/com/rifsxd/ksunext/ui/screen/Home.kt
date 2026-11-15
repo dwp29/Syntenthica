@@ -5,50 +5,37 @@ import android.os.Build
 import android.os.PowerManager
 import android.system.Os
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AdminPanelSettings
-import androidx.compose.material.icons.rounded.Android
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.DeveloperBoard
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Hub
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.PowerSettingsNew
-import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Verified
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,10 +47,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,21 +60,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.generated.NavGraphs
-import com.ramcosta.composedestinations.generated.destinations.BoostScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.DeviceCheckScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PixelDiagnostics40ScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PixelControl40ScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.InstallScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MetaModuleScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ModuleScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SuperUserScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.rifsxd.ksunext.BuildConfig
 import com.rifsxd.ksunext.Natives
@@ -98,8 +83,6 @@ import com.rifsxd.ksunext.ui.LocalNavBarEnabled
 import com.rifsxd.ksunext.ui.LocalScrollState
 import com.rifsxd.ksunext.ui.rememberScrollConnection
 import com.rifsxd.ksunext.ui.theme.GlassTopBar
-import com.rifsxd.ksunext.ui.theme.LocalPixelMotionEnabled
-import com.rifsxd.ksunext.ui.theme.IosBlueDark
 import com.rifsxd.ksunext.ui.theme.IosCyanDark
 import com.rifsxd.ksunext.ui.theme.IosGreenDark
 import com.rifsxd.ksunext.ui.theme.IosGroup
@@ -107,12 +90,9 @@ import com.rifsxd.ksunext.ui.theme.IosGroupDivider
 import com.rifsxd.ksunext.ui.theme.IosHeroCard
 import com.rifsxd.ksunext.ui.theme.IosIndigoDark
 import com.rifsxd.ksunext.ui.theme.IosOrangeDark
-import com.rifsxd.ksunext.ui.theme.IosPinkDark
-import com.rifsxd.ksunext.ui.theme.IosPurpleDark
 import com.rifsxd.ksunext.ui.theme.IosRedDark
 import com.rifsxd.ksunext.ui.theme.IosRow
 import com.rifsxd.ksunext.ui.theme.IosTeal
-import com.rifsxd.ksunext.ui.theme.IosTile
 import com.rifsxd.ksunext.ui.theme.iosGlass
 import com.rifsxd.ksunext.ui.util.RootChannel
 import com.rifsxd.ksunext.ui.util.detectRootChannel
@@ -129,6 +109,7 @@ import com.rifsxd.ksunext.ui.util.reboot
 import com.rifsxd.ksunext.ui.util.rootAvailable
 import com.rifsxd.ksunext.ui.viewmodel.ModuleViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private data class HomeEnvInfo(
@@ -189,7 +170,6 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             )
         )
     }
-    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var universalRoot by remember { mutableStateOf(false) }
     // Only shown when the kernel is foreign, so the user can see *why* a feature
     // is unavailable instead of a status that silently lies.
@@ -281,7 +261,10 @@ fun HomeScreen(navigator: DestinationsNavigator) {
         topBar = {
             var showRebootMenu by remember { mutableStateOf(false) }
             GlassTopBar(
-                title = stringResource(R.string.app_name),
+                // The Hub writes the name once, as the wordmark; repeating the app
+                // name in a bar title above it was the second-largest source of the
+                // "everything is full" feeling the owner reported.
+                title = heroStatusPill,
                 subtitle = "${BuildConfig.VERSION_NAME}  •  UAPI v$managerUAPIVersion",
                 leading = {
                     val badgeShape = RoundedCornerShape(10.dp)
@@ -348,11 +331,13 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                     if (bottomBarScrollConnection != null) mod.nestedScroll(bottomBarScrollConnection) else mod
                 }
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
                 .padding(bottom = navBarPadding),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // 1. Flagship Frosted Hero Status Card
+            // ---- 1. Pager: one subject per card -------------------------------
+            // The old Hub printed kernel, manager, root, SuSFS, seccomp and system
+            // details stacked in five separate groups. Each is now a card the user
+            // swipes to, so only one subject is on screen at a time.
             val heroStatusPill = when {
                 isSafeMode -> stringResource(R.string.safe_mode)
                 fullFeatured -> stringResource(R.string.ios_home_rooted)
@@ -379,151 +364,6 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                 else ->
                     stringResource(R.string.home_click_to_install)
             }
-
-            IosHeroCard(
-                eyebrow = stringResource(R.string.ios_home_active_kernel),
-                title = if (isManager || universalRoot) stringResource(R.string.neon_manager_title) else stringResource(R.string.home_not_installed),
-                statusPill = heroStatusPill,
-                statusColor = heroStatusColor,
-                modePill = modeLabel,
-                kernelLine = envInfo.unameRelease.ifBlank { kernelVersion.toString() },
-                metaLine = metaLine,
-                onClick = if (!isManager && !universalRoot) ({ navigator.navigate(InstallScreenDestination) }) else null,
-            )
-
-            // 2. Conditional Safety Warnings Only (no upstream GitHub update nag!)
-            val requiresNewKernel = isManager && kernelUAPIVersion != null && managerUAPIVersion > kernelUAPIVersion
-            val requiresNewManager = isManager && kernelUAPIVersion != null && managerUAPIVersion < kernelUAPIVersion
-            if (requiresNewKernel) {
-                WarningCard(
-                    message = stringResource(
-                        id = if (isLkm) R.string.require_kernel_version else R.string.require_kernel_version_gki,
-                        kernelUAPIVersion!!,
-                        managerUAPIVersion,
-                    )
-                )
-            }
-            if (requiresNewManager) {
-                WarningCard(
-                    message = stringResource(
-                        id = R.string.require_manager_version,
-                        managerUAPIVersion,
-                        kernelUAPIVersion!!,
-                    )
-                )
-            }
-            if (ksuVersion != null && !rootAvailable()) {
-                WarningCard(message = stringResource(R.string.grant_root_failed))
-            }
-            if (!isManager) {
-                IosGroup(
-                    title = stringResource(R.string.manager60_universal_bridge_title),
-                    footer = stringResource(
-                        if (universalRoot) R.string.manager60_bridge_row_sub
-                        else R.string.manager60_universal_mode_sub,
-                    ),
-                ) {
-                    IosRow(
-                        icon = Icons.Rounded.Hub,
-                        badgeColor = if (universalRoot) IosCyanDark else IosOrangeDark,
-                        title = stringResource(R.string.manager60_universal_mode),
-                        subtitle = when {
-                            universalRoot && rootChannel == RootChannel.SU ->
-                                stringResource(R.string.manager60_bridge_row_sub_su)
-                            universalRoot -> stringResource(R.string.manager60_bridge_row_sub)
-                            // No root: name the exact layer that failed instead of
-                            // telling the user to install a kernel that may already
-                            // be installed but signed for another manager.
-                            rootChannel == RootChannel.SU_DENIED ->
-                                stringResource(R.string.manager60_no_root_reason)
-                            rootChannel == RootChannel.SU_ABSENT ->
-                                stringResource(R.string.manager60_no_su_reason)
-                            else -> stringResource(R.string.manager60_no_su_reason)
-                        } + if (rootDiag.isNotBlank()) " · $rootDiag" else "",
-                        // The diagnostic tail must stay readable; two lines cut
-                        // it off mid-word, which is how the cause stayed hidden.
-                        subtitleMaxLines = if (rootDiag.isNotBlank()) 6 else 2,
-                        pill = stringResource(
-                            if (universalRoot) R.string.manager60_bridge_active
-                            else R.string.manager60_bridge_inactive
-                        ),
-                        pillColor = if (universalRoot) IosGreenDark else IosOrangeDark,
-                    )
-                }
-            } else {
-                IosGroup(title = stringResource(R.string.manager60_universal_bridge_title)) {
-                    IosRow(
-                        icon = Icons.Rounded.Hub,
-                        badgeColor = IosCyanDark,
-                        title = stringResource(R.string.manager60_universal_mode),
-                        subtitle = stringResource(R.string.manager60_bridge_row_sub_native),
-                        pill = stringResource(R.string.manager60_bridge_native),
-                        pillColor = IosGreenDark,
-                    )
-                }
-            }
-
-            Text(text = stringResource(R.string.neon_quick_actions), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-
-            // Quick action menu; routing and root checks are unchanged.
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    IosTile(
-                        icon = Icons.Rounded.GridView,
-                        badgeColor = IosBlueDark,
-                        title = stringResource(R.string.ios_tile_modules),
-                        subtitle = stringResource(R.string.ios_tile_modules_sub),
-                        badgeText = if (fullFeatured) {
-                            stringResource(R.string.ios_items_fmt, envInfo.moduleCount)
-                        } else null,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            if (fullFeatured) navigateTab(ModuleScreenDestination)
-                            else navigator.navigate(InstallScreenDestination)
-                        },
-                    )
-                    IosTile(
-                        icon = Icons.Rounded.AdminPanelSettings,
-                        badgeColor = IosGreenDark,
-                        title = stringResource(R.string.ios_tile_apps),
-                        subtitle = stringResource(R.string.ios_tile_apps_sub),
-                        badgeText = if (fullFeatured) {
-                            stringResource(R.string.ios_items_fmt, envInfo.superuserCount)
-                        } else null,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            if (fullFeatured) navigateTab(SuperUserScreenDestination)
-                            else navigator.navigate(InstallScreenDestination)
-                        },
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    IosTile(
-                        icon = Icons.Rounded.SystemUpdateAlt,
-                        badgeColor = IosOrangeDark,
-                        title = stringResource(R.string.ios_tile_install),
-                        subtitle = stringResource(R.string.ios_tile_install_sub),
-                        modifier = Modifier.weight(1f),
-                        onClick = { navigator.navigate(InstallScreenDestination) },
-                    )
-                    IosTile(
-                        icon = Icons.Rounded.Tune,
-                        badgeColor = IosIndigoDark,
-                        title = stringResource(R.string.ios_tile_settings),
-                        subtitle = stringResource(R.string.ios_tile_settings_sub),
-                        modifier = Modifier.weight(1f),
-                        onClick = { navigateTab(SettingScreenDestination) },
-                    )
-                }
-            }
-
-            // 4. APK 1.16 Status Group + Expandable System Details
             val susfsSupported = envInfo.suSFSStatus == "Supported"
             val susfsPill = if (susfsSupported) {
                 envInfo.suSFSVersion.ifBlank { stringResource(R.string.pixel40_supported_short) }
@@ -531,151 +371,157 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                 stringResource(R.string.pixel40_unavailable_short)
             }
 
-            IosGroup(title = stringResource(R.string.ios_home_status)) {
-                IosRow(
-                    icon = Icons.Rounded.Memory,
-                    badgeColor = IosBlueDark,
-                    title = stringResource(R.string.ios_home_kernel),
-                    subtitle = envInfo.unameRelease,
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Verified,
-                    badgeColor = IosIndigoDark,
-                    title = stringResource(R.string.ios_home_manager),
-                    value = "${envInfo.managerVerName} (${envInfo.managerVerCode})",
-                    pillText = "UAPI v$managerUAPIVersion",
-                    pillColor = IosBlueDark,
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Security,
-                    badgeColor = if (fullFeatured) IosGreenDark else IosRedDark,
-                    title = stringResource(R.string.ios_home_root_access),
-                    value = if (fullFeatured) envInfo.hookMode else null,
-                    pillText = stringResource(if (fullFeatured) R.string.ios_home_yes else R.string.ios_home_no),
-                    pillColor = if (fullFeatured) IosGreenDark else IosRedDark,
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Security,
-                    badgeColor = if (managerSeccompMode == 2) IosGreenDark else IosOrangeDark,
-                    title = stringResource(R.string.neon_seccomp_title),
-                    subtitle = stringResource(R.string.neon_seccomp_subtitle),
-                    value = managerSeccompLabel,
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.VisibilityOff,
-                    badgeColor = IosTeal,
-                    title = stringResource(R.string.ios_home_hiding),
-                    subtitle = if (susfsSupported && envInfo.suSFSVariant.isNotBlank()) {
-                        "${stringResource(R.string.ios_home_hiding_sub)} • ${envInfo.suSFSVariant}"
-                    } else {
-                        stringResource(R.string.ios_home_hiding_sub)
-                    },
-                    pillText = susfsPill,
-                    pillColor = if (susfsSupported) IosTeal else IosCyanDark,
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Info,
-                    badgeColor = IosPurpleDark,
-                    title = stringResource(R.string.ios_home_system_details),
-                    onClick = { detailsExpanded = !detailsExpanded },
-                    trailing = {
-                        Icon(
-                            imageVector = if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            val pagerState = rememberPagerState { 3 }
+            HorizontalPager(
+                state = pagerState,
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                pageSpacing = 12.dp,
+                modifier = Modifier.fillMaxWidth(),
+            ) { page ->
+                when (page) {
+                    // Page 1 keeps the themed, animated hero: it is the per-theme
+                    // banner, and the pager is what finally gives it the screen to
+                    // itself instead of stacking four more blocks under it.
+                    0 -> IosHeroCard(
+                        eyebrow = stringResource(R.string.ios_home_active_kernel),
+                        title = if (isManager || universalRoot) stringResource(R.string.neon_manager_title) else stringResource(R.string.home_not_installed),
+                        statusPill = heroStatusPill,
+                        statusColor = heroStatusColor,
+                        modePill = modeLabel,
+                        kernelLine = envInfo.unameRelease.ifBlank { kernelVersion.toString() },
+                        metaLine = metaLine,
+                        onClick = if (!isManager && !universalRoot) ({ navigator.navigate(InstallScreenDestination) }) else null,
+                    )
+                    1 -> HubPanel(eyebrow = stringResource(R.string.ios_home_manager)) {
+                        HubLine(
+                            label = stringResource(R.string.ios_home_root_access),
+                            value = if (fullFeatured) stringResource(R.string.ios_home_yes) else stringResource(R.string.ios_home_no),
+                            tint = if (fullFeatured) IosGreenDark else IosRedDark,
                         )
-                    },
-                )
+                        HubLine(label = stringResource(R.string.ios_home_manager), value = "${envInfo.managerVerName} (${envInfo.managerVerCode})")
+                        HubLine(label = stringResource(R.string.ios_home_hook), value = envInfo.hookMode)
+                        HubLine(label = stringResource(R.string.ios_home_uapi), value = "v$managerUAPIVersion")
+                    }
+                    else -> HubPanel(eyebrow = stringResource(R.string.ios_home_hiding)) {
+                        HubLine(
+                            label = stringResource(R.string.ios_home_hiding),
+                            value = susfsPill,
+                            tint = if (susfsSupported) IosTeal else IosCyanDark,
+                        )
+                        HubLine(label = stringResource(R.string.neon_seccomp_title), value = managerSeccompLabel)
+                        HubLine(label = stringResource(R.string.ios_home_selinux), value = selinuxText)
+                        HubLine(label = stringResource(R.string.ios_home_android_sdk), value = "${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+                    }
+                }
+            }
 
-                val pixelMotion = LocalPixelMotionEnabled.current
-                AnimatedVisibility(
-                    visible = detailsExpanded,
-                    enter = if (pixelMotion) expandVertically() + fadeIn() else androidx.compose.animation.EnterTransition.None,
-                    exit = if (pixelMotion) shrinkVertically() + fadeOut() else androidx.compose.animation.ExitTransition.None,
-                ) {
-                    Column {
-                        IosGroupDivider()
-                        IosRow(
-                            icon = Icons.Rounded.Layers,
-                            badgeColor = IosCyanDark,
-                            title = stringResource(R.string.ios_home_metamodule),
-                            value = envInfo.metaModuleLabel,
+            val scope = rememberCoroutineScope()
+            PagerDots(
+                count = 3,
+                selected = pagerState.currentPage,
+                activeColor = MaterialTheme.colorScheme.primary,
+                inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                // A dot that only reports position is decoration. Tapping one is how
+                // you reach page 3 without three swipes.
+                onSelect = { page -> scope.launch { pagerState.animateScrollToPage(page) } },
+                dotDescription = { page -> stringResource(R.string.ios_home_pager_dot, page + 1) },
+            )
+
+            // ---- 2. Warnings: only when measured ------------------------------
+            val requiresNewKernel = isManager && kernelUAPIVersion != null && managerUAPIVersion > kernelUAPIVersion
+            val requiresNewManager = isManager && kernelUAPIVersion != null && managerUAPIVersion < kernelUAPIVersion
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (requiresNewKernel) {
+                    WarningCard(
+                        message = stringResource(
+                            id = if (isLkm) R.string.require_kernel_version else R.string.require_kernel_version_gki,
+                            kernelUAPIVersion!!,
+                            managerUAPIVersion,
                         )
-                        IosGroupDivider()
+                    )
+                }
+                if (requiresNewManager) {
+                    WarningCard(
+                        message = stringResource(
+                            id = R.string.require_manager_version,
+                            managerUAPIVersion,
+                            kernelUAPIVersion!!,
+                        )
+                    )
+                }
+                if (ksuVersion != null && !rootAvailable()) {
+                    WarningCard(message = stringResource(R.string.grant_root_failed))
+                }
+            }
+
+            // ---- 3. Root bridge: one row, not a whole group -------------------
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                if (!isManager) {
+                    IosGroup(
+                        title = stringResource(R.string.manager60_universal_bridge_title),
+                        footer = stringResource(
+                            if (universalRoot) R.string.manager60_bridge_row_sub
+                            else R.string.manager60_universal_mode_sub,
+                        ),
+                    ) {
                         IosRow(
                             icon = Icons.Rounded.Hub,
-                            badgeColor = IosIndigoDark,
-                            title = stringResource(R.string.ios_home_zygisk),
-                            value = envInfo.zygiskLabel,
+                            badgeColor = if (universalRoot) IosCyanDark else IosOrangeDark,
+                            title = stringResource(R.string.manager60_universal_mode),
+                            subtitle = when {
+                                universalRoot && rootChannel == RootChannel.SU ->
+                                    stringResource(R.string.manager60_bridge_row_sub_su)
+                                universalRoot -> stringResource(R.string.manager60_bridge_row_sub)
+                                // No root: name the exact layer that failed instead of
+                                // telling the user to install a kernel that may already
+                                // be installed but signed for another manager.
+                                rootChannel == RootChannel.SU_DENIED ->
+                                    stringResource(R.string.manager60_no_root_reason)
+                                rootChannel == RootChannel.SU_ABSENT ->
+                                    stringResource(R.string.manager60_no_su_reason)
+                                else -> stringResource(R.string.manager60_no_su_reason)
+                            } + if (rootDiag.isNotBlank()) " · $rootDiag" else "",
+                            // The diagnostic tail must stay readable; two lines cut
+                            // it off mid-word, which is how the cause stayed hidden.
+                            subtitleMaxLines = if (rootDiag.isNotBlank()) 6 else 2,
+                            pill = stringResource(
+                                if (universalRoot) R.string.manager60_bridge_active
+                                else R.string.manager60_bridge_inactive
+                            ),
+                            pillColor = if (universalRoot) IosGreenDark else IosOrangeDark,
                         )
-                        IosGroupDivider()
+                    }
+                } else {
+                    IosGroup(title = stringResource(R.string.manager60_universal_bridge_title)) {
                         IosRow(
-                            icon = Icons.Rounded.Security,
-                            badgeColor = IosGreenDark,
-                            title = stringResource(R.string.ios_home_selinux),
-                            value = selinuxText,
-                        )
-                        IosGroupDivider()
-                        IosRow(
-                            icon = Icons.Rounded.Android,
-                            badgeColor = IosTeal,
-                            title = stringResource(R.string.ios_home_android_sdk),
-                            value = "${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})",
-                        )
-                        IosGroupDivider()
-                        IosRow(
-                            icon = Icons.Rounded.DeveloperBoard,
-                            badgeColor = IosOrangeDark,
-                            title = stringResource(R.string.ios_home_abi),
-                            value = Build.SUPPORTED_ABIS.firstOrNull() ?: envInfo.unameMachine,
+                            icon = Icons.Rounded.Hub,
+                            badgeColor = IosCyanDark,
+                            title = stringResource(R.string.manager60_universal_mode),
+                            subtitle = stringResource(R.string.manager60_bridge_row_sub_native),
+                            pill = stringResource(R.string.manager60_bridge_native),
+                            pillColor = IosGreenDark,
                         )
                     }
                 }
             }
 
-            // 5. APK 1.16 Quick Tools Group (Synthetica Boost & Metamodule)
-            IosGroup(title = stringResource(R.string.ios_quick_utilities)) {
-                IosRow(
-                    icon = Icons.Rounded.Hub,
-                    badgeColor = IosCyanDark,
-                    title = stringResource(R.string.pixel40_diagnostics_title),
-                    subtitle = stringResource(R.string.pixel40_diagnostics_subtitle),
-                    showChevron = true,
-                    onClick = { navigator.navigate(PixelDiagnostics40ScreenDestination) },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Speed,
-                    badgeColor = IosOrangeDark,
-                    title = stringResource(R.string.pixel40_control_title),
-                    subtitle = stringResource(R.string.pixel40_control_subtitle),
-                    showChevron = true,
-                    onClick = { navigator.navigate(PixelControl40ScreenDestination) },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.DeveloperBoard,
-                    badgeColor = IosCyanDark,
-                    title = stringResource(R.string.device31_title),
-                    subtitle = stringResource(R.string.device31_subtitle),
-                    showChevron = true,
-                    onClick = { navigator.navigate(DeviceCheckScreenDestination) },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Bolt,
-                    badgeColor = IosPinkDark,
-                    title = stringResource(R.string.ios_boost_title),
-                    subtitle = stringResource(R.string.ios_boost_sub),
-                    showChevron = true,
-                    onClick = { navigator.navigate(BoostScreenDestination) },
-                )
-                if (fullFeatured) {
+            // ---- 4. Three rows to the rest of the app -------------------------
+            // The four quick-access tiles that lived here duplicated the bottom
+            // bar. Modules and Root apps are one tap away there already; this is
+            // the third door, for Download and the tool screens.
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                IosGroup(title = stringResource(R.string.ios_group_tools)) {
+                    IosRow(
+                        icon = Icons.Rounded.SystemUpdateAlt,
+                        badgeColor = IosOrangeDark,
+                        title = stringResource(R.string.ios_tile_install),
+                        subtitle = stringResource(R.string.ios_tile_install_sub),
+                        showChevron = true,
+                        onClick = { navigator.navigate(InstallScreenDestination) },
+                    )
                     IosGroupDivider()
                     IosRow(
                         icon = Icons.Rounded.Layers,
@@ -684,9 +530,102 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                         subtitle = stringResource(R.string.ios_metamodule_sub),
                         value = envInfo.metaModuleLabel,
                         showChevron = true,
-                        onClick = { navigator.navigate(MetaModuleScreenDestination) },
+                        onClick = {
+                            if (fullFeatured) navigator.navigate(MetaModuleScreenDestination)
+                            else navigator.navigate(InstallScreenDestination)
+                        },
+                    )
+                    IosGroupDivider()
+                    IosRow(
+                        icon = Icons.Rounded.Tune,
+                        badgeColor = IosIndigoDark,
+                        title = stringResource(R.string.ios_tile_settings),
+                        subtitle = stringResource(R.string.ios_tile_settings_sub),
+                        showChevron = true,
+                        onClick = { navigateTab(SettingScreenDestination) },
                     )
                 }
+            }
+        }
+    }
+}
+
+/** One card of the Hub pager: an eyebrow, then label/value lines. */
+@Composable
+private fun HubPanel(eyebrow: String, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .iosGlass(shape = shape, tintTop = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = eyebrow.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        content()
+    }
+}
+
+@Composable
+private fun HubLine(label: String, value: String, tint: Color? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = tint ?: MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** The dots under the pager: they report position and jump to a page when tapped. */
+@Composable
+private fun PagerDots(
+    count: Int,
+    selected: Int,
+    activeColor: Color,
+    inactiveColor: Color,
+    onSelect: (Int) -> Unit,
+    dotDescription: (Int) -> String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(count) { index ->
+            // 32dp of touch target around a 6dp dot; the dot itself stays small.
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .semantics {
+                        contentDescription = dotDescription(index)
+                        role = Role.Tab
+                        selected = index == selected
+                    }
+                    .clickable { onSelect(index) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (index == selected) 8.dp else 6.dp)
+                        .background(
+                            color = if (index == selected) activeColor else inactiveColor,
+                            shape = CircleShape,
+                        ),
+                )
             }
         }
     }

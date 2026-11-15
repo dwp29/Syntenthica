@@ -11,6 +11,9 @@
     <string name="ios_home_rooted">Ada root</string>
     <string name="ios_home_tap_install">Ketuk untuk pasang</string>
     <string name="ios_home_status">Status</string>
+    <string name="ios_home_hook">Mode hook</string>
+    <string name="ios_home_uapi">UAPI manajer</string>
+    <string name="ios_home_pager_dot">Buka halaman status %1$d</string>
     <string name="ios_home_kernel">Kernel</string>
     <string name="ios_home_manager">Manajer</string>
     <string name="ios_home_root_access">Akses root</string>

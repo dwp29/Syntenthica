@@ -1354,7 +1354,10 @@ fun IosTile(
     }
 }
 
-/** Shared entry point keeps the real Manager data and click behavior unchanged. */
+/**
+ * The per-theme animated banner. Kept as the single entry point so Home can show
+ * one hero without knowing which of the four designs is active.
+ */
 @Composable
 fun IosHeroCard(
     eyebrow: String,

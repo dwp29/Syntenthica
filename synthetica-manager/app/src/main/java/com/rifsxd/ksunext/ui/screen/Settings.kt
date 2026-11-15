@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.FolderDelete
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.RadioButtonChecked
@@ -48,6 +49,7 @@ import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material3.DropdownMenu
@@ -95,8 +97,11 @@ import com.ramcosta.composedestinations.generated.destinations.BackupRestoreScre
 import com.ramcosta.composedestinations.generated.destinations.BoostScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.CustomizationScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.DeveloperScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.DeviceCheckScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.FlashScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MetaModuleScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PixelControl40ScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PixelDiagnostics40ScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SulogScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.rifsxd.ksunext.BuildConfig
@@ -395,6 +400,38 @@ fun SettingScreen(navigator: DestinationsNavigator) {
                         },
                     )
                 }
+            }
+
+            // Group 1b: Phone tools. These three screens used to be reachable only
+            // from the Hub; when the Hub was slimmed down they would have had no door
+            // at all, so they live here now, next to Boost.
+            IosGroup(title = stringResource(R.string.neon_quick_actions)) {
+                IosRow(
+                    icon = Icons.Rounded.MonitorHeart,
+                    badgeColor = IosCyanDark,
+                    title = stringResource(R.string.pixel40_diagnostics_title),
+                    subtitle = stringResource(R.string.pixel40_diagnostics_subtitle),
+                    showChevron = true,
+                    onClick = { navigator.navigate(PixelDiagnostics40ScreenDestination) },
+                )
+                IosGroupDivider()
+                IosRow(
+                    icon = Icons.Rounded.Speed,
+                    badgeColor = IosOrangeDark,
+                    title = stringResource(R.string.pixel40_control_title),
+                    subtitle = stringResource(R.string.pixel40_control_subtitle),
+                    showChevron = true,
+                    onClick = { navigator.navigate(PixelControl40ScreenDestination) },
+                )
+                IosGroupDivider()
+                IosRow(
+                    icon = Icons.Rounded.DeveloperBoard,
+                    badgeColor = IosTeal,
+                    title = stringResource(R.string.device31_title),
+                    subtitle = stringResource(R.string.device31_subtitle),
+                    showChevron = true,
+                    onClick = { navigator.navigate(DeviceCheckScreenDestination) },
+                )
             }
 
             // Group 2: Tools & Modules (APK 1.16 Menu Layout)
