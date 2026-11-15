@@ -169,12 +169,15 @@ jobs:
           APK="$OUT/Manager-6.5.1-standalone-UNSIGNED.apk"
           SIGNED="$OUT/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk"
           KS="$OUT/debug-only.keystore"
+          # One variable, used by both keytool and apksigner: two hand-written copies of the
+          # same password is how the previous attempt ended up with mismatched ones.
+          PW="synthetica-debug-only"
 
           test -f "$APK" || fail "unsigned APK not found at $APK"
 
           keytool -genkeypair -keystore "$KS" -storetype PKCS12 \
             -alias standalone -keyalg RSA -keysize 4096 -validity 3650 \
-            -storepass synthesa-debug-only -keypass synthesa-debug-only \
+            -storepass "$PW" -keypass "$PW" \
             -dname "CN=Synthetica Manager Standalone (debug key), O=Synthetica, C=ID" \
             > "$OUT/sign.log" 2>&1 || fail "keytool could not generate the debug key"
 
@@ -182,7 +185,7 @@ jobs:
             || fail "zipalign failed before signing"
 
           "$TOOLS/apksigner" sign --ks "$KS" --ks-key-alias standalone \
-            --ks-pass pass:synthetica-debug-only --key-pass pass:synthetica-debug-only \
+            --ks-pass "pass:$PW" --key-pass "pass:$PW" \
             --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \
             --out "$SIGNED" "$OUT/aligned.apk" >> "$OUT/sign.log" 2>&1 \
             || fail "apksigner sign failed"
