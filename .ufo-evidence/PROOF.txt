@@ -1,0 +1,36 @@
+Image  : 39,184,400 byte
+Simbol : 117,248
+
+MGLRU      TERBUKTI
+           OK   reclaim path accounts for generations
+             BL di shrink_page_list.llvm.12208889867182419374+0xa40 menuju lru_gen_eviction
+           --   second reclaim entry point (optional)
+             tidak ada BL ke lru_gen_eviction di dalam shrink_active_list
+
+UCLAMP     TERBUKTI
+           OK   the scheduler applies the clamp on every context switch
+             BL di __schedule+0x1268 menuju uclamp_rq_inc_id
+           OK   the per-cpu clamp arrays are initialised at boot
+             sched_init+0x83c memuat alamat uclamp_default
+
+WALT       TERBUKTI
+           OK   the switch path records the window
+             BL di __schedule+0x54c menuju update_task_ravg
+           OK   the wake path records the window
+             BL di try_to_wake_up.llvm.16464501368921155932+0x58c menuju update_task_ravg
+
+KernelSU   TERBUKTI
+           OK   exec is intercepted before the new program runs
+             BL di do_execveat_common.llvm.3619495763650600198+0x40 menuju ksu_handle_execveat
+
+SuSFS      TERBUKTI
+           OK   path resolution asks whether an inode is hidden
+             BL di link_path_walk+0x2e0 menuju susfs_is_inode_sus_path
+
+NoMount    TERBUKTI
+           OK   the directory operations table points at the NoMount lookup
+             nm_dir_iops+0x0 berisi pointer ke nm_dir_lookup
+           OK   and the file operations table at the directory iterator
+             nm_dir_fops+0x30 berisi pointer ke nm_dir_iterate_dir
+
+Semua fitur punya rantai bukti utuh dari kode yang dijalankan kernel.

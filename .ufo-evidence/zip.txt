@@ -1,0 +1,9 @@
+
+#### zip siap flash
+```
+3f1bd045aa1e12dd42b354f881d1d4da688d08dddb34d87653d264ff45505610  /home/runner/work/_temp/UFO-0.1-miatoll-4.14.344.zip
+26 berkas
+  anykernel.sh
+  Image.gz
+```
+Belum di-flash siapa pun.
