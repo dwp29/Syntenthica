@@ -126,13 +126,15 @@ jobs:
             echo "::error::System.map tidak ada, fitur tidak bisa dibuktikan"
             exit 1
           fi
-          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/prove_features357.py" "$IMG" "$SM"
-          RC=$?
+          mkdir -p "$GITHUB_WORKSPACE/.ufo-evidence"
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/prove_features357.py" "$IMG" "$SM" \
+            | tee "$GITHUB_WORKSPACE/.ufo-evidence/PROOF.txt"
+          RC=${PIPESTATUS[0]}
           echo "prove_features rc=$RC"
           exit $RC
 
       - name: Collect the evidence
-        if: success()
+        if: always()
         run: |
           set +e
           OUT="$RUNNER_TEMP/evidence"
@@ -157,9 +159,17 @@ jobs:
           print()
           print("\n".join(rows))
           PY
-          for f in System.map config.final CONFIG.txt PROOF.txt plant.txt build-full.log; do
+          for f in System.map config.final CONFIG.txt plant.txt build-full.log; do
             cp "$OUT/$f" "$EF/" 2>/dev/null
           done
+          # PROOF.txt comes from the gate step and must survive even when that gate
+          # failed -- a failing proof is the single most useful artefact here.
+          cp "$OUT/PROOF.txt" "$EF/PROOF-from-collect.txt" 2>/dev/null
+          if [ -s "$EF/PROOF.txt" ]; then
+            echo "-- PROOF.txt dari gerbang ($(wc -l < "$EF/PROOF.txt") baris)"
+          else
+            echo "-- gerbang tidak menulis PROOF.txt"
+          fi
           cat "$OUT/PROOF.txt"
 
       - name: Publish the build log even when the build fails
