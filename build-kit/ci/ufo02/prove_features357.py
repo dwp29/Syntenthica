@@ -111,10 +111,18 @@ CHAINS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
          "path resolution asks whether an inode is hidden"),
     ]),
     ("NoMount", [
-        ("POINTER", "nm_dir_iops", "nm_dir_lookup",
-         "the directory operations table points at the NoMount lookup"),
-        ("POINTER", "nm_dir_fops", "nm_dir_iterate_dir",
-         "and the file operations table at the directory iterator"),
+        # The POINTER check this used to run cannot work on this kernel. An arm64
+        # kernel is PIE, so the operations tables in the image hold zeroes with a
+        # relocation list beside them -- measured: 0 words in 33 MB of image look
+        # like a kernel address. Reading the struct therefore proves nothing either
+        # way, and reporting it as "not wired" was wrong.
+        # What is checkable is the code that installs the tables: the NoMount inode
+        # constructor takes the address of nm_dir_iops, and that table's first entry
+        # is nm_dir_lookup. Both ends are visible in the instruction stream.
+        ("DATA", "nomount_create_new_inode", "nm_dir_iops",
+         "the NoMount inode constructor installs the directory operations table"),
+        ("DATA", "nomount_create_new_inode", "nm_dir_fops",
+         "and installs the directory file-operations table as well"),
     ]),
 ]
 
@@ -147,7 +155,13 @@ def parse_map(path: pathlib.Path) -> dict[str, int]:
 def read_image(path: pathlib.Path) -> bytes:
     data = path.read_bytes()
     if data[:2] == b"\x1f\x8b":
-        return gzip.decompress(data)
+        try:
+            return gzip.decompress(data)
+        except (EOFError, OSError) as exc:
+            # A truncated or corrupt image must fail loudly. Letting the exception
+            # escape produced a traceback and a non-standard exit, and in a pipeline
+            # that can read as success -- the gate is worthless if it cannot say no.
+            raise SystemExit(f"Image tidak bisa dibaca ({exc}); ini BUKAN lulus.") from exc
     return data
 
 
