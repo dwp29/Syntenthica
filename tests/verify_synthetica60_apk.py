@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static verification for a Synthetica Manager 6.0.0 APK (signed or unsigned).
+"""Static verification for a Synthetica Manager 6.5.0 APK (signed or unsigned).
 
 Bytes and metadata only. This is NOT a device, root, update or boot test.
 """
@@ -21,15 +21,15 @@ KSUD_SHA256 = "c305965796afb55ae8dad3a122935c995a818e07c637a9ef4c3e375202e4a427"
 HELPERS = ("synthetica-control40.sh", "synthetica-boost40.sh", "synthetica-universal60.sh")
 
 DEX_MARKERS = (
-    b"PIXEL // MANAGER 6.0.0",
-    b"CYBERPUNK // MANAGER 6.0.0",
-    b"GLASS // MANAGER 6.0.0",
-    b"NEON // MANAGER 6.0.0",
+    b"PIXEL // MANAGER 6.5",
+    b"CYBERPUNK // MANAGER 6.5",
+    b"GLASS // MANAGER 6.5",
+    b"NEON // MANAGER 6.5",
     b"synthetica-universal60.sh",
     b"kmod_status",
     b"diag_pstore",
     b"manager_anim_speed",
-    b"synthetica-manager-6.0.0",
+    b"synthetica-manager-6.5.0",
     b"manager_visual_style",
     # About page: author identity, licence and the donation slot. The GitHub
     # links were removed on request, so they are asserted absent further down.
@@ -105,9 +105,9 @@ def verify(apk: Path) -> None:
         dex = b"".join(z.read(n) for n in names if n.endswith(".dex"))
         for marker in DEX_MARKERS:
             if marker not in dex:
-                raise ValueError(f"6.0.0 DEX marker missing: {marker!r}")
+                raise ValueError(f"6.5 DEX marker missing: {marker!r}")
         if b"MANAGER 5.0.1" in dex or b"v5.0.1" in dex:
-            raise ValueError("Stale 5.0.1 label still present in the 6.0.0 DEX")
+            raise ValueError("Stale 5.0.1 label still present in the 6.5 DEX")
 
         arsc = string_pool(z.read("resources.arsc")) if "resources.arsc" in names else b""
         for key in (b"manager60_telemetry_group", b"manager60_kmod_group", b"manager60_diag_dmesg",
@@ -155,8 +155,8 @@ def verify(apk: Path) -> None:
         if len(png_hashes) < 7:
             raise ValueError("Expected at least 7 distinct PNG emblems")
 
-    print("Manager 6.0.0 static gates passed:")
-    print("  identity net.ember.labs / 6.0.0, UAPI 4 JNI, pinned UAPI-4 libksud.so")
+    print("Manager 6.5.0 static gates passed:")
+    print("  identity net.ember.labs / 6.5.0, UAPI 4 JNI, pinned UAPI-4 libksud.so")
     print("  Universal Root Bridge, telemetry, .ko loader and diag markers in DEX")
     print("  7 PNG emblems, 7 splash tags, 6 banner layers, localized manager60_* strings")
     print("  installer scripts unchanged from the 2.0 baseline")
