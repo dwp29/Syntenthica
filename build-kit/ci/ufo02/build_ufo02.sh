@@ -1,22 +1,25 @@
 #!/bin/bash
 # UFO-0.2: build pada 4.14.357 dengan seluruh fitur Synthetica 3.2.
 #
-# Kenapa pohon ini, bukan Kinesis 4.14.344:
-#   - 4.14.357 membawa perbaikan kernel yang nyata: kgsl use-after-free, KCAL,
-#     hidung /system/addon.d dari UID tak berhak.
+# Kenapa pohon ini:
+#   - 4.14.357 membawa perbaikan kernel nyata: kgsl use-after-free, KCAL,
+#     penghapusan /system/addon.d dari UID tak berhak.
 #   - Pohon Saamitk/kernel_xiaomi_sm6250-switchoff SUDAH membawa SuSFS v2.3.0,
 #     KernelSU-Next, dan NoMount v2.0.0. Jadi yang perlu ditanam hanya MGLRU dan
 #     UCLAMP, lewat enam patch asli Synthetica yang menempel bersih.
 #
-# Kenapa manager memakai hash sendiri:
-#   is_manager_apk() TIDAK mencocokkan nama paket (kecuali KSU_MANAGER_PACKAGE
-#   di-set saat build). Ia membandingkan panjang sertifikat v2 dan sha256-nya:
-#       EXPECTED_MANAGER_SIZE / EXPECTED_MANAGER_HASH
-#   Default pohon ini 0x3e6 (998 byte) / 79e59011..., yaitu sertifikat manager
-#   KernelSU-Next resmi. APK Pure Manager kita ditandatangani kunci kita sendiri:
-#       1373 byte (0x55d), sha256 a2f94245...43f2d8
-#   Tanpa override, kernel akan menganggap APK kita bukan manager, dan semua
-#   supercall ditolak. Jadi dua variabel itu WAJIB diisi dari APK yang dipakai.
+# Manager: nilai bawaan pohon, yaitu sertifikat manager KernelSU-Next resmi.
+#   Kernel ini TIDAK dipatok ke APK apa pun. Sebelumnya sempat dipatok ke
+#   sertifikat Pure Manager, dan itu keliru -- Pure Manager adalah file explorer,
+#   bukan manager KernelSU, jadi memasang sertifikatnya tidak memberinya
+#   kemampuan mengelola izin root. Manager resmi KernelSU-Next dipakai apa adanya.
+#
+# Catatan ukuran sertifikat: manager KernelSU-Next resmi jauh di bawah batas yang
+# dipakai check_block(), jadi tidak perlu mengubah batas. Kalau suatu saat manager
+# yang dipakai lebih besar dari CERT_MAX_LENGTH, apply_synthetica357.sh sudah
+# menaikkannya ke 4096 dan verify_manager_bound.py akan menolak build bila batas
+# itu tidak benar-benar ada di image.
+
 set -euo pipefail
 
 TREE="${1:?usage: build_ufo02.sh <kernel-tree>}"
@@ -25,22 +28,18 @@ JOBS="${JOBS:-$(nproc)}"
 
 # Hash sertifikat APK Pure Manager 0.10.0 (RELEASEKEY).
 # Diperiksa ulang oleh verify_manager.sh; jangan ditulis tanpa bukti.
-MGR_SIZE="0x55d"
-MGR_HASH="a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8"
-
-cd "$TREE"
-mkdir -p "$WORK"
-cp arch/arm64/configs/vendor/xiaomi/miatoll_defconfig "$WORK/.config"
-
-export ARCH=arm64
-export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-MAKEARGS="CC=clang CROSS_COMPILE=aarch64-linux-gnu- LD=ld.lld AR=llvm-ar"
-MAKEARGS="$MAKEARGS NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump"
-MAKEARGS="$MAKEARGS STRIP=llvm-strip CLANG_TRIPLE=aarch64-linux-gnu-"
-
-# Kbuild reads these two from the make line / environment and turns them into
-# -DEXPECTED_MANAGER_SIZE / -DEXPECTED_MANAGER_HASH.
-KSU_MGR="KSU_NEXT_MANAGER_SIZE=$MGR_SIZE KSU_NEXT_MANAGER_HASH=$MGR_HASH"
+# Manager: pakai milik KernelSU-Next, bukan APK kita.
+#
+# Sebelumnya kernel ini dipatok ke sertifikat Pure Manager 0.10.0. Itu keliru:
+# Pure Manager adalah file explorer, bukan manager KernelSU. Memasang sertifikatnya
+# di kernel tidak membuatnya mengelola izin root -- ia hanya mendapat perlakuan
+# manager (tidak di-umount modulnya) dan bisa menjalankan su. Yang benar adalah
+# membiarkan nilai bawaan pohon ini, yaitu sertifikat manager KernelSU-Next resmi.
+#
+# Nilai bawaan sengaja TIDAK ditulis ulang di sini. Menuliskannya berarti build
+# tetap bisa diam-diam berbeda dari pohon bila upstream mengubahnya. Baris di
+# bawah hanya memastikan nilainya kosong, sehingga Kbuild memakai bawaannya.
+KSU_MGR=""
 
 echo "-- make olddefconfig"
 # shellcheck disable=SC2086

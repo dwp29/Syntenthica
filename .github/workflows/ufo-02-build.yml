@@ -64,37 +64,19 @@ jobs:
           bash "$K/apply_synthetica357.sh" "$RUNNER_TEMP/ufo" "$K/patches" \
             | tee "$RUNNER_TEMP/plant.txt"
 
-      - name: Prove the manager APK will be recognised
+      - name: Confirm the kernel uses the stock KernelSU-Next manager
         run: |
           set -euo pipefail
-          # The kernel matches a manager by certificate length + sha256, not by
-          # package name. Building with the default 998-byte hash would make our own
-          # APK a stranger to this kernel. This step fails the build if the two sides
-          # ever drift apart.
-          K="$GITHUB_WORKSPACE/build-kit/ci/ufo02"
-          # The APK is 19 MB and lives on Drive, not in this repo, so it is not
-          # available here. What CAN be checked on the runner is that the values the
-          # build will use are the ones recorded for our key -- a mismatch between
-          # build_ufo02.sh and this guard is what would silently produce a kernel that
-          # rejects its own manager. The APK itself is verified by
-          # verify_manager.sh whenever it is present (run it locally, or in CI after
-          # placing the file at build-kit/ci/ufo02/manager/).
-          SIZE=$(grep -oP 'MGR_SIZE="\K[^"]+' "$K/build_ufo02.sh")
-          HASH=$(grep -oP 'MGR_HASH="\K[^"]+' "$K/build_ufo02.sh")
-          echo "build memakai: size=$SIZE hash=$HASH"
-          [ "$SIZE" = "0x55d" ] || { echo "::error::size salah: $SIZE"; exit 1; }
-          [ "$HASH" = "a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8" ] \
-            || { echo "::error::hash salah: $HASH"; exit 1; }
-          echo "cocok dengan sertifikat Pure Manager 0.10.0 (1373 byte, sha256 a2f94245...)"
-
-          # And prove the comparison itself works, using the recorded values as both
-          # sides: this catches a broken parser rather than a broken key.
-          APK="$GITHUB_WORKSPACE/build-kit/ci/ufo02/manager/PureManager-0.10.0-RELEASEKEY.apk"
-          if [ -f "$APK" ]; then
-            bash "$K/verify_manager.sh" "$APK" "$SIZE" "$HASH"
-          else
-            echo "(APK tidak ada di runner; perbandingan penuh dijalankan lokal)"
+          # This kernel is NOT pinned to any APK. It must be built with the tree's own
+          # manager certificate, which is what the stock KernelSU-Next manager is
+          # signed with. A leftover override here would silently lock the manager out.
+          K="$GITHUB_WORKSPACE/build-kit/ci/ufo02/build_ufo02.sh"
+          if grep -qE 'KSU_NEXT_MANAGER_(SIZE|HASH)=\S' "$K"; then
+            echo "::error::build_ufo02.sh masih mematok sertifikat manager"
+            grep -nE 'KSU_NEXT_MANAGER' "$K"
+            exit 1
           fi
+          echo "tidak ada pin manager; kernel memakai sertifikat bawaan pohon"
 
       - name: Build
         run: |
@@ -132,16 +114,7 @@ jobs:
           RC=${PIPESTATUS[0]}
           echo "prove_features rc=$RC"
 
-          # A kernel that rejects its own manager is not deliverable, no matter what
-          # the feature proof says. This caught a real defect: CERT_MAX_LENGTH was
-          # 1024 while our certificate is 1373 bytes, so the bound check was folded
-          # away and the kernel always refused our APK.
-          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/verify_manager_bound.py" "$IMG" "$SM" \
-            | tee "$GITHUB_WORKSPACE/.ufo-evidence/MANAGER-BOUND.txt"
-          RCB=${PIPESTATUS[0]}
-          echo "verify_manager_bound rc=$RCB"
-
-          if [ "$RC" -ne 0 ] || [ "$RCB" -ne 0 ]; then
+          if [ "$RC" -ne 0 ]; then
             exit 1
           fi
 

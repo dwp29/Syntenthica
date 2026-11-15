@@ -21,6 +21,5 @@ tidak ada angka baterai, tidak ada uji thermal.
 Bedanya dengan UFO-0.1 (yang berbasis Kinesis 4.14.344):
   - Basis 4.14.357, bukan 344. SuSFS, KernelSU-Next, NoMount sudah ada di pohon
     basis; MGLRU dan UCLAMP ditanam lewat enam patch Synthetica asli.
-  - Kernel ini menyimpan sidik jari sertifikat Pure Manager 0.10.0, jadi APK
-    manager kita dikenali. Jangan ganti APK dengan build lain tanpa mengganti
-    hash-nya di build_ufo02.sh.
+  - Kernel ini memakai manager bawaan KernelSU-Next, tanpa pin ke APK apa pun.
+    Pasang manager KernelSU-Next resmi setelah flash.

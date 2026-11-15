@@ -35,13 +35,14 @@ tiap folder sudah bernomor dan berkas di dalamnya sudah diberi nama detail.
 ## 05 — KEY SIGNING  (JANGAN DISEBAR)
 | Berkas | Isi |
 |---|---|
-| `2026-11-11_KEY-Pure-Manager-Signing-Release-RSA4096-A2F942452EEC.p12` | keystore rilis Pure Manager (PKCS12, 4380 B) |
+| ~~`2026-11-11_KEY-Pure-Manager-Signing-Release-RSA4096-A2F942452EEC.p12`~~ | DIHAPUS — lihat `PURE-MANAGER-DISCONTINUED.md` |
 | `2026-11-11_CERT-Pure-Manager-Signing-Release-RSA4096-A2F942452EEC.pem` | sertifikat publik |
 | `2026-11-11_DOK-Pure-Manager-KEY-SIGNING-password-alias-fingerprint.md` | sandi, alias, fingerprint |
 | `2026-11-11_KEY-Pure-Manager-PM_KEYSTORE_B64-siap-tempel-di-GitHub.txt` | base64 untuk variabel repo |
 | `2026-11-11_KEY-Synthetica-Manager-6.1-Themes-keystore.p12` | keystore Manager 6.1 Themes |
 
-Sertifikat Pure Manager release key:
+> **Catatan:** baris di bawah merujuk kunci yang sudah dimusnahkan. Lihat
+> `PURE-MANAGER-DISCONTINUED.md`. Sertifikat Pure Manager release key (historis):
 `A2:F9:42:45:2E:EC:1C:D8:76:3E:6C:F3:3B:99:37:C1:A9:9B:38:49:C6:27:73:A7:3B:F4:44:77:67:43:F2:D8`
 **Peringatan:** keystore ini juga tersalin di repo GitHub publik `dwp29/Synthentica`
 folder `ci-stage/` (dipakai sekali untuk menandatangani APK 0.10.0). Anggap kunci
