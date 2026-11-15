@@ -484,7 +484,12 @@ fun DownloadScreen(navigator: DestinationsNavigator) {
                         IconButton(onClick = { showRepos = true }) {
                             Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.manage_repositories))
                         }
-                        IconButton(onClick = { sortMode = when (sortMode) { "az" -> "za"; "za" -> "stars"; else -> "az" } }) {
+                        IconButton(onClick = {
+                            sortMode = when (sortMode) { "az" -> "za"; "za" -> "stars"; else -> "az" }
+                            // Without this the order resets on every visit, which
+                            // reads as the button not working.
+                            prefs.edit().putString("module_sort_mode", sortMode).apply()
+                        }) {
                             Icon(Icons.Rounded.Sort, contentDescription = null)
                         }
                         IconButton(onClick = { scope.launch { load() } }) {
