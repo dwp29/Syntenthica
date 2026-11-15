@@ -54,7 +54,7 @@
     <string name="ios_developer_sub">Opsi diagnostik lanjutan &amp; WebUI</string>
     <string name="ios_export_sub">Simpan atau bagikan arsip log diagnostik</string>
     <string name="ios_about_title">Tentang Synthetica</string>
-    <string name="ios_about_sub">Manager 6.0.0 Mandiri, UAPI v4 dan Universal Kernel Bridge</string>
+    <string name="ios_about_sub">Manager 6.5.0 Mandiri, UAPI v4 dan Universal Kernel Bridge</string>
 
     <!-- Synthetica Boost Screen -->
     <string name="synthetica_boost_network_group">Jaringan</string>

@@ -260,8 +260,18 @@ fun KernelSUTheme(
     val accent = accentForStyle(style, NeonAccentState.value, isDark)
     val base = if (isDark) NeonDarkScheme else NeonLightScheme
     val palette = paletteForStyle(style, isDark, isAmoled, base)
+    val tiers = accentTierForStyle(style, NeonAccentState.value, isDark)
+    val signature = signatureColorForStyle(style, isDark)
     val scheme = palette.scheme.copy(
         primary = accent,
+        // The second and third accents of the theme's own key, surfaced as tertiary and
+        // secondary so charts, badges and the dock detail stop being grey filler.
+        tertiary = tiers[1],
+        onTertiary = if (isDark) Color(0xFF101118) else Color.White,
+        tertiaryContainer = tiers[1].blend(Color(0xFF161923), 0.72f),
+        onTertiaryContainer = tiers[1].blend(Color.White, 0.30f),
+        secondary = tiers[2].blend(if (isDark) Color(0xFF101118) else Color.White, 0.45f),
+        inversePrimary = signature,
         onPrimary = if (isDark) Color(0xFF101118) else Color.White,
         primaryContainer = if (isDark) accent.blend(Color(0xFF161923), 0.80f) else accent.blend(Color.White, 0.84f),
         onPrimaryContainer = if (isDark) accent.blend(Color.White, 0.25f) else Color(0xFF161923),

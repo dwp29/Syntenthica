@@ -12,10 +12,6 @@
     <string name="theme50_neon_detail">Dual-neon cyber grid, glowing 3D neon emblem, laser pulse and HUD dock</string>
     <string name="theme50_retro">Retro Arcade</string>
     <string name="theme50_retro_detail">1980s cabinet CRT: scanlines, bouncing ball, VT323 marquee and 8-bit labels</string>
-    <string name="theme50_anime">Anime Wibu</string>
-    <string name="theme50_anime_detail">Sakura sky with drifting petals, sticker emblem, rounded gothic type and a floating dock</string>
-    <string name="theme50_gothic">Gothic Crimson</string>
-    <string name="theme50_gothic_detail">Blood moon over a gothic castle, heraldic serif type, thorn emblem and drifting ash</string>
     <string name="theme50_preview_splash">Preview boot splash</string>
     <string name="theme50_preview_splash_sub">Replay the selected theme\'s animated splash screen and PNG emblem</string>
 
@@ -57,7 +53,7 @@
     <string name="manager60_backup_group">Configuration backup &amp; restore (JSON)</string>
     <string name="manager60_backup_footer">Export or import your theme, dark mode, accent, glow and animation speed settings as JSON via clipboard.</string>
     <string name="manager60_export_json">Export theme config JSON to clipboard</string>
-    <string name="manager60_export_json_sub">Copy current Synthetica Manager 6.0.0 UI configuration</string>
+    <string name="manager60_export_json_sub">Copy current Synthetica Manager 6.5.0 UI configuration</string>
     <string name="manager60_import_json">Import theme config JSON from clipboard</string>
     <string name="manager60_import_json_sub">Apply a previously exported JSON configuration</string>
     <string name="manager60_export_ok">Configuration JSON copied to clipboard.</string>
@@ -84,4 +80,13 @@
     <string name="about_donate_sub_empty">The donation slot is reserved but still empty. The author has not announced a donation address or link yet.</string>
     <string name="about_donate_soon">SOON</string>
     <string name="about_link_failed">No app can open this link.</string>
+    <string name="manager65_wallpaper_pick">Background image</string>
+    <string name="manager65_wallpaper_on">Your own picture is painted behind every screen</string>
+    <string name="manager65_wallpaper_off">Using the theme\'s own animated background. Tap to pick a picture.</string>
+    <string name="manager65_wallpaper_fail">That file could not be read as an image</string>
+    <string name="manager65_wallpaper_fail_sub">Try a JPG or PNG. The previous background, if any, is untouched.</string>
+    <string name="manager65_wallpaper_opacity">Background strength</string>
+    <string name="manager65_wallpaper_blur">Background blur</string>
+    <string name="manager65_wallpaper_clear">Remove background image</string>
+    <string name="manager65_wallpaper_clear_sub">Return to the theme\'s own animated background</string>
 </resources>

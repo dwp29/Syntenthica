@@ -63,7 +63,7 @@ android {
     applicationVariants.all {
         outputs.forEach {
             val output = it as BaseVariantOutputImpl
-            output.outputFileName = "Synthetica-6.0.0-Standalone-$name.apk"
+            output.outputFileName = "Synthetica-6.5.0-Standalone-$name.apk"
         }
         kotlin.sourceSets {
             getByName(name) {

@@ -33,14 +33,15 @@ class StandaloneTreeTests(unittest.TestCase):
     def test_static_gates_pass(self) -> None:
         builder.verify_tree()
 
-    def test_version_identity_is_70000(self) -> None:
-        self.assertEqual(builder.VERSION_CODE, 70000)
-        self.assertEqual(builder.VERSION_NAME, "6.0.0")
+    def test_version_identity_is_75000(self) -> None:
+        # 6.5 bumped the identity; the numbers are asserted exactly, not loosened.
+        self.assertEqual(builder.VERSION_CODE, 75000)
+        self.assertEqual(builder.VERSION_NAME, "6.5.0")
         self.assertEqual(builder.APP_ID, "net.ember.labs")
         self.assertEqual(builder.UAPI, 4)
         self.assertIn("versionCode = managerVersionCode", read("build.gradle.kts"))
         self.assertIn('applicationId = "net.ember.labs"', read("app/build.gradle.kts"))
-        self.assertIn('Synthetica-6.0.0-Standalone-$name.apk', read("app/build.gradle.kts"))
+        self.assertIn('Synthetica-6.5.0-Standalone-$name.apk', read("app/build.gradle.kts"))
 
     def test_no_signing_material_or_binary_payload_is_committed(self) -> None:
         for path in TREE.rglob("*"):
@@ -300,12 +301,14 @@ class StandaloneTreeTests(unittest.TestCase):
         self.assertIn("CAP_PCT=70", helper)
         self.assertIn("profile_revert", helper)
 
-    def test_release_strings_report_600(self) -> None:
+    def test_release_strings_report_650(self) -> None:
+        # 6.5 renamed every user-visible version marker from 6.0.0; the assertion moves
+        # with it rather than being relaxed, so a stale label still fails the build.
         about = read("app/src/main/res/values/strings_synthetica.xml")
-        self.assertIn("Manager 6.0.0", about)
+        self.assertIn("Manager 6.5.0", about)
         glass = read("app/src/main/java/com/rifsxd/ksunext/ui/theme/Glass.kt")
-        self.assertIn("[6.0.0]", glass)
-        self.assertIn("v6.0.0", glass)
+        self.assertIn("[6.5.0]", glass)
+        self.assertIn("v6.5.0", glass)
         self.assertNotIn("MANAGER 5.0.1", read("app/src/main/java/com/rifsxd/ksunext/ui/theme/VisualStyles.kt"))
 
 

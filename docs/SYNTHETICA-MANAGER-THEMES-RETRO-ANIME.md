@@ -1,3 +1,8 @@
+> **DIHENTIKAN (Manager 6.5).** Tema Retro Arcade tetap ada; Anime Wibu dan
+> Gothic Crimson dicabut beserta asetnya. Dokumen di bawah disimpan sebagai
+> catatan sejarah. Test `tests/test_synthetica61_retro_anime.py` ikut dihapus
+> karena mengunci tema yang sudah tidak ada.
+
 # Synthetica Manager — tema Retro Arcade, Anime Wibu, dan Gothic Crimson
 
 Tiga tema baru yang ditambahkan di atas Manager 6.0.0 yang sudah rilis. Ketiganya

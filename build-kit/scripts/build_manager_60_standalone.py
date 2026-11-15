@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the UNSIGNED Synthetica Manager 6.0.0 from the standalone source tree.
+"""Build the UNSIGNED Synthetica Manager 6.5.0 from the standalone source tree.
 
 Unlike 2.0..5.0.1 this builder does not download or patch the upstream Manager:
 `synthetica-manager/` in this repository *is* the Manager source tree. Only the
@@ -27,11 +27,11 @@ TREE = ROOT / "synthetica-manager"
 # stopped being committed in 3ae2b8c, which silently broke this script. Do not
 # point this back at ci-stage.
 DONOR = ROOT / "release" / "Synthetica-2.0.apk"
-DEFAULT_OUT = ROOT / "artifacts" / "unsigned" / "Manager-6.0.0-UNSIGNED.apk"
+DEFAULT_OUT = ROOT / "artifacts" / "unsigned" / "Manager-6.5.0-UNSIGNED.apk"
 
 APP_ID = "net.ember.labs"
-VERSION_NAME = "6.0.0"
-VERSION_CODE = 70000
+VERSION_NAME = "6.5.0"
+VERSION_CODE = 75000
 UAPI = 4
 
 # Pinned UAPI-4 daemon (same bytes used by every Synthetica Manager since 2.0).
@@ -112,7 +112,7 @@ def verify_tree() -> None:
     for forbidden in ("apksign {", "signingConfig =", "storeFileProperty"):
         if forbidden in app_gradle:
             fail("The CI build must stay unsigned; signing happens locally with the original key")
-    if "Synthetica-6.0.0-Standalone-$name.apk" not in app_gradle:
+    if "Synthetica-6.5.0-Standalone-$name.apk" not in app_gradle:
         fail("Unexpected APK output name in app/build.gradle.kts")
 
     supercall = (TREE / "app/src/main/cpp/uapi/supercall.h").read_text(encoding="utf-8")

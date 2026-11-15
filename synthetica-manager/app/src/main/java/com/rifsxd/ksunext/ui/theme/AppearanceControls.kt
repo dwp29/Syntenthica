@@ -54,6 +54,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material3.Slider
 import androidx.compose.ui.unit.dp
 import com.rifsxd.ksunext.R
 import kotlin.math.cos
@@ -66,8 +72,6 @@ private val styles = listOf(
     StyleOption(R.string.theme50_ios, R.string.theme50_ios_detail, ManagerStyle.IOS_GLASS),
     StyleOption(R.string.theme50_neon, R.string.theme50_neon_detail, ManagerStyle.NEON),
     StyleOption(R.string.theme50_retro, R.string.theme50_retro_detail, ManagerStyle.RETRO_ARCADE),
-    StyleOption(R.string.theme50_anime, R.string.theme50_anime_detail, ManagerStyle.ANIME_WIBU),
-    StyleOption(R.string.theme50_gothic, R.string.theme50_gothic_detail, ManagerStyle.GOTHIC_CRIMSON),
 )
 
 /** Shared by the real Manager and the isolated, non-root preview. */
@@ -89,6 +93,8 @@ fun NeonAppearanceControls(onThemeChanged: (String) -> Unit = {}) {
                 }
             }
         }
+        IosGroupDivider()
+        WallpaperControls()
         IosGroupDivider()
         IosRow(
             icon = Icons.Rounded.PlayCircleOutline,
@@ -203,8 +209,6 @@ private fun StyleChoice(option: StyleOption, selected: Boolean, onClick: () -> U
         ManagerStyle.IOS_GLASS -> Color(0xFF1B2A40)
         ManagerStyle.NEON -> Color(0xFF111A30)
         ManagerStyle.RETRO_ARCADE -> Color(0xFF13233F)
-        ManagerStyle.ANIME_WIBU -> Color(0xFF1E1430)
-        ManagerStyle.GOTHIC_CRIMSON -> Color(0xFF0A0708)
     }
     Row(
         modifier = Modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
@@ -240,8 +244,6 @@ private fun StyleThumbnail(style: ManagerStyle, surface: Color, accent: Color) {
         ManagerStyle.IOS_GLASS -> RoundedCornerShape(10.dp)
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
         ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(4.dp)
-        ManagerStyle.ANIME_WIBU -> RoundedCornerShape(14.dp)
-        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topStart = 2.dp, topEnd = 9.dp, bottomEnd = 2.dp, bottomStart = 9.dp)
     }
     Row(
         modifier = Modifier
@@ -296,25 +298,6 @@ private fun StyleThumbnail(style: ManagerStyle, surface: Color, accent: Color) {
                     }
                     drawCircle(Color(0xFFFF8A3D), radius = 2.5.dp.toPx(), center = Offset(w * 0.5f, h * 0.86f))
                 }
-                ManagerStyle.GOTHIC_CRIMSON -> {
-                    // Moon disc with a thorn ring and a thin crimson rule.
-                    drawCircle(accent.copy(alpha = 0.85f), radius = w * 0.20f, center = Offset(w * 0.62f, h * 0.32f))
-                    for (i in 0..7) {
-                        val a = (i / 8f) * 2f * Math.PI.toFloat()
-                        val r = w * 0.20f
-                        drawLine(Color(0xFF5A0A10), Offset(w * 0.62f + cos(a) * r, h * 0.32f + sin(a) * r),
-                            Offset(w * 0.62f + cos(a) * r * 1.3f, h * 0.32f + sin(a) * r * 1.3f), 1.dp.toPx())
-                    }
-                    drawRect(accent.copy(alpha = 0.55f), Offset(w * 0.1f, h * 0.82f), Size(w * 0.8f, 1.2.dp.toPx()))
-                }
-                ManagerStyle.ANIME_WIBU -> {
-                    // Sakura scatter plus a rounded caption bar.
-                    repeat(4) { i ->
-                        drawCircle(accent.copy(alpha = 0.55f), radius = 1.8.dp.toPx(),
-                            center = Offset(w * (0.2f + 0.2f * i), h * (0.18f + 0.1f * (i % 2))))
-                    }
-                    drawRoundRect(Color.White.copy(alpha = 0.85f), Offset(0f, h * 0.68f), Size(w, h * 0.32f), CornerRadius(6.dp.toPx()))
-                }
                 ManagerStyle.NEON -> {
                     drawLine(accent, Offset(w * 0.15f, h * 0.25f), Offset(w * 0.85f, h * 0.25f), 2.dp.toPx())
                     drawLine(Color(0xFFFF63DB), Offset(w * 0.15f, h * 0.52f), Offset(w * 0.85f, h * 0.52f), 2.dp.toPx())
@@ -343,5 +326,97 @@ private fun NeonChoice(
         Text(text = stringResource(label), modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         RadioButton(selected = selected, onClick = null)
+    }
+}
+
+/**
+ * Background picker.
+ *
+ * Everything here is optional: with no image chosen the theme's procedural canvas carries
+ * on exactly as before, so the feature cannot break an existing install. Opacity and blur
+ * exist because a raw photo behind dense text is unreadable; both default to values that
+ * keep contrast acceptable rather than to the most dramatic setting.
+ */
+@Composable
+private fun WallpaperControls() {
+    val context = LocalContext.current
+    // Recompute after every change so the rows below reflect the new state immediately.
+    val revision = CustomWallpaper.revision
+    var failed by remember { mutableStateOf(false) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            failed = !CustomWallpaper.import(context, uri)
+        }
+    }
+    CustomWallpaper.init(context)
+
+    IosRow(
+        icon = Icons.Rounded.Wallpaper,
+        badgeColor = MaterialTheme.colorScheme.primary,
+        title = stringResource(R.string.manager65_wallpaper_pick),
+        subtitle = if (CustomWallpaper.enabled) stringResource(R.string.manager65_wallpaper_on)
+        else stringResource(R.string.manager65_wallpaper_off),
+        pill = if (CustomWallpaper.enabled) "ON" else "OFF",
+        pillColor = MaterialTheme.colorScheme.primary,
+        showChevron = true,
+        onClick = { picker.launch("image/*") },
+    )
+
+    if (failed) {
+        IosGroupDivider()
+        IosRow(
+            icon = Icons.Rounded.Image,
+            badgeColor = MaterialTheme.colorScheme.error,
+            title = stringResource(R.string.manager65_wallpaper_fail),
+            subtitle = stringResource(R.string.manager65_wallpaper_fail_sub),
+        )
+    }
+
+    if (CustomWallpaper.enabled) {
+        IosGroupDivider()
+        WallpaperSlider(
+            label = stringResource(R.string.manager65_wallpaper_opacity),
+            value = CustomWallpaper.opacity,
+            range = 0.15f..1f,
+            onChange = { CustomWallpaper.setOpacity(context, it) },
+        )
+        IosGroupDivider()
+        WallpaperSlider(
+            label = stringResource(R.string.manager65_wallpaper_blur),
+            value = CustomWallpaper.blurDp,
+            range = 0f..24f,
+            onChange = { CustomWallpaper.setBlur(context, it) },
+        )
+        IosGroupDivider()
+        IosRow(
+            icon = Icons.Rounded.ContentCopy,
+            badgeColor = MaterialTheme.colorScheme.error,
+            title = stringResource(R.string.manager65_wallpaper_clear),
+            subtitle = stringResource(R.string.manager65_wallpaper_clear_sub),
+            showChevron = true,
+            onClick = { CustomWallpaper.clear(context) },
+        )
+    }
+}
+
+@Composable
+private fun WallpaperSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Slider(
+            value = value.coerceIn(range.start, range.endInclusive),
+            onValueChange = onChange,
+            valueRange = range,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        )
     }
 }

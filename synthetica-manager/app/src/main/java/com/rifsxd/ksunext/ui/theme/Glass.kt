@@ -74,6 +74,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
@@ -125,13 +126,20 @@ fun GlassBackground(
     val style = LocalManagerStyle.current
     val phase by rememberStylePhase()
     val accent = MaterialTheme.colorScheme.primary
-    Canvas(modifier = modifier.fillMaxSize().drawWithContent {
+    CustomWallpaper.init(LocalContext.current)
+    Box(modifier = modifier.fillMaxSize()) {
+    // The imported wallpaper is a sibling of the theme canvas, never a child of it: a
+    // Composable cannot be emitted from inside a DrawScope.
+    if (!glass.isAmoled && CustomWallpaper.enabled) CustomWallpaperLayer()
+    Canvas(modifier = Modifier.fillMaxSize().drawWithContent {
         if (wallpaperLayer != null) {
             wallpaperLayer.record { this@drawWithContent.drawContent() }
             drawLayer(wallpaperLayer)
         } else drawContent()
     }) {
-        drawRect(glass.canvasBase)
+        if (!CustomWallpaper.enabled) drawRect(glass.canvasBase)
+        // An imported wallpaper sits under the theme's own canvas art, which keeps working as
+        // texture on top of it. AMOLED still forces true black and skips both.
         if (!glass.isAmoled) when (style) {
             ManagerStyle.PIXEL -> {
                 // Full-screen Nothing OS / Pixel dot-matrix grid + animated stepped LED equalizer
@@ -191,7 +199,7 @@ fun GlassBackground(
                 val bandH = 54.dp.toPx()
                 drawRect(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, accent.copy(alpha = 0.09f), Color(0xFF00F0FF).copy(alpha = 0.06f), Color.Transparent),
+                        colors = listOf(Color.Transparent, accent.copy(alpha = 0.22f), Color(0xFF00F0FF).copy(alpha = 0.16f), Color.Transparent),
                         startY = (scanY - bandH).coerceAtLeast(0f),
                         endY = (scanY + bandH).coerceAtMost(size.height),
                     ),
@@ -271,7 +279,7 @@ fun GlassBackground(
                     val frac = ((r.toFloat() / gridRows) + phase * 0.25f) % 1f
                     val y = horizonY + (size.height - horizonY) * (frac * frac)
                     drawLine(
-                        color = accent.copy(alpha = 0.05f + 0.10f * frac),
+                        color = accent.copy(alpha = 0.12f + 0.20f * frac),
                         start = Offset(0f, y),
                         end = Offset(size.width, y),
                         strokeWidth = 1.dp.toPx(),
@@ -309,43 +317,8 @@ fun GlassBackground(
                     center = Offset(size.width * 0.12f, size.height * 0.92f),
                 )
             }
-            ManagerStyle.GOTHIC_CRIMSON -> {
-                // A low crimson moon behind the banner and drifting ash; nothing
-                // bright enough to compete with the text.
-                val radius = size.width * 0.62f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        listOf(accent.copy(alpha = if (glass.isDark) 0.20f else 0.14f), Color.Transparent),
-                        center = Offset(size.width * 0.78f, size.height * 0.18f),
-                        radius = radius,
-                    ),
-                    radius = radius,
-                    center = Offset(size.width * 0.78f, size.height * 0.18f),
-                )
-                repeat(7) { i ->
-                    val t = (phase + i * 0.143f) % 1f
-                    drawCircle(
-                        color = Color(0xFFE01B2E).copy(alpha = (if (glass.isDark) 0.16f else 0.10f) * (1f - t)),
-                        radius = 1.6.dp.toPx(),
-                        center = Offset(size.width * ((i * 0.13f + t * 0.08f) % 1f), size.height * t * 0.7f),
-                    )
-                }
-            }
-            ManagerStyle.ANIME_WIBU -> {
-                // Slow sakura drift, brightest near the top where the banner
-                // sits, fading out before it reaches the content.
-                val petal = Color(0xFFFFB7D5)
-                repeat(9) { i ->
-                    val t = (phase + i * 0.111f) % 1f
-                    val x = size.width * ((i * 0.0917f + t * 0.10f) % 1f)
-                    drawCircle(
-                        color = petal.copy(alpha = (if (glass.isDark) 0.20f else 0.30f) * (1f - t)),
-                        radius = (2f + i % 3) * 2.2.dp.toPx(),
-                        center = Offset(x, size.height * t * 0.55f),
-                    )
-                }
-            }
         }
+    }
     }
 }
 
@@ -370,11 +343,9 @@ fun Modifier.iosGlass(
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> if (shape is CutCornerShape) shape
         else CutCornerShape(topStart = 0.dp, topEnd = 18.dp, bottomEnd = 0.dp, bottomStart = 18.dp)
-        ManagerStyle.IOS_GLASS, ManagerStyle.NEON, ManagerStyle.ANIME_WIBU -> shape
+        ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> shape
         ManagerStyle.RETRO_ARCADE -> if (shape is CutCornerShape) shape
         else CutCornerShape(topStart = 3.dp, topEnd = 12.dp, bottomEnd = 3.dp, bottomStart = 12.dp)
-        ManagerStyle.GOTHIC_CRIMSON -> if (shape is CutCornerShape) shape
-        else CutCornerShape(topStart = 6.dp, topEnd = 26.dp, bottomEnd = 6.dp, bottomStart = 26.dp)
     }
     if (style == ManagerStyle.IOS_GLASS) {
         val wallpaper = LocalGlassWallpaperLayer.current
@@ -479,7 +450,7 @@ fun Modifier.iosGlass(
                             )
                         }
                         ManagerStyle.IOS_GLASS -> Unit
-                        ManagerStyle.RETRO_ARCADE, ManagerStyle.ANIME_WIBU, ManagerStyle.GOTHIC_CRIMSON -> {}
+                        ManagerStyle.RETRO_ARCADE -> {}
                     }
                 }
             }
@@ -556,7 +527,7 @@ private fun TopBarStyleEmblem(style: ManagerStyle, phase: Float) {
                     ),
             )
         }
-        ManagerStyle.RETRO_ARCADE, ManagerStyle.ANIME_WIBU, ManagerStyle.GOTHIC_CRIMSON -> {}
+        ManagerStyle.RETRO_ARCADE -> {}
     }
 }
 
@@ -597,7 +568,7 @@ fun GlassTopBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(accent.copy(alpha = 0.10f))
+                        .background(accent.copy(alpha = 0.24f))
                         .padding(horizontal = 14.dp, vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -623,7 +594,7 @@ fun GlassTopBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(accent.copy(alpha = 0.12f))
+                        .background(accent.copy(alpha = 0.26f))
                         .padding(horizontal = 14.dp, vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -636,7 +607,7 @@ fun GlassTopBar(
                         letterSpacing = 1.1.sp,
                     )
                     Text(
-                        text = "[6.0.0]",
+                        text = "[6.5.0]",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF00F0FF),
@@ -656,7 +627,7 @@ fun GlassTopBar(
                 )
             }
             ManagerStyle.IOS_GLASS -> Unit
-            ManagerStyle.RETRO_ARCADE, ManagerStyle.ANIME_WIBU, ManagerStyle.GOTHIC_CRIMSON -> {}
+            ManagerStyle.RETRO_ARCADE -> {}
         }
 
         Row(
@@ -673,15 +644,13 @@ fun GlassTopBar(
                     ManagerStyle.IOS_GLASS -> CircleShape
                     ManagerStyle.NEON -> RoundedCornerShape(10.dp)
                     ManagerStyle.RETRO_ARCADE -> CutCornerShape(topStart = 2.dp, topEnd = 9.dp, bottomEnd = 2.dp, bottomStart = 9.dp)
-                    ManagerStyle.ANIME_WIBU -> RoundedCornerShape(14.dp)
-                    ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topStart = 3.dp, topEnd = 12.dp, bottomEnd = 3.dp, bottomStart = 12.dp)
                 }
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
                         .size(42.dp)
                         .clip(backShape)
-                        .background(accent.copy(alpha = 0.12f))
+                        .background(accent.copy(alpha = 0.26f))
                         .border(1.dp, accent.copy(alpha = 0.40f), backShape),
                 ) {
                     Icon(
@@ -746,8 +715,6 @@ fun GlassTopBar(
                 ManagerStyle.PIXEL, ManagerStyle.CYBERPUNK, ManagerStyle.NEON -> accent.copy(alpha = 0.42f)
                 ManagerStyle.IOS_GLASS -> glass.borderHighlight.copy(alpha = if (glass.isDark) 0.22f else 0.65f)
                 ManagerStyle.RETRO_ARCADE -> accent.copy(alpha = 0.42f)
-                ManagerStyle.ANIME_WIBU -> glass.borderHighlight.copy(alpha = if (glass.isDark) 0.30f else 0.70f)
-                ManagerStyle.GOTHIC_CRIMSON -> accent.copy(alpha = 0.52f)
             },
         )
     }
@@ -857,8 +824,6 @@ fun IosGroupDivider() {
         ManagerStyle.IOS_GLASS -> 58.dp
         ManagerStyle.NEON -> 18.dp
         ManagerStyle.RETRO_ARCADE -> 8.dp
-        ManagerStyle.ANIME_WIBU -> 30.dp
-        ManagerStyle.GOTHIC_CRIMSON -> 14.dp
     }
     HorizontalDivider(
         modifier = Modifier.padding(start = start, end = if (style == ManagerStyle.PIXEL) 0.dp else 16.dp),
@@ -882,8 +847,6 @@ fun IosBadgeIcon(
         ManagerStyle.IOS_GLASS -> RoundedCornerShape(10.dp)
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
         ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(5.dp)
-        ManagerStyle.ANIME_WIBU -> RoundedCornerShape(999.dp)
-        ManagerStyle.GOTHIC_CRIMSON -> RoundedCornerShape(4.dp)
     }
     val semanticColor = if (style == ManagerStyle.IOS_GLASS) when (color) {
         IosBlueDark -> Color(0xFF007AFF)
@@ -906,8 +869,6 @@ fun IosBadgeIcon(
         ManagerStyle.NEON -> Color(0xFF101A32)
         ManagerStyle.PIXEL -> Color(0xFF252523)
         ManagerStyle.RETRO_ARCADE -> Color(0xFF241C13)
-        ManagerStyle.ANIME_WIBU -> Color(0xFFFFEAF5)
-        ManagerStyle.GOTHIC_CRIMSON -> Color(0xFF170A0C)
     }
     Box(
         modifier = Modifier
@@ -946,8 +907,6 @@ fun IosPill(
         ManagerStyle.IOS_GLASS -> CircleShape
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
         ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(6.dp)
-        ManagerStyle.ANIME_WIBU -> RoundedCornerShape(18.dp)
-        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topStart = 2.dp, topEnd = 8.dp, bottomEnd = 2.dp, bottomStart = 8.dp)
     }
     Box(
         modifier = modifier
@@ -982,15 +941,13 @@ fun IosSwitch(
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> CutCornerShape(7.dp)
         ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(3.dp)
-        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topEnd = 7.dp, bottomStart = 7.dp)
-        ManagerStyle.IOS_GLASS, ManagerStyle.NEON, ManagerStyle.ANIME_WIBU -> CircleShape
+        ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> CircleShape
     }
     val thumbShape = when (design) {
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> CutCornerShape(5.dp)
         ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(2.dp)
-        ManagerStyle.GOTHIC_CRIMSON -> CutCornerShape(topEnd = 5.dp, bottomStart = 5.dp)
-        ManagerStyle.IOS_GLASS, ManagerStyle.NEON, ManagerStyle.ANIME_WIBU -> CircleShape
+        ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> CircleShape
     }
     val activeColor = MaterialTheme.colorScheme.primary
     val inactiveColor = if (glass.isDark) Color.White.copy(alpha = 0.18f) else Color(0xFF0E2240).copy(alpha = 0.14f)
@@ -1232,7 +1189,7 @@ fun IosTile(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(accent.copy(alpha = 0.12f))
+                        .background(accent.copy(alpha = 0.26f))
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -1431,7 +1388,7 @@ fun IosTile(
                 }
             }
         }
-        ManagerStyle.RETRO_ARCADE, ManagerStyle.ANIME_WIBU, ManagerStyle.GOTHIC_CRIMSON -> {}
+        ManagerStyle.RETRO_ARCADE -> {}
     }
 }
 
@@ -1491,8 +1448,6 @@ fun GlassSplash(visible: Boolean, modifier: Modifier = Modifier) {
                 ManagerStyle.IOS_GLASS -> IosLiquidGlassSplash(phase = phase)
                 ManagerStyle.NEON -> NeonCyberSplash(phase = phase)
                 ManagerStyle.RETRO_ARCADE -> RetroArcadeSplash(phase = phase)
-                ManagerStyle.ANIME_WIBU -> AnimeWibuSplash(phase = phase)
-                ManagerStyle.GOTHIC_CRIMSON -> GothicCrimsonSplash(phase = phase)
             }
         }
     }
@@ -1571,7 +1526,7 @@ private fun PixelMatrixSplash(phase: Float) {
         Box(
             modifier = Modifier
                 .border(1.dp, accent, RectangleShape)
-                .background(accent.copy(alpha = 0.14f))
+                .background(accent.copy(alpha = 0.28f))
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
             Text(
@@ -1684,7 +1639,7 @@ private fun CyberBrutalSplash(phase: Float) {
                     .padding(horizontal = 8.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = "v6.0.0",
+                    text = "v6.5.0",
                     style = MaterialTheme.typography.labelMedium,
                     color = Color(0xFF090B0E),
                     fontWeight = FontWeight.Black,
@@ -1842,7 +1797,7 @@ private fun IosLiquidGlassSplash(phase: Float) {
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.14f))
+                    .background(accent.copy(alpha = 0.28f))
                     .border(0.9.dp, accent.copy(alpha = 0.42f), CircleShape)
                     .padding(horizontal = 14.dp, vertical = 5.dp),
             ) {
@@ -1944,7 +1899,7 @@ private fun NeonCyberSplash(phase: Float) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
-                .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.18f), magenta.copy(alpha = 0.16f))))
+                .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.34f), magenta.copy(alpha = 0.28f))))
                 .border(1.dp, Brush.horizontalGradient(listOf(accent, magenta)), RoundedCornerShape(10.dp))
                 .padding(horizontal = 14.dp, vertical = 4.dp),
         ) {
@@ -2045,140 +2000,5 @@ private fun RetroArcadeSplash(phase: Float) {
             style = MaterialTheme.typography.labelSmall,
             color = onBg.copy(alpha = 0.45f),
         )
-    }
-}
-
-/** Pastel sky, drifting petals and a popping sticker emblem. */
-@Composable
-private fun AnimeWibuSplash(phase: Float) {
-    val accent = MaterialTheme.colorScheme.primary
-    val sky = Color(0xFF8FD3FF)
-    val petal = Color(0xFFFFB7D5)
-    val pop = 0.86f + 0.14f * abs(sin(phase * Math.PI.toFloat()))
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(sky, petal, Color(0xFFFFE3F0)))),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            repeat(22) { i ->
-                val t = (phase + i * 0.113f) % 1f
-                val x = size.width * ((i * 0.0617f + t * 0.12f) % 1f)
-                drawCircle(
-                    Color.White.copy(alpha = 0.20f + 0.25f * (1f - t)),
-                    radius = (2f + i % 4) * 2.dp.toPx(),
-                    center = Offset(x, size.height * t),
-                )
-            }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(140.dp)
-                    .shadow(22.dp, RoundedCornerShape(46.dp), clip = false,
-                        ambientColor = accent, spotColor = Color(0xFFC9A3FF))
-                    .background(Color.White, RoundedCornerShape(46.dp))
-                    .padding(4.dp)
-                    .background(Color(0xFFFFF7FC), RoundedCornerShape(42.dp))
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_emblem_anime),
-                    contentDescription = "Synthetica",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = "Synthetica",
-                style = MaterialTheme.typography.displaySmall,
-                color = Color(0xFF2A1740),
-                modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop },
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "マネージャー",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color(0xFF6B3F7A),
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "ROOTED  ·  READY",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF7A5C8C),
-                letterSpacing = 1.6.sp,
-            )
-        }
-    }
-}
-
-/** Blood moon rising over a castle: the emblem burns in as the moon clears. */
-@Composable
-private fun GothicCrimsonSplash(phase: Float) {
-    val accent = MaterialTheme.colorScheme.primary
-    val bone = Color(0xFFE8D6D6)
-    val onBg = MaterialTheme.colorScheme.onBackground
-    // The moon climbs from the bottom third and the emblem fades in over it.
-    val climb = 1f - (1f - phase).coerceIn(0f, 1f)
-    val ignite = (phase * 1.6f).coerceIn(0f, 1f)
-    val flicker = 0.80f + 0.20f * abs(sin(phase * 3f * Math.PI.toFloat()))
-
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val r = size.minDimension * 0.34f
-            val centre = Offset(size.width * 0.5f, size.height * (0.62f - 0.14f * climb))
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(accent.copy(alpha = 0.34f * ignite), Color.Transparent),
-                    center = centre, radius = r * 1.9f,
-                ),
-                radius = r * 1.9f, center = centre,
-            )
-            drawCircle(Color(0xFFB0121F).copy(alpha = 0.85f * ignite), radius = r, center = centre)
-            // Thorn ring, drawn as short spurs around the moon.
-            repeat(18) { i ->
-                val a = (i / 18f) * 2f * Math.PI.toFloat()
-                val inner = Offset(centre.x + cos(a) * r, centre.y + sin(a) * r)
-                val outer = Offset(centre.x + cos(a) * r * 1.16f, centre.y + sin(a) * r * 1.16f)
-                drawLine(Color(0xFF5A0A10).copy(alpha = ignite), inner, outer, 1.5.dp.toPx())
-            }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(
-                painter = painterResource(R.drawable.ic_emblem_gothic),
-                contentDescription = "Synthetica",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .size(150.dp)
-                    .graphicsLayer { alpha = ignite }
-                    .shadow(18.dp, CutCornerShape(18.dp), clip = false,
-                        ambientColor = accent.copy(alpha = flicker), spotColor = accent.copy(alpha = flicker)),
-            )
-            Spacer(Modifier.height(22.dp))
-            Text(
-                text = "SYNTHETICA",
-                style = MaterialTheme.typography.displaySmall,
-                color = bone,
-                letterSpacing = 4.sp,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "MANAGER",
-                style = MaterialTheme.typography.labelMedium,
-                color = accent.copy(alpha = flicker),
-                letterSpacing = 6.sp,
-            )
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = "BLOOD MOON RISING",
-                style = MaterialTheme.typography.labelSmall,
-                color = onBg.copy(alpha = 0.45f),
-                letterSpacing = 1.4.sp,
-            )
-        }
     }
 }

@@ -42,7 +42,7 @@ import kotlinx.coroutines.delay
 /** Styles share one set of screens and one root backend; these are presentation only. */
 enum class ManagerStyle(val id: String) {
     PIXEL("pixel"), CYBERPUNK("cyberpunk"), IOS_GLASS("ios_glass"), NEON("neon"),
-    RETRO_ARCADE("retro_arcade"), ANIME_WIBU("anime_wibu"), GOTHIC_CRIMSON("gothic_crimson");
+    RETRO_ARCADE("retro_arcade");
 
     companion object {
         fun fromId(id: String?): ManagerStyle = entries.firstOrNull { it.id == id } ?: PIXEL
@@ -71,7 +71,7 @@ fun setManagerAnimSpeed(context: android.content.Context, speed: String) {
 fun exportManagerConfigJson(context: android.content.Context): String {
     val prefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
     return org.json.JSONObject().apply {
-        put("schema", "synthetica-manager-6.0.0")
+        put("schema", "synthetica-manager-6.5.0")
         put("manager_visual_style", prefs.getString("manager_visual_style", ManagerStyleState.value.id))
         put("neon_theme_mode", prefs.getString("neon_theme_mode", NeonThemeState.value))
         put("neon_accent", prefs.getString("neon_accent", NeonAccentState.value))
@@ -99,19 +99,15 @@ fun emblemResForStyle(style: ManagerStyle): Int = when (style) {
     ManagerStyle.IOS_GLASS -> R.drawable.ic_emblem_ios_glass
     ManagerStyle.NEON -> R.drawable.ic_emblem_neon
     ManagerStyle.RETRO_ARCADE -> R.drawable.ic_emblem_retro
-    ManagerStyle.ANIME_WIBU -> R.drawable.ic_emblem_anime
-    ManagerStyle.GOTHIC_CRIMSON -> R.drawable.ic_emblem_gothic
 }
 
-/** Distinct splash edition label per theme (preserves the ' // MANAGER 6.0.0' marker). */
+/** Distinct splash edition label per theme (preserves the ' // MANAGER 6.5' marker). */
 fun splashTagForStyle(style: ManagerStyle): String = when (style) {
-    ManagerStyle.PIXEL -> "PIXEL // MANAGER 6.0.0"
-    ManagerStyle.CYBERPUNK -> "CYBERPUNK // MANAGER 6.0.0"
-    ManagerStyle.IOS_GLASS -> "GLASS // MANAGER 6.0.0"
-    ManagerStyle.NEON -> "NEON // MANAGER 6.0.0"
-    ManagerStyle.RETRO_ARCADE -> "RETRO ARCADE // MANAGER 6.0.0"
-    ManagerStyle.ANIME_WIBU -> "ANIME WIBU // MANAGER 6.0.0"
-    ManagerStyle.GOTHIC_CRIMSON -> "GOTHIC CRIMSON // MANAGER 6.0.0"
+    ManagerStyle.PIXEL -> "PIXEL // MANAGER 6.5"
+    ManagerStyle.CYBERPUNK -> "CYBERPUNK // MANAGER 6.5"
+    ManagerStyle.IOS_GLASS -> "GLASS // MANAGER 6.5"
+    ManagerStyle.NEON -> "NEON // MANAGER 6.5"
+    ManagerStyle.RETRO_ARCADE -> "RETRO ARCADE // MANAGER 6.5"
 }
 
 /**
@@ -119,6 +115,70 @@ fun splashTagForStyle(style: ManagerStyle): String = when (style) {
  * and drives continuous 0..1 animations for all 4 styles (including IOS_GLASS) when motion is on.
  */
 @Composable
+/**
+ * Theme-specific motion.
+ *
+ * Every theme used to share one linear 0..1 sweep with identical easing, so however
+ * different the artwork was, everything on screen moved in the same rhythm and read as
+ * the same animation recoloured. Each theme now gets the motion its own subject implies:
+ *
+ *  - PIXEL       discrete 12-step LED tick, no interpolation (a dot matrix has no in-between)
+ *  - CYBERPUNK   slow linear scanline pass, then a short hold, then again
+ *  - IOS_GLASS   long eased drift; nothing ever snaps, because glass does not
+ *  - NEON        fast linear neon pulse on a triangle wave, rising and falling evenly
+ *  - RETRO_ARCADE a ball that falls fast and rises slow, like gravity
+ *
+ * [ThemeMotion.PERIOD_MS] is the nominal cycle; "turbo"/"reduced" in settings scale all of
+ * them by the same factor so the speed control still means something across themes.
+ */
+enum class ThemeMotion { PIXEL, CYBERPUNK, IOS_GLASS, NEON, RETRO_ARCADE }
+
+fun motionForStyle(style: ManagerStyle): ThemeMotion = when (style) {
+    ManagerStyle.PIXEL -> ThemeMotion.PIXEL
+    ManagerStyle.CYBERPUNK -> ThemeMotion.CYBERPUNK
+    ManagerStyle.IOS_GLASS -> ThemeMotion.IOS_GLASS
+    ManagerStyle.NEON -> ThemeMotion.NEON
+    ManagerStyle.RETRO_ARCADE -> ThemeMotion.RETRO_ARCADE
+}
+
+/** Nominal cycle length per theme, in milliseconds, before the speed setting is applied. */
+fun basePeriodMsForMotion(motion: ThemeMotion): Int = when (motion) {
+    ThemeMotion.PIXEL -> 1400        // a 12-step tick: one step every ~117 ms
+    ThemeMotion.CYBERPUNK -> 4200    // slow sweep with a pause
+    ThemeMotion.IOS_GLASS -> 9000    // barely moving, which is the point
+    ThemeMotion.NEON -> 1800         // brisk electrical pulse
+    ThemeMotion.RETRO_ARCADE -> 2600 // one bounce
+}
+
+private fun speedFactorFromSettings(): Float = when (ManagerAnimSpeedState.value) {
+    "turbo" -> 1f / 1.8f
+    "reduced" -> 1f / 0.5f
+    else -> 1f
+}
+
+/** Shapes the raw 0..1 sweep into the motion the given theme should actually perform. */
+fun shapePhaseForMotion(motion: ThemeMotion, raw: Float): Float {
+    val t = raw.coerceIn(0f, 1f)
+    return when (motion) {
+        // No interpolation: the LED steps.
+        ThemeMotion.PIXEL -> kotlin.math.floor(t * 12f) / 12f
+        // Sweep in the first 80% of the cycle, then hold still (the beam parks off-screen).
+        ThemeMotion.CYBERPUNK -> (t / 0.8f).coerceAtMost(1f)
+        // Smoothstep: starts and ends at rest, never snaps.
+        ThemeMotion.IOS_GLASS -> t * t * (3f - 2f * t)
+        // Triangle wave: out and back, evenly, like a pulsing tube.
+        ThemeMotion.NEON -> if (t <= 0.5f) t * 2f else (1f - t) * 2f
+        // Bounce: falls fast (ease-in), rises slow (ease-out), like gravity.
+        ThemeMotion.RETRO_ARCADE -> if (t <= 0.5f) {
+            val u = t * 2f
+            u * u
+        } else {
+            val u = (t - 0.5f) * 2f
+            1f - (1f - u) * (1f - u)
+        }
+    }
+}
+
 fun rememberStylePhase(): State<Float> {
     val context = LocalContext.current
     remember(context) {
@@ -130,13 +190,10 @@ fun rememberStylePhase(): State<Float> {
         true
     }
     val motionEnabled = LocalPixelMotionEnabled.current
-    val durationMs = when (ManagerAnimSpeedState.value) {
-        "turbo" -> 1400
-        "reduced" -> 4800
-        else -> 2600
-    }
-    return if (motionEnabled) {
-        val transition = rememberInfiniteTransition(label = "synthetica-501-motion")
+    val motion = motionForStyle(ManagerStyleState.value)
+    val durationMs = (basePeriodMsForMotion(motion) * speedFactorFromSettings()).toInt().coerceAtLeast(240)
+    val raw: State<Float> = if (motionEnabled) {
+        val transition = rememberInfiniteTransition(label = "synthetica-65-motion")
         transition.animateFloat(
             initialValue = 0f,
             targetValue = 1f,
@@ -144,10 +201,16 @@ fun rememberStylePhase(): State<Float> {
                 animation = tween(durationMillis = durationMs, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart,
             ),
-            label = "synthetica-501-phase",
+            label = "synthetica-65-raw",
         )
     } else {
         remember { mutableFloatStateOf(0.5f) }
+    }
+    val rawValue = raw.value
+    return remember(motion, rawValue, motionEnabled) {
+        // When motion is off the value is a constant, so hold the mid-point rather than
+        // the shaped zero, which would park every theme at the top of its cycle.
+        mutableFloatStateOf(if (motionEnabled) shapePhaseForMotion(motion, rawValue) else 0.5f)
     }
 }
 
@@ -243,29 +306,13 @@ private val RetroShapes = Shapes(
 )
 // Anime keeps large soft radii and a pill silhouette; the character comes from
 // the colour ramp, the sticker borders and the motion, not from sharp corners.
-private val AnimeShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(16.dp),
-    medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(30.dp),
-    extraLarge = RoundedCornerShape(36.dp),
-)
-
 // Blade-like: long cuts on opposite corners so panels read as heraldic plates.
-private val GothicShapes = Shapes(
-    extraSmall = CutCornerShape(topStart = 0.dp, topEnd = 4.dp, bottomEnd = 0.dp, bottomStart = 4.dp),
-    small = CutCornerShape(topStart = 0.dp, topEnd = 8.dp, bottomEnd = 0.dp, bottomStart = 8.dp),
-    medium = CutCornerShape(topStart = 2.dp, topEnd = 14.dp, bottomEnd = 2.dp, bottomStart = 14.dp),
-    large = CutCornerShape(topStart = 4.dp, topEnd = 20.dp, bottomEnd = 4.dp, bottomStart = 20.dp),
-    extraLarge = CutCornerShape(topStart = 6.dp, topEnd = 28.dp, bottomEnd = 6.dp, bottomStart = 28.dp),
-)
-
 fun shapesForStyle(style: ManagerStyle): Shapes = when (style) {
     ManagerStyle.PIXEL -> GlassShapes
     ManagerStyle.CYBERPUNK -> CyberShapes
     ManagerStyle.IOS_GLASS -> IosShapes
     ManagerStyle.NEON -> NeonShapes
     ManagerStyle.RETRO_ARCADE -> RetroShapes
-    ManagerStyle.ANIME_WIBU -> AnimeShapes
-    ManagerStyle.GOTHIC_CRIMSON -> GothicShapes
 }
 
 /** Geometry is shared by the real Manager dock and the non-root UI fixture. */
@@ -288,8 +335,6 @@ fun managerDockSpec(style: ManagerStyle): ManagerDockSpec = when (style) {
     ManagerStyle.RETRO_ARCADE -> ManagerDockSpec(6.dp, 10.dp, 76.dp, RoundedCornerShape(14.dp), RoundedCornerShape(9.dp), true)
     // Floating, narrow, very pill-shaped: the dock should feel like a sticker
     // strip rather than a bar.
-    ManagerStyle.ANIME_WIBU -> ManagerDockSpec(34.dp, 16.dp, 70.dp, RoundedCornerShape(40.dp), RoundedCornerShape(30.dp))
-    ManagerStyle.GOTHIC_CRIMSON -> ManagerDockSpec(10.dp, 8.dp, 72.dp, GothicShapes.extraLarge, GothicShapes.small, true)
 }
 
 // Keep body text in the system font; only short headings vary across designs.
@@ -320,90 +365,101 @@ private val RetroTypography = Typography.copy(
     labelSmall = Typography.labelSmall.copy(fontFamily = RetroPixel, fontSize = 8.sp, letterSpacing = 0.3.sp),
 )
 
-private val AnimeRounded = FontFamily(Font(R.font.anime_zenmaru, FontWeight.Normal))
-private val AnimeDisplay = FontFamily(Font(R.font.anime_rampart, FontWeight.Normal))
-
-/**
- * Anime/wibu: a rounded gothic body face carries Japanese glyphs too, while the
- * display face is only ever used for Latin headings because it has no kana.
- */
-private val AnimeTypography = Typography.copy(
-    displaySmall = Typography.displaySmall.copy(fontFamily = AnimeDisplay, fontSize = 30.sp),
-    headlineMedium = Typography.headlineMedium.copy(fontFamily = AnimeRounded, fontSize = 25.sp),
-    headlineSmall = Typography.headlineSmall.copy(fontFamily = AnimeRounded, fontSize = 22.sp),
-    titleLarge = Typography.titleLarge.copy(fontFamily = AnimeRounded, fontSize = 19.sp),
-    titleMedium = Typography.titleMedium.copy(fontFamily = AnimeRounded, fontSize = 17.sp),
-    bodyLarge = Typography.bodyLarge.copy(fontFamily = AnimeRounded),
-    bodyMedium = Typography.bodyMedium.copy(fontFamily = AnimeRounded),
-    bodySmall = Typography.bodySmall.copy(fontFamily = AnimeRounded),
-    labelLarge = Typography.labelLarge.copy(fontFamily = AnimeRounded, letterSpacing = 0.2.sp),
-    labelMedium = Typography.labelMedium.copy(fontFamily = AnimeRounded),
-)
-
-/**
- * Gothic crimson: a high-contrast serif stands in for blackletter. A real
- * fraktur face would be more faithful, but it needs its own subset and licence;
- * the serif keeps the heraldic tone without shipping another megabyte.
- */
-private val GothicTypography = Typography.copy(
-    displaySmall = Typography.displaySmall.copy(fontFamily = FontFamily.Serif, fontSize = 30.sp, letterSpacing = 0.5.sp),
-    headlineMedium = Typography.headlineMedium.copy(fontFamily = FontFamily.Serif, fontSize = 24.sp, letterSpacing = 0.4.sp),
-    headlineSmall = Typography.headlineSmall.copy(fontFamily = FontFamily.Serif, fontSize = 21.sp),
-    titleLarge = Typography.titleLarge.copy(fontFamily = FontFamily.Serif, fontSize = 18.sp),
-    labelLarge = Typography.labelLarge.copy(fontFamily = FontFamily.Serif, letterSpacing = 0.6.sp),
-)
-
 fun typographyForStyle(style: ManagerStyle): Typography = when (style) {
     ManagerStyle.PIXEL -> Typography
     ManagerStyle.CYBERPUNK -> CyberTypography
     ManagerStyle.IOS_GLASS -> IosTypography
     ManagerStyle.NEON -> NeonTypography
     ManagerStyle.RETRO_ARCADE -> RetroTypography
-    ManagerStyle.ANIME_WIBU -> AnimeTypography
-    ManagerStyle.GOTHIC_CRIMSON -> GothicTypography
 }
 
 /** The legacy accent IDs are retained so existing 3.x/4.0 settings migrate. */
-fun accentForStyle(style: ManagerStyle, id: String, dark: Boolean): Color = when (style) {
+/** The default (first) accent for each theme is the one that theme is recognised by. */
+fun accentForStyle(style: ManagerStyle, id: String, dark: Boolean): Color =
+    accentTierForStyle(style, id, dark)[0]
+
+/**
+ * Three saturated accents in the theme's own key, coldest to warmest.
+ *
+ * These replace the old single-colour accents, which were drawn at 5-30% opacity and
+ * therefore read as a faint wash rather than a colour. The ids ("cyan", "pink",
+ * "violet", "lime") are legacy keys kept only so existing 3.x/4.0 settings migrate;
+ * they no longer describe the colour, so each theme maps them to its own tier.
+ */
+fun accentTierForStyle(style: ManagerStyle, id: String, dark: Boolean): List<Color> = when (style) {
+    // Signal Red, Paper White, Cool Mint: the Nothing/Pixel palette, flat and confident.
     ManagerStyle.PIXEL -> if (dark) when (id) {
-        "pink" -> Color(0xFFF4F3ED); "violet" -> Color(0xFFFFC785); "lime" -> Color(0xFFAFE2C5); else -> Color(0xFFFF665E)
+        "pink" -> listOf(Color(0xFFF7F6F2), Color(0xFFC9C8C2), Color(0xFF8E8D88))
+        "violet" -> listOf(Color(0xFFFFC785), Color(0xFFFFA24D), Color(0xFFD97B1E))
+        "lime" -> listOf(Color(0xFF7BE8B4), Color(0xFF35C98C), Color(0xFF1B8F62))
+        else -> listOf(Color(0xFFFF5548), Color(0xFFFF8A3D), Color(0xFFFFC785))
     } else when (id) {
-        "pink" -> Color(0xFF292927); "violet" -> Color(0xFF865000); "lime" -> Color(0xFF176145); else -> Color(0xFFAD231D)
+        "pink" -> listOf(Color(0xFF242424), Color(0xFF4A4A48), Color(0xFF6E6E6B))
+        "violet" -> listOf(Color(0xFF9A5A00), Color(0xFFB96E00), Color(0xFF7A4400))
+        "lime" -> listOf(Color(0xFF1B7A58), Color(0xFF0F5E44), Color(0xFF2E9E76))
+        else -> listOf(Color(0xFFC1231C), Color(0xFF9A1A14), Color(0xFFE2552B))
     }
+    // Acid Volt, Plasma Magenta, Warning Amber: the high-visibility end of a cyber deck.
     ManagerStyle.CYBERPUNK -> if (dark) when (id) {
-        "pink" -> Color(0xFFFF809A); "violet" -> Color(0xFF82DDFF); "lime" -> Color(0xFFB8FF8C); else -> Color(0xFFD4FF00)
+        "pink" -> listOf(Color(0xFFFF2E88), Color(0xFFFF6FB1), Color(0xFFB8005C))
+        "violet" -> listOf(Color(0xFF4BC8FF), Color(0xFF2E8BFF), Color(0xFF9AE4FF))
+        "lime" -> listOf(Color(0xFFB8FF2E), Color(0xFF7CFF6B), Color(0xFF3DDC4B))
+        else -> listOf(Color(0xFFD4FF00), Color(0xFF9CFF3B), Color(0xFFFBFF9E))
     } else when (id) {
-        "pink" -> Color(0xFFA0003D); "violet" -> Color(0xFF005F78); "lime" -> Color(0xFF315D0D); else -> Color(0xFF434E00)
+        "pink" -> listOf(Color(0xFFC40056), Color(0xFF96003F), Color(0xFFE8177E))
+        "violet" -> listOf(Color(0xFF0060C8), Color(0xFF004494), Color(0xFF0090E0))
+        "lime" -> listOf(Color(0xFF3D6400), Color(0xFF2A4700), Color(0xFF5C8C00))
+        else -> listOf(Color(0xFF5A6600), Color(0xFF3F4A00), Color(0xFF7E8C00))
     }
+    // System Blue, Mint, Lilac: iOS tint colours, clear and unblended.
     ManagerStyle.IOS_GLASS -> if (dark) when (id) {
-        "pink" -> Color(0xFFFF8DAE); "violet" -> Color(0xFFC2A7FF); "lime" -> Color(0xFF80DDBD); else -> Color(0xFF80BDFF)
+        "pink" -> listOf(Color(0xFFFF4F94), Color(0xFFFF7FB0), Color(0xFFD62C6E))
+        "violet" -> listOf(Color(0xFFA97BFF), Color(0xFFC9A6FF), Color(0xFF7C4DFF))
+        "lime" -> listOf(Color(0xFF30D9A7), Color(0xFF6BF0C8), Color(0xFF12B487))
+        else -> listOf(Color(0xFF3E9BFF), Color(0xFF6FB8FF), Color(0xFF1E6FD9))
     } else when (id) {
-        "pink" -> Color(0xFFAD1352); "violet" -> Color(0xFF6332A9); "lime" -> Color(0xFF076A4D); else -> Color(0xFF0057B4)
+        "pink" -> listOf(Color(0xFFC2186B), Color(0xFF9C0F55), Color(0xFFE03A88))
+        "violet" -> listOf(Color(0xFF5A2EC4), Color(0xFF45219A), Color(0xFF7B51E0))
+        "lime" -> listOf(Color(0xFF0A8567), Color(0xFF06684F), Color(0xFF14A583))
+        else -> listOf(Color(0xFF0A6CD9), Color(0xFF0854AB), Color(0xFF2E8BE8))
     }
+    // Cyan, Magenta, Lime: the three tubes a neon sign is actually built from.
     ManagerStyle.NEON -> if (dark) when (id) {
-        "pink" -> Color(0xFFFF86D8); "violet" -> Color(0xFFD4A7FF); "lime" -> Color(0xFFBAFF87); else -> Color(0xFF5AEFFF)
+        "pink" -> listOf(Color(0xFFFF2BD6), Color(0xFFFF6BE4), Color(0xFFC81AA6))
+        "violet" -> listOf(Color(0xFF9B4BFF), Color(0xFFBC7BFF), Color(0xFF6F1FD9))
+        "lime" -> listOf(Color(0xFF7DFF3E), Color(0xFFA8FF7B), Color(0xFF4FCC19))
+        else -> listOf(Color(0xFF00F0FF), Color(0xFF5BF6FF), Color(0xFF00B8CC))
     } else when (id) {
-        "pink" -> Color(0xFF9C0063); "violet" -> Color(0xFF6631A1); "lime" -> Color(0xFF2D6515); else -> Color(0xFF006078)
+        "pink" -> listOf(Color(0xFFC1008F), Color(0xFF96006E), Color(0xFFD91FA6))
+        "violet" -> listOf(Color(0xFF6A0FD0), Color(0xFF4E08A0), Color(0xFF8A34E8))
+        "lime" -> listOf(Color(0xFF3E8A00), Color(0xFF2C6400), Color(0xFF56B000))
+        else -> listOf(Color(0xFF00707E), Color(0xFF00545F), Color(0xFF0092A3))
     }
-    // Warm arcade CRT: amber as the default, with an orange "ball" and a mint
-    // "1UP" reading as the other accents. Light mode darkens each for contrast.
+    // Warm arcade CRT phosphor: amber default, plus the orange "ball" and mint "1UP".
     ManagerStyle.RETRO_ARCADE -> if (dark) when (id) {
-        "pink" -> Color(0xFFFF9A6B); "violet" -> Color(0xFFFFD27A); "lime" -> Color(0xFF9BF0B4); else -> Color(0xFFFFB347)
+        "pink" -> listOf(Color(0xFFFF8B3D), Color(0xFFFFB06B), Color(0xFFD96A1E))
+        "violet" -> listOf(Color(0xFFFFD24A), Color(0xFFFFE68C), Color(0xFFD9A81E))
+        "lime" -> listOf(Color(0xFF7BF0A8), Color(0xFFA8FFC9), Color(0xFF3DCC70))
+        else -> listOf(Color(0xFFFFB000), Color(0xFFFFCC4D), Color(0xFFD98E00))
     } else when (id) {
-        "pink" -> Color(0xFF9E3B10); "violet" -> Color(0xFF8A5A00); "lime" -> Color(0xFF1C6B3A); else -> Color(0xFF8A4A00)
+        "pink" -> listOf(Color(0xFF9E3B10), Color(0xFF7A2B08), Color(0xFFBE4F1E))
+        "violet" -> listOf(Color(0xFF8A5A00), Color(0xFF6B4500), Color(0xFFAA7200))
+        "lime" -> listOf(Color(0xFF1C6B3A), Color(0xFF12502A), Color(0xFF2A8A4C))
+        else -> listOf(Color(0xFF8A4A00), Color(0xFF6B3900), Color(0xFFAA5F00))
     }
-    // Candy pop: strawberry as the default, then soda blue, matcha and grape.
-    ManagerStyle.ANIME_WIBU -> if (dark) when (id) {
-        "pink" -> Color(0xFFFF7FB2); "violet" -> Color(0xFFC9A3FF); "lime" -> Color(0xFF9FE8C0); else -> Color(0xFF7FD8FF)
-    } else when (id) {
-        "pink" -> Color(0xFFB3125A); "violet" -> Color(0xFF6A3BB8); "lime" -> Color(0xFF14764F); else -> Color(0xFF00697F)
-    }
-    // Blood crimson is the only loud colour; steel and bone are the rest.
-    ManagerStyle.GOTHIC_CRIMSON -> if (dark) when (id) {
-        "pink" -> Color(0xFFFF4D5E); "violet" -> Color(0xFFC9CBD4); "lime" -> Color(0xFF8FD9A8); else -> Color(0xFFE01B2E)
-    } else when (id) {
-        "pink" -> Color(0xFF9B1220); "violet" -> Color(0xFF4A4E59); "lime" -> Color(0xFF1F6B3A); else -> Color(0xFF8A0F1B)
-    }
+}
+
+/**
+ * A colour the theme is identified by, used for signature details (glow, emblem ring,
+ * data strip) so a screen reads as "this theme" at a glance even before the accent is
+ * noticed.
+ */
+fun signatureColorForStyle(style: ManagerStyle, dark: Boolean): Color = when (style) {
+    ManagerStyle.PIXEL -> if (dark) Color(0xFFFF5548) else Color(0xFFC1231C)
+    ManagerStyle.CYBERPUNK -> if (dark) Color(0xFFD4FF00) else Color(0xFF5A6600)
+    ManagerStyle.IOS_GLASS -> if (dark) Color(0xFF3E9BFF) else Color(0xFF0A6CD9)
+    ManagerStyle.NEON -> if (dark) Color(0xFFFF2BD6) else Color(0xFFC1008F)
+    ManagerStyle.RETRO_ARCADE -> if (dark) Color(0xFF7BF0A8) else Color(0xFF1C6B3A)
 }
 
 @Immutable
@@ -475,39 +531,6 @@ fun paletteForStyle(style: ManagerStyle, dark: Boolean, amoled: Boolean, base: C
             dockTintTop = Color(0xFFFFF8EA), dockTintBottom = Color(0xFFE7D6B4),
             borderHighlight = Color(0xFF6B4E2E), borderMid = Color(0xFFA98A5E), borderShadow = Color(0xFF6B4E2E),
             divider = Color(0xFFC9B490), shadowColor = Color(0x3317120C),
-        )
-        ManagerStyle.GOTHIC_CRIMSON -> if (dark) DarkGlassStyle.copy(
-            canvasBase = Color(0xFF0A0708), cardTintTop = Color(0xFF15100F), cardTintBottom = Color(0xFF110D0C),
-            elevatedTintTop = Color(0xFF1C1514), elevatedTintBottom = Color(0xFF15100F),
-            barTintTop = Color(0xFF0D0908), barTintBottom = Color(0xFF0D0908),
-            dockTintTop = Color(0xFF1A1211), dockTintBottom = Color(0xFF100B0A),
-            borderHighlight = Color(0xFF8E1B24), borderMid = Color(0xFF4A1218), borderShadow = Color(0xFF280609),
-            divider = Color(0xFF3A0E12), shadowColor = Color.Transparent,
-            innerHighlight = Color(0xFFE8C9C9),
-        ) else LightGlassStyle.copy(
-            canvasBase = Color(0xFFF3EDE8), cardTintTop = Color(0xFFFBF6F2), cardTintBottom = Color(0xFFF3E9E2),
-            elevatedTintTop = Color(0xFFFFFBF8), elevatedTintBottom = Color(0xFFF3E9E2),
-            barTintTop = Color(0xFFF7F0EA), barTintBottom = Color(0xFFF0E4DC),
-            dockTintTop = Color(0xFFFBF6F2), dockTintBottom = Color(0xFFEDE0D7),
-            borderHighlight = Color(0xFF6E1018), borderMid = Color(0xFFB08A7E), borderShadow = Color(0xFF6E1018),
-            divider = Color(0xFFD3BDB0), shadowColor = Color(0x330A0708),
-        )
-        ManagerStyle.ANIME_WIBU -> if (dark) DarkGlassStyle.copy(
-            canvasBase = Color(0xFF15102A), cardTintTop = Color(0xFF241A44), cardTintBottom = Color(0xFF1C1438),
-            elevatedTintTop = Color(0xFF2F2258), elevatedTintBottom = Color(0xFF241A44),
-            barTintTop = Color(0xFF191230), barTintBottom = Color(0xFF191230),
-            dockTintTop = Color(0xFF2C2054), dockTintBottom = Color(0xFF1B1438),
-            borderHighlight = Color(0xFFB08CFF), borderMid = Color(0xFF6B54A8), borderShadow = Color(0xFF3B2D6B),
-            divider = Color(0xFF43346F), shadowColor = Color(0x66000000),
-            blurRadius = 8.dp, dockBlurRadius = 12.dp,
-        ) else LightGlassStyle.copy(
-            canvasBase = Color(0xFFFDF1F8), cardTintTop = Color.White, cardTintBottom = Color(0xFFFFF5FB),
-            elevatedTintTop = Color.White, elevatedTintBottom = Color(0xFFFFF7FC),
-            barTintTop = Color(0xFFFFF9FD), barTintBottom = Color(0xFFFFF0F9),
-            dockTintTop = Color.White, dockTintBottom = Color(0xFFFDE9F5),
-            borderHighlight = Color(0xFFE39BC4), borderMid = Color(0xFFF2C9E0), borderShadow = Color(0xFFD98BB8),
-            divider = Color(0xFFF4D7E8), shadowColor = Color(0x22B3125A),
-            blurRadius = 8.dp, dockBlurRadius = 12.dp,
         )
     }
     if (dark && amoled) glass = glass.copy(
