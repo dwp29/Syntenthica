@@ -3,14 +3,17 @@ package com.rifsxd.ksunext.ui.screen
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AdminPanelSettings
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.AdminPanelSettings
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.ramcosta.composedestinations.generated.destinations.DownloadScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.HomeScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ModuleScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingScreenDestination
@@ -52,5 +55,15 @@ enum class BottomBarDestination(
         Icons.Rounded.Tune,
         Icons.Outlined.Tune,
         false,
+    ),
+    // Download is a browse destination, not a settings page: it is where modules
+    // and kernels are chosen. Root apps keeps its slot; five is the most the dock
+    // can hold with a 10.5sp label and a 22dp icon.
+    Download(
+        DownloadScreenDestination,
+        R.string.ios_nav_download,
+        Icons.Rounded.CloudDownload,
+        Icons.Outlined.CloudDownload,
+        true,
     ),
 }

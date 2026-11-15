@@ -5,11 +5,22 @@
     <string name="ios_nav_apps">Aplikasi root</string>
     <string name="ios_nav_modules">Modul</string>
     <string name="ios_nav_settings">Setelan</string>
+    <string name="ios_nav_download">Unduhan</string>
 
     <!-- Home Screen -->
     <string name="ios_home_active_kernel">Kernel yang aktif</string>
     <string name="ios_home_rooted">Ada root</string>
     <string name="ios_home_tap_install">Ketuk untuk pasang</string>
+    <string name="tools_title">Alat</string>
+    <string name="tools_sub">Semua layar yang bukan tab, dalam satu tempat.</string>
+    <string name="tools_group_kernel">Kernel &amp; root</string>
+    <string name="tools_group_app">Log, tampilan &amp; aplikasi</string>
+    <string name="download_title">Unduhan</string>
+    <string name="download_empty">Katalog tidak mengembalikan modul apa pun</string>
+    <string name="download_offline">Tidak ada jaringan, atau repositori menolak permintaan. Daftar lama juga gagal dengan cara yang sama; layar ini menyebutnya, bukan menampilkan halaman kosong.</string>
+    <string name="download_by">oleh %1$s</string>
+    <string name="download_zip">ZIP · dipasang sebagai modul</string>
+    <string name="download_sub">Modul dan kernel, dengan pratinjau</string>
     <string name="ios_home_status">Status</string>
     <string name="ios_home_hook">Mode hook</string>
     <string name="ios_home_uapi">UAPI manajer</string>

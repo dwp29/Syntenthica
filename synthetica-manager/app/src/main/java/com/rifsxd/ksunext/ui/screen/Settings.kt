@@ -28,6 +28,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.BugReport
@@ -98,6 +100,8 @@ import com.ramcosta.composedestinations.generated.destinations.BoostScreenDestin
 import com.ramcosta.composedestinations.generated.destinations.CustomizationScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.DeveloperScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.DeviceCheckScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.DownloadScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ToolsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.FlashScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MetaModuleScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PixelControl40ScreenDestination
@@ -402,95 +406,27 @@ fun SettingScreen(navigator: DestinationsNavigator) {
                 }
             }
 
-            // Group 1b: Phone tools. These three screens used to be reachable only
-            // from the Hub; when the Hub was slimmed down they would have had no door
-            // at all, so they live here now, next to Boost.
-            IosGroup(title = stringResource(R.string.neon_quick_actions)) {
-                IosRow(
-                    icon = Icons.Rounded.MonitorHeart,
-                    badgeColor = IosCyanDark,
-                    title = stringResource(R.string.pixel40_diagnostics_title),
-                    subtitle = stringResource(R.string.pixel40_diagnostics_subtitle),
-                    showChevron = true,
-                    onClick = { navigator.navigate(PixelDiagnostics40ScreenDestination) },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.Speed,
-                    badgeColor = IosOrangeDark,
-                    title = stringResource(R.string.pixel40_control_title),
-                    subtitle = stringResource(R.string.pixel40_control_subtitle),
-                    showChevron = true,
-                    onClick = { navigator.navigate(PixelControl40ScreenDestination) },
-                )
-                IosGroupDivider()
-                IosRow(
-                    icon = Icons.Rounded.DeveloperBoard,
-                    badgeColor = IosTeal,
-                    title = stringResource(R.string.device31_title),
-                    subtitle = stringResource(R.string.device31_subtitle),
-                    showChevron = true,
-                    onClick = { navigator.navigate(DeviceCheckScreenDestination) },
-                )
-            }
-
-            // Group 2: Tools & Modules (APK 1.16 Menu Layout)
+            // Group 2: everything that opens a tool screen lives behind one row.
+            // Seven rows used to sit here; they are now Tools, which keeps this page
+            // about settings and keeps the tool screens discoverable.
             IosGroup(title = stringResource(R.string.ios_group_tools)) {
                 IosRow(
-                    icon = Icons.Rounded.Bolt,
-                    badgeColor = IosPinkDark,
-                    title = stringResource(R.string.ios_boost_title),
-                    subtitle = stringResource(R.string.ios_boost_sub),
+                    icon = Icons.Rounded.Apps,
+                    badgeColor = IosCyanDark,
+                    title = stringResource(R.string.tools_title),
+                    subtitle = stringResource(R.string.tools_sub),
                     showChevron = true,
-                    onClick = { navigator.navigate(BoostScreenDestination) },
+                    onClick = { navigator.navigate(ToolsScreenDestination) },
                 )
-                if (fullFeatured) {
-                    IosGroupDivider()
-                    IosRow(
-                        icon = Icons.Rounded.Layers,
-                        badgeColor = IosCyanDark,
-                        title = stringResource(R.string.ios_home_metamodule),
-                        subtitle = stringResource(R.string.ios_metamodule_sub),
-                        showChevron = true,
-                        onClick = { navigator.navigate(MetaModuleScreenDestination) },
-                    )
-                    IosGroupDivider()
-                    IosRow(
-                        icon = Icons.AutoMirrored.Rounded.Article,
-                        badgeColor = IosBlueDark,
-                        title = stringResource(R.string.ios_sulog_viewer),
-                        subtitle = stringResource(R.string.ios_sulog_viewer_sub),
-                        showChevron = true,
-                        onClick = { navigator.navigate(SulogScreenDestination) },
-                    )
-                    IosGroupDivider()
-                    IosRow(
-                        icon = Icons.Rounded.Fence,
-                        badgeColor = IosTeal,
-                        title = stringResource(R.string.settings_profile_template),
-                        subtitle = stringResource(R.string.settings_profile_template_summary),
-                        showChevron = true,
-                        onClick = { navigator.navigate(AppProfileTemplateScreenDestination) },
-                    )
-                    IosGroupDivider()
-                    IosRow(
-                        icon = Icons.Rounded.Backup,
-                        badgeColor = IosIndigoDark,
-                        title = stringResource(R.string.backup_restore),
-                        showChevron = true,
-                        onClick = { navigator.navigate(BackupRestoreScreenDestination) },
-                    )
-                    if (Natives.isLkmMode) {
-                        IosGroupDivider()
-                        IosRow(
-                            icon = Icons.Rounded.Delete,
-                            badgeColor = IosRedDark,
-                            title = stringResource(R.string.settings_uninstall),
-                            showChevron = true,
-                            onClick = { uninstallDialog.show() },
-                        )
-                    }
-                }
+                IosGroupDivider()
+                IosRow(
+                    icon = Icons.Rounded.CloudDownload,
+                    badgeColor = IosOrangeDark,
+                    title = stringResource(R.string.download_title),
+                    subtitle = stringResource(R.string.download_sub),
+                    showChevron = true,
+                    onClick = { navigator.navigate(DownloadScreenDestination) },
+                )
             }
 
             // Group 3: Appearance & App

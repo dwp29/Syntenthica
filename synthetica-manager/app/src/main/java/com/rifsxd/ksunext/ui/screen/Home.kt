@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PowerSettingsNew
@@ -74,6 +75,7 @@ import com.ramcosta.composedestinations.generated.NavGraphs
 import com.ramcosta.composedestinations.generated.destinations.InstallScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MetaModuleScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SettingScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ToolsScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.rifsxd.ksunext.BuildConfig
 import com.rifsxd.ksunext.Natives
@@ -312,6 +314,14 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                     )
                 },
                 actions = {
+                    // Tools has a top-bar door as well as the Settings row, because a
+                    // screen that can only be found one way tends to get lost.
+                    IconButton(onClick = { navigator.navigate(ToolsScreenDestination) }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Apps,
+                            contentDescription = stringResource(R.string.tools_title),
+                        )
+                    }
                     if (navBarEnabled?.value == false) {
                         IconButton(onClick = { navigateTab(SettingScreenDestination) }) {
                             Icon(
