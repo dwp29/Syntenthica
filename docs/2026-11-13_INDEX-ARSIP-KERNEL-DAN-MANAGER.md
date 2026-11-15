@@ -24,7 +24,7 @@ tiap folder sudah bernomor dan berkas di dalamnya sudah diberi nama detail.
 ## 03 — SOURCE KIT DAN BUILD
 | Berkas | Isi |
 |---|---|
-| `2026-11-13_SOURCE-KIT-Synthetica-Rollercoaster-UFO-46-berkas.zip` | builder Rollercoaster + 7 profil config (termasuk `synthetica.config`), 8 patch inti Synthetica (MGLRU 116 KB, UCLAMP 58 KB, KSU seccomp, fd pasca-exec), resep build 3.2 final + pemaket, catatan MD 3.0–4.0 |
+| ~~`2026-11-13_SOURCE-KIT-Synthetica-Rollercoaster-UFO-46-berkas.zip`~~ | DIHAPUS — patch aslinya ada di `build-kit/ci/synthetica2-experimental/patches/`, dipakai `build_synthetica2_experimental.py` | builder Rollercoaster + 7 profil config (termasuk `synthetica.config`), 8 patch inti Synthetica (MGLRU 116 KB, UCLAMP 58 KB, KSU seccomp, fd pasca-exec), resep build 3.2 final + pemaket, catatan MD 3.0–4.0 |
 
 ## 04 — DOKUMEN MD DAN CATATAN
 | Sub-folder | Isi |
@@ -75,11 +75,11 @@ laporan akhir, riset desain, dan salinan folder key signing.
 - Tidak ada lagi berkas project yang tersisa di akar Drive.
 - 83 berkas project yang sebelumnya tersebar di 12 lokasi kini berada dalam satu induk.
 
-## Status pekerjaan UFO-0.1 (belum selesai)
-- Identitas sudah ditetapkan: `SP_BUILD_NAME=UFO`, `SP_BUILD_KVER=0.1` → uname `4.14.370-UFO-0.1`.
-- **Penghambat:** source `4.14.370` tidak tersedia publik. Yang bisa dijangkau hanya
-  `Saamitk/kernel_xiaomi_sm6250-switchoff` (branch `a`) dan
-  `Saamitk/kernel_xiaomi_SM6250_SKYNET`, keduanya **4.14.357**.
-- Yang sudah terbukti (CI run `43427832932`): di pohon 4.14.357, patch
-  `0001-mglru-4.14.patch` dan `0002-uclamp-walt-stune.patch` menempel **bersih**.
-- Belum diuji: patch 0003–0008 (uji berhenti di patch ketiga karena kesalahan skrip probe).
+## UFO — DIHENTIKAN
+
+Seluruh kit, workflow, dan dokumen UFO (0.1 berbasis 4.14.344 dan 0.2 berbasis
+4.14.357) sudah dihapus. Alasannya: dua percobaan itu saling bertentangan dan
+tidak ada satu pun yang pernah di-flash ke perangkat, jadi yang tersisa hanya
+kebingungan tentang versi mana yang berlaku.
+
+Tidak ada kernel yang sedang dipelihara dari jalur ini.
