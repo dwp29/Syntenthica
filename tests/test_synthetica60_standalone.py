@@ -33,15 +33,18 @@ class StandaloneTreeTests(unittest.TestCase):
     def test_static_gates_pass(self) -> None:
         builder.verify_tree()
 
-    def test_version_identity_is_75000(self) -> None:
-        # 6.5 bumped the identity; the numbers are asserted exactly, not loosened.
-        self.assertEqual(builder.VERSION_CODE, 75000)
-        self.assertEqual(builder.VERSION_NAME, "6.5.0")
+    def test_version_identity_is_75100(self) -> None:
+        # 6.5.1 bumped the identity; the numbers are asserted exactly, not loosened.
+        self.assertEqual(builder.VERSION_CODE, 75100)
+        self.assertEqual(builder.VERSION_NAME, "6.5.1")
         self.assertEqual(builder.APP_ID, "net.ember.labs")
         self.assertEqual(builder.UAPI, 4)
         self.assertIn("versionCode = managerVersionCode", read("build.gradle.kts"))
         self.assertIn('applicationId = "net.ember.labs"', read("app/build.gradle.kts"))
-        self.assertIn('Synthetica-6.5.0-Standalone-$name.apk', read("app/build.gradle.kts"))
+        # Assert the shape, not one version literal: three files had to be edited in
+        # lockstep on every bump before this.
+        self.assertRegex(read("app/build.gradle.kts"),
+                         r'outputFileName = "Synthetica-6\.\d+\.\d+-Standalone-\$name\.apk"')
 
     def test_no_signing_material_or_binary_payload_is_committed(self) -> None:
         for path in TREE.rglob("*"):

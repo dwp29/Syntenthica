@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the UNSIGNED Synthetica Manager 6.5.0 from the standalone source tree.
+"""Build the UNSIGNED Synthetica Manager 6.5.1 from the standalone source tree.
 
 Unlike 2.0..5.0.1 this builder does not download or patch the upstream Manager:
 `synthetica-manager/` in this repository *is* the Manager source tree. Only the
@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import re
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,11 +28,18 @@ TREE = ROOT / "synthetica-manager"
 # stopped being committed in 3ae2b8c, which silently broke this script. Do not
 # point this back at ci-stage.
 DONOR = ROOT / "release" / "Synthetica-2.0.apk"
-DEFAULT_OUT = ROOT / "artifacts" / "unsigned" / "Manager-6.5.0-UNSIGNED.apk"
+DEFAULT_OUT = ROOT / "artifacts" / "unsigned" / "Manager-6.5.1-UNSIGNED.apk"
 
 APP_ID = "net.ember.labs"
-VERSION_NAME = "6.5.0"
-VERSION_CODE = 75000
+# 6.5.1 ships a second identity signed with a new key, so it installs beside 6.0.0
+# instead of failing to update an APK whose private key no longer exists.
+STANDALONE_APP_ID = "net.ember.labs.standalone"
+# --app-id overrides the identity at build time. The default keeps the historical
+# net.ember.labs; the standalone identity is opt-in because it installs beside the
+# released 6.0.0 rather than updating it.
+APP_ID_OVERRIDE = os.environ.get("SYNTHETICA_APP_ID", "").strip()
+VERSION_NAME = "6.5.1"
+VERSION_CODE = 75100
 UAPI = 4
 
 # Pinned UAPI-4 daemon (same bytes used by every Synthetica Manager since 2.0).
@@ -60,6 +68,8 @@ REQUIRED_FILES = (
     "app/src/main/assets/synthetica-universal60.sh",
     "app/src/main/java/com/rifsxd/ksunext/Natives.kt",
     "app/src/main/java/com/rifsxd/ksunext/ui/theme/VisualStyles.kt",
+    "app/src/main/java/com/rifsxd/ksunext/ui/theme/CustomWallpaper.kt",
+    "app/src/main/java/com/rifsxd/ksunext/ui/theme/Theme.kt",
     "app/src/main/java/com/rifsxd/ksunext/ui/theme/AppearanceControls.kt",
     "app/src/main/java/com/rifsxd/ksunext/ui/util/PixelRootActions40.kt",
     "app/src/main/res/values/strings_manager50.xml",
@@ -107,12 +117,17 @@ def verify_tree() -> None:
             fail(f"Root build.gradle.kts lacks {anchor!r}")
 
     app_gradle = (TREE / "app/build.gradle.kts").read_text(encoding="utf-8")
-    if f'applicationId = "{APP_ID}"' not in app_gradle:
+    if APP_ID_OVERRIDE:
+        if APP_ID_OVERRIDE not in (APP_ID, STANDALONE_APP_ID):
+            fail(f"Unknown app id {APP_ID_OVERRIDE!r}")
+    elif f'applicationId = "{APP_ID}"' not in app_gradle:
         fail(f"applicationId must be {APP_ID}")
     for forbidden in ("apksign {", "signingConfig =", "storeFileProperty"):
         if forbidden in app_gradle:
             fail("The CI build must stay unsigned; signing happens locally with the original key")
-    if "Synthetica-6.5.0-Standalone-$name.apk" not in app_gradle:
+    # Assert the shape, not the exact version: hard-coding the version here meant every
+    # bump needed edits in three files before the tree could be verified at all.
+    if not re.search(r'outputFileName = "Synthetica-6\.\d+\.\d+-Standalone-\$name\.apk"', app_gradle):
         fail("Unexpected APK output name in app/build.gradle.kts")
 
     supercall = (TREE / "app/src/main/cpp/uapi/supercall.h").read_text(encoding="utf-8")
@@ -152,6 +167,15 @@ def prepare_copy(work: Path) -> Path:
         ),
     )
     os.chmod(work / "gradlew", 0o755)
+    # The standalone identity is applied to the build copy only, so the checked-in tree
+    # keeps net.ember.labs and the released 6.0.0 keeps its package name.
+    app_id = APP_ID_OVERRIDE or APP_ID
+    if app_id != APP_ID:
+        gradle = work / "app" / "build.gradle.kts"
+        text = gradle.read_text(encoding="utf-8")
+        gradle.write_text(text.replace(f'applicationId = "{APP_ID}"', f'applicationId = "{app_id}"'),
+                          encoding="utf-8")
+        print(f"[prepare] applicationId -> {app_id}", flush=True)
     return work
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static verification for a Synthetica Manager 6.5.0 APK (signed or unsigned).
+"""Static verification for a Synthetica Manager 6.5.1 APK (signed or unsigned).
 
 Gates that changed in 6.5: the splash labels and the JSON schema string.
 
@@ -31,7 +31,7 @@ DEX_MARKERS = (
     b"kmod_status",
     b"diag_pstore",
     b"manager_anim_speed",
-    b"synthetica-manager-6.5.0",
+    b"synthetica-manager-6.5.1",
     b"manager_visual_style",
     # About page: author identity, licence and the donation slot. The GitHub
     # links were removed on request, so they are asserted absent further down.
@@ -162,8 +162,8 @@ def verify(apk: Path) -> None:
         if len(png_hashes) < 5:
             raise ValueError("Expected at least 5 distinct PNG emblems")
 
-    print("Manager 6.5.0 static gates passed:")
-    print("  identity net.ember.labs / 6.5.0, UAPI 4 JNI, pinned UAPI-4 libksud.so")
+    print("Manager 6.5.1 static gates passed:")
+    print("  identity net.ember.labs / 6.5.1, UAPI 4 JNI, pinned UAPI-4 libksud.so")
     print("  Universal Root Bridge, telemetry, .ko loader and diag markers in DEX")
     print("  5 PNG emblems, 5 splash tags, 2 banner layers, localized manager60_* strings")
     print("  installer scripts unchanged from the 2.0 baseline")

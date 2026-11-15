@@ -74,6 +74,7 @@ jobs:
           mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "SYNTHETICA_APP_ID=net.ember.labs.standalone" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
             'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'cmake;3.22.1' 2>&1 | tail -10
@@ -82,7 +83,7 @@ jobs:
           set -euo pipefail
           python3 build-kit/scripts/build_manager_60_standalone.py \
             --workdir "$RUNNER_TEMP/manager65-source" \
-            --output "$RUNNER_TEMP/manager65-output/Manager-6.5.0-UNSIGNED.apk" \
+            --output "$RUNNER_TEMP/manager65-output/Manager-6.5.1-standalone-UNSIGNED.apk" \
             2>&1 | tee "$RUNNER_TEMP/manager65-output/build.log" || {
               # Surface the actual compiler errors as run annotations. Downloading job logs
               # needs a token scope this environment does not always have, so the failure has
@@ -96,7 +97,7 @@ jobs:
       - name: Verify identity, permissions, daemon, alignment and unsigned status
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/manager65-output/Manager-6.5.0-UNSIGNED.apk"
+          APK="$RUNNER_TEMP/manager65-output/Manager-6.5.1-standalone-UNSIGNED.apk"
           OUT="$RUNNER_TEMP/manager65-output"
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
           # Each check names itself, so a failure is readable from the run page even when
@@ -104,9 +105,9 @@ jobs:
           step() { echo "--- $1"; }
           "$TOOLS/aapt" dump badging "$APK" > "$OUT/badging.txt"
           step "identity"
-          grep -F "name='net.ember.labs'" "$OUT/badging.txt" || { echo "::error::package name mismatch"; grep -m3 "^package" "$OUT/badging.txt"; exit 1; }
-          grep -F "versionCode='75000'" "$OUT/badging.txt" || { echo "::error::versionCode is not 75000"; grep -m1 "^package" "$OUT/badging.txt"; exit 1; }
-          grep -F "versionName='6.5.0'" "$OUT/badging.txt" || { echo "::error::versionName is not 6.5.0"; grep -m1 "^package" "$OUT/badging.txt"; exit 1; }
+          grep -F "name='net.ember.labs.standalone'" "$OUT/badging.txt" || { echo "::error::package name mismatch (expected net.ember.labs.standalone)"; grep -m3 "^package" "$OUT/badging.txt"; exit 1; }
+          grep -F "versionCode='75100'" "$OUT/badging.txt" || { echo "::error::versionCode is not 75100"; grep -m1 "^package" "$OUT/badging.txt"; exit 1; }
+          grep -F "versionName='6.5.1'" "$OUT/badging.txt" || { echo "::error::versionName is not 6.5.1"; grep -m1 "^package" "$OUT/badging.txt"; exit 1; }
           step "native code"
           grep -F "native-code: 'arm64-v8a'" "$OUT/badging.txt" || { echo "::error::arm64-v8a missing"; grep -m1 "native-code" "$OUT/badging.txt"; exit 1; }
           step "alignment"
@@ -133,6 +134,38 @@ jobs:
           sha=$(sha256sum "$APK" | cut -d' ' -f1)
           echo "$sha" > "$OUT/SHA256.txt"
           echo "::notice title=Unsigned Manager 6.5.0 SHA256::$sha"
+      - name: Sign a directly installable build with a fresh debug key
+        run: |
+          set -euo pipefail
+          TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          APK="$RUNNER_TEMP/manager65-output/Manager-6.5.1-standalone-UNSIGNED.apk"
+          SIGNED="$RUNNER_TEMP/manager65-output/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk"
+          KS="$RUNNER_TEMP/manager65-output/debug-only.keystore"
+          # A throwaway key, generated in this job and never stored anywhere. It exists only
+          # because the real release key is unavailable; the package name differs from the
+          # released 6.0.0 so this installs beside it instead of failing to update it.
+          keytool -genkeypair -v -keystore "$KS" -storetype PKCS12 \
+            -alias standalone -keyalg RSA -keysize 4096 -validity 3650 \
+            -storepass synthesa-debug-only -keypass synthesa-debug-only \
+            -dname "CN=Synthetica Manager Standalone (debug key), O=Synthetica, C=ID" 2>&1 | tail -3
+          "$TOOLS/zipalign" -p -f 4 "$APK" "$RUNNER_TEMP/manager65-output/aligned.apk"
+          "$TOOLS/apksigner" sign --ks "$KS" --ks-key-alias standalone \
+            --ks-pass pass:synthesa-debug-only --key-pass pass:synthesa-debug-only \
+            --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$SIGNED" "$RUNNER_TEMP/manager65-output/aligned.apk"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$SIGNED" | tee "$RUNNER_TEMP/manager65-output/signed-verify.txt"
+          grep -q "Verifies" "$RUNNER_TEMP/manager65-output/signed-verify.txt"
+          sha=$(sha256sum "$SIGNED" | cut -d' ' -f1)
+          echo "$sha" > "$RUNNER_TEMP/manager65-output/SIGNED-SHA256.txt"
+          echo "::notice title=Signed 6.5.1 (debug key) SHA256::$sha"
+          python3 - <<'PY'
+          import base64,json,os,pathlib
+          t=pathlib.Path(os.environ['RUNNER_TEMP'])
+          apk=t/'manager65-output/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk'
+          (t/'manager65-signed-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode(),'encoding':'base64'}))
+          PY
+          blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/manager65-signed-blob.json" --jq .sha)
+          echo "::notice title=Signed 6.5.1 APK blob::$blob"
       - name: Transfer unsigned Manager as Git blob
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,7 +174,7 @@ jobs:
           python3 - <<'PY'
           import base64,json,os,pathlib
           t=pathlib.Path(os.environ['RUNNER_TEMP'])
-          apk=t/'manager65-output/Manager-6.5.0-UNSIGNED.apk'
+          apk=t/'manager65-output/Manager-6.5.1-standalone-UNSIGNED.apk'
           (t/'manager65-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode(),'encoding':'base64'}))
           PY
           blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/manager65-blob.json" --jq .sha)
@@ -166,7 +199,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: synthetica65-manager-unsigned-${{ github.run_id }}
+          name: synthetica65-manager-${{ github.run_id }}
           path: ${{ runner.temp }}/manager65-output/
           retention-days: 14
           if-no-files-found: warn
