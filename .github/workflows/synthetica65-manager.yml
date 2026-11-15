@@ -77,13 +77,22 @@ jobs:
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
             'platform-tools' 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'cmake;3.22.1' 2>&1 | tail -10
-      - name: Compile unsigned Manager 6.0.0 from the standalone tree
+      - name: Compile unsigned Manager 6.5.0 from the standalone tree
         run: |
           set -euo pipefail
           python3 build-kit/scripts/build_manager_60_standalone.py \
             --workdir "$RUNNER_TEMP/manager65-source" \
             --output "$RUNNER_TEMP/manager65-output/Manager-6.5.0-UNSIGNED.apk" \
-            2>&1 | tee "$RUNNER_TEMP/manager65-output/build.log"
+            2>&1 | tee "$RUNNER_TEMP/manager65-output/build.log" || {
+              # Surface the actual compiler errors as run annotations. Downloading job logs
+              # needs a token scope this environment does not always have, so the failure has
+              # to be readable from the run page itself.
+              grep -E "^e: |error:|Execution failed|What went wrong|> Task .*FAILED" \
+                "$RUNNER_TEMP/manager65-output/build.log" | head -n 25 | while IFS= read -r line; do
+                  echo "::error::$line"
+                done
+              exit 1
+            }
       - name: Verify identity, permissions, daemon, alignment and unsigned status
         run: |
           set -euo pipefail

@@ -57,7 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Image as ImageIcon
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.Slider
 import androidx.compose.ui.unit.dp
@@ -365,7 +365,7 @@ private fun WallpaperControls() {
     if (failed) {
         IosGroupDivider()
         IosRow(
-            icon = Icons.Rounded.Image,
+            icon = Icons.Rounded.ImageIcon,
             badgeColor = MaterialTheme.colorScheme.error,
             title = stringResource(R.string.manager65_wallpaper_fail),
             subtitle = stringResource(R.string.manager65_wallpaper_fail_sub),
