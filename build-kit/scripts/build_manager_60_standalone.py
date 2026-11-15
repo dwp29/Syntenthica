@@ -138,7 +138,42 @@ def verify_tree() -> None:
     if "android.permission.INTERNET" not in manifest:
         fail("Unexpected manifest: the Manager needs INTERNET for module downloads")
 
+    verify_theme_api()
+
     print(f"[verify] {APP_ID} {VERSION_NAME} ({VERSION_CODE}); UAPI {UAPI}; standalone tree OK", flush=True)
+
+
+# Public declarations the rest of the tree imports from the theme package. When Retro
+# Arcade was removed with a regex, shapesForStyle() and the ManagerDockSpec data class
+# were deleted along with it: the host tests stayed green, the build did not. Naming the
+# API here makes that class of loss fail in a second instead of a 5-minute CI run.
+THEME_API = (
+    "fun shapesForStyle",
+    "fun managerDockSpec",
+    "data class ManagerDockSpec",
+    "fun accentTierForStyle",
+    "fun typographyForStyle",
+    "fun emblemResForStyle",
+    "fun splashTagForStyle",
+    "fun signatureColorForStyle",
+    "fun motionForStyle",
+    "fun shapePhaseForMotion",
+    "fun exportManagerConfigJson",
+    "fun importManagerConfigJson",
+)
+
+
+def verify_theme_api() -> None:
+    theme_dir = TREE / "app/src/main/java/com/rifsxd/ksunext/ui/theme"
+    haystack = "\n".join(p.read_text(encoding="utf-8") for p in theme_dir.glob("*.kt"))
+    for declaration in THEME_API:
+        # Word boundary, not substring: renaming shapesForStyle to shapesForStyleXX
+        # contains the old text and would otherwise pass.
+        if not re.search(rf"\b{declaration}\b", haystack):
+            fail(f"Theme API declaration disappeared: {declaration}")
+    for retired in ("RETRO_ARCADE", "ANIME_WIBU", "GOTHIC_CRIMSON"):
+        if re.search(rf"\b{retired}\b", haystack):
+            fail(f"Retired theme {retired} is back in the theme package")
 
 
 def inject_daemon(app_main: Path) -> str:
