@@ -127,45 +127,43 @@ def verify(apk: Path) -> None:
             if banned in dex or banned in arsc:
                 raise ValueError(
                     f"Repository link must not appear in the APK: {banned!r}")
-        # 6.5 retired Anime Wibu and Gothic Crimson, so five emblems ship, not seven.
+        # 6.5 retired Anime Wibu and Gothic Crimson; Retro Arcade followed, so four
+        # emblems ship: one per surviving theme.
         emblems = ("ic_emblem_pixel", "ic_emblem_cyberpunk", "ic_emblem_ios_glass",
-                   "ic_emblem_neon", "ic_emblem_retro")
+                   "ic_emblem_neon")
         for emblem in emblems:
             if emblem.encode() not in arsc and not any(emblem in n for n in names):
                 raise ValueError(f"theme PNG emblem missing from APK: {emblem}")
 
-        # Only Retro Arcade still ships an illustrated banner pair in 6.5. A renamed or
-        # dropped resource is invisible to the Kotlin compiler, so check the table.
-        for theme in ("retro",):
+        # Every illustrated theme is gone: the four surviving themes draw their banners
+        # procedurally. A banner asset reappearing would mean the removal was partial.
+        for theme in ("retro", "gothic", "anime"):
             for suffix in ("", "_far"):
                 name = f"theme_banner_{theme}{suffix}"
-                if name.encode() not in arsc:
-                    raise ValueError(f"theme banner missing from APK: {name}")
+                if name.encode() in arsc:
+                    raise ValueError(f"retired theme banner still packaged: {name}")
 
         # The selector persists these ids, so they must survive into the dex. The two
         # retired ids must be absent, or an old saved setting would resolve to a theme
         # that no longer exists.
-        for style_id in (b"retro_arcade",):
-            if style_id not in dex:
-                raise ValueError(f"theme style id missing from DEX: {style_id!r}")
-        for retired in (b"anime_wibu", b"gothic_crimson"):
+        for retired in (b"anime_wibu", b"gothic_crimson", b"retro_arcade"):
             if retired in dex:
                 raise ValueError(f"retired theme id still in DEX: {retired!r}")
 
         banner_hashes = {hashlib.sha256(z.read(n)).hexdigest() for n in names
                          if n.startswith("res/") and n.endswith(".jpg")}
-        if len(banner_hashes) < 2:
-            raise ValueError("Expected 2 distinct banner layers (1 theme x near/far)")
+        if banner_hashes:
+            raise ValueError(f"Expected no banner JPEGs, found {len(banner_hashes)}")
 
         png_hashes = {hashlib.sha256(z.read(n)).hexdigest() for n in names
                       if n.startswith("res/") and n.endswith(".png")}
-        if len(png_hashes) < 5:
-            raise ValueError("Expected at least 5 distinct PNG emblems")
+        if len(png_hashes) < 4:
+            raise ValueError("Expected at least 4 distinct PNG emblems")
 
     print("Manager 6.5.1 static gates passed:")
     print("  identity net.ember.labs / 6.5.1, UAPI 4 JNI, pinned UAPI-4 libksud.so")
     print("  Universal Root Bridge, telemetry, .ko loader and diag markers in DEX")
-    print("  5 PNG emblems, 5 splash tags, 2 banner layers, localized manager60_* strings")
+    print("  4 PNG emblems, 4 splash tags, no banner JPEGs, localized manager60_* strings")
     print("  installer scripts unchanged from the 2.0 baseline")
     print("  About page: author @Pure_Saturday, GPL-3.0-only, donation placeholder, no repo link")
     print("Not verified: Android install, live su/root, real module loading or boot behaviour.")

@@ -71,7 +71,6 @@ private val styles = listOf(
     StyleOption(R.string.theme50_cyber, R.string.theme50_cyber_detail, ManagerStyle.CYBERPUNK),
     StyleOption(R.string.theme50_ios, R.string.theme50_ios_detail, ManagerStyle.IOS_GLASS),
     StyleOption(R.string.theme50_neon, R.string.theme50_neon_detail, ManagerStyle.NEON),
-    StyleOption(R.string.theme50_retro, R.string.theme50_retro_detail, ManagerStyle.RETRO_ARCADE),
 )
 
 /** Shared by the real Manager and the isolated, non-root preview. */
@@ -208,7 +207,6 @@ private fun StyleChoice(option: StyleOption, selected: Boolean, onClick: () -> U
         ManagerStyle.CYBERPUNK -> Color(0xFF12151D)
         ManagerStyle.IOS_GLASS -> Color(0xFF1B2A40)
         ManagerStyle.NEON -> Color(0xFF111A30)
-        ManagerStyle.RETRO_ARCADE -> Color(0xFF13233F)
     }
     Row(
         modifier = Modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
@@ -243,7 +241,6 @@ private fun StyleThumbnail(style: ManagerStyle, surface: Color, accent: Color) {
         ManagerStyle.CYBERPUNK -> shapesForStyle(style).small
         ManagerStyle.IOS_GLASS -> RoundedCornerShape(10.dp)
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
-        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(4.dp)
     }
     Row(
         modifier = Modifier
@@ -288,15 +285,6 @@ private fun StyleThumbnail(style: ManagerStyle, surface: Color, accent: Color) {
                 ManagerStyle.IOS_GLASS -> {
                     drawCircle(accent, radius = w * 0.32f, center = Offset(w * 0.5f, h * 0.35f))
                     drawRoundRect(Color.White.copy(alpha = 0.75f), Offset(w * 0.1f, h * 0.72f), Size(w * 0.8f, h * 0.16f), CornerRadius(3.dp.toPx()))
-                }
-                ManagerStyle.RETRO_ARCADE -> {
-                    // Scanline stack with one lit bar, like a cabinet score rail.
-                    val line = 2.dp.toPx()
-                    for (r in 0..4) {
-                        val colour = if (r == 1) accent else faint
-                        drawRect(colour, Offset(w * 0.12f, r * (line + 2.dp.toPx())), Size(w * 0.78f, line))
-                    }
-                    drawCircle(Color(0xFFFF8A3D), radius = 2.5.dp.toPx(), center = Offset(w * 0.5f, h * 0.86f))
                 }
                 ManagerStyle.NEON -> {
                     drawLine(accent, Offset(w * 0.15f, h * 0.25f), Offset(w * 0.85f, h * 0.25f), 2.dp.toPx())

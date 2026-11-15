@@ -41,8 +41,7 @@ import kotlinx.coroutines.delay
 
 /** Styles share one set of screens and one root backend; these are presentation only. */
 enum class ManagerStyle(val id: String) {
-    PIXEL("pixel"), CYBERPUNK("cyberpunk"), IOS_GLASS("ios_glass"), NEON("neon"),
-    RETRO_ARCADE("retro_arcade");
+    PIXEL("pixel"), CYBERPUNK("cyberpunk"), IOS_GLASS("ios_glass"), NEON("neon");
 
     companion object {
         fun fromId(id: String?): ManagerStyle = entries.firstOrNull { it.id == id } ?: PIXEL
@@ -98,7 +97,6 @@ fun emblemResForStyle(style: ManagerStyle): Int = when (style) {
     ManagerStyle.CYBERPUNK -> R.drawable.ic_emblem_cyberpunk
     ManagerStyle.IOS_GLASS -> R.drawable.ic_emblem_ios_glass
     ManagerStyle.NEON -> R.drawable.ic_emblem_neon
-    ManagerStyle.RETRO_ARCADE -> R.drawable.ic_emblem_retro
 }
 
 /** Distinct splash edition label per theme (preserves the ' // MANAGER 6.5' marker). */
@@ -107,7 +105,6 @@ fun splashTagForStyle(style: ManagerStyle): String = when (style) {
     ManagerStyle.CYBERPUNK -> "CYBERPUNK // MANAGER 6.5"
     ManagerStyle.IOS_GLASS -> "GLASS // MANAGER 6.5"
     ManagerStyle.NEON -> "NEON // MANAGER 6.5"
-    ManagerStyle.RETRO_ARCADE -> "RETRO ARCADE // MANAGER 6.5"
 }
 
 /**
@@ -121,19 +118,17 @@ fun splashTagForStyle(style: ManagerStyle): String = when (style) {
  *  - CYBERPUNK   slow linear scanline pass, then a short hold, then again
  *  - IOS_GLASS   long eased drift; nothing ever snaps, because glass does not
  *  - NEON        fast linear neon pulse on a triangle wave, rising and falling evenly
- *  - RETRO_ARCADE a ball that falls fast and rises slow, like gravity
- *
+ * *
  * [ThemeMotion.PERIOD_MS] is the nominal cycle; "turbo"/"reduced" in settings scale all of
  * them by the same factor so the speed control still means something across themes.
  */
-enum class ThemeMotion { PIXEL, CYBERPUNK, IOS_GLASS, NEON, RETRO_ARCADE }
+enum class ThemeMotion { PIXEL, CYBERPUNK, IOS_GLASS, NEON }
 
 fun motionForStyle(style: ManagerStyle): ThemeMotion = when (style) {
     ManagerStyle.PIXEL -> ThemeMotion.PIXEL
     ManagerStyle.CYBERPUNK -> ThemeMotion.CYBERPUNK
     ManagerStyle.IOS_GLASS -> ThemeMotion.IOS_GLASS
     ManagerStyle.NEON -> ThemeMotion.NEON
-    ManagerStyle.RETRO_ARCADE -> ThemeMotion.RETRO_ARCADE
 }
 
 /** Nominal cycle length per theme, in milliseconds, before the speed setting is applied. */
@@ -142,7 +137,6 @@ fun basePeriodMsForMotion(motion: ThemeMotion): Int = when (motion) {
     ThemeMotion.CYBERPUNK -> 4200    // slow sweep with a pause
     ThemeMotion.IOS_GLASS -> 9000    // barely moving, which is the point
     ThemeMotion.NEON -> 1800         // brisk electrical pulse
-    ThemeMotion.RETRO_ARCADE -> 2600 // one bounce
 }
 
 private fun speedFactorFromSettings(): Float = when (ManagerAnimSpeedState.value) {
@@ -163,14 +157,6 @@ fun shapePhaseForMotion(motion: ThemeMotion, raw: Float): Float {
         ThemeMotion.IOS_GLASS -> t * t * (3f - 2f * t)
         // Triangle wave: out and back, evenly, like a pulsing tube.
         ThemeMotion.NEON -> if (t <= 0.5f) t * 2f else (1f - t) * 2f
-        // Bounce: falls fast (ease-in), rises slow (ease-out), like gravity.
-        ThemeMotion.RETRO_ARCADE -> if (t <= 0.5f) {
-            val u = t * 2f
-            u * u
-        } else {
-            val u = (t - 0.5f) * 2f
-            1f - (1f - u) * (1f - u)
-        }
     }
 }
 
@@ -295,40 +281,12 @@ private val NeonShapes = Shapes(
 
 // Chunky, toy-like bevels: everything is squarer than the glass themes but
 // still softened, so the retro cabinet reads as furniture rather than paper.
-private val RetroShapes = Shapes(
-    extraSmall = RoundedCornerShape(3.dp), small = RoundedCornerShape(6.dp),
-    medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(14.dp),
-    extraLarge = RoundedCornerShape(18.dp),
-)
-// Anime keeps large soft radii and a pill silhouette; the character comes from
-// the colour ramp, the sticker borders and the motion, not from sharp corners.
-// Blade-like: long cuts on opposite corners so panels read as heraldic plates.
-fun shapesForStyle(style: ManagerStyle): Shapes = when (style) {
-    ManagerStyle.PIXEL -> GlassShapes
-    ManagerStyle.CYBERPUNK -> CyberShapes
-    ManagerStyle.IOS_GLASS -> IosShapes
-    ManagerStyle.NEON -> NeonShapes
-    ManagerStyle.RETRO_ARCADE -> RetroShapes
-}
-
-/** Geometry is shared by the real Manager dock and the non-root UI fixture. */
-@Immutable
-data class ManagerDockSpec(
-    val horizontalMargin: Dp,
-    val verticalMargin: Dp,
-    val height: Dp,
-    val containerShape: Shape,
-    val selectedShape: Shape,
-    val uppercaseLabels: Boolean = false,
-)
-
 fun managerDockSpec(style: ManagerStyle): ManagerDockSpec = when (style) {
     ManagerStyle.PIXEL -> ManagerDockSpec(0.dp, 4.dp, 64.dp, RectangleShape, RectangleShape)
     ManagerStyle.CYBERPUNK -> ManagerDockSpec(8.dp, 8.dp, 72.dp, CyberShapes.extraLarge, CyberShapes.medium, true)
     ManagerStyle.IOS_GLASS -> ManagerDockSpec(28.dp, 12.dp, 68.dp, RoundedCornerShape(36.dp), RoundedCornerShape(26.dp))
     ManagerStyle.NEON -> ManagerDockSpec(16.dp, 10.dp, 66.dp, RoundedCornerShape(18.dp), RoundedCornerShape(12.dp))
     // A real cabinet: near-full-width, tall, labels in the 8-bit face.
-    ManagerStyle.RETRO_ARCADE -> ManagerDockSpec(6.dp, 10.dp, 76.dp, RoundedCornerShape(14.dp), RoundedCornerShape(9.dp), true)
     // Floating, narrow, very pill-shaped: the dock should feel like a sticker
     // strip rather than a bar.
 }
@@ -345,28 +303,13 @@ private val CyberTypography = headings(FontFamily.Monospace)
 private val IosTypography = headings(FontFamily.SansSerif)
 private val NeonTypography = headings(NeonDisplay)
 
-// Subset builds of OFL faces; see res/font and docs/SYNTHETICA-MANAGER-THEMES-RETRO-ANIME.md.
-private val RetroTerminal = FontFamily(Font(R.font.retro_vt323, FontWeight.Normal))
-private val RetroPixel = FontFamily(Font(R.font.retro_pressstart, FontWeight.Normal))
-
+// Subset builds of OFL faces; see res/font and the theme licence documentation.
 /** 1980s arcade cabinet: VT323 terminal headings over an 8-bit label face. */
-private val RetroTypography = Typography.copy(
-    displaySmall = Typography.displaySmall.copy(fontFamily = RetroTerminal, fontSize = 40.sp),
-    headlineMedium = Typography.headlineMedium.copy(fontFamily = RetroTerminal, fontSize = 30.sp),
-    headlineSmall = Typography.headlineSmall.copy(fontFamily = RetroTerminal, fontSize = 26.sp),
-    titleLarge = Typography.titleLarge.copy(fontFamily = RetroTerminal, fontSize = 23.sp),
-    titleMedium = Typography.titleMedium.copy(fontFamily = RetroTerminal, fontSize = 20.sp),
-    labelLarge = Typography.labelLarge.copy(fontFamily = RetroPixel, fontSize = 11.sp, letterSpacing = 0.5.sp),
-    labelMedium = Typography.labelMedium.copy(fontFamily = RetroPixel, fontSize = 9.sp, letterSpacing = 0.4.sp),
-    labelSmall = Typography.labelSmall.copy(fontFamily = RetroPixel, fontSize = 8.sp, letterSpacing = 0.3.sp),
-)
-
 fun typographyForStyle(style: ManagerStyle): Typography = when (style) {
     ManagerStyle.PIXEL -> Typography
     ManagerStyle.CYBERPUNK -> CyberTypography
     ManagerStyle.IOS_GLASS -> IosTypography
     ManagerStyle.NEON -> NeonTypography
-    ManagerStyle.RETRO_ARCADE -> RetroTypography
 }
 
 /** The legacy accent IDs are retained so existing 3.x/4.0 settings migrate. */
@@ -432,17 +375,6 @@ fun accentTierForStyle(style: ManagerStyle, id: String, dark: Boolean): List<Col
         else -> listOf(Color(0xFF00707E), Color(0xFF00545F), Color(0xFF0092A3))
     }
     // Warm arcade CRT phosphor: amber default, plus the orange "ball" and mint "1UP".
-    ManagerStyle.RETRO_ARCADE -> if (dark) when (id) {
-        "pink" -> listOf(Color(0xFFFF8B3D), Color(0xFFFFB06B), Color(0xFFD96A1E))
-        "violet" -> listOf(Color(0xFFFFD24A), Color(0xFFFFE68C), Color(0xFFD9A81E))
-        "lime" -> listOf(Color(0xFF7BF0A8), Color(0xFFA8FFC9), Color(0xFF3DCC70))
-        else -> listOf(Color(0xFFFFB000), Color(0xFFFFCC4D), Color(0xFFD98E00))
-    } else when (id) {
-        "pink" -> listOf(Color(0xFF9E3B10), Color(0xFF7A2B08), Color(0xFFBE4F1E))
-        "violet" -> listOf(Color(0xFF8A5A00), Color(0xFF6B4500), Color(0xFFAA7200))
-        "lime" -> listOf(Color(0xFF1C6B3A), Color(0xFF12502A), Color(0xFF2A8A4C))
-        else -> listOf(Color(0xFF8A4A00), Color(0xFF6B3900), Color(0xFFAA5F00))
-    }
 }
 
 /**
@@ -455,7 +387,6 @@ fun signatureColorForStyle(style: ManagerStyle, dark: Boolean): Color = when (st
     ManagerStyle.CYBERPUNK -> if (dark) Color(0xFFD4FF00) else Color(0xFF5A6600)
     ManagerStyle.IOS_GLASS -> if (dark) Color(0xFF3E9BFF) else Color(0xFF0A6CD9)
     ManagerStyle.NEON -> if (dark) Color(0xFFFF2BD6) else Color(0xFFC1008F)
-    ManagerStyle.RETRO_ARCADE -> if (dark) Color(0xFF7BF0A8) else Color(0xFF1C6B3A)
 }
 
 @Immutable
@@ -511,22 +442,6 @@ fun paletteForStyle(style: ManagerStyle, dark: Boolean, amoled: Boolean, base: C
             dockTintTop = Color(0xFFFDFEFF), dockTintBottom = Color(0xFFF0F4FF),
             borderHighlight = Color(0xFF98C4D3), borderMid = Color(0xFFC3D9E9), borderShadow = Color(0xFFABC2D8),
             divider = Color(0xFFD1DDEA), shadowColor = Color.Transparent,
-        )
-        ManagerStyle.RETRO_ARCADE -> if (dark) DarkGlassStyle.copy(
-            canvasBase = Color(0xFF17120C), cardTintTop = Color(0xFF241C13), cardTintBottom = Color(0xFF1E1710),
-            elevatedTintTop = Color(0xFF2E2418), elevatedTintBottom = Color(0xFF241C13),
-            barTintTop = Color(0xFF1B150E), barTintBottom = Color(0xFF1B150E),
-            dockTintTop = Color(0xFF2A2015), dockTintBottom = Color(0xFF1C160F),
-            borderHighlight = Color(0xFFB98A4E), borderMid = Color(0xFF6B4E2E), borderShadow = Color(0xFF3A2A19),
-            divider = Color(0xFF4A3823), shadowColor = Color.Transparent,
-            innerHighlight = Color(0xFFF0D9A8),
-        ) else LightGlassStyle.copy(
-            canvasBase = Color(0xFFF3E7CF), cardTintTop = Color(0xFFFFF8EA), cardTintBottom = Color(0xFFF7EAD3),
-            elevatedTintTop = Color(0xFFFFFBF2), elevatedTintBottom = Color(0xFFF7EAD3),
-            barTintTop = Color(0xFFF3E7CF), barTintBottom = Color(0xFFEADCC2),
-            dockTintTop = Color(0xFFFFF8EA), dockTintBottom = Color(0xFFE7D6B4),
-            borderHighlight = Color(0xFF6B4E2E), borderMid = Color(0xFFA98A5E), borderShadow = Color(0xFF6B4E2E),
-            divider = Color(0xFFC9B490), shadowColor = Color(0x3317120C),
         )
     }
     if (dark && amoled) glass = glass.copy(

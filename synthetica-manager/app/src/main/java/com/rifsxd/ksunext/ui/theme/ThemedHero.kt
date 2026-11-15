@@ -78,7 +78,6 @@ internal fun DistinctManagerHero(
         ManagerStyle.CYBERPUNK -> CyberpunkBrutalHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
         ManagerStyle.IOS_GLASS -> IosLiquidGlassHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
         ManagerStyle.NEON -> NeonCyberHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
-        ManagerStyle.RETRO_ARCADE -> RetroBannerHero(eyebrow, title, statusPill, statusColor, modePill, kernelLine, metaLine, phase, clickMod)
     }
 }
 
@@ -189,24 +188,6 @@ private fun HeroEmblem(
                                 )
                             )
                         },
-                )
-            }
-        }
-        ManagerStyle.RETRO_ARCADE -> {
-            // Flat cabinet plate: no blur, hard 2 dp edge, pixel emblem inset.
-            Box(
-                modifier = Modifier
-                    .size(size)
-                    .background(Color(0xFF17120C))
-                    .border(2.dp, border, CutCornerShape(topStart = 3.dp, topEnd = 10.dp, bottomEnd = 3.dp, bottomStart = 10.dp))
-                    .padding(5.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(emblemRes),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
@@ -982,25 +963,4 @@ private fun IllustratedBannerHero(
 }
 
 /** 16-bit amusement park: bright, chunky, all-ages. */
-@Composable
-private fun RetroBannerHero(
-    eyebrow: String, title: String, statusPill: String, statusColor: Color, modePill: String?,
-    kernelLine: String, metaLine: String, phase: Float, clickMod: Modifier,
-) {
-    IllustratedBannerHero(
-        banner = R.drawable.theme_banner_retro,
-        bannerFar = R.drawable.theme_banner_retro_far,
-        eyebrow = eyebrow, title = title, statusPill = statusPill, statusColor = statusColor,
-        modePill = modePill, kernelLine = kernelLine, metaLine = metaLine, phase = phase,
-        clickMod = clickMod,
-        shape = RoundedCornerShape(14.dp),
-        bandHeight = 214.dp,
-        titleStyle = MaterialTheme.typography.headlineMedium,
-        titleColor = Color.White,
-        bannerTint = Color(0xFF1FB6E8),
-        dataBackground = Color(0xFF10214A),
-        dataInk = Color(0xFFEAF6FF),
-        parallax = 10.dp,
-    )
-}
 

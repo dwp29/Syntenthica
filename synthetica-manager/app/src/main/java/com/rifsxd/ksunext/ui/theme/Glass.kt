@@ -293,30 +293,6 @@ fun GlassBackground(
                     strokeWidth = 3.dp.toPx(),
                 )
             }
-            ManagerStyle.RETRO_ARCADE -> {
-                // Amber CRT bloom in a corner plus a horizon sweep, kept dim so
-                // the cream-on-brown text stays the loudest thing on screen.
-                val ball = Color(0xFFFF8A3D)
-                val radius = size.width * 0.9f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        listOf(accent.copy(alpha = if (glass.isDark) 0.16f else 0.12f), Color.Transparent),
-                        center = Offset(size.width * 0.86f, size.height * 0.12f),
-                        radius = radius * 0.55f,
-                    ),
-                    radius = radius * 0.55f,
-                    center = Offset(size.width * 0.86f, size.height * 0.12f),
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        listOf(ball.copy(alpha = if (glass.isDark) 0.10f else 0.08f), Color.Transparent),
-                        center = Offset(size.width * 0.12f, size.height * 0.92f),
-                        radius = radius * 0.42f,
-                    ),
-                    radius = radius * 0.42f,
-                    center = Offset(size.width * 0.12f, size.height * 0.92f),
-                )
-            }
         }
     }
     }
@@ -344,8 +320,6 @@ fun Modifier.iosGlass(
         ManagerStyle.CYBERPUNK -> if (shape is CutCornerShape) shape
         else CutCornerShape(topStart = 0.dp, topEnd = 18.dp, bottomEnd = 0.dp, bottomStart = 18.dp)
         ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> shape
-        ManagerStyle.RETRO_ARCADE -> if (shape is CutCornerShape) shape
-        else CutCornerShape(topStart = 3.dp, topEnd = 12.dp, bottomEnd = 3.dp, bottomStart = 12.dp)
     }
     if (style == ManagerStyle.IOS_GLASS) {
         val wallpaper = LocalGlassWallpaperLayer.current
@@ -450,7 +424,6 @@ fun Modifier.iosGlass(
                             )
                         }
                         ManagerStyle.IOS_GLASS -> Unit
-                        ManagerStyle.RETRO_ARCADE -> {}
                     }
                 }
             }
@@ -527,7 +500,6 @@ private fun TopBarStyleEmblem(style: ManagerStyle, phase: Float) {
                     ),
             )
         }
-        ManagerStyle.RETRO_ARCADE -> {}
     }
 }
 
@@ -627,8 +599,7 @@ fun GlassTopBar(
                 )
             }
             ManagerStyle.IOS_GLASS -> Unit
-            ManagerStyle.RETRO_ARCADE -> {}
-        }
+            }
 
         Row(
             modifier = Modifier
@@ -643,7 +614,6 @@ fun GlassTopBar(
                     ManagerStyle.CYBERPUNK -> CutCornerShape(topStart = 0.dp, topEnd = 8.dp, bottomEnd = 0.dp, bottomStart = 8.dp)
                     ManagerStyle.IOS_GLASS -> CircleShape
                     ManagerStyle.NEON -> RoundedCornerShape(10.dp)
-                    ManagerStyle.RETRO_ARCADE -> CutCornerShape(topStart = 2.dp, topEnd = 9.dp, bottomEnd = 2.dp, bottomStart = 9.dp)
                 }
                 IconButton(
                     onClick = onBack,
@@ -714,7 +684,6 @@ fun GlassTopBar(
             color = when (style) {
                 ManagerStyle.PIXEL, ManagerStyle.CYBERPUNK, ManagerStyle.NEON -> accent.copy(alpha = 0.42f)
                 ManagerStyle.IOS_GLASS -> glass.borderHighlight.copy(alpha = if (glass.isDark) 0.22f else 0.65f)
-                ManagerStyle.RETRO_ARCADE -> accent.copy(alpha = 0.42f)
             },
         )
     }
@@ -823,7 +792,6 @@ fun IosGroupDivider() {
         ManagerStyle.CYBERPUNK -> 14.dp
         ManagerStyle.IOS_GLASS -> 58.dp
         ManagerStyle.NEON -> 18.dp
-        ManagerStyle.RETRO_ARCADE -> 8.dp
     }
     HorizontalDivider(
         modifier = Modifier.padding(start = start, end = if (style == ManagerStyle.PIXEL) 0.dp else 16.dp),
@@ -846,7 +814,6 @@ fun IosBadgeIcon(
         ManagerStyle.CYBERPUNK -> MaterialTheme.shapes.small
         ManagerStyle.IOS_GLASS -> RoundedCornerShape(10.dp)
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
-        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(5.dp)
     }
     val semanticColor = if (style == ManagerStyle.IOS_GLASS) when (color) {
         IosBlueDark -> Color(0xFF007AFF)
@@ -868,7 +835,6 @@ fun IosBadgeIcon(
         ManagerStyle.CYBERPUNK -> Color(0xFF141923)
         ManagerStyle.NEON -> Color(0xFF101A32)
         ManagerStyle.PIXEL -> Color(0xFF252523)
-        ManagerStyle.RETRO_ARCADE -> Color(0xFF241C13)
     }
     Box(
         modifier = Modifier
@@ -906,7 +872,6 @@ fun IosPill(
         ManagerStyle.CYBERPUNK -> CutCornerShape(topStart = 0.dp, topEnd = 7.dp, bottomEnd = 0.dp, bottomStart = 7.dp)
         ManagerStyle.IOS_GLASS -> CircleShape
         ManagerStyle.NEON -> RoundedCornerShape(8.dp)
-        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(6.dp)
     }
     Box(
         modifier = modifier
@@ -940,13 +905,11 @@ fun IosSwitch(
     val trackShape = when (design) {
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> CutCornerShape(7.dp)
-        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(3.dp)
         ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> CircleShape
     }
     val thumbShape = when (design) {
         ManagerStyle.PIXEL -> RectangleShape
         ManagerStyle.CYBERPUNK -> CutCornerShape(5.dp)
-        ManagerStyle.RETRO_ARCADE -> RoundedCornerShape(2.dp)
         ManagerStyle.IOS_GLASS, ManagerStyle.NEON -> CircleShape
     }
     val activeColor = MaterialTheme.colorScheme.primary
@@ -1388,7 +1351,6 @@ fun IosTile(
                 }
             }
         }
-        ManagerStyle.RETRO_ARCADE -> {}
     }
 }
 
@@ -1447,7 +1409,6 @@ fun GlassSplash(visible: Boolean, modifier: Modifier = Modifier) {
                 ManagerStyle.CYBERPUNK -> CyberBrutalSplash(phase = phase)
                 ManagerStyle.IOS_GLASS -> IosLiquidGlassSplash(phase = phase)
                 ManagerStyle.NEON -> NeonCyberSplash(phase = phase)
-                ManagerStyle.RETRO_ARCADE -> RetroArcadeSplash(phase = phase)
             }
         }
     }
@@ -1942,63 +1903,3 @@ private fun NeonCyberSplash(phase: Float) {
     }
 }
 
-/** CRT boot screen: power-on line, then the marquee locks in. */
-@Composable
-private fun RetroArcadeSplash(phase: Float) {
-    val accent = MaterialTheme.colorScheme.primary
-    val mint = Color(0xFF6BE39A)
-    val ball = Color(0xFFFF8A3D)
-    val onBg = MaterialTheme.colorScheme.onBackground
-    // First third is a warm-up stub; the rest is the settled marquee.
-    val warm = (phase * 2.4f).coerceAtMost(1f)
-    val blink = if (phase < 0.5f) 1f else 0.35f
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 28.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .width(200.dp * warm)
-                .height(4.dp)
-                .background(
-                    Brush.horizontalGradient(listOf(accent, ball, mint)),
-                    CutCornerShape(topEnd = 4.dp, bottomStart = 4.dp),
-                ),
-        )
-        Spacer(Modifier.height(26.dp))
-        Text(
-            text = "INSERT COIN",
-            style = MaterialTheme.typography.labelLarge,
-            color = accent,
-            letterSpacing = 3.sp,
-        )
-        Spacer(Modifier.height(14.dp))
-        Image(
-            painter = painterResource(R.drawable.ic_emblem_retro),
-            contentDescription = "Synthetica",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(132.dp),
-        )
-        Spacer(Modifier.height(18.dp))
-        Text(
-            text = "SYNTHETICA",
-            style = MaterialTheme.typography.displaySmall,
-            color = onBg,
-            letterSpacing = 2.sp,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "PRESS START",
-            style = MaterialTheme.typography.labelMedium,
-            color = accent.copy(alpha = blink),
-            letterSpacing = 2.sp,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "© 1984 EMBER LABS",
-            style = MaterialTheme.typography.labelSmall,
-            color = onBg.copy(alpha = 0.45f),
-        )
-    }
-}

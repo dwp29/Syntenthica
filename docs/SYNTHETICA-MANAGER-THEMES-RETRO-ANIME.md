@@ -1,7 +1,9 @@
-> **DIHENTIKAN (Manager 6.5).** Tema Retro Arcade tetap ada; Anime Wibu dan
-> Gothic Crimson dicabut beserta asetnya. Dokumen di bawah disimpan sebagai
-> catatan sejarah. Test `tests/test_synthetica61_retro_anime.py` ikut dihapus
-> karena mengunci tema yang sudah tidak ada.
+> **DIHENTIKAN PERMANEN (Manager 6.5.x).** Ketiga tema dari rilis 6.1 — Retro
+> Arcade, Anime Wibu dan Gothic Crimson — semuanya sudah dicabut beserta asetnya
+> (lambang, banner, font). Tidak ada yang tersisa di kode maupun di APK; gate
+> `tests/verify_synthetica60_apk.py` kini menolak build yang memuat salah satunya.
+> Dokumen di bawah murni catatan sejarah dan tidak boleh dipakai sebagai rencana
+> kerja. Test `tests/test_synthetica61_retro_anime.py` sudah dihapus.
 
 # Synthetica Manager — tema Retro Arcade, Anime Wibu, dan Gothic Crimson
 
