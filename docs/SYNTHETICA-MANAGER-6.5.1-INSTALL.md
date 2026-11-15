@@ -30,6 +30,14 @@ terpasang, dan pin kernel `fe833710…`. Tidak ada yang dibuat tidak valid.
 | Drive | id `11vNJOvgwQhoUWAHTUATh253YQIc2a4I8` |
 | CI | run `43722714274` |
 
+> **APK ini dari commit `8be5d18`, yaitu sebelum Retro Arcade dihapus.** Saya
+> membongkar ZIP-nya lagi: `resources.arsc` masih memuat `ic_emblem_retro` dan
+> `theme_banner_retro`, dan DEX memuat `retro_arcade`. Jadi versi yang ada di
+> Drive **belum bebas Retro Arcade**. Build di atasnya (`d346b27` ke sini) sudah
+> bersih dan hijau di CI, tetapi berkasnya belum saya unduh ulang dan belum ada
+> yang menandatanganinya dengan kunci baru. Jangan anggap yang di Drive sebagai
+> build final 6.5.1.
+
 Diverifikasi dari berkasnya sendiri, bukan dari log: blok APK Signing berisi v2
 (`0x7109871a`) dan v3 (`0xf05368c0`), paket dan versi di manifest benar, `anime_wibu` dan
 `gothic_crimson` tidak ada di DEX, kunci `wallpaper_*` ada.
