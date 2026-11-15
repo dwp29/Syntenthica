@@ -111,11 +111,6 @@ fun splashTagForStyle(style: ManagerStyle): String = when (style) {
 }
 
 /**
- * Synchronizes preferences on Frame 0 so cold-start splash immediately uses the saved theme,
- * and drives continuous 0..1 animations for all 4 styles (including IOS_GLASS) when motion is on.
- */
-@Composable
-/**
  * Theme-specific motion.
  *
  * Every theme used to share one linear 0..1 sweep with identical easing, so however
@@ -179,6 +174,7 @@ fun shapePhaseForMotion(motion: ThemeMotion, raw: Float): Float {
     }
 }
 
+@Composable
 fun rememberStylePhase(): State<Float> {
     val context = LocalContext.current
     remember(context) {

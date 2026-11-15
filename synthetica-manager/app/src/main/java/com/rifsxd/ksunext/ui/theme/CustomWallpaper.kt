@@ -141,15 +141,19 @@ object CustomWallpaper {
  */
 @Composable
 fun CustomWallpaperLayer(modifier: Modifier = Modifier) {
-    val image = bitmap ?: return
+    // Snapshot the object properties into locals: inside a draw lambda "CustomWallpaper.blurDp"
+    // resolves against the Modifier receiver, not the object, and fails to compile.
+    val image = CustomWallpaper.bitmap ?: return
+    val alpha = CustomWallpaper.opacity
+    val blur = CustomWallpaper.blurDp
     val glass = LocalGlassStyle.current
     val scrim = if (glass.isDark) Color.Black else Color.White
     Image(
         bitmap = image.asImageBitmap(),
         contentDescription = null,
         contentScale = ContentScale.Crop,
-        alpha = opacity,
-        modifier = modifier.fillMaxSize().blur(blurDp.dp),
+        alpha = alpha,
+        modifier = modifier.fillMaxSize().blur(blur.dp),
     )
     Canvas(Modifier.fillMaxSize()) {
         drawRect(
