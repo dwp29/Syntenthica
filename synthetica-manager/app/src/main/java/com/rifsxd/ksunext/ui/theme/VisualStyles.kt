@@ -279,16 +279,29 @@ private val NeonShapes = Shapes(
     extraLarge = RoundedCornerShape(20.dp),
 )
 
-// Chunky, toy-like bevels: everything is squarer than the glass themes but
-// still softened, so the retro cabinet reads as furniture rather than paper.
+fun shapesForStyle(style: ManagerStyle): Shapes = when (style) {
+    ManagerStyle.PIXEL -> GlassShapes
+    ManagerStyle.CYBERPUNK -> CyberShapes
+    ManagerStyle.IOS_GLASS -> IosShapes
+    ManagerStyle.NEON -> NeonShapes
+}
+
+/** Geometry is shared by the real Manager dock and the non-root UI fixture. */
+@Immutable
+data class ManagerDockSpec(
+    val horizontalMargin: Dp,
+    val verticalMargin: Dp,
+    val height: Dp,
+    val containerShape: Shape,
+    val selectedShape: Shape,
+    val uppercaseLabels: Boolean = false,
+)
+
 fun managerDockSpec(style: ManagerStyle): ManagerDockSpec = when (style) {
     ManagerStyle.PIXEL -> ManagerDockSpec(0.dp, 4.dp, 64.dp, RectangleShape, RectangleShape)
     ManagerStyle.CYBERPUNK -> ManagerDockSpec(8.dp, 8.dp, 72.dp, CyberShapes.extraLarge, CyberShapes.medium, true)
     ManagerStyle.IOS_GLASS -> ManagerDockSpec(28.dp, 12.dp, 68.dp, RoundedCornerShape(36.dp), RoundedCornerShape(26.dp))
     ManagerStyle.NEON -> ManagerDockSpec(16.dp, 10.dp, 66.dp, RoundedCornerShape(18.dp), RoundedCornerShape(12.dp))
-    // A real cabinet: near-full-width, tall, labels in the 8-bit face.
-    // Floating, narrow, very pill-shaped: the dock should feel like a sticker
-    // strip rather than a bar.
 }
 
 // Keep body text in the system font; only short headings vary across designs.
@@ -304,7 +317,6 @@ private val IosTypography = headings(FontFamily.SansSerif)
 private val NeonTypography = headings(NeonDisplay)
 
 // Subset builds of OFL faces; see res/font and the theme licence documentation.
-/** 1980s arcade cabinet: VT323 terminal headings over an 8-bit label face. */
 fun typographyForStyle(style: ManagerStyle): Typography = when (style) {
     ManagerStyle.PIXEL -> Typography
     ManagerStyle.CYBERPUNK -> CyberTypography
@@ -312,7 +324,6 @@ fun typographyForStyle(style: ManagerStyle): Typography = when (style) {
     ManagerStyle.NEON -> NeonTypography
 }
 
-/** The legacy accent IDs are retained so existing 3.x/4.0 settings migrate. */
 /** The default (first) accent for each theme is the one that theme is recognised by. */
 fun accentForStyle(style: ManagerStyle, id: String, dark: Boolean): Color =
     accentTierForStyle(style, id, dark)[0]
