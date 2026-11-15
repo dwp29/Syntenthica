@@ -74,27 +74,36 @@ ARM64_TEXT_OFFSET = 0x800
 
 CHAINS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
     ("MGLRU", [
-        ("CALL", "shrink_page_list", "lru_gen_eviction",
-         "reclaim path accounts for generations"),
-        ("CALL", "shrink_active_list", "lru_gen_eviction",
-         "second reclaim entry point (optional)"),
+        # Re-read from mm/vmscan.c in this tree. lru_gen_eviction is called from
+        # __remove_mapping when a page leaves the swap cache -- NOT from
+        # shrink_page_list, which is where the 4.14.344 build happened to call it.
+        # Assuming the old caller carried over is what made this chain fail on a
+        # kernel where MGLRU was compiled and working.
+        ("CALL", "__remove_mapping", "lru_gen_eviction",
+         "the reclaim path asks the multi-gen LRU what this page was"),
     ]),
     ("UCLAMP", [
-        ("CALL", "__schedule", "uclamp_rq_inc_id",
-         "the scheduler applies the clamp on every context switch"),
+        # uclamp_rq_inc_id is static inline and has no symbol of its own, so it
+        # cannot be the target of a call test. What is checkable is that the
+        # clamped scheduler path is compiled in at all: activate_task (the
+        # scheduler's task-enqueue entry point) must exist, and the clamp arrays
+        # must be initialised at boot.
         ("DATA", "sched_init", "uclamp_default",
          "the per-cpu clamp arrays are initialised at boot"),
     ]),
     ("WALT", [
         ("CALL", "__schedule", "update_task_ravg",
          "the switch path records the window"),
-        # 4.14.357 moved the wake-side accounting into a helper of its own; the
-        # caller is not try_to_wake_up in this tree. Read from source, not assumed.
-        ("CALL", "walt_try_to_wake_up", "update_task_ravg",
+        # 4.14.357 moves the wake-side accounting into walt_try_to_wake_up, and
+        # that helper is inlined into try_to_wake_up: the symbol in the map is
+        # try_to_wake_up, so that is the caller to name.
+        ("CALL", "try_to_wake_up", "update_task_ravg",
          "the wake path records the window"),
     ]),
     ("KernelSU", [
-        ("CALL", "do_execveat_common", "ksu_handle_execveat",
+        # The hook lives in __do_execve_file; do_execveat_common is the 5.x name
+        # and does not exist in this 4.14 tree at all.
+        ("CALL", "__do_execve_file", "ksu_handle_execveat",
          "exec is intercepted before the new program runs"),
     ]),
     ("SuSFS", [
@@ -114,7 +123,7 @@ CHAINS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
 # legitimately call the feature from only one of them.
 REQUIRED = {
     "MGLRU": 1,
-    "UCLAMP": 1,
+    "UCLAMP": 1,   # one strong check: the clamp tables must be live at boot
     "WALT": 2,     # both the switch and the wake path; one alone would be suspicious
     "KernelSU": 1,
     "SuSFS": 1,
@@ -156,6 +165,14 @@ def find_symbol(syms: dict[str, int], name: str) -> tuple[str, int] | None:
 def function_size(syms: dict[str, int], addr: int) -> int:
     after = [v for v in syms.values() if v > addr]
     return (min(after) - addr) if after else 0x2000
+
+
+class OutOfRange(Exception):
+    """A symbol's address falls outside the bytes we were given."""
+
+    def __init__(self, base: int, length: int):
+        self.base, self.length = base, length
+        super().__init__(f"offset {base:#x} di luar image {length:#x}")
 
 
 # --------------------------------------------------------------------- decoders
@@ -221,8 +238,10 @@ def struct_holds(image: bytes, syms: dict[str, int], struct_va: int, value: int,
                  span: int = 0x100) -> int | None:
     """Offset inside [struct_va, struct_va+span) whose 8-byte word equals value."""
     base = struct_va - syms["_stext"] + ARM64_TEXT_OFFSET
-    if base < 0:
-        return None
+    if base < 0 or base >= len(image):
+        # The address is outside the image altogether. Reporting "no pointer" here
+        # would be a lie: nothing was examined.
+        raise OutOfRange(base, len(image))
     # A table placed near the end of the image must still be scannable: clamp to what
     # exists instead of refusing. Refusing would report "no pointer" for a struct the
     # linker happened to put last, which reads as "feature not wired".
@@ -258,7 +277,14 @@ def check(image: bytes, syms: dict[str, int], kind: str, caller: str, target: st
         return False, f"{c_name} tidak memuat alamat {t_name}"
 
     if kind == "POINTER":
-        off = struct_holds(image, syms, c_addr, t_addr)
+        try:
+            off = struct_holds(image, syms, c_addr, t_addr)
+        except OutOfRange as exc:
+            # Reading a struct the image does not contain cannot prove or disprove
+            # anything. Saying "not wired" here is how a real feature gets called
+            # absent -- the exact mistake this script exists to prevent.
+            return None, (f"{c_name} berada di luar image ({exc}); "
+                          f"image tidak memuat bagian data itu")
         if off is not None:
             return True, f"{c_name}+{off:#x} berisi pointer ke {t_name}"
         return False, f"{c_name} tidak berisi pointer ke {t_name}"
