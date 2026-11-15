@@ -1,0 +1,32 @@
+Image  : 33,234,960 byte
+Simbol : 116,121
+
+MGLRU      TERBUKTI
+           OK   the reclaim path asks the multi-gen LRU what this page was
+             BL di __remove_mapping+0x100 menuju lru_gen_eviction
+
+UCLAMP     TERBUKTI
+           OK   the per-cpu clamp arrays are initialised at boot
+             sched_init+0x488 memuat alamat uclamp_default
+
+WALT       TERBUKTI
+           OK   the switch path records the window
+             BL di __schedule+0x1c8 menuju update_task_ravg
+           OK   the wake path records the window
+             BL di try_to_wake_up+0x17c menuju update_task_ravg
+
+KernelSU   TERBUKTI
+           OK   exec is intercepted before the new program runs
+             BL di __do_execve_file+0x64 menuju ksu_handle_execveat
+
+SuSFS      TERBUKTI
+           OK   path resolution asks whether an inode is hidden
+             BL di link_path_walk+0x128 menuju susfs_is_inode_sus_path
+
+NoMount    TERBUKTI
+           OK   the NoMount inode constructor installs the directory operations table
+             nomount_create_new_inode+0xc8 memuat alamat nm_dir_iops
+           OK   and installs the directory file-operations table as well
+             nomount_create_new_inode+0xec memuat alamat nm_dir_fops
+
+Semua fitur punya rantai bukti utuh dari kode yang dijalankan kernel.

@@ -1,0 +1,20 @@
+OK      0001-mglru-4.14.patch
+OK      0002-uclamp-walt-stune.patch
+OK      0003-uclamp-correctness.patch
+OK      0004-mglru-anon-file.patch
+OK      0005-mglru-pagewalk-caf.patch
+OK      0006-neutron-enum-cast.patch
+OK      MGLRU di vmscan (140)
+OK      MGLRU Kconfig (3)
+OK      UCLAMP di sched/core (241)
+OK      UCLAMP di sched.h (4)
+-- defconfig: 6 baris ditambahkan
+-- perbaikan pohon: include timed_output.h
+   drivers/misc/aw8624_haptic/aw8624.h: include diarahkan ke path yang benar
+-- path_umount: suntik deterministik ke fs/namespace.c
+   fs/namespace.c: can_umount + path_umount disuntik
+   fs/internal.h: deklarasi ditambahkan
+   terverifikasi: definisi dan deklarasi ada
+-- batas sertifikat manager dinaikkan (1373 > 1024)
+   apk_sign.c: ['#define CERT_MAX_LENGTH 4096']
+-- semua patch Synthetica masuk dan fiturnya menyala

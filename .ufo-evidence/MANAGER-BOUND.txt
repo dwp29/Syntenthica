@@ -1,0 +1,5 @@
+check_block : 800 byte, 200 instruksi
+cocok ukuran: ya
+batas atas  : 4096
+
+LULUS: batas 4096 > sertifikat 1373, APK kita bisa diterima.
