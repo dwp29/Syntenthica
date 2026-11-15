@@ -151,32 +151,47 @@ jobs:
       - name: Sign a directly installable build with a fresh debug key
         run: |
           set -euo pipefail
+          # A throwaway key, generated in this job and stored nowhere. It exists only because
+          # the real release key is unavailable, and the package name differs from the released
+          # 6.0.0 so this installs beside it rather than failing to update it.
+          fail() { echo "::error::$1"; [ -s "$RUNNER_TEMP/manager65-output/sign.log" ] && tail -n 12 "$RUNNER_TEMP/manager65-output/sign.log"; exit 1; }
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
-          APK="$RUNNER_TEMP/manager65-output/Manager-6.5.1-standalone-UNSIGNED.apk"
-          SIGNED="$RUNNER_TEMP/manager65-output/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk"
-          KS="$RUNNER_TEMP/manager65-output/debug-only.keystore"
-          # A throwaway key, generated in this job and never stored anywhere. It exists only
-          # because the real release key is unavailable; the package name differs from the
-          # released 6.0.0 so this installs beside it instead of failing to update it.
-          keytool -genkeypair -v -keystore "$KS" -storetype PKCS12 \
+          OUT="$RUNNER_TEMP/manager65-output"
+          APK="$OUT/Manager-6.5.1-standalone-UNSIGNED.apk"
+          SIGNED="$OUT/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk"
+          KS="$OUT/debug-only.keystore"
+
+          test -f "$APK" || fail "unsigned APK not found at $APK"
+
+          keytool -genkeypair -keystore "$KS" -storetype PKCS12 \
             -alias standalone -keyalg RSA -keysize 4096 -validity 3650 \
             -storepass synthesa-debug-only -keypass synthesa-debug-only \
-            -dname "CN=Synthetica Manager Standalone (debug key), O=Synthetica, C=ID" 2>&1 | tail -3
-          "$TOOLS/zipalign" -p -f 4 "$APK" "$RUNNER_TEMP/manager65-output/aligned.apk"
+            -dname "CN=Synthetica Manager Standalone (debug key), O=Synthetica, C=ID" \
+            > "$OUT/sign.log" 2>&1 || fail "keytool could not generate the debug key"
+
+          "$TOOLS/zipalign" -p -f 4 "$APK" "$OUT/aligned.apk" >> "$OUT/sign.log" 2>&1 \
+            || fail "zipalign failed before signing"
+
           "$TOOLS/apksigner" sign --ks "$KS" --ks-key-alias standalone \
-            --ks-pass pass:synthesa-debug-only --key-pass pass:synthesa-debug-only \
-            --v2-signing-enabled true --v3-signing-enabled true \
-            --out "$SIGNED" "$RUNNER_TEMP/manager65-output/aligned.apk"
-          "$TOOLS/apksigner" verify --verbose --print-certs "$SIGNED" | tee "$RUNNER_TEMP/manager65-output/signed-verify.txt"
-          grep -q "Verifies" "$RUNNER_TEMP/manager65-output/signed-verify.txt"
+            --ks-pass pass:synthetica-debug-only --key-pass pass:synthetica-debug-only \
+            --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$SIGNED" "$OUT/aligned.apk" >> "$OUT/sign.log" 2>&1 \
+            || fail "apksigner sign failed"
+
+          "$TOOLS/apksigner" verify --verbose --print-certs "$SIGNED" > "$OUT/signed-verify.txt" 2>&1 \
+            || fail "signed APK does not verify"
+          grep -q "Verifies" "$OUT/signed-verify.txt" || fail "apksigner reports no verification"
+          grep -q "Verified using v2 scheme" "$OUT/signed-verify.txt" || fail "signature scheme v2 missing"
+          grep -q "Verified using v3 scheme" "$OUT/signed-verify.txt" || fail "signature scheme v3 missing"
+
           sha=$(sha256sum "$SIGNED" | cut -d' ' -f1)
-          echo "$sha" > "$RUNNER_TEMP/manager65-output/SIGNED-SHA256.txt"
           echo "::notice title=Signed 6.5.1 (debug key) SHA256::$sha"
           python3 - <<'PY'
           import base64,json,os,pathlib
           t=pathlib.Path(os.environ['RUNNER_TEMP'])
           apk=t/'manager65-output/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk'
           (t/'manager65-signed-blob.json').write_text(json.dumps({'content':base64.b64encode(apk.read_bytes()).decode(),'encoding':'base64'}))
+          print('[info] signed APK bytes:', apk.stat().st_size)
           PY
           blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/manager65-signed-blob.json" --jq .sha)
           echo "::notice title=Signed 6.5.1 APK blob::$blob"
