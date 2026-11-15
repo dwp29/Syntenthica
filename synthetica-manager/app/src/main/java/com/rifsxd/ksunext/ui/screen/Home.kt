@@ -63,7 +63,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
@@ -256,6 +255,39 @@ fun HomeScreen(navigator: DestinationsNavigator) {
         }
     }
 
+    val heroStatusPill = when {
+        isSafeMode -> stringResource(R.string.safe_mode)
+        fullFeatured -> stringResource(R.string.ios_home_rooted)
+        universalRoot -> "UNIVERSAL ROOT"
+        else -> stringResource(R.string.ios_home_tap_install)
+    }
+    val heroStatusColor = when {
+        isSafeMode -> IosOrangeDark
+        fullFeatured -> IosGreenDark
+        universalRoot -> IosCyanDark
+        else -> IosRedDark
+    }
+    val modeLabel = when {
+        !isManager && universalRoot -> "BRIDGE"
+        !isManager -> null
+        isLkm -> "LKM"
+        else -> "BUILT-IN"
+    }
+    val metaLine = when {
+        isManager && ksuVersion != null ->
+            "KernelSU $ksuVersion  •  UAPI v${kernelUAPIVersion ?: managerUAPIVersion}  •  ${envInfo.hookMode} Hook"
+        universalRoot ->
+            "Universal Root Bridge (UID 0)  •  UAPI v$managerUAPIVersion"
+        else ->
+            stringResource(R.string.home_click_to_install)
+    }
+    val susfsSupported = envInfo.suSFSStatus == "Supported"
+    val susfsPill = if (susfsSupported) {
+        envInfo.suSFSVersion.ifBlank { stringResource(R.string.pixel40_supported_short) }
+    } else {
+        stringResource(R.string.pixel40_unavailable_short)
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -338,39 +370,6 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             // The old Hub printed kernel, manager, root, SuSFS, seccomp and system
             // details stacked in five separate groups. Each is now a card the user
             // swipes to, so only one subject is on screen at a time.
-            val heroStatusPill = when {
-                isSafeMode -> stringResource(R.string.safe_mode)
-                fullFeatured -> stringResource(R.string.ios_home_rooted)
-                universalRoot -> "UNIVERSAL ROOT"
-                else -> stringResource(R.string.ios_home_tap_install)
-            }
-            val heroStatusColor = when {
-                isSafeMode -> IosOrangeDark
-                fullFeatured -> IosGreenDark
-                universalRoot -> IosCyanDark
-                else -> IosRedDark
-            }
-            val modeLabel = when {
-                !isManager && universalRoot -> "BRIDGE"
-                !isManager -> null
-                isLkm -> "LKM"
-                else -> "BUILT-IN"
-            }
-            val metaLine = when {
-                isManager && ksuVersion != null ->
-                    "KernelSU $ksuVersion  •  UAPI v${kernelUAPIVersion ?: managerUAPIVersion}  •  ${envInfo.hookMode} Hook"
-                universalRoot ->
-                    "Universal Root Bridge (UID 0)  •  UAPI v$managerUAPIVersion"
-                else ->
-                    stringResource(R.string.home_click_to_install)
-            }
-            val susfsSupported = envInfo.suSFSStatus == "Supported"
-            val susfsPill = if (susfsSupported) {
-                envInfo.suSFSVersion.ifBlank { stringResource(R.string.pixel40_supported_short) }
-            } else {
-                stringResource(R.string.pixel40_unavailable_short)
-            }
-
             val pagerState = rememberPagerState { 3 }
             HorizontalPager(
                 state = pagerState,
@@ -418,13 +417,13 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             val scope = rememberCoroutineScope()
             PagerDots(
                 count = 3,
-                selected = pagerState.currentPage,
+                selectedIndex = pagerState.currentPage,
                 activeColor = MaterialTheme.colorScheme.primary,
                 inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                 // A dot that only reports position is decoration. Tapping one is how
                 // you reach page 3 without three swipes.
                 onSelect = { page -> scope.launch { pagerState.animateScrollToPage(page) } },
-                dotDescription = { page -> stringResource(R.string.ios_home_pager_dot, page + 1) },
+                dotLabels = List(3) { page -> stringResource(R.string.ios_home_pager_dot, page + 1) },
             )
 
             // ---- 2. Warnings: only when measured ------------------------------
@@ -594,11 +593,11 @@ private fun HubLine(label: String, value: String, tint: Color? = null) {
 @Composable
 private fun PagerDots(
     count: Int,
-    selected: Int,
+    selectedIndex: Int,
     activeColor: Color,
     inactiveColor: Color,
     onSelect: (Int) -> Unit,
-    dotDescription: (Int) -> String,
+    dotLabels: List<String>,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -611,18 +610,18 @@ private fun PagerDots(
                 modifier = Modifier
                     .size(32.dp)
                     .semantics {
-                        contentDescription = dotDescription(index)
+                        contentDescription = dotLabels[index]
                         role = Role.Tab
-                        selected = index == selected
+                        selected = index == selectedIndex
                     }
                     .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
-                        .size(if (index == selected) 8.dp else 6.dp)
+                        .size(if (index == selectedIndex) 8.dp else 6.dp)
                         .background(
-                            color = if (index == selected) activeColor else inactiveColor,
+                            color = if (index == selectedIndex) activeColor else inactiveColor,
                             shape = CircleShape,
                         ),
                 )
