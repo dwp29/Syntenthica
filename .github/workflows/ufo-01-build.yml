@@ -298,93 +298,64 @@ jobs:
       # System.map ends the guessing: if the linker kept a function, its name is in
       # the symbol table, and a symbol that nothing calls is visible as exactly that.
       - name: Collect the evidence that settles feature questions
-        # Only after a build that finished: a System.map from a half-built tree,
-        # or from a previous run, would answer the question with the wrong kernel.
+        # Only after a build that finished: a System.map from a half-built tree, or
+        # from a previous run, would answer the question with the wrong kernel.
         if: success()
         run: |
           set +e
           cd "$RUNNER_TEMP/ufo"
           OUT="$RUNNER_TEMP/evidence"
-          mkdir -p "$OUT"
+          EF="$GITHUB_WORKSPACE/.ufo-evidence"
+          mkdir -p "$OUT" "$EF"
 
           if [ -f out/System.map ]; then
             cp out/System.map "$OUT/System.map"
-            echo "System.map: $(wc -l < "$OUT/System.map") symbols"
+            echo "System.map: $(wc -l < "$OUT/System.map") simbol"
           else
-            echo "System.map was NOT produced" > "$OUT/System.map.MISSING.txt"
+            echo "System.map TIDAK dihasilkan" > "$OUT/System.map.MISSING.txt"
           fi
 
           # The config that survived olddefconfig, not the defconfig that went in.
-          if [ -f out/.config ]; then
-            cp out/.config "$OUT/config.final"
-          fi
-
+          if [ -f out/.config ]; then cp out/.config "$OUT/config.final"; fi
           if [ -f Module.symvers ]; then cp Module.symvers "$OUT/Module.symvers"; fi
 
-          # Symbol-level report. Every line is a fact from the symbol table.
-          python3 - "$OUT" <<'PY' > "$OUT/SYMBOLS.txt" 2>&1
-          import pathlib
-          import re
-          import sys
-
-          out = pathlib.Path(sys.argv[1])
-          sm = out / "System.map"
-          if not sm.exists():
-              print("System.map missing; nothing can be proven from symbols.")
+          # What olddefconfig actually decided, including what it turned off.
+          python3 - "$OUT" <<'PY' > "$OUT/CONFIG.txt" 2>&1
+          import pathlib, sys
+          cfg = pathlib.Path(sys.argv[1]) / "config.final"
+          if not cfg.exists():
+              print("config.final tidak ada")
               sys.exit(0)
-
-          text = sm.read_text(errors="replace")
-          syms = {}
-          for line in text.splitlines():
-              parts = line.split()
-              if len(parts) >= 3:
-                  syms.setdefault(parts[2], parts[1])
-
-          def has(pattern):
-              return sorted(s for s in syms if re.search(pattern, s))
-
-          groups = {
-              "MGLRU": r"^lru_gen|_lru_gen|^lru_gen_seq|^lru_gen_full",
-              "UCLAMP": r"[Uu]clamp",
-              "WALT": r"^(walt|sched_walt)|walt_",
-              "KernelSU": r"^ksu_|ksu_driver|kernelsu",
-              "SuSFS": r"susfs",
-              "NoMount": r"nomount",
-          }
-          for label, pattern in groups.items():
-              found = has(pattern)
-              print(f"{label:10} {len(found):4} simbol")
-              for s in found[:14]:
-                  print(f"    {syms[s]} {s}")
-              if len(found) > 14:
-                  print(f"    ... dan {len(found) - 14} lagi")
-              if not found:
-                  print("    TIDAK ADA SATU PUN")
+          keep = ("LRU_GEN", "UCLAMP", "SCHED_WALT", "SCHED_TUNE", "KSU", "NOMOUNT", "SUSFS")
+          rows = [l.strip() for l in cfg.read_text(errors="replace").splitlines()
+                  if l.startswith("CONFIG_") and any(k in l for k in keep)]
+          print(f"{len(rows)} baris relevan di .config final")
+          print()
+          print("\n".join(rows))
+          off = [r for r in rows if r.startswith("# ") and "is not set" in r]
+          if off:
+              print()
+              print("MATI di config final:")
+              print("\n".join(off))
           PY
 
-          # What olddefconfig decided, read from the final config.
-          {
-            echo "CONFIG rows in the final .config:"
-            grep -cE "^CONFIG_" "$OUT/config.final" 2>/dev/null || echo "no final config"
-            echo
-            grep -E "CONFIG_(LRU_GEN|LRU_GEN_ENABLED|UCLAMP_TASK|UCLAMP_TASK_GROUP|SCHED_WALT|SCHED_TUNE|KSU|NOMOUNT|SUSFS)" \
-              "$OUT/config.final" 2>/dev/null
-          } > "$OUT/CONFIG.txt" 2>&1
-
-          # The authoritative read. verify_image.py above can only say what strings
-          # survived; this says what the linker kept and whether the entry points
-          # the rest of the kernel calls are present.
-          if [ -f "$OUT/System.map" ]; then
-            python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/root_stack_report.py" \
-              "$OUT/System.map" > "$OUT/ROOTSTACK.txt" 2>&1
-            echo "--- isi ROOTSTACK.txt ---"
-            cat "$OUT/ROOTSTACK.txt"
-            cp "$OUT/ROOTSTACK.txt" "$GITHUB_WORKSPACE/.ufo-evidence/ROOTSTACK.txt" 2>/dev/null
+          # The proof. Disassembles real call instructions; see that file's docstring
+          # for why a symbol name -- and a fortiori a string in the Image -- is not one.
+          IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
+          if [ -f "$IMG" ] && [ -f "$OUT/System.map" ]; then
+            python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/prove_features.py" \
+              "$IMG" "$OUT/System.map" > "$OUT/PROOF.txt" 2>&1
+            echo "prove_features exit=$?"
           else
-            echo "System.map tidak ada; laporan simbol dilewati" | tee "$OUT/ROOTSTACK.txt"
+            echo "Image atau System.map tidak ada; tidak ada yang bisa dibuktikan" \
+              > "$OUT/PROOF.txt"
           fi
-          echo
-          cat "$OUT/CONFIG.txt"
+          echo "--- PROOF.txt ---"
+          cat "$OUT/PROOF.txt"
+
+          for f in System.map config.final CONFIG.txt PROOF.txt; do
+            cp "$OUT/$f" "$EF/" 2>/dev/null
+          done
 
       - name: Report what was produced, and what was not tested
         if: always()
@@ -477,40 +448,44 @@ jobs:
           git commit -q -m "ufo-01: build log"
           git push -q --force origin ufo-evidence
 
-      - name: Fail if a requested feature is not actually in the image
-        # `always()` so the check runs even when an earlier step failed, but it only
-        # decides anything once there is an Image.
+      - name: Fail if a requested feature is not actually reachable
+        # `always()` so the check runs even when an earlier step failed; it decides
+        # nothing unless there is an Image and a System.map.
         #
-        # The gate reads the SYMBOL TABLE, not strings in the image. The previous
-        # version grepped Image.gz and produced a false report in both directions:
-        # "MGLRU ADA (2)" because a vmstat key matched, and "SuSFS HILANG" while 142
-        # susfs strings were sitting in the image. Neither answer meant anything.
-        # System.map is what the linker actually kept.
+        # This gate disassembles. It looks for a BL from the kernel's own reclaim,
+        # scheduler and path-walk functions to the feature's code. That is the only
+        # reading in this project that has not produced a false answer: strings said
+        # "MGLRU present" for a vmstat key, and a hand-written symbol list said
+        # "MGLRU absent" for a name that only exists in newer kernels. Both were
+        # reported to the owner as fact before anyone checked.
         if: always()
         run: |
           set +e
           IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
           SM="$RUNNER_TEMP/ufo/out/System.map"
-          if [ ! -f "$IMG" ]; then exit 0; fi   # the build step already failed
+          if [ ! -f "$IMG" ]; then
+            echo "Image tidak ada; langkah build sudah gagal lebih dulu."
+            exit 0
+          fi
+          if [ ! -f "$SM" ]; then
+            echo "::error::System.map tidak dihasilkan, jadi fitur tidak bisa dibuktikan"
+            exit 1
+          fi
 
-          echo "--- penanda kuat di Image ---"
+          echo "--- penanda kuat di Image (bukan gerbang) ---"
           python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/verify_image.py" "$IMG"
-          RC_IMG=$?
 
           echo
-          echo "--- tabel simbol ---"
-          if [ ! -f "$SM" ]; then
-            echo "::error::System.map tidak dihasilkan; fitur tidak bisa dibuktikan"
-            exit 1
-          fi
-          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/root_stack_report.py" "$SM"
-          RC_SYM=$?
-
-          if [ "$RC_IMG" -ne 0 ] || [ "$RC_SYM" -ne 0 ]; then
-            echo "::error::Image lulus=$([ $RC_IMG -eq 0 ] && echo ya || echo tidak), simbol lulus=$([ $RC_SYM -eq 0 ] && echo ya || echo tidak)"
-            exit 1
-          fi
-          echo "Image dan tabel simbol sama-sama menyatakan fitur ada."
+          echo "--- bukti dari instruksi mesin (gerbang) ---"
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/prove_features.py" "$IMG" "$SM"
+          RC=$?
+          echo "prove_features rc=$RC"
+          # 0 = every feature has a complete chain
+          # 1 = a feature is absent, or present but called by nothing
+          # 2 = the inputs cannot answer
+          # All three that are not 0 must fail the build: an unanswerable question is
+          # not a pass, which is precisely the error this file was written to stop.
+          exit $RC
 
       - name: Publish the flashable zip on its own branch
         if: success()
