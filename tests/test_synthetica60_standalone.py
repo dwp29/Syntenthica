@@ -214,6 +214,20 @@ class StandaloneTreeTests(unittest.TestCase):
             used.update(re.findall(r"R\.string\.(manager60_[a-z0-9_]+)", path.read_text(encoding="utf-8")))
         self.assertEqual(used, en_keys, f"unused or undefined: {used ^ en_keys}")
 
+    def test_every_destination_has_a_door(self) -> None:
+        """A screen nobody can navigate to is a screen nobody can use.
+
+        Three screens (diagnostics, speed control, device check) were reachable only
+        from Home, and Boost/Customization only from Settings. The compiler is happy
+        either way; only a user notices. tests/verify_navigation.py counts the doors.
+        """
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "tests/verify_navigation.py")],
+            capture_output=True, text=True, cwd=ROOT,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertIn("[nav]", result.stdout)
+
     def test_no_duplicate_top_level_declarations(self) -> None:
         """Two top-level functions with one signature break the Kotlin build.
 
