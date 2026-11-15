@@ -10,6 +10,12 @@ on:
       - 'build-kit/scripts/apk_v2_sign.py'
       - '.github/workflows/pure-manager-build.yml'
   workflow_dispatch:
+  # A push that touches only these files must still compile. The Kotlin guards in
+  # tests/ decide what counts as a bug in the sources, and a guard change that
+  # landed without a build is a guard nobody has run against the real compiler.
+  # A bare workflow_dispatch would need the API token, which this repo's token
+  # cannot use (403), so the trigger is a tag: creating one is a push.
+  create:
 
 permissions:
   contents: write   # only to store the unsigned APK as an unreferenced blob
