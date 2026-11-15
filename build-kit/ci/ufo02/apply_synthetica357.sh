@@ -208,4 +208,44 @@ for f, needle in ((ns, "int path_umount(struct path *path, int flags)"),
 print("   terverifikasi: definisi dan deklarasi ada")
 PYUM
 
+# --------------------------------------------------------------------------
+# Batas ukuran sertifikat manager.
+#
+# check_block() di drivers/kernelsu/manager/apk_sign.c memakai
+#     #define CERT_MAX_LENGTH 1024
+# lalu membandingkan certificate_size dengan batas itu. Sertifikat v2 APK Pure
+# Manager berukuran 1373 byte, jadi syarat "certificate_size > CERT_MAX_LENGTH"
+# SELALU benar dan kompiler membuang perbandingannya. Buktinya dari image hasil
+# build pertama: check_block memuat SUBS #1373 lalu langsung printk "cert length
+# overlimit" tanpa cabang lain -- kernel menolak manager-nya sendiri, dan satu-
+# satunya jejaknya satu baris di dmesg. Mengganti hash saja tidak pernah cukup.
+#
+# Batas dinaikkan ke 4096: cukup untuk sertifikat yang jauh lebih besar, tetap
+# buffer kernel (4 KB per pemeriksaan), bukan 128 KB yang menempel di stack.
+echo "-- batas sertifikat manager dinaikkan (1373 > 1024)"
+python3 - <<'PYBOUND'
+import pathlib
+import sys
+
+p = pathlib.Path("drivers/kernelsu/manager/apk_sign.c")
+if not p.exists():
+    sys.exit("   GAGAL: apk_sign.c tidak ada")
+s = p.read_text()
+old = "#define CERT_MAX_LENGTH 1024"
+new = "#define CERT_MAX_LENGTH 4096"
+if old not in s:
+    if new in s:
+        print("   sudah dinaikkan -- dilewati")
+        raise SystemExit(0)
+    sys.exit("   GAGAL: tidak menemukan CERT_MAX_LENGTH 1024")
+s = s.replace(old, new, 1)
+p.write_text(s)
+
+# Bukti di sumber, bukan asumsi bahwa replace berhasil.
+got = [l.strip() for l in p.read_text().splitlines() if "CERT_MAX_LENGTH 4" in l]
+print(f"   apk_sign.c: {got}")
+if "1373" in s and "#define CERT_MAX_LENGTH 4096" not in s:
+    sys.exit("   GAGAL: batas tidak berubah")
+PYBOUND
+
 echo "-- semua patch Synthetica masuk dan fiturnya menyala"

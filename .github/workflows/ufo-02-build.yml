@@ -131,7 +131,19 @@ jobs:
             | tee "$GITHUB_WORKSPACE/.ufo-evidence/PROOF.txt"
           RC=${PIPESTATUS[0]}
           echo "prove_features rc=$RC"
-          exit $RC
+
+          # A kernel that rejects its own manager is not deliverable, no matter what
+          # the feature proof says. This caught a real defect: CERT_MAX_LENGTH was
+          # 1024 while our certificate is 1373 bytes, so the bound check was folded
+          # away and the kernel always refused our APK.
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/verify_manager_bound.py" "$IMG" "$SM" \
+            | tee "$GITHUB_WORKSPACE/.ufo-evidence/MANAGER-BOUND.txt"
+          RCB=${PIPESTATUS[0]}
+          echo "verify_manager_bound rc=$RCB"
+
+          if [ "$RC" -ne 0 ] || [ "$RCB" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Collect the evidence
         if: always()
