@@ -11,6 +11,11 @@ on:
     tags: ['ufo-v2-*']
   workflow_dispatch:
 
+# Without this the runner's token is read-only and every push in the evidence steps
+# is rejected -- which is exactly how the first two runs lost their logs.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
