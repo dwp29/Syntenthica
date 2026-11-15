@@ -154,7 +154,16 @@ jobs:
           # A throwaway key, generated in this job and stored nowhere. It exists only because
           # the real release key is unavailable, and the package name differs from the released
           # 6.0.0 so this installs beside it rather than failing to update it.
-          fail() { echo "::error::$1"; [ -s "$RUNNER_TEMP/manager65-output/sign.log" ] && tail -n 12 "$RUNNER_TEMP/manager65-output/sign.log"; exit 1; }
+          # Errors have to reach the run page: job logs and artifact ZIPs both fail to
+          # download from this environment, so stderr has to become annotations.
+          fail() {
+            echo "::error::$1"
+            if [ -s "$RUNNER_TEMP/manager65-output/sign.log" ]; then
+              tail -n 12 "$RUNNER_TEMP/manager65-output/sign.log" |
+                while IFS= read -r l; do echo "::error::sign $l"; done
+            fi
+            exit 1
+          }
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
           OUT="$RUNNER_TEMP/manager65-output"
           APK="$OUT/Manager-6.5.1-standalone-UNSIGNED.apk"
