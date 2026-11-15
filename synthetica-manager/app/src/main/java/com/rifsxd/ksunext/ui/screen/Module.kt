@@ -69,8 +69,8 @@ import com.dergoogler.mmrl.ui.component.LabelItem
 import com.dergoogler.mmrl.ui.component.LabelItemDefaults
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.generated.destinations.ModuleRepoScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ExecuteModuleActionScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.DownloadScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.FlashScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.ramcosta.composedestinations.navigation.EmptyDestinationsNavigator
@@ -180,7 +180,7 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
                 onClearClick = { viewModel.search = "" },
                 actionsContent = {
                     IconButton(
-                        onClick = { navigator.navigate(ModuleRepoScreenDestination) }
+                        onClick = { navigator.navigate(DownloadScreenDestination) }
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Cloud,
