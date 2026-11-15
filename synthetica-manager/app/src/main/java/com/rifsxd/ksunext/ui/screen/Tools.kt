@@ -39,6 +39,7 @@ import com.ramcosta.composedestinations.generated.destinations.BackupRestoreScre
 import com.ramcosta.composedestinations.generated.destinations.BoostScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.CustomizationScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.DeviceCheckScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.DownloadScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.InstallScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MetaModuleScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PixelControl40ScreenDestination
