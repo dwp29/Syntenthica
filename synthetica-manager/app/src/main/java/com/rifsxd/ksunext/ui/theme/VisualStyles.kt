@@ -71,7 +71,7 @@ fun setManagerAnimSpeed(context: android.content.Context, speed: String) {
 fun exportManagerConfigJson(context: android.content.Context): String {
     val prefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
     return org.json.JSONObject().apply {
-        put("schema", "synthetica-manager-6.5.0")
+        put("schema", "synthetica-manager-6.5.1")
         put("manager_visual_style", prefs.getString("manager_visual_style", ManagerStyleState.value.id))
         put("neon_theme_mode", prefs.getString("neon_theme_mode", NeonThemeState.value))
         put("neon_accent", prefs.getString("neon_accent", NeonAccentState.value))
