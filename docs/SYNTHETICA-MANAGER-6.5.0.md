@@ -1,12 +1,19 @@
 # Synthetica Manager 6.5.0
 
+> **Retro Arcade juga sudah dihapus — 6.5.1, permanen.** Dokumen ini ditulis saat
+> `RETRO_ARCADE` masih ada, jadi bagian di bawah yang menyebutnya sebagai tema
+> yang bertahan **sudah tidak berlaku**. Empat tema yang tersisa: `PIXEL`,
+> `CYBERPUNK`, `IOS_GLASS`, `NEON`. Rinciannya ada di bagian terakhir,
+> "Retro Arcade: dihapus permanen".
+
 Status: **unsigned APK built and verified. Not signed, so not installable as an update.**
 
 ## What changed from 6.0.0
 
 ### 1. Two themes removed
 `ANIME_WIBU` and `GOTHIC_CRIMSON` are gone, on request, because seven themes with near
-identical motion made the selector noisy rather than useful. `RETRO_ARCADE` stays.
+identical motion made the selector noisy rather than useful. `RETRO_ARCADE` was left alone
+in 6.5.0 and then removed in 6.5.1 (see the last section).
 
 Removal had to be all-at-once: every `when` over `ManagerStyle` is exhaustive, so deleting
 the enum entries alone breaks compilation. 53 dispatch points were cleared across
@@ -37,7 +44,7 @@ drew the accent at alpha 0.05–0.20, which is why it read as a wash.
 | CYBERPUNK | acid volt `D4FF00` | lime `9CFF3B` | pale volt `FBFF9E` |
 | IOS_GLASS | system blue `3E9BFF` | sky `6FB8FF` | deep blue `1E6FD9` |
 | NEON | cyan `00F0FF` | electric cyan `5BF6FF` | deep cyan `00B8CC` |
-| RETRO_ARCADE | phosphor amber `FFB000` | bright amber `FFCC4D` | dim amber `D98E00` |
+| ~~RETRO_ARCADE~~ | ~~phosphor amber `FFB000`~~ | ~~bright amber `FFCC4D`~~ | ~~dim amber `D98E00`~~ (dihapus 6.5.1) |
 
 Tier 2 and 3 are wired into `tertiary` and `secondary` so badges, charts and dock details
 stop being grey filler. The nine faint accent alphas were raised to 0.22–0.34.
@@ -51,7 +58,7 @@ All seven themes previously shared one linear 0..1 sweep with one duration and o
 - CYBERPUNK — sweeps for 80% of the cycle, then holds still
 - IOS_GLASS — smoothstep over 9 s; nothing snaps
 - NEON — triangle wave, even rise and fall
-- RETRO_ARCADE — ease-in fall, ease-out rise, like gravity
+- ~~RETRO_ARCADE~~ — ~~ease-in fall, ease-out rise, like gravity~~ (dihapus 6.5.1)
 
 The speed setting scales all five by the same factor.
 
@@ -93,3 +100,32 @@ asserts the two retired style ids are **absent** from the DEX. `build_manager_60
 and `tests/test_synthetica60_standalone.py` moved to 6.5.0 / 75000.
 `tests/test_synthetica61_retro_anime.py` was deleted: it locked all three 6.1 themes and
 could not survive the removal of two of them.
+
+## Retro Arcade: dihapus permanen (6.5.1)
+
+Atas permintaan pemilik proyek, Retro Arcade dicabut seluruhnya — bukan
+disembunyikan dari pemilih tema. Tidak ada jalur untuk mengaktifkannya kembali.
+
+Yang dihapus:
+
+- entri enum `RETRO_ARCADE`, sehingga `ManagerStyle` tinggal empat nilai dan
+  setiap `when` atasnya kembali exhaustive tanpa cabang mati;
+- `retro_arcade` sebagai id preferensi `manager_visual_style`; konfigurasi JSON
+  lama yang masih memuatnya akan jatuh ke `PIXEL` lewat `fromId`;
+- `RetroShapes`, `RetroTypography`, `RetroArcadeSplash`, `RetroBannerHero`, dan
+  seluruh cabang RETRO di `Glass.kt`, `ThemedHero.kt`, `VisualStyles.kt`,
+  `AppearanceControls.kt`;
+- lima aset: `ic_emblem_retro.png`, `theme_banner_retro.jpg`,
+  `theme_banner_retro_far.jpg`, `retro_pressstart.ttf`, `retro_vt323.ttf`;
+- string `theme50_retro` dan `theme50_retro_detail` di kedua bahasa.
+
+Gate `tests/verify_synthetica60_apk.py` sekarang menolak build yang memuat
+`anime_wibu`, `gothic_crimson`, atau `retro_arcade` di DEX, dan mewajibkan tepat
+empat emblem serta nol banner JPEG.
+
+Catatan jujur soal prosesnya: penghapusan pertama (commit `d346b27`) lolos test
+host tetapi **gagal dikompilasi** di CI (run `43729698703`) — regex yang saya
+pakai untuk memotong blok `RETRO_ARCADE -> {}` ikut memakan `fun shapesForStyle`
+dan `data class ManagerDockSpec`. Keduanya dipulihkan di commit `3fd95d6`, dan
+run `43729971270` hijau. Pelajarannya: "nol sisa RETRO" bukan bukti selesai;
+hanya kompilasi penuh yang membuktikan.
