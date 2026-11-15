@@ -121,4 +121,91 @@ p.write_text(s.replace(bad, good, 1))
 print(f"   {p}: include diarahkan ke path yang benar")
 PYFIX
 
+# --------------------------------------------------------------------------
+# path_umount, disuntikkan SEBELUM build.
+#
+# Build 43695940575 berhenti di link:
+#     ld.lld: error: undefined symbol: path_umount
+#     >>> referenced by kernel_umount.c ... (umount_tw_func)
+#     >>> did you mean: path_mount
+#
+# KernelSU-Next menyuntikkan path_umount sendiri dari drivers/kernelsu/Kbuild
+# lewat sed ke fs/namespace.c. Itu jalan hanya bila Kbuild drivers/ dibaca
+# SEBELUM fs/namespace.c dikompilasi. Dengan `make -j`, urutan itu tidak dijamin,
+# dan di runner ia kalah balapan -- ccflags -DKSU_HAS_PATH_UMOUNT menyala, jadi
+# kernel_umount.c memanggil path_umount, tetapi fungsinya tidak pernah masuk.
+# Membiarkan ini bergantung pada nasib berarti build kadang lolos kadang tidak.
+# Karena itu suntikan dilakukan di sini, deterministik, dengan teks yang SAMA
+# dengan yang dipakai Kbuild (bukan versi karangan sendiri).
+echo "-- path_umount: suntik deterministik ke fs/namespace.c"
+python3 - <<'PYUM'
+import pathlib
+
+ns = pathlib.Path("fs/namespace.c")
+ih = pathlib.Path("fs/internal.h")
+
+if "int path_umount(struct path *path, int flags)" in ns.read_text():
+    print("   sudah ada -- dilewati")
+else:
+    can = """static int can_umount(const struct path *path, int flags)
+{
+\tstruct mount *mnt = real_mount(path->mnt);
+
+\tif (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
+\t\treturn -EINVAL;
+\tif (!may_mount())
+\t\treturn -EPERM;
+\tif (path->dentry != path->mnt->mnt_root)
+\t\treturn -EINVAL;
+\tif (!check_mnt(mnt))
+\t\treturn -EINVAL;
+\tif (mnt->mnt.mnt_flags & MNT_LOCKED)
+\t\treturn -EINVAL;
+\tif (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
+\t\treturn -EPERM;
+\treturn 0;
+}
+
+int path_umount(struct path *path, int flags)
+{
+\tstruct mount *mnt = real_mount(path->mnt);
+\tint ret;
+
+\tret = can_umount(path, flags);
+\tif (!ret)
+\t\tret = do_umount(mnt, flags);
+\tdput(path->dentry);
+\tmntput_no_expire(mnt);
+\treturn ret;
+}
+
+"""
+    text = ns.read_text()
+    anchor = "static bool is_mnt_ns_file(struct dentry *dentry)"
+    if anchor not in text:
+        raise SystemExit("   GAGAL: jangkar is_mnt_ns_file tidak ada")
+    ns.write_text(text.replace(anchor, can + anchor, 1))
+    print("   fs/namespace.c: can_umount + path_umount disuntik")
+
+if "int path_umount(struct path *path, int flags);" in ih.read_text():
+    print("   fs/internal.h: sudah ada -- dilewati")
+else:
+    t = ih.read_text()
+    a = "extern void __init mnt_init"
+    if a not in t:
+        raise SystemExit("   GAGAL: jangkar mnt_init tidak ada di fs/internal.h")
+    a_end = t.index(a)
+    line_end = t.index("\n", a_end) + 1
+    t = t[:line_end] + "int path_umount(struct path *path, int flags);\n" + t[line_end:]
+    ih.write_text(t)
+    print("   fs/internal.h: deklarasi ditambahkan")
+
+# Bukti, bukan asumsi: keduanya harus benar-benar ada sekarang.
+for f, needle in ((ns, "int path_umount(struct path *path, int flags)"),
+                  (ih, "int path_umount(struct path *path, int flags);")):
+    if needle not in f.read_text():
+        raise SystemExit(f"   GAGAL: {f} tetap tanpa path_umount")
+print("   terverifikasi: definisi dan deklarasi ada")
+PYUM
+
 echo "-- semua patch Synthetica masuk dan fiturnya menyala"
