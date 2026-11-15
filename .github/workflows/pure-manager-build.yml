@@ -28,7 +28,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: arena/96cbd65a-syntenthica
+          # No `ref:` here on purpose: pinning the branch by name is how
+          # every build ended up testing a stale commit after the name was
+          # mistyped. Without it, checkout takes the commit that triggered
+          # the run -- the only commit whose result anyone can act on.
           persist-credentials: false
 
       - uses: actions/setup-java@v4

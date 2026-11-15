@@ -498,12 +498,13 @@ private fun blend(a: Color, b: Color, t: Float): Color = Color(
 private fun ToolbarText(
     label: String,
     enabled: Boolean,
-    // `onClick` must stay last. Kotlin binds a trailing lambda to the final
-    // parameter whatever its name is, so an optional `icon` after it silently
-    // swallows the lambda: six call sites reported "No value passed for onClick"
-    // while the lambda was being handed to `icon`. Trailing lambda wins over
-    // "optional parameters go last"; this is the one place where that convention
-    // and the language disagree, and the language decides.
+    // `onClick` must stay last: Kotlin gives a trailing lambda to the final
+    // parameter whatever its name is. An `icon` after it swallows the lambda and the
+    // compiler reports "No value passed for onClick" at every call site.
+    //
+    // That is also why the callers that use an icon pass it by NAME -- named
+    // arguments are matched by name, not position, so `icon = X` skips straight
+    // past `onClick` and the trailing lambda still lands where it belongs.
     icon: ImageVector? = null,
     onClick: () -> Unit,
 ) {
