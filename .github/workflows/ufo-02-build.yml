@@ -157,6 +157,25 @@ jobs:
           done
           cat "$OUT/PROOF.txt"
 
+      - name: Publish the build log even when the build fails
+        if: always()
+        run: |
+          set +e
+          cd "$GITHUB_WORKSPACE"
+          LOG="$RUNNER_TEMP/build.log"
+          if [ ! -s "$LOG" ]; then echo "tidak ada log"; exit 0; fi
+          git config user.name "ufo-bot"
+          git config user.email "ufo@localhost"
+          git checkout -q -B ufo02-log
+          mkdir -p .ufo-evidence
+          cp "$LOG" .ufo-evidence/build-full.log
+          grep -nE "error:|Error [0-9]|No rule|undefined reference" "$LOG" | head -60 \
+            > .ufo-evidence/FIRST-ERRORS.txt
+          cp "$RUNNER_TEMP/plant.txt" .ufo-evidence/ 2>/dev/null
+          git add -f .ufo-evidence
+          git commit -q -m "ufo-02: build log ($GITHUB_SHA)"
+          git push -q --force origin ufo02-log
+
       - name: Publish the evidence
         if: always()
         run: |
