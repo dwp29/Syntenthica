@@ -145,6 +145,11 @@ jobs:
           cp out/.config "$OUT/config.final" 2>/dev/null
           cp "$RUNNER_TEMP/plant.txt" "$OUT/" 2>/dev/null
           cp "$RUNNER_TEMP/build.log" "$OUT/build-full.log" 2>/dev/null
+          # The image and its map are the only way to analyse a failing proof without
+          # burning another 25-minute build. Artifacts are not reachable from the
+          # analysis environment, so they travel on the evidence branch.
+          cp out/arch/arm64/boot/Image.gz "$EF/Image.gz" 2>/dev/null
+          cp out/System.map "$EF/System.map" 2>/dev/null
           python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/prove_features357.py" \
             out/arch/arm64/boot/Image.gz out/System.map > "$OUT/PROOF.txt" 2>&1
           python3 - <<'PY' > "$OUT/CONFIG.txt" 2>&1
@@ -202,6 +207,9 @@ jobs:
           git checkout -q -B ufo02-evidence
           git add -f .ufo-evidence
           git commit -q -m "ufo-02: build log and proof ($GITHUB_SHA)"
+          # The map and image are regenerated every run, so this history is not worth
+          # keeping; force-push keeps the branch at one commit (~14 MB) instead of
+          # growing without bound.
           git push -q --force origin ufo02-evidence
 
       - name: Keep the image
