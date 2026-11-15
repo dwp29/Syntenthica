@@ -121,7 +121,7 @@ jobs:
             echo "::error::System.map tidak ada, fitur tidak bisa dibuktikan"
             exit 1
           fi
-          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/prove_features.py" "$IMG" "$SM"
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/prove_features357.py" "$IMG" "$SM"
           RC=$?
           echo "prove_features rc=$RC"
           exit $RC
@@ -138,7 +138,7 @@ jobs:
           cp out/.config "$OUT/config.final" 2>/dev/null
           cp "$RUNNER_TEMP/plant.txt" "$OUT/" 2>/dev/null
           cp "$RUNNER_TEMP/build.log" "$OUT/build-full.log" 2>/dev/null
-          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/prove_features.py" \
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo02/prove_features357.py" \
             out/arch/arm64/boot/Image.gz out/System.map > "$OUT/PROOF.txt" 2>&1
           python3 - <<'PY' > "$OUT/CONFIG.txt" 2>&1
           import pathlib
