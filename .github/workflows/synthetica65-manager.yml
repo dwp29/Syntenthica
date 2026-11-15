@@ -88,10 +88,15 @@ jobs:
               # Surface the actual compiler errors as run annotations. Downloading job logs
               # needs a token scope this environment does not always have, so the failure has
               # to be readable from the run page itself.
-              grep -E "^e: |error:|Execution failed|What went wrong|> Task .*FAILED" \
-                "$RUNNER_TEMP/manager65-output/build.log" | head -n 25 | while IFS= read -r line; do
+              grep -E "^e: |error:|Execution failed|What went wrong|Caused by|> Task .*FAILED|^\* |^FAILURE" \
+                "$RUNNER_TEMP/manager65-output/build.log" | head -n 30 | while IFS= read -r line; do
                   echo "::error::$line"
                 done
+              # The Gradle error body sits a few lines under "What went wrong".
+              grep -A 6 -m1 "What went wrong" "$RUNNER_TEMP/manager65-output/build.log" \
+                | tail -n 5 | while IFS= read -r line; do echo "::error::ctx $line"; done
+              grep -A 4 -m1 "^e: " "$RUNNER_TEMP/manager65-output/build.log" \
+                | tail -n 3 | while IFS= read -r line; do echo "::error::detail $line"; done
               exit 1
             }
       - name: Verify identity, permissions, daemon, alignment and unsigned status
