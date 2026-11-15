@@ -4,7 +4,7 @@ on:
   push:
     branches: [arena/96cbd65a-synthentica]
     paths:
-      - '.github/workflows/synthetica60-manager.yml'
+      - '.github/workflows/synthetica65-manager.yml'
       - 'synthetica-manager/**'
       - 'build-kit/scripts/build_manager_60_standalone.py'
       - 'build-kit/scripts/sign_manager_60_locally.py'

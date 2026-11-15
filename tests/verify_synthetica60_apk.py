@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Static verification for a Synthetica Manager 6.5.0 APK (signed or unsigned).
 
+Gates that changed in 6.5: the splash labels and the JSON schema string.
+
 Bytes and metadata only. This is NOT a device, root, update or boot test.
 """
 from __future__ import annotations
