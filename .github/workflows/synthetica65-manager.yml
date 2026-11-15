@@ -114,8 +114,14 @@ jobs:
           "$TOOLS/zipalign" -c -p 4 "$APK" || { echo "::error::not zip-aligned at 4"; exit 1; }
           "$TOOLS/zipalign" -c -P 16 4 "$APK" || { echo "::error::not 16 KiB page aligned"; exit 1; }
           step "permissions against the 2.0 reference"
-          "$TOOLS/aapt" dump permissions "$APK" | grep '^uses-permission' | sort > "$RUNNER_TEMP/manager65-permissions.txt" || true
-          "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort > "$RUNNER_TEMP/reference-permissions.txt" || true
+          # aapt dumps the package-scoped DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION, which is
+          # derived from the applicationId by Kotlin. Normalise that one name so the diff
+          # still proves every real permission matches; anything else must be identical.
+          normalise() {
+            sed -E "s/name='[^']*\\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/name='<appid>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'/"
+          }
+          "$TOOLS/aapt" dump permissions "$APK" | grep '^uses-permission' | sort | normalise > "$RUNNER_TEMP/manager65-permissions.txt" || true
+          "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort | normalise > "$RUNNER_TEMP/reference-permissions.txt" || true
           test -s "$RUNNER_TEMP/manager65-permissions.txt" || { echo "::error::built APK declares no permissions"; exit 1; }
           test -s "$RUNNER_TEMP/reference-permissions.txt" || { echo "::error::reference APK unreadable"; exit 1; }
           if ! diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/manager65-permissions.txt" > "$RUNNER_TEMP/perm.diff"; then
