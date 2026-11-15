@@ -118,8 +118,11 @@ jobs:
           "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort > "$RUNNER_TEMP/reference-permissions.txt" || true
           test -s "$RUNNER_TEMP/manager65-permissions.txt" || { echo "::error::built APK declares no permissions"; exit 1; }
           test -s "$RUNNER_TEMP/reference-permissions.txt" || { echo "::error::reference APK unreadable"; exit 1; }
-          if ! diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/manager65-permissions.txt"; then
-            echo "::error::permission set differs from the 2.0 reference"; exit 1
+          if ! diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/manager65-permissions.txt" > "$RUNNER_TEMP/perm.diff"; then
+            echo "::error::permission set differs from the 2.0 reference"
+            # Print the actual difference: a bare failure message cost a whole CI round trip.
+            head -n 12 "$RUNNER_TEMP/perm.diff" | while IFS= read -r l; do echo "::error::perm $l"; done
+            exit 1
           fi
           step "static DEX gates"
           python3 tests/verify_synthetica60_apk.py "$APK" 2>&1 | tee "$OUT/static-checks.txt" || {
