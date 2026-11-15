@@ -92,4 +92,33 @@ else:
     print("-- defconfig: sudah lengkap")
 PY
 
+# --------------------------------------------------------------------------
+# Perbaikan pohon, terpisah dari patch Synthetica.
+#
+# Build 43694424815 berhenti di drivers/misc/aw8624_haptic:
+#     aw8624.h:25:10: fatal error: 'linux/timed_output.h' file not found
+# Header itu ADA di pohon ini, di drivers/staging/android/timed_output.h --
+# tempat 4.14 meletakkannya sebelum pindah ke include/linux. Driver tetangga
+# (drv2624_haptic) sudah memakai path relatif untuk alasan yang sama; aw8624
+# tidak. Yang diperbaiki adalah include-nya, bukan config: mematikan
+# CONFIG_AW8624_HAPTIC akan menghilangkan haptic pada perangkat yang memakainya.
+echo "-- perbaikan pohon: include timed_output.h"
+python3 - drivers/misc/aw8624_haptic/aw8624.h <<'PYFIX'
+import pathlib
+import sys
+
+p = pathlib.Path(sys.argv[1])
+if not p.exists():
+    print(f"   {p} tidak ada -- dilewati")
+    raise SystemExit(0)
+s = p.read_text()
+bad = "#include <linux/timed_output.h>"
+good = "#include <../../../drivers/staging/android/timed_output.h>"
+if bad not in s:
+    print("   sudah diperbaiki atau bentuknya lain -- dilewati")
+    raise SystemExit(0)
+p.write_text(s.replace(bad, good, 1))
+print(f"   {p}: include diarahkan ke path yang benar")
+PYFIX
+
 echo "-- semua patch Synthetica masuk dan fiturnya menyala"
