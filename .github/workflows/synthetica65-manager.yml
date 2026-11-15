@@ -99,22 +99,37 @@ jobs:
           APK="$RUNNER_TEMP/manager65-output/Manager-6.5.0-UNSIGNED.apk"
           OUT="$RUNNER_TEMP/manager65-output"
           TOOLS="$ANDROID_SDK_ROOT/build-tools/36.1.0"
-          "$TOOLS/zipalign" -c -p 4 "$APK"
-          "$TOOLS/zipalign" -c -P 16 4 "$APK"
+          # Each check names itself, so a failure is readable from the run page even when
+          # job logs cannot be downloaded.
+          step() { echo "--- $1"; }
           "$TOOLS/aapt" dump badging "$APK" > "$OUT/badging.txt"
-          grep -F "name='net.ember.labs'" "$OUT/badging.txt"
-          grep -F "versionCode='75000'" "$OUT/badging.txt"
-          grep -F "versionName='6.5.0'" "$OUT/badging.txt"
-          grep -F "native-code: 'arm64-v8a'" "$OUT/badging.txt"
+          step "identity"
+          grep -F "name='net.ember.labs'" "$OUT/badging.txt" || { echo "::error::package name mismatch"; grep -m3 "^package" "$OUT/badging.txt"; exit 1; }
+          grep -F "versionCode='75000'" "$OUT/badging.txt" || { echo "::error::versionCode is not 75000"; grep -m1 "^package" "$OUT/badging.txt"; exit 1; }
+          grep -F "versionName='6.5.0'" "$OUT/badging.txt" || { echo "::error::versionName is not 6.5.0"; grep -m1 "^package" "$OUT/badging.txt"; exit 1; }
+          step "native code"
+          grep -F "native-code: 'arm64-v8a'" "$OUT/badging.txt" || { echo "::error::arm64-v8a missing"; grep -m1 "native-code" "$OUT/badging.txt"; exit 1; }
+          step "alignment"
+          "$TOOLS/zipalign" -c -p 4 "$APK" || { echo "::error::not zip-aligned at 4"; exit 1; }
+          "$TOOLS/zipalign" -c -P 16 4 "$APK" || { echo "::error::not 16 KiB page aligned"; exit 1; }
+          step "permissions against the 2.0 reference"
           "$TOOLS/aapt" dump permissions "$APK" | grep '^uses-permission' | sort > "$RUNNER_TEMP/manager65-permissions.txt" || true
           "$TOOLS/aapt" dump permissions release/Synthetica-2.0.apk | grep '^uses-permission' | sort > "$RUNNER_TEMP/reference-permissions.txt" || true
-          test -s "$RUNNER_TEMP/manager65-permissions.txt" && test -s "$RUNNER_TEMP/reference-permissions.txt"
-          diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/manager65-permissions.txt"
-          python3 tests/verify_synthetica60_apk.py "$APK" | tee "$OUT/static-checks.txt"
+          test -s "$RUNNER_TEMP/manager65-permissions.txt" || { echo "::error::built APK declares no permissions"; exit 1; }
+          test -s "$RUNNER_TEMP/reference-permissions.txt" || { echo "::error::reference APK unreadable"; exit 1; }
+          if ! diff -u "$RUNNER_TEMP/reference-permissions.txt" "$RUNNER_TEMP/manager65-permissions.txt"; then
+            echo "::error::permission set differs from the 2.0 reference"; exit 1
+          fi
+          step "static DEX gates"
+          python3 tests/verify_synthetica60_apk.py "$APK" 2>&1 | tee "$OUT/static-checks.txt" || {
+            grep -E "ValueError|Error|missing|stale" "$OUT/static-checks.txt" | head -5 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          }
+          step "signature"
           if "$TOOLS/apksigner" verify "$APK" > "$OUT/signature-check.txt" 2>&1; then
             echo '::error::Expected an unsigned build'; exit 1
           fi
-          grep -q 'DOES NOT VERIFY' "$OUT/signature-check.txt"
+          grep -q 'DOES NOT VERIFY' "$OUT/signature-check.txt" || { echo "::error::unexpected signature state"; cat "$OUT/signature-check.txt"; exit 1; }
           sha=$(sha256sum "$APK" | cut -d' ' -f1)
           echo "$sha" > "$OUT/SHA256.txt"
           echo "::notice title=Unsigned Manager 6.5.0 SHA256::$sha"
