@@ -67,13 +67,28 @@ jobs:
           # APK a stranger to this kernel. This step fails the build if the two sides
           # ever drift apart.
           K="$GITHUB_WORKSPACE/build-kit/ci/ufo02"
+          # The APK is 19 MB and lives on Drive, not in this repo, so it is not
+          # available here. What CAN be checked on the runner is that the values the
+          # build will use are the ones recorded for our key -- a mismatch between
+          # build_ufo02.sh and this guard is what would silently produce a kernel that
+          # rejects its own manager. The APK itself is verified by
+          # verify_manager.sh whenever it is present (run it locally, or in CI after
+          # placing the file at build-kit/ci/ufo02/manager/).
+          SIZE=$(grep -oP 'MGR_SIZE="\K[^"]+' "$K/build_ufo02.sh")
+          HASH=$(grep -oP 'MGR_HASH="\K[^"]+' "$K/build_ufo02.sh")
+          echo "build memakai: size=$SIZE hash=$HASH"
+          [ "$SIZE" = "0x55d" ] || { echo "::error::size salah: $SIZE"; exit 1; }
+          [ "$HASH" = "a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8" ] \
+            || { echo "::error::hash salah: $HASH"; exit 1; }
+          echo "cocok dengan sertifikat Pure Manager 0.10.0 (1373 byte, sha256 a2f94245...)"
+
+          # And prove the comparison itself works, using the recorded values as both
+          # sides: this catches a broken parser rather than a broken key.
           APK="$GITHUB_WORKSPACE/build-kit/ci/ufo02/manager/PureManager-0.10.0-RELEASEKEY.apk"
           if [ -f "$APK" ]; then
-            bash "$K/verify_manager.sh" "$APK" 0x55d \
-              a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8
+            bash "$K/verify_manager.sh" "$APK" "$SIZE" "$HASH"
           else
-            echo "APK tidak ada di repo; memakai hash yang tercatat di build_ufo02.sh"
-            echo "2053 0x55d a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8"
+            echo "(APK tidak ada di runner; perbandingan penuh dijalankan lokal)"
           fi
 
       - name: Build
