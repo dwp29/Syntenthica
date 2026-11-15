@@ -1,0 +1,166 @@
+name: UFO-0.2 - 4.14.357 + Synthetica 3.2 + manager hash
+
+# Dibangun di atas 4.14.357 (bukan 4.14.344) karena:
+#   - pohon 357 sudah membawa SuSFS v2.3.0, KernelSU-Next dan NoMount v2.0.0;
+#   - enam patch asli Synthetica menempel BERSIH di 357, sementara patch gabungan
+#     344 gagal di 13 dari 67 berkas ketika dicoba di sana;
+#   - 357 membawa perbaikan kernel nyata (kgsl UAF, KCAL, addon.d hiding).
+
+on:
+  push:
+    tags: ['ufo-v2-*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v4
+
+      - name: Install the toolchain the 3.2 builds used
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            clang-18 lld-18 llvm-18 libclang-18-dev gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi bc flex bison libssl-dev libelf-dev \
+            device-tree-compiler cpio lz4 xz-utils python3 patch openssl zip \
+            rsync git curl binutils kmod
+          sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-18 100 || true
+          for t in clang clang++ llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-strip; do
+            if ! command -v "$t" >/dev/null 2>&1; then
+              sudo update-alternatives --install "/usr/bin/$t" "$t" "/usr/bin/$t-18" 100 || true
+            fi
+          done
+          clang --version | head -1
+          aarch64-linux-gnu-gcc --version | head -1
+
+      - name: Clone the 4.14.357 tree that already carries SuSFS and KernelSU
+        run: |
+          set -euo pipefail
+          # This branch is the one Synthetica 3.2 was built from, and the one whose
+          # defconfig already enables SuSFS, KernelSU-Next and NoMount. Cloning it
+          # means SuSFS is NOT re-planted over itself -- that is exactly what made the
+          # 344 combined patch fail in 30 files here.
+          git clone -q --depth 1 -b a \
+            https://github.com/Saamitk/kernel_xiaomi_sm6250-switchoff "$RUNNER_TEMP/ufo"
+          cd "$RUNNER_TEMP/ufo"
+          echo "kernel: $(grep -E '^SUBLEVEL' Makefile)"
+          echo "SuSFS : $(grep -m1 'define SUSFS_VERSION' include/linux/susfs.h)"
+          test -f fs/nomount/nomount.c && echo "NoMount: ada"
+          test -d drivers/kernelsu && echo "KernelSU: ada"
+
+      - name: Plant the six Synthetica patches, in order
+        run: |
+          set -euo pipefail
+          K="$GITHUB_WORKSPACE/build-kit/ci/ufo02"
+          bash "$K/apply_synthetica357.sh" "$RUNNER_TEMP/ufo" "$K/patches" \
+            | tee "$RUNNER_TEMP/plant.txt"
+
+      - name: Prove the manager APK will be recognised
+        run: |
+          set -euo pipefail
+          # The kernel matches a manager by certificate length + sha256, not by
+          # package name. Building with the default 998-byte hash would make our own
+          # APK a stranger to this kernel. This step fails the build if the two sides
+          # ever drift apart.
+          K="$GITHUB_WORKSPACE/build-kit/ci/ufo02"
+          APK="$GITHUB_WORKSPACE/build-kit/ci/ufo02/manager/PureManager-0.10.0-RELEASEKEY.apk"
+          if [ -f "$APK" ]; then
+            bash "$K/verify_manager.sh" "$APK" 0x55d \
+              a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8
+          else
+            echo "APK tidak ada di repo; memakai hash yang tercatat di build_ufo02.sh"
+            echo "2053 0x55d a2f942452eec1cd8763e6cf33b9937c1a99b3849c62773a73bf444776743f2d8"
+          fi
+
+      - name: Build
+        run: |
+          set +e
+          K="$GITHUB_WORKSPACE/build-kit/ci/ufo02"
+          LOG="$RUNNER_TEMP/build.log"
+          bash "$K/build_ufo02.sh" "$RUNNER_TEMP/ufo" "$RUNNER_TEMP/ufo/out" > "$LOG" 2>&1
+          RC=$?
+          echo "exit=$RC" >> "$LOG"
+          tail -40 "$LOG"
+          if [ "$RC" -ne 0 ] || [ ! -f "$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz" ]; then
+            echo "::error::build gagal (exit $RC)"
+            grep -nE "error:|Error [0-9]" "$LOG" | head -20
+            exit 1
+          fi
+          ls -l "$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
+
+      - name: Prove the features are reachable, not merely present
+        if: always()
+        run: |
+          set +e
+          IMG="$RUNNER_TEMP/ufo/out/arch/arm64/boot/Image.gz"
+          SM="$RUNNER_TEMP/ufo/out/System.map"
+          if [ ! -f "$IMG" ]; then
+            echo "Image tidak ada; langkah build sudah gagal."
+            exit 0
+          fi
+          if [ ! -f "$SM" ]; then
+            echo "::error::System.map tidak ada, fitur tidak bisa dibuktikan"
+            exit 1
+          fi
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/prove_features.py" "$IMG" "$SM"
+          RC=$?
+          echo "prove_features rc=$RC"
+          exit $RC
+
+      - name: Collect the evidence
+        if: success()
+        run: |
+          set +e
+          OUT="$RUNNER_TEMP/evidence"
+          EF="$GITHUB_WORKSPACE/.ufo-evidence"
+          mkdir -p "$OUT" "$EF"
+          cd "$RUNNER_TEMP/ufo"
+          cp out/System.map "$OUT/" 2>/dev/null
+          cp out/.config "$OUT/config.final" 2>/dev/null
+          cp "$RUNNER_TEMP/plant.txt" "$OUT/" 2>/dev/null
+          cp "$RUNNER_TEMP/build.log" "$OUT/build-full.log" 2>/dev/null
+          python3 "$GITHUB_WORKSPACE/build-kit/ci/ufo01/prove_features.py" \
+            out/arch/arm64/boot/Image.gz out/System.map > "$OUT/PROOF.txt" 2>&1
+          python3 - <<'PY' > "$OUT/CONFIG.txt" 2>&1
+          import pathlib
+          cfg = pathlib.Path("out/.config")
+          if not cfg.exists():
+              print("config tidak ada"); raise SystemExit
+          keep = ("LRU_GEN", "UCLAMP", "SCHED_WALT", "SCHED_TUNE", "KSU", "NOMOUNT", "SUSFS")
+          rows = [l.strip() for l in cfg.read_text(errors="replace").splitlines()
+                  if l.startswith("CONFIG_") and any(k in l for k in keep)]
+          print(f"{len(rows)} baris relevan")
+          print()
+          print("\n".join(rows))
+          PY
+          for f in System.map config.final CONFIG.txt PROOF.txt plant.txt build-full.log; do
+            cp "$OUT/$f" "$EF/" 2>/dev/null
+          done
+          cat "$OUT/PROOF.txt"
+
+      - name: Publish the evidence
+        if: always()
+        run: |
+          set +e
+          cd "$GITHUB_WORKSPACE"
+          if [ ! -d .ufo-evidence ]; then echo "tidak ada bukti"; exit 0; fi
+          git config user.name "ufo-bot"
+          git config user.email "ufo@localhost"
+          git checkout -q -B ufo02-evidence
+          git add -f .ufo-evidence
+          git commit -q -m "ufo-02: build log and proof ($GITHUB_SHA)"
+          git push -q --force origin ufo02-evidence
+
+      - name: Keep the image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ufo-02-image
+          path: |
+            ${{ runner.temp }}/ufo/out/arch/arm64/boot/Image.gz
+          if-no-files-found: warn
+          retention-days: 14
