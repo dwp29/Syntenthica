@@ -1,0 +1,13 @@
+{
+  "manager_certificate": {
+    "sha256": "0e978241a60e99972e8401b82d91300ea8bfd9bca65796e9f4107c50fe4b1dac",
+    "size": 1363,
+    "blocks": [
+      "0x7109871a",
+      "0xf05368c0"
+    ],
+    "source": "pin, APK not present"
+  },
+  "package": "net.ember.labs.standalone",
+  "status": "PURE_NOZ_0_1_COMPILED_NOT_DEVICE_VALIDATED"
+}

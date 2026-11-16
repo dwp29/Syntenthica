@@ -1,0 +1,5 @@
+clang: Neutron clang version 24.0.0git (https://github.com/llvm/llvm-project.git f42c87ba2c70219b1f4ad1f031a5b6a1ea6603fb)
+gcc  : gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+ld   : Neutron LLD 24.0.0 (https://github.com/llvm/llvm-project.git f42c87ba2c70219b1f4ad1f031a5b6a1ea6603fb) (compatible with GNU linkers)
+which clang: /home/runner/work/_temp/neutron/bin/clang
+which gcc  : /usr/bin/gcc
