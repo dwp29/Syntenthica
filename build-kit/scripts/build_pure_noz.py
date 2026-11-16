@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -48,7 +49,7 @@ TREE = {
                     '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'),
 }
 PATCH = CI / '0001-pure-noz-0.1.patch'
-PATCH_SHA256 = 'c62a9f12a413b3e73f54d4ec89ca642d92abd6400ebaa41157174fdaa4c18eb6'
+PATCH_SHA256 = '7d285a06dccfbb2693a69812b6d5cf81802692d5d1c2a2711587060597d27cb1'
 
 RELEASE = '4.14.357-openela-pure-noz-0.1'
 LOCALVERSION = '"-pure-noz-0.1"'
@@ -199,6 +200,10 @@ def check_source(tree: Path) -> dict[str, object]:
         problems.append('defconfig lacks the pure-noz LOCALVERSION')
     if 'kinesis-omega-bpf' in text:
         problems.append('the upstream kinesis branding is still in the defconfig')
+    for rel in ('KernelSU-Next/kernel/manager/apk_sign.c',):
+        text = (tree / rel).read_text(encoding='utf-8')
+        if re.search(r'^#define\s+\w+\s+\d+\s+#', text, re.M):
+            problems.append(f'{rel} has a define whose value carries a trailing # comment')
     if problems:
         fail('; '.join(problems))
     return {'patch_sha256': PATCH_SHA256, 'markers': len(REQUIRED_SOURCE_MARKERS)}

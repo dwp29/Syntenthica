@@ -18,17 +18,19 @@ diff -ruN --no-dereference A/KernelSU-Next/kernel/Kbuild B/KernelSU-Next/kernel/
  ifdef KSU_MANAGER_PACKAGE
 diff -ruN --no-dereference A/KernelSU-Next/kernel/manager/apk_sign.c B/KernelSU-Next/kernel/manager/apk_sign.c
 --- A/KernelSU-Next/kernel/manager/apk_sign.c	2026-10-02 03:51:20.000000000 +0000
-+++ B/KernelSU-Next/kernel/manager/apk_sign.c	2026-11-16 02:58:12.627440491 +0000
-@@ -117,7 +117,7 @@
++++ B/KernelSU-Next/kernel/manager/apk_sign.c	2026-11-16 04:55:05.590862126 +0000
+@@ -117,7 +117,9 @@
  	if (certificate_size > INT_MAX || certificate_size > (u64)(certificates_end - *pos))
  		return false;
  
 -#define CERT_MAX_LENGTH 1024
-+#define CERT_MAX_LENGTH 2048 # pure-noz: manager cert is 0x553 bytes
++/* pure-noz-0.1: the 6.5.1 Manager certificate is 0x553 (1363) bytes. At the
++ * upstream 1024 every signature check became dead code. */
++#define CERT_MAX_LENGTH 2048
  	if (certificate_size != expected_size)
  		return false;
  
-@@ -315,8 +315,14 @@
+@@ -315,8 +317,14 @@
  clean:
  	filp_close(fp, 0);
  
