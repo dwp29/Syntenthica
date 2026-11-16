@@ -47,9 +47,44 @@ diff -ruN --no-dereference A/KernelSU-Next/kernel/manager/apk_sign.c B/KernelSU-
  		return false;
  	}
  
+diff -ruN --no-dereference A/KernelSU-Next/kernel/supercall/supercall.c B/KernelSU-Next/kernel/supercall/supercall.c
+--- A/KernelSU-Next/kernel/supercall/supercall.c	2026-10-02 03:51:20.000000000 +0000
++++ B/KernelSU-Next/kernel/supercall/supercall.c	2026-11-16 05:19:08.634150780 +0000
+@@ -153,12 +153,9 @@
+             return 0;
+         }
+ #endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+-#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+-        if (cmd == CMD_SUSFS_ADD_TRY_UMOUNT) {
+-            susfs_add_try_umount(arg);
+-            return 0;
+-        }
+-#endif //#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
++        /* pure-noz-0.1: SuSFS v2.3.0 dropped susfs_add_try_umount(). KSU owns the
++         * umount list now (KSU_IOCTL_ADD_TRY_UMOUNT + ksu_handle_umount), so this
++         * deprecated supercall is deliberately left unwired. */
+ #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+         if (cmd == CMD_SUSFS_SET_UNAME) {
+             susfs_set_uname(arg);
+@@ -189,12 +186,9 @@
+             return 0;
+         }
+ #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
+-#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
+-        if (cmd == CMD_SUSFS_ADD_SUS_MEMFD) {
+-            return susfs_add_sus_memfd(arg);
+-			return 0;
+-        }
+-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
++        /* pure-noz-0.1: SuSFS v2.3.0 does not export susfs_add_sus_memfd()
++         * either, so CMD_SUSFS_ADD_SUS_MEMFD stays unhandled and the Kconfig
++         * option KSU_SUSFS_SUS_MEMFD stays off. */
+         if (cmd == CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING) {
+             susfs_set_avc_log_spoofing(arg);
+             return 0;
 diff -ruN --no-dereference A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig B/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig
 --- A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig	2026-05-27 23:56:43.000000000 +0000
-+++ B/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig	2026-11-16 04:39:10.594038548 +0000
++++ B/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig	2026-11-16 05:18:42.562019084 +0000
 @@ -1,5 +1,5 @@
  # CONFIG_ZONE_DMA is not set
 -CONFIG_LOCALVERSION="-kinesis-omega-bpf"
@@ -74,7 +109,7 @@ diff -ruN --no-dereference A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig 
  CONFIG_SECURITY=y
  CONFIG_SECURITY_NETWORK=y
  CONFIG_HARDENED_USERCOPY=y
-@@ -731,6 +730,59 @@
+@@ -731,6 +730,62 @@
  CONFIG_ZRAM_ENTROPY=y
  CONFIG_ZRAM_ENTROPY_THRESHOLD=100000
  CONFIG_OPLUS_MM_HACKS=y
@@ -94,7 +129,10 @@ diff -ruN --no-dereference A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig 
 +CONFIG_KSU_SUSFS_SUS_PATH=y
 +CONFIG_KSU_SUSFS_SUS_MOUNT=y
 +CONFIG_KSU_SUSFS_SUS_KSTAT=y
-+CONFIG_KSU_SUSFS_TRY_UMOUNT=y
++# The SuSFS v2.3.0 tree here removed susfs_try_umount() (CMD_SUSFS_ADD_TRY_UMOUNT is
++# marked deprecated), but KSU-Next still routes setresuid through it. Leaving this on
++# both breaks the build and silently drops module unmounting, so KSU's own path runs.
++# CONFIG_KSU_SUSFS_TRY_UMOUNT is not set
 +CONFIG_KSU_SUSFS_SPOOF_UNAME=y
 +CONFIG_KSU_SUSFS_ENABLE_LOG=y
 +CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y

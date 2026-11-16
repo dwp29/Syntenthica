@@ -49,7 +49,7 @@ TREE = {
                     '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'),
 }
 PATCH = CI / '0001-pure-noz-0.1.patch'
-PATCH_SHA256 = '7d285a06dccfbb2693a69812b6d5cf81802692d5d1c2a2711587060597d27cb1'
+PATCH_SHA256 = 'fd1ebebc9148e398e172753ae80b9ba4c783cf7f5aed0fc89882e2d0baadfa35'
 
 RELEASE = '4.14.357-openela-pure-noz-0.1'
 LOCALVERSION = '"-pure-noz-0.1"'
@@ -204,6 +204,25 @@ def check_source(tree: Path) -> dict[str, object]:
         text = (tree / rel).read_text(encoding='utf-8')
         if re.search(r'^#define\s+\w+\s+\d+\s+#', text, re.M):
             problems.append(f'{rel} has a define whose value carries a trailing # comment')
+
+    # KernelSU-Next is written against a newer SuSFS than the one shipped here.
+    # Any susfs_*() it calls that the provider does not define is a compile error.
+    called = set()
+    for path in list(tree.glob('KernelSU-Next/kernel/**/*.c')) + list(tree.glob('KernelSU-Next/kernel/**/*.h')):
+        body = re.sub(r'/\*.*?\*/', '', path.read_text(encoding='utf-8', errors='ignore'), flags=re.S)
+        body = re.sub(r'//[^\n]*', '', body)
+        called |= set(re.findall(r'\b(susfs_[a-z0-9_]+)\s*\(', body))
+    provided = set()
+    for rel in ('fs/susfs.c', 'fs/namespace.c', 'include/linux/susfs.h',
+                'include/linux/susfs_def.h', 'KernelSU-Next/kernel/selinux/selinux.c',
+                'KernelSU-Next/kernel/selinux/selinux.h',
+                'KernelSU-Next/kernel/feature/kernel_umount.c',
+                'KernelSU-Next/kernel/hook/setuid_hook.c'):
+        path = tree / rel
+        if path.exists():
+            provided |= set(re.findall(r'\b(susfs_[a-z0-9_]+)\b', path.read_text(encoding='utf-8', errors='ignore')))
+    for name in sorted(called - provided):
+        problems.append(f'KernelSU-Next calls {name}() but nothing in this tree defines it')
     if problems:
         fail('; '.join(problems))
     return {'patch_sha256': PATCH_SHA256, 'markers': len(REQUIRED_SOURCE_MARKERS)}
