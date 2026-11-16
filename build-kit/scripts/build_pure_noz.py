@@ -49,7 +49,7 @@ TREE = {
                     '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'),
 }
 PATCH = CI / '0001-pure-noz-0.1.patch'
-PATCH_SHA256 = 'fd1ebebc9148e398e172753ae80b9ba4c783cf7f5aed0fc89882e2d0baadfa35'
+PATCH_SHA256 = '2306602073e7ce43d4d4fbe0c015b5a5d5d06cf1887124320918e151dad743e0'
 
 RELEASE = '4.14.357-openela-pure-noz-0.1'
 LOCALVERSION = '"-pure-noz-0.1"'
@@ -89,6 +89,7 @@ REQUIRED_OFF = [
 # SuSFS/NoMount/Manager strings the image must actually contain.
 REQUIRED_SOURCE_MARKERS = {
     'fs/susfs.c': ['SUSFS_VERSION', 'susfs_spoof_uname'],
+    'fs/namespace.c': ['int path_umount(struct path *path, int flags)', 'static int can_umount'],
     'include/linux/susfs.h': ['SUSFS_VARIANT'],
     'fs/nomount/nomount.c': ['nomount'],
     'KernelSU-Next/kernel/manager/apk_sign.c': ['CERT_MAX_LENGTH 2048'],

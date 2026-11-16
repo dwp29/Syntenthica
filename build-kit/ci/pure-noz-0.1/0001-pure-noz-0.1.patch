@@ -333,6 +333,17 @@ diff -ruN --no-dereference A/fs/fuse/dev.c B/fs/fuse/dev.c
  		printk(KERN_WARNING "fuse: trying to steal weird page\n");
  		printk(KERN_WARNING "  page=%p index=%li flags=%08lx, count=%i, mapcount=%i, mapping=%p\n", page, page->index, page->flags, page_count(page), page_mapcount(page), page->mapping);
  		return 1;
+diff -ruN --no-dereference A/fs/internal.h B/fs/internal.h
+--- A/fs/internal.h	2026-05-27 23:56:43.000000000 +0000
++++ B/fs/internal.h	2026-11-16 07:09:03.889989902 +0000
+@@ -67,6 +67,7 @@
+ 
+ extern int sb_prepare_remount_readonly(struct super_block *);
+ 
++int path_umount(struct path *path, int flags);
+ extern void __init mnt_init(void);
+ 
+ extern int __mnt_want_write(struct vfsmount *);
 diff -ruN --no-dereference A/fs/namei.c B/fs/namei.c
 --- A/fs/namei.c	2026-05-27 23:56:43.000000000 +0000
 +++ B/fs/namei.c	2026-11-16 02:58:02.395388810 +0000
@@ -823,7 +834,7 @@ diff -ruN --no-dereference A/fs/namei.c B/fs/namei.c
  			return -EINVAL;
 diff -ruN --no-dereference A/fs/namespace.c B/fs/namespace.c
 --- A/fs/namespace.c	2026-05-27 23:56:43.000000000 +0000
-+++ B/fs/namespace.c	2026-11-16 02:58:02.399388831 +0000
++++ B/fs/namespace.c	2026-11-16 07:09:03.881989861 +0000
 @@ -26,10 +26,21 @@
  #include <linux/bootmem.h>
  #include <linux/task_work.h>
@@ -1117,7 +1128,52 @@ diff -ruN --no-dereference A/fs/namespace.c B/fs/namespace.c
  	/* Don't allow unprivileged users to change mount flags */
  	if (flag & CL_UNPRIVILEGED) {
  		mnt->mnt.mnt_flags |= MNT_LOCK_ATIME;
-@@ -3026,6 +3244,9 @@
+@@ -1792,6 +2010,44 @@
+ 
+ #endif
+ 
++/*
++ * pure-noz-0.1: KernelSU-Next's Kbuild injects these two helpers with sed when
++ * it builds, but that only happens while drivers/kernelsu is being read, which
++ * is after fs/namespace.o already compiled. The symbol then fails to link.
++ * Put them in the tree instead, mirroring the upstream Kbuild text.
++ */
++static int can_umount(const struct path *path, int flags)
++{
++	struct mount *mnt = real_mount(path->mnt);
++
++	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
++		return -EINVAL;
++	if (!may_mount())
++		return -EPERM;
++	if (path->dentry != path->mnt->mnt_root)
++		return -EINVAL;
++	if (!check_mnt(mnt))
++		return -EINVAL;
++	if (mnt->mnt.mnt_flags & MNT_LOCKED)
++		return -EINVAL;
++	if ((flags & MNT_FORCE) && !capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	return 0;
++}
++
++int path_umount(struct path *path, int flags)
++{
++	struct mount *mnt = real_mount(path->mnt);
++	int ret;
++
++	ret = can_umount(path, flags);
++	if (!ret)
++		ret = do_umount(mnt, flags);
++	dput(path->dentry);
++	mntput_no_expire(mnt);
++	return ret;
++}
++
+ static bool is_mnt_ns_file(struct dentry *dentry)
+ {
+ 	/* Is this a proxy for a mount namespace? */
+@@ -3026,6 +3282,9 @@
  	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
  	if (user_ns != ns->user_ns)
  		copy_flags |= CL_SHARED_TO_SLAVE | CL_UNPRIVILEGED;
@@ -1127,7 +1183,7 @@ diff -ruN --no-dereference A/fs/namespace.c B/fs/namespace.c
  	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
  	if (IS_ERR(new)) {
  		namespace_unlock();
-@@ -3602,3 +3823,43 @@
+@@ -3602,3 +3861,43 @@
  	.install	= mntns_install,
  	.owner		= mntns_owner,
  };
