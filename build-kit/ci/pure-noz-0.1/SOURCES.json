@@ -1,0 +1,82 @@
+{
+  "kernel": {
+    "repository": "AzyrRuthless/kernel_xiaomi_sm6250",
+    "branch": "16",
+    "commit": "4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183",
+    "commit_subject": "miatoll_defconfig: reflect changes",
+    "commit_date": "2025-10-27T06:41:18Z",
+    "kernel_version": "4.14.357-openela",
+    "archive_url": "https://codeload.github.com/AzyrRuthless/kernel_xiaomi_sm6250/tar.gz/4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183",
+    "archive_sha256": "ff4ae4a0cb911151b7f1bff729924724cf5650cd6f3f7b35031631a6107c9928",
+    "defconfig": "arch/arm64/configs/vendor/xiaomi/miatoll_defconfig",
+    "identity_note": "Tree branding says -kinesis-omega-bpf; pure-noz rewrites CONFIG_LOCALVERSION."
+  },
+  "root_stack": {
+    "repository": "sidex15/KernelSU-Next",
+    "branch": "legacy-susfs-v2",
+    "commit_short": "d999a2aff115",
+    "uapi": 4,
+    "vendored_from": "Saamitk/Kinesis@16 (byte-identical copy, no local edits before pure-noz)",
+    "why": "Upstream KernelSU-Next has no SuSFS and no 4.14 manual-hook path. This fork has CONFIG_KSU_SUSFS_* and CONFIG_KSU_MANUAL_HOOK call sites, and builds with kprobes off.",
+    "path": "vendor/pure-noz-0.1/KernelSU-Next",
+    "kernel_dir_symlink": "drivers/kernelsu -> ../KernelSU-Next/kernel"
+  },
+  "susfs": {
+    "version": "2.3.0",
+    "variant": "NON-GKI",
+    "upstream": "simonpunk/susfs4ksu (official support stops at 1.5.1)",
+    "patch": "root-integration-core.patch (already contains the SuSFS hunks)",
+    "standalone_patch": "susfs_patch_to_4.14.patch kept for audit only, NOT applied by the build",
+    "reason": "Applying the standalone SuSFS patch after root-integration-core duplicates hunks; the core patch is the authoritative one."
+  },
+  "nomount": {
+    "repository": "maxsteeel/nomount",
+    "version": "2.0.0",
+    "tag_object": "b8d268353b4e7ecc53c67d1816a626b7d6579201",
+    "builtin": true,
+    "why_builtin": "4.14 cannot load the release's prebuilt LKMs",
+    "path": "vendor/pure-noz-0.1/nomount"
+  },
+  "feature_layer": {
+    "from": "Synthetica 3.2 (build-kit/ci/synthetica2-experimental/patches)",
+    "patches": [
+      "0001-mglru-4.14.patch",
+      "0002-uclamp-walt-stune.patch",
+      "0003-uclamp-correctness.patch",
+      "0004-mglru-anon-file.patch",
+      "0005-mglru-pagewalk-caf.patch",
+      "0006-neutron-enum-cast.patch"
+    ],
+    "status": "all six apply to the Azyr tree with zero rejects (verified before this build)"
+  },
+  "manager": {
+    "apk": "Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk",
+    "package": "net.ember.labs.standalone",
+    "uapi": 4,
+    "certificate_der_sha256": "0e978241a60e99972e8401b82d91300ea8bfd9bca65796e9f4107c50fe4b1dac",
+    "certificate_size": "0x553",
+    "signing_block": "v2 (0x7109871a) + v3 (0xf05368c0), no v3.1",
+    "required_changes": [
+      "CERT_MAX_LENGTH 1024 -> 2048 (cert is 1363 bytes; 1024 made every check dead code)",
+      "accept the v3 block instead of rejecting it (upstream returns false and the Manager is never recognised)",
+      "KSU_NEXT_MANAGER_SIZE/HASH pinned to this APK"
+    ]
+  },
+  "toolchain": {
+    "archive_url": "https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst",
+    "archive_bytes": 77768187,
+    "archive_sha256": "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30",
+    "note": "Same pinned Neutron clang the 3.1/3.2 builds used. LLVM_IAS=1, no gcc in the kernel build."
+  },
+  "anykernel3": {
+    "repository": "AzyrRuthless/AnyKernel3",
+    "commit": "a6ea6591bebed2c3c82a7bf03b2004c65849fbc8",
+    "devices": ["miatoll", "curtana", "excalibur", "gram", "joyeuse"]
+  },
+  "ksud": {
+    "source": "build-kit/ci/rollercoaster/anykernel/ksud",
+    "sha256": "52ba3da465459bfbac98dd25c53f8d31f93ee5a8ee89d84f67a28fe0d18cdef2",
+    "version": "3.4.0 (uapi: 4)",
+    "destination": "/data/adb/ksud"
+  }
+}

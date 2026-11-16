@@ -1,0 +1,240 @@
+name: "pure-noz-0.1 - Azyr 16 + root stack + Synthetica 3.2 features"
+
+on:
+  push:
+    branches: [arena/96cbd65a-synthentica]
+    paths:
+      - '.github/workflows/pure-noz-0.1-kernel.yml'
+      - 'build-kit/scripts/build_pure_noz.py'
+      - 'build-kit/ci/pure-noz-0.1/**'
+      - 'vendor/pure-noz-0.1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish the flashable zip to the pure-noz-output branch
+
+env:
+  SP_RELEASE: 4.14.357-openela-pure-noz-0.1
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install kernel build tools
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils zstd \
+            python3 patch openssl zip unzip rsync git curl binutils kmod
+
+      - name: Download and verify the pinned Neutron toolchain
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
+          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
+          test "$(stat -c %s "$archive")" = 77768187
+          mkdir "$RUNNER_TEMP/neutron"
+          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
+          echo "$RUNNER_TEMP/neutron/bin" >> "$GITHUB_PATH"
+
+      - name: Download the exact Azyr 16 tree
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/azyr.tar.gz" \
+            "https://codeload.github.com/AzyrRuthless/kernel_xiaomi_sm6250/tar.gz/4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183"
+          echo "ff4ae4a0cb911151b7f1bff729924724cf5650cd6f3f7b35031631a6107c9928  $RUNNER_TEMP/azyr.tar.gz" | sha256sum -c -
+
+      - name: Prove the Manager certificate pin matches the 6.5.1 APK
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_pure_noz.py pins | tee "$RUNNER_TEMP/pins.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          pins = json.loads((Path(os.environ['RUNNER_TEMP'])/'pins.json').read_text())
+          cert = pins['manager_certificate']
+          assert cert['sha256'] == '0e978241a60e99972e8401b82d91300ea8bfd9bca65796e9f4107c50fe4b1dac', cert
+          assert cert['size'] == 0x553, cert
+          assert '0xf05368c0' in cert['blocks'], cert
+          print('manager certificate matches 6.5.1, v3 block present')
+          PY
+
+      - name: Assemble pure-noz-0.1
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_pure_noz.py prepare \
+            --archive "$RUNNER_TEMP/azyr.tar.gz" --tree "$RUNNER_TEMP/tree"
+
+      - name: Resolve the defconfig and audit every pin
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/tree"
+          make -s ARCH=arm64 vendor/xiaomi/miatoll_defconfig >/dev/null
+          make -s ARCH=arm64 olddefconfig >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          python3 build-kit/scripts/build_pure_noz.py check-config --config "$RUNNER_TEMP/tree/.config"
+          cp "$RUNNER_TEMP/tree/.config" "$RUNNER_TEMP/generated.config.txt"
+
+      - name: Compile Image.gz
+        timeout-minutes: 110
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/tree"
+          MO=(O="$RUNNER_TEMP/tree/out" ARCH=arm64
+              CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
+              OBJDUMP=llvm-objdump READELF=llvm-readelf STRIP=llvm-strip
+              LLVM=1 LLVM_IAS=1
+              KCFLAGS="-Wno-error=implicit-int -Wno-error=strict-prototypes")
+          make "${MO[@]}" vendor/xiaomi/miatoll_defconfig >/dev/null
+          make "${MO[@]}" olddefconfig >/dev/null
+          if ! make -j"$(nproc)" "${MO[@]}" Image.gz 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+            python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          rows = (Path(os.environ['RUNNER_TEMP'])/'build.log').read_text(errors='replace').splitlines()
+          hits = [i for i, r in enumerate(rows)
+                  if re.search(r'error:|fatal error|undefined reference|\bFAIL\b|not found', r, re.I)]
+          picked = []
+          for i in hits[-12:]:
+              picked.extend(rows[max(0, i-1):min(len(rows), i+3)])
+          text = re.sub(r'https?://\S+', '<url>', '\n'.join(dict.fromkeys(picked or rows[-40:]))[-12000:])
+          for i in range(0, len(text), 1800):
+              part = text[i:i+1800].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=pure-noz compile diagnostic {i//1800+1}::{part}')
+          PY
+            exit 1
+          fi
+          ls -la "$RUNNER_TEMP/tree/out/arch/arm64/boot/Image.gz"
+
+      - name: Verify the image really carries the pure-noz identity and Manager pin
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_pure_noz.py check-image \
+            --image "$RUNNER_TEMP/tree/out/arch/arm64/boot/Image.gz"
+
+      - name: Package AnyKernel3 with ksud
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/result"; mkdir -p "$OUT"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/ak3.tar.gz" \
+            "https://codeload.github.com/AzyrRuthless/AnyKernel3/tar.gz/a6ea6591bebed2c3c82a7bf03b2004c65849fbc8"
+          mkdir "$RUNNER_TEMP/ak3"
+          tar -xzf "$RUNNER_TEMP/ak3.tar.gz" -C "$RUNNER_TEMP/ak3" --strip-components=1
+          cd "$RUNNER_TEMP/ak3"
+          rm -rf .github .gitignore
+          cp -f "$GITHUB_WORKSPACE/build-kit/ci/rollercoaster/anykernel/anykernel.sh" anykernel.sh
+          cp -f "$GITHUB_WORKSPACE/build-kit/ci/rollercoaster/anykernel/ksud" ksud
+          chmod 0755 ksud
+          cp "$RUNNER_TEMP/tree/out/arch/arm64/boot/Image.gz" Image.gz
+          sed -i "s|^kernel.string=.*|kernel.string=pure-noz 0.1 - Linux $SP_RELEASE - miatoll|" anykernel.sh
+          sed -i "s|^kernel.compiler=.*|kernel.compiler=Neutron clang (LLVM_IAS, no gcc)|" anykernel.sh
+          sed -i "s|^kernel.made=.*|kernel.made=pure-noz|" anykernel.sh
+          sed -i "s|^kernel.version=.*|kernel.version=pure-noz-0.1|" anykernel.sh
+          sed -i "s|^message.word=.*|message.word=pure-noz 0.1|" anykernel.sh
+          grep -q "Mencadangkan boot" anykernel.sh && { echo "automatic backup must not be present"; exit 1; }
+          test -s Image.gz
+          test -s ksud
+          grep -q "^kernel.version=pure-noz-0.1" anykernel.sh
+          zip -r9 "$OUT/pure-noz-0.1-miatoll.zip" . -x '*.git*' >/dev/null
+          unzip -l "$OUT/pure-noz-0.1-miatoll.zip" | tail -3
+
+      - name: Write checksums, provenance and the honest status
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/result"
+          cp "$RUNNER_TEMP/generated.config.txt" "$OUT/generated.config.txt"
+          cp "$RUNNER_TEMP/build.log" "$OUT/build.log" || true
+          cp "$RUNNER_TEMP/tree/out/arch/arm64/boot/Image.gz" "$OUT/Image.gz"
+          cp "$RUNNER_TEMP/pins.json" "$OUT/manager-pin.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ['RUNNER_TEMP'])/'result'
+          status = {
+              'kind': 'PURE_NOZ_0_1_COMPILED_NOT_DEVICE_VALIDATED',
+              'release': '4.14.357-openela-pure-noz-0.1',
+              'base': {'repository': 'AzyrRuthless/kernel_xiaomi_sm6250', 'branch': '16',
+                       'commit': '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'},
+              'root_stack': {'kernelsu_next': 'legacy-susfs-v2 @ d999a2aff115, UAPI 4, manual hook',
+                             'susfs': 'v2.3.0 NON-GKI', 'nomount': 'v2.0.0 built-in'},
+              'manager': {'apk': 'Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk',
+                          'package': 'net.ember.labs.standalone',
+                          'certificate_der_sha256': '0e978241a60e99972e8401b82d91300ea8bfd9bca65796e9f4107c50fe4b1dac',
+                          'certificate_size': '0x553',
+                          'changes': ['CERT_MAX_LENGTH 1024 -> 2048',
+                                      'accept the v3 block, keep v3.1 rejected',
+                                      'KSU_NEXT_MANAGER_SIZE/HASH pinned to this APK']},
+              'features': {'synthetica_3_2': 'MGLRU + uclamp (6 patches, zero rejects)',
+                           'ebpf': 'BPF_SYSCALL/BPF_JIT_ALWAYS_ON/BPF_EVENTS/UPROBES/UPROBE_EVENTS/CGROUP_BPF',
+                           'stability': 'BUG_ON_DATA_CORRUPTION and DEBUG_LIST off, FTRACE on'},
+              'checks': {'config_audit': 'build_pure_noz.py check-config',
+                         'image_identity': 'build_pure_noz.py check-image',
+                         'manager_certificate': 'read from the APK, byte-identical to the pin'},
+              'not_proven': ['physical boot on any device',
+                             'AVB / vbmeta compatibility with the ROM',
+                             'camera, modem and fingerprint under this kernel',
+                             'bootloader spoof (ro.boot.*) - that is userspace, not kernel'],
+              'provenance': {k: os.environ.get(k) for k in
+                             ('GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT')},
+          }
+          (out/'STATUS.json').write_text(json.dumps(status, indent=2)+'\n')
+          (out/'README-DO-NOT-FLASH-BLIND.txt').write_text(
+              'pure-noz-0.1 - compiled and audited, NOT device tested.\n'
+              'Back up boot and dtbo in recovery before flashing anything.\n'
+              'If the phone does not boot, restore that backup; this zip keeps no copy.\n'
+              'ro.boot.verifiedbootstate / ro.boot.flash.locked are NOT spoofed by the kernel.\n')
+          PY
+          cd "$OUT"
+          sha256sum pure-noz-0.1-miatoll.zip Image.gz generated.config.txt manager-pin.json STATUS.json \
+            > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+
+      - name: Upload the build (workflow artefact)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pure-noz-0.1-${{ github.run_id }}
+          path: ${{ runner.temp }}/result/
+
+      - name: Publish the zip to the pure-noz-output branch
+        if: success()
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/result"
+          cd "$OUT"
+          {
+            echo "# pure-noz-0.1"
+            echo
+            echo "Kernel: \`4.14.357-openela-pure-noz-0.1\` (base AzyrRuthless \`16\` @ \`4afc6f0769f0\`)"
+            echo "Built by run [$GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) from \`$GITHUB_SHA\`."
+            echo
+            echo "| file | sha256 |"
+            echo "|---|---|"
+            while read -r sum name; do echo "| \`$name\` | \`$sum\` |"; done < SHA256SUMS.txt
+            echo
+            echo "Compiled and audited only - never flashed on a device by this pipeline."
+            echo "The kernel does NOT spoof \`ro.boot.verifiedbootstate\`; that is userspace."
+          } > README.md
+          rm -rf publish
+          mkdir publish
+          cp -a . publish/
+          rm -rf publish/.git publish/publish
+          cd publish
+          git init -q
+          git config user.name "pure-noz CI"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -q -m "pure-noz-0.1 build $GITHUB_RUN_ID"
+          git push --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/pure-noz-output
