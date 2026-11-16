@@ -107,7 +107,8 @@ def verify_pins() -> None:
             fail(f'Manager certificate changed: {measured}')
     else:
         print(f'note: {MANAGER_APK.name} is not in this checkout; '
-              'the numeric pins below are used as-is (they were measured from it).', flush=True)
+              'the numeric pins below are used as-is (they were measured from it).',
+              file=sys.stderr, flush=True)
     for rel in ('KernelSU-Next/kernel/Kbuild', 'nomount/Kconfig'):
         if not (VENDOR / rel).is_file():
             fail(f'vendored source missing: {rel}')

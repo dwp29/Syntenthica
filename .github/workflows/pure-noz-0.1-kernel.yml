@@ -59,7 +59,7 @@ jobs:
       - name: Prove the Manager certificate pin matches the 6.5.1 APK
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/build_pure_noz.py pins | tee "$RUNNER_TEMP/pins.json"
+          python3 build-kit/scripts/build_pure_noz.py pins > "$RUNNER_TEMP/pins.json"
           python3 - <<'PY'
           import json, os
           from pathlib import Path
