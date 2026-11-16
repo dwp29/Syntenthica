@@ -4,6 +4,10 @@
 > `Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk`, 8 978 323 byte,
 > sha256 `ae483f7741869d53e56ffb0cf5b05cf023d2fedebf8e059c2ff2bd879947d46a`.
 >
+> **Google Drive:** https://drive.google.com/file/d/1rtQAzxns-mBJOZVgSt4yHbsyz1rtQOBU/view
+> (id `1rtQAzxns-mBJOZVgSt4yHbsyz1rtQOBU`, MD5 `d65cfd351ff4fbe97d66d5e049b20635`,
+> sudah dicocokkan dengan berkas lokal byte-per-byte).
+>
 > Ambil dengan git, bukan artefak CI (artefak selalu gagal diunduh dari sandbox):
 >
 > ```
