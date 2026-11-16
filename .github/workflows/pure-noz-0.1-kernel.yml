@@ -100,6 +100,10 @@ jobs:
           make "${MO[@]}" vendor/xiaomi/miatoll_defconfig >/dev/null
           make "${MO[@]}" olddefconfig >/dev/null
           if ! make -j"$(nproc)" "${MO[@]}" Image.gz 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+            # The job log cannot always be downloaded from this sandbox, so the
+            # diagnostics also go into a file that every later step can publish.
+            mkdir -p "$GITHUB_WORKSPACE/.pure-noz-diag"
+            cp "$RUNNER_TEMP/build.log" "$GITHUB_WORKSPACE/.pure-noz-diag/build.log" || true
             python3 - <<'PY'
           import os, re
           from pathlib import Path
@@ -201,11 +205,48 @@ jobs:
             > SHA256SUMS.txt
           sha256sum -c SHA256SUMS.txt
 
+      - name: Keep diagnostics even when the compile fails
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pure-noz-0.1-diagnostics-${{ github.run_id }}
+          path: |
+            .pure-noz-diag/
+            build-kit/scripts/build_pure_noz.py
+          if-no-files-found: ignore
+
       - name: Upload the build (workflow artefact)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pure-noz-0.1-${{ github.run_id }}
           path: ${{ runner.temp }}/result/
+
+      - name: Publish the compile log to a branch so it can be read without artefacts
+        if: failure()
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/diag"; rm -rf "$work"; mkdir -p "$work"
+          cp "$RUNNER_TEMP/build.log" "$work/build.log" 2>/dev/null || echo "no build log captured" > "$work/build.log"
+          cp "$RUNNER_TEMP/tree/.config" "$work/generated.config.txt" 2>/dev/null || true
+          cp "$RUNNER_TEMP/pins.json" "$work/manager-pin.json" 2>/dev/null || true
+          {
+            echo "# pure-noz-0.1 diagnostics"
+            echo
+            echo "run [$GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) from \`$GITHUB_SHA\` failed."
+            echo
+            echo "## first errors"
+            echo '```'
+            grep -nE "error:|fatal error|undefined reference|No rule to make" "$work/build.log" | head -40 || true
+            echo '```'
+          } > "$work/README.md"
+          cd "$work"
+          git init -q
+          git config user.name "pure-noz CI"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -q -m "diagnostics for run $GITHUB_RUN_ID"
+          git push --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/pure-noz-diagnostics
 
       - name: Publish the zip to the pure-noz-output branch
         if: success()
