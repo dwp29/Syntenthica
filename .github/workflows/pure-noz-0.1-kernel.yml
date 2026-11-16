@@ -92,13 +92,13 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/tree"
-          # CC=clang alone also drives HOSTCC, so the host tools got the target's
-          # -ffixed-x18/-mcpu flags and clang refused them for x86_64. Host tools
-          # are pinned to the plain host clang; target flags stay in KCFLAGS.
+          # HOSTCC must stay the runner's gcc. scripts/mod/empty.o is compiled
+          # with KBUILD_CFLAGS under HOSTCC, so a clang host compiler without an
+          # arm64 triple rejects -ffixed-x18/-mcpu. The 3.1/3.2 builds did the
+          # same: clang for the target, gcc for the host tools only.
           MO=(O="$RUNNER_TEMP/tree/out" ARCH=arm64
               CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
               OBJDUMP=llvm-objdump READELF=llvm-readelf STRIP=llvm-strip
-              HOSTCC=clang HOSTCXX=clang++ HOSTLD=ld.lld HOSTAR=llvm-ar
               LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu-
               KCFLAGS="-Wno-error=implicit-int -Wno-error=strict-prototypes")
           # 4.14 refuses "O=" when the source tree already carries config output,
