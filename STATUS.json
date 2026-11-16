@@ -1,0 +1,47 @@
+{
+  "kind": "PURE_NOZ_0_1_COMPILED_NOT_DEVICE_VALIDATED",
+  "release": "4.14.357-openela-pure-noz-0.1",
+  "base": {
+    "repository": "AzyrRuthless/kernel_xiaomi_sm6250",
+    "branch": "16",
+    "commit": "4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183"
+  },
+  "root_stack": {
+    "kernelsu_next": "legacy-susfs-v2 @ d999a2aff115, UAPI 4, manual hook",
+    "susfs": "v2.3.0 NON-GKI",
+    "nomount": "v2.0.0 built-in"
+  },
+  "manager": {
+    "apk": "Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk",
+    "package": "net.ember.labs.standalone",
+    "certificate_der_sha256": "0e978241a60e99972e8401b82d91300ea8bfd9bca65796e9f4107c50fe4b1dac",
+    "certificate_size": "0x553",
+    "changes": [
+      "CERT_MAX_LENGTH 1024 -> 2048",
+      "accept the v3 block, keep v3.1 rejected",
+      "KSU_NEXT_MANAGER_SIZE/HASH pinned to this APK"
+    ]
+  },
+  "features": {
+    "synthetica_3_2": "MGLRU + uclamp (6 patches, zero rejects)",
+    "ebpf": "BPF_SYSCALL/BPF_JIT_ALWAYS_ON/BPF_EVENTS/UPROBES/UPROBE_EVENTS/CGROUP_BPF",
+    "stability": "BUG_ON_DATA_CORRUPTION and DEBUG_LIST off, FTRACE on"
+  },
+  "checks": {
+    "config_audit": "build_pure_noz.py check-config",
+    "image_identity": "build_pure_noz.py check-image",
+    "manager_certificate": "read from the APK, byte-identical to the pin"
+  },
+  "not_proven": [
+    "physical boot on any device",
+    "AVB / vbmeta compatibility with the ROM",
+    "camera, modem and fingerprint under this kernel",
+    "bootloader spoof (ro.boot.*) - that is userspace, not kernel"
+  ],
+  "provenance": {
+    "GITHUB_REPOSITORY": "dwp29/Syntenthica",
+    "GITHUB_SHA": "b1fdd435bed4c55b28cfe2c191080f1d4e507e17",
+    "GITHUB_RUN_ID": "43835519028",
+    "GITHUB_RUN_ATTEMPT": "1"
+  }
+}
