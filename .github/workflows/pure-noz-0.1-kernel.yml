@@ -81,10 +81,13 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/tree"
-          make -s ARCH=arm64 vendor/xiaomi/miatoll_defconfig >/dev/null
-          make -s ARCH=arm64 olddefconfig >/dev/null
+          # Failures here used to die in >/dev/null, leaving the diagnostic branch
+          # with an empty error list. Keep the kconfig output on the record.
+          { make ARCH=arm64 vendor/xiaomi/miatoll_defconfig
+            make ARCH=arm64 olddefconfig; } 2>&1 | tee "$RUNNER_TEMP/kconfig.log"
           cd "$GITHUB_WORKSPACE"
-          python3 build-kit/scripts/build_pure_noz.py check-config --config "$RUNNER_TEMP/tree/.config"
+          python3 build-kit/scripts/build_pure_noz.py check-config --config "$RUNNER_TEMP/tree/.config" \
+            2>&1 | tee "$RUNNER_TEMP/config-audit.json"
           cp "$RUNNER_TEMP/tree/.config" "$RUNNER_TEMP/generated.config.txt"
 
       - name: Record the toolchain identities
@@ -246,9 +249,19 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/diag"; rm -rf "$work"; mkdir -p "$work"
-          cp "$RUNNER_TEMP/build.log" "$work/build.log" 2>/dev/null || echo "no build log captured" > "$work/build.log"
           cp "$RUNNER_TEMP/tree/.config" "$work/generated.config.txt" 2>/dev/null || true
           cp "$RUNNER_TEMP/pins.json" "$work/manager-pin.json" 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/build.log" ]; then
+            cp "$RUNNER_TEMP/build.log" "$work/build.log"
+          else
+            { echo "no build log captured (the job stopped before compiling)"
+              echo "--- config audit ---"
+              cat "$RUNNER_TEMP/config-audit.json" 2>/dev/null || true
+              echo "--- kconfig tail ---"
+              tail -40 "$RUNNER_TEMP/kconfig.log" 2>/dev/null || true
+            } > "$work/build.log"
+          fi
+          cp "$RUNNER_TEMP/kconfig.log" "$work/kconfig.log" 2>/dev/null || true
           {
             echo "# pure-noz-0.1 diagnostics"
             echo

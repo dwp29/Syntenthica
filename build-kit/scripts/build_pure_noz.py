@@ -66,7 +66,7 @@ MANAGER_APK = ROOT / 'release/6.5.1/Synthetica-Manager-6.5.1-standalone-DEBUG-SI
 REQUIRED_ON = [
     'KSU', 'KSU_MANUAL_HOOK', 'KSU_SUSFS',
     'KSU_SUSFS_SUS_PATH', 'KSU_SUSFS_SUS_MOUNT', 'KSU_SUSFS_SUS_KSTAT',
-    'KSU_SUSFS_TRY_UMOUNT', 'KSU_SUSFS_SPOOF_UNAME',
+    'KSU_SUSFS_SPOOF_UNAME',
     'KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS', 'KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG',
     'KSU_SUSFS_OPEN_REDIRECT', 'KSU_SUSFS_SUS_MAP',
     'NOMOUNT',
@@ -79,7 +79,12 @@ REQUIRED_ON = [
     # MGLRU on this tree needs a memcg-aware mm; Android relies on memcg anyway.
     'MEMCG', 'MEMCG_SWAP',
 ]
-REQUIRED_OFF = ['BUG_ON_DATA_CORRUPTION', 'MODULE_FORCE_LOAD', 'KSU_SUSFS_SUS_MEMFD']
+REQUIRED_OFF = [
+    'BUG_ON_DATA_CORRUPTION', 'MODULE_FORCE_LOAD', 'KSU_SUSFS_SUS_MEMFD',
+    # SuSFS v2.3.0 deleted susfs_try_umount(); leaving this on would skip
+    # ksu_handle_umount() and drop module unmounting altogether.
+    'KSU_SUSFS_TRY_UMOUNT',
+]
 
 # SuSFS/NoMount/Manager strings the image must actually contain.
 REQUIRED_SOURCE_MARKERS = {
