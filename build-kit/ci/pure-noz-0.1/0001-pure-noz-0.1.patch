@@ -47,7 +47,7 @@ diff -ruN --no-dereference A/KernelSU-Next/kernel/manager/apk_sign.c B/KernelSU-
  
 diff -ruN --no-dereference A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig B/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig
 --- A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig	2026-05-27 23:56:43.000000000 +0000
-+++ B/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig	2026-11-16 02:58:05.879406404 +0000
++++ B/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig	2026-11-16 04:39:10.594038548 +0000
 @@ -1,5 +1,5 @@
  # CONFIG_ZONE_DMA is not set
 -CONFIG_LOCALVERSION="-kinesis-omega-bpf"
@@ -72,7 +72,7 @@ diff -ruN --no-dereference A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig 
  CONFIG_SECURITY=y
  CONFIG_SECURITY_NETWORK=y
  CONFIG_HARDENED_USERCOPY=y
-@@ -731,6 +730,52 @@
+@@ -731,6 +730,59 @@
  CONFIG_ZRAM_ENTROPY=y
  CONFIG_ZRAM_ENTROPY_THRESHOLD=100000
  CONFIG_OPLUS_MM_HACKS=y
@@ -104,6 +104,13 @@ diff -ruN --no-dereference A/arch/arm64/configs/vendor/xiaomi/miatoll_defconfig 
 +# CONFIG_MODULE_FORCE_LOAD is not set
 +
 +# Synthetica 3.2 feature layer: MGLRU reclaim + uclamp on top of CASS/WALT
++# MGLRU stores gen/memcg/nid in the radix-tree shadow entry, and on this tree that
++# budget only fits when MEMCG is on (MEM_CGROUP_ID_SHIFT 16 is reserved either way,
++# but the 4.14 MGLRU patch set assumes a memcg-aware mm). Android spent a decade
++# relying on memcg for per-app memory pressure, so enabling it is the honest fix.
++CONFIG_MEMCG=y
++CONFIG_MEMCG_SWAP=y
++CONFIG_MEMCG_KMEM=y
 +CONFIG_LRU_GEN=y
 +CONFIG_LRU_GEN_ENABLED=y
 +CONFIG_UCLAMP_TASK=y

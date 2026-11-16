@@ -48,7 +48,7 @@ TREE = {
                     '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'),
 }
 PATCH = CI / '0001-pure-noz-0.1.patch'
-PATCH_SHA256 = '131ca99c4b92967de83d36d0084641ccb31b09d04170ec6a25922af6be6d9f32'
+PATCH_SHA256 = 'c62a9f12a413b3e73f54d4ec89ca642d92abd6400ebaa41157174fdaa4c18eb6'
 
 RELEASE = '4.14.357-openela-pure-noz-0.1'
 LOCALVERSION = '"-pure-noz-0.1"'
@@ -75,6 +75,8 @@ REQUIRED_ON = [
     'EROFS_FS', 'F2FS_FS', 'DM_VERITY', 'SECURITY_SELINUX',
     'SCHED_CASS', 'SCHED_TUNE', 'CPU_FREQ_GOV_SCHEDUTIL',
     'MQ_IOSCHED_DEADLINE', 'WQ_POWER_EFFICIENT_DEFAULT',
+    # MGLRU on this tree needs a memcg-aware mm; Android relies on memcg anyway.
+    'MEMCG', 'MEMCG_SWAP',
 ]
 REQUIRED_OFF = ['BUG_ON_DATA_CORRUPTION', 'MODULE_FORCE_LOAD', 'KSU_SUSFS_SUS_MEMFD']
 
