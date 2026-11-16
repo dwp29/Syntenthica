@@ -49,7 +49,7 @@ TREE = {
                     '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'),
 }
 PATCH = CI / '0001-pure-noz-0.1.patch'
-PATCH_SHA256 = '2306602073e7ce43d4d4fbe0c015b5a5d5d06cf1887124320918e151dad743e0'
+PATCH_SHA256 = '4b2ee1210c806e6a84684cb036107df7f32b7fd8edfde22e23d2a9f50838401a'
 
 RELEASE = '4.14.357-openela-pure-noz-0.1'
 LOCALVERSION = '"-pure-noz-0.1"'
@@ -90,6 +90,7 @@ REQUIRED_OFF = [
 REQUIRED_SOURCE_MARKERS = {
     'fs/susfs.c': ['SUSFS_VERSION', 'susfs_spoof_uname'],
     'fs/namespace.c': ['int path_umount(struct path *path, int flags)', 'static int can_umount'],
+    'scripts/setlocalversion': ['res="${res}${CONFIG_LOCALVERSION}"'],
     'include/linux/susfs.h': ['SUSFS_VARIANT'],
     'fs/nomount/nomount.c': ['nomount'],
     'KernelSU-Next/kernel/manager/apk_sign.c': ['CERT_MAX_LENGTH 2048'],
@@ -268,7 +269,11 @@ def check_image(image: Path) -> dict[str, object]:
         raw = gzip.decompress(raw)
     marker = f'Linux version {RELEASE} '.encode()
     if marker not in raw:
-        fail(f'the image does not carry {marker!r}')
+        found = re.findall(rb'Linux version (\S+)', raw)[:3]
+        fail(f'the image does not carry {marker!r}; saw {found}')
+    for stale in (b'-kinesis-omega-bpf', b'pure-noz-0.1-kinesis'):
+        if stale in raw:
+            fail(f'the image still carries the stale tag {stale!r}')
     # The Manager certificate digest is compiled into the driver as a string.
     if MANAGER_CERT_SHA256.encode() not in raw:
         fail('the Manager certificate digest is not in the image')

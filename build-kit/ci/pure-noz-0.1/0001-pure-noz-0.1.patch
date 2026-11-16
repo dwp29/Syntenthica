@@ -10907,6 +10907,21 @@ diff -ruN --no-dereference A/mm/workingset.c B/mm/workingset.c
  	unpack_shadow(shadow, &memcgid, &pgdat, &eviction, &workingset);
  
  	rcu_read_lock();
+diff -ruN --no-dereference A/scripts/setlocalversion B/scripts/setlocalversion
+--- A/scripts/setlocalversion	2026-05-27 23:56:43.000000000 +0000
++++ B/scripts/setlocalversion	2026-11-16 07:38:54.883035978 +0000
+@@ -145,7 +145,10 @@
+ fi
+ 
+ # CONFIG_LOCALVERSION and LOCALVERSION (if set)
+-res="${res}-kinesis-omega-bpf${LOCALVERSION}"
++# pure-noz-0.1: this tree dropped the usual LOCALVERSION plumbing from the top
++# Makefile and hardcoded -kinesis-omega-bpf here instead, which produced
++# 4.14.357-openela-pure-noz-0.1-kinesis-omega-bpf. Read the config directly.
++res="${res}${CONFIG_LOCALVERSION}"
+ 
+ # scm version string if not at a tagged commit
+ if test "$CONFIG_LOCALVERSION_AUTO" = "y"; then
 diff -ruN --no-dereference A/security/selinux/avc.c B/security/selinux/avc.c
 --- A/security/selinux/avc.c	2026-05-27 23:56:43.000000000 +0000
 +++ B/security/selinux/avc.c	2026-11-16 02:58:02.403388851 +0000
