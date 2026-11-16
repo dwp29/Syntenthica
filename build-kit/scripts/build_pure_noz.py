@@ -49,7 +49,7 @@ TREE = {
                     '4afc6f0769f0f3b2b10d50d3fa02f0ba7c89a183'),
 }
 PATCH = CI / '0001-pure-noz-0.1.patch'
-PATCH_SHA256 = '4b2ee1210c806e6a84684cb036107df7f32b7fd8edfde22e23d2a9f50838401a'
+PATCH_SHA256 = '63d3e62b02feb3da631b0aa063acc38eb9dc36b4aa98ea0af11051f25f98ae37'
 
 RELEASE = '4.14.357-openela-pure-noz-0.1'
 LOCALVERSION = '"-pure-noz-0.1"'
@@ -91,6 +91,7 @@ REQUIRED_SOURCE_MARKERS = {
     'fs/susfs.c': ['SUSFS_VERSION', 'susfs_spoof_uname'],
     'fs/namespace.c': ['int path_umount(struct path *path, int flags)', 'static int can_umount'],
     'scripts/setlocalversion': ['res="${res}${CONFIG_LOCALVERSION}"'],
+    'init/version.c': ['.release\t= UTS_RELEASE,'],
     'include/linux/susfs.h': ['SUSFS_VARIANT'],
     'fs/nomount/nomount.c': ['nomount'],
     'KernelSU-Next/kernel/manager/apk_sign.c': ['CERT_MAX_LENGTH 2048'],

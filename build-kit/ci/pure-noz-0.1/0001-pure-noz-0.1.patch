@@ -5868,6 +5868,20 @@ diff -ruN --no-dereference A/init/Kconfig B/init/Kconfig
  config CGROUP_PIDS
  	bool "PIDs controller"
  	help
+diff -ruN --no-dereference A/init/version.c B/init/version.c
+--- A/init/version.c	2026-05-27 23:56:43.000000000 +0000
++++ B/init/version.c	2026-11-16 08:39:30.701400063 +0000
+@@ -27,7 +27,9 @@
+ 	.name = {
+ 		.sysname	= UTS_SYSNAME,
+ 		.nodename	= UTS_NODENAME,
+-		.release	= "4.14.357-kinesis-omega-bpf",
++		/* pure-noz-0.1: was a hardcoded "4.14.357-kinesis-omega-bpf", which
++		 * made uname -r disagree with the UTS_RELEASE baked into the banner. */
++		.release	= UTS_RELEASE,
+ 		.version	= UTS_VERSION,
+ 		.machine	= UTS_MACHINE,
+ 		.domainname	= UTS_DOMAINNAME,
 diff -ruN --no-dereference A/kernel/bounds.c B/kernel/bounds.c
 --- A/kernel/bounds.c	2026-05-27 23:56:43.000000000 +0000
 +++ B/kernel/bounds.c	2026-11-16 02:58:08.179418024 +0000
