@@ -148,8 +148,24 @@ jobs:
       - name: Verify the image really carries the pure-noz identity and Manager pin
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/build_pure_noz.py check-image \
-            --image "$RUNNER_TEMP/tree/out/arch/arm64/boot/Image.gz"
+          IMG="$RUNNER_TEMP/tree/out/arch/arm64/boot/Image.gz"
+          ls -l "$IMG"
+          # Whatever this check decides has to end up on the diagnostic branch,
+          # otherwise a failure here leaves no trace at all.
+          mkdir -p .pure-noz-diag
+          set +e
+          python3 build-kit/scripts/build_pure_noz.py check-image --image "$IMG" \
+            2>&1 | tee .pure-noz-diag/check-image.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            { echo "--- image check failed (rc=$rc) ---"
+              cat .pure-noz-diag/check-image.txt
+              echo "--- strings that look like a release ---"
+              gzip -dc "$IMG" 2>/dev/null | strings -a | grep -m5 'Linux version' || true
+            } >> "$GITHUB_WORKSPACE/.pure-noz-diag/check-image.txt"
+            exit "$rc"
+          fi
 
       - name: Package AnyKernel3 with ksud
         run: |
@@ -262,6 +278,9 @@ jobs:
             } > "$work/build.log"
           fi
           cp "$RUNNER_TEMP/kconfig.log" "$work/kconfig.log" 2>/dev/null || true
+          if [ -d "$GITHUB_WORKSPACE/.pure-noz-diag" ]; then
+            cp -r "$GITHUB_WORKSPACE/.pure-noz-diag/." "$work/" 2>/dev/null || true
+          fi
           {
             echo "# pure-noz-0.1 diagnostics"
             echo
@@ -269,8 +288,16 @@ jobs:
             echo
             echo "## first errors"
             echo '```'
-            grep -nE "error:|fatal error|undefined reference|No rule to make" "$work/build.log" | head -40 || true
+            grep -nE "error:|fatal error|undefined reference|No rule to make|refused:" \
+              "$work/build.log" "$work/check-image.txt" 2>/dev/null | head -40 || true
             echo '```'
+            if [ -s "$work/check-image.txt" ]; then
+              echo
+              echo "## image check"
+              echo '```'
+              head -30 "$work/check-image.txt"
+              echo '```'
+            fi
           } > "$work/README.md"
           cd "$work"
           git init -q
