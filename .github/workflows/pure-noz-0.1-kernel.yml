@@ -99,7 +99,7 @@ jobs:
               CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy
               OBJDUMP=llvm-objdump READELF=llvm-readelf STRIP=llvm-strip
               HOSTCC=clang HOSTCXX=clang++ HOSTLD=ld.lld HOSTAR=llvm-ar
-              LLVM=1 LLVM_IAS=1
+              LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu-
               KCFLAGS="-Wno-error=implicit-int -Wno-error=strict-prototypes")
           # 4.14 refuses "O=" when the source tree already carries config output,
           # and the audit step above wrote .config here. Start from a clean tree.
