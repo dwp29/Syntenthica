@@ -1,5 +1,25 @@
 # Synthetica Manager 6.5.1 — yang bisa dipasang
 
+> **BERKASNYA SUDAH ADA (16 Nov).** Build `1c36b34`, run `43789901198`.
+> `Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk`, 8 978 323 byte,
+> sha256 `ae483f7741869d53e56ffb0cf5b05cf023d2fedebf8e059c2ff2bd879947d46a`.
+>
+> Ambil dengan git, bukan artefak CI (artefak selalu gagal diunduh dari sandbox):
+>
+> ```
+> git clone --depth 1 --branch build-output https://github.com/dwp29/Syntenthica.git
+> ```
+>
+> Diperiksa dari berkasnya sendiri: `retro_arcade`, `RETRO_ARCADE`,
+> `ic_emblem_retro`, `theme_banner_retro`, `anime_wibu`, `gothic_crimson`
+> semuanya **tidak ada** di DEX maupun resources; `ToolsScreen`, `DownloadScreen`,
+> `ios_nav_download` ada; blok tanda tangan memuat v2 (`0x7109871a`) dan v3
+> (`0xf05368c0`); sertifikat `CN=Synthetica Manager Standalone (debug key)`.
+>
+> Apa yang **tidak** berubah: kuncinya tetap kunci debug sekali pakai dari CI,
+> bukan `fe833710`. Paketnya `net.ember.labs.standalone`, jadi terpasang **di
+> samping** 6.0.0, bukan menimpanya. Belum diuji di perangkat.
+
 ## Kenapa 6.5.0 tidak bisa dipasang
 
 Dua sebab, dan saya hanya menyebut satu.
@@ -20,23 +40,18 @@ terpasang, dan pin kernel `fe833710…`. Tidak ada yang dibuat tidak valid.
 
 | | |
 |---|---|
-| Berkas | `Synthetica-Manager-6.5.1-standalone-INSTALLABLE-DEBUG-SIGNED.apk` |
-| Ukuran | 9 199 787 byte |
-| SHA-256 | `45671c386d672ad78937854468986734e6b4ff0e2e580e2156b470701b38d621` |
+| Berkas | `Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk` |
+| Ukuran | 8 978 323 byte |
+| SHA-256 | `ae483f7741869d53e56ffb0cf5b05cf023d2fedebf8e059c2ff2bd879947d46a` |
 | Paket | `net.ember.labs.standalone` |
 | versi | 6.5.1 / 75100 |
-| Sertifikat | 1364 byte, SHA-256 `ef0eb4e04f7321b0fa6a25ce651b10b3de9474ecad83908e10fb4088739db1bf` |
+| Sertifikat | `CN=Synthetica Manager Standalone (debug key)`, SHA-256 `0E:97:82:41:…:1D:AC` |
 | Tanda tangan | v2 + v3 (v1 mati) |
-| Drive | id `11vNJOvgwQhoUWAHTUATh253YQIc2a4I8` |
-| CI | run `43722714274` |
+| Sumber | cabang `build-output`, run `43789901198`, commit `1c36b34` |
 
-> **APK ini dari commit `8be5d18`, yaitu sebelum Retro Arcade dihapus.** Saya
-> membongkar ZIP-nya lagi: `resources.arsc` masih memuat `ic_emblem_retro` dan
-> `theme_banner_retro`, dan DEX memuat `retro_arcade`. Jadi versi yang ada di
-> Drive **belum bebas Retro Arcade**. Build di atasnya (`d346b27` ke sini) sudah
-> bersih dan hijau di CI, tetapi berkasnya belum saya unduh ulang dan belum ada
-> yang menandatanganinya dengan kunci baru. Jangan anggap yang di Drive sebagai
-> build final 6.5.1.
+> Versi yang dulu ada di Drive (id `11vNJOvg…`, 9 199 787 byte) berasal dari commit
+> `8be5d18` dan **masih memuat Retro Arcade**. Berkas itu sudah tidak dipakai; yang
+> berlaku adalah 8 978 323 byte di atas.
 
 Diverifikasi dari berkasnya sendiri, bukan dari log: blok APK Signing berisi v2
 (`0x7109871a`) dan v3 (`0xf05368c0`), paket dan versi di manifest benar, `anime_wibu` dan
