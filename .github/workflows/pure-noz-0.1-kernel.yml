@@ -87,6 +87,19 @@ jobs:
           python3 build-kit/scripts/build_pure_noz.py check-config --config "$RUNNER_TEMP/tree/.config"
           cp "$RUNNER_TEMP/tree/.config" "$RUNNER_TEMP/generated.config.txt"
 
+      - name: Record the toolchain identities
+        run: |
+          set -euo pipefail
+          {
+            echo "clang: $(clang --version | head -1)"
+            echo "gcc  : $(gcc --version | head -1)"
+            echo "ld   : $(ld.lld --version | head -1)"
+            echo "which clang: $(command -v clang)"
+            echo "which gcc  : $(command -v gcc)"
+          } | tee "$RUNNER_TEMP/toolchain.txt"
+          mkdir -p "$GITHUB_WORKSPACE/.pure-noz-diag"
+          cp "$RUNNER_TEMP/toolchain.txt" "$GITHUB_WORKSPACE/.pure-noz-diag/toolchain.txt"
+
       - name: Compile Image.gz
         timeout-minutes: 110
         run: |
@@ -106,7 +119,7 @@ jobs:
           make mrproper >/dev/null 2>&1 || rm -f .config .config.old include/config/auto.conf
           make "${MO[@]}" vendor/xiaomi/miatoll_defconfig >/dev/null
           make "${MO[@]}" olddefconfig >/dev/null
-          if ! make -j"$(nproc)" "${MO[@]}" Image.gz 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+          if ! make V=1 -j"$(nproc)" "${MO[@]}" Image.gz 2>&1 | tee "$RUNNER_TEMP/build.log"; then
             # The job log cannot always be downloaded from this sandbox, so the
             # diagnostics also go into a file that every later step can publish.
             mkdir -p "$GITHUB_WORKSPACE/.pure-noz-diag"
