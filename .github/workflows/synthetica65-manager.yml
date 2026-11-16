@@ -17,7 +17,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: write # unsigned APK, evidence logs and test output as unreferenced blobs only
+  contents: write # signed APK to the build-output branch, evidence logs as blobs
 
 jobs:
   manager:
@@ -228,6 +228,46 @@ jobs:
           PY
           blob=$(gh api "repos/${GITHUB_REPOSITORY}/git/blobs" --method POST --input "$RUNNER_TEMP/manager65-blob.json" --jq .sha)
           echo "::notice title=Unsigned Manager 6.5.0 blob::$blob"
+      - name: Publish the signed APK to the build-output branch
+        # Artefact ZIPs cannot be downloaded from every environment (they fail with
+        # EOF behind some proxies), but git can always be cloned. Committing the APK
+        # to a dedicated branch makes it reachable with a plain `git fetch`, which is
+        # how the owner actually gets the file. The branch is force-replaced each run
+        # so it never accumulates.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/manager65-output"
+          SIGNED="$OUT/Synthetica-Manager-6.5.1-standalone-DEBUG-SIGNED.apk"
+          test -f "$SIGNED" || { echo "::error::signed APK missing, nothing to publish"; exit 1; }
+          WORK="$RUNNER_TEMP/publish"
+          mkdir -p "$WORK"
+          cd "$WORK"
+          git init -q -b build-output
+          git config user.name "synthetica-ci"
+          git config user.email "synthetica-ci@users.noreply.github.com"
+          cp "$SIGNED" .
+          sha256sum "$SIGNED" | awk '{print $1}' > SHA256SUMS.txt
+          {
+            echo "# Synthetica Manager 6.5.1 — signed debug build"
+            echo
+            echo "- run: ${{ github.run_id }}"
+            echo "- commit: ${GITHUB_SHA}"
+            echo "- file: $(basename "$SIGNED")"
+            echo "- size: $(stat -c%s "$SIGNED") bytes"
+            echo "- sha256: $(cut -d' ' -f1 SHA256SUMS.txt)"
+            echo
+            echo "Download: git clone --depth 1 --branch build-output ${{ github.server_url }}/${{ github.repository }}.git"
+            echo
+            echo "This is signed with a throwaway debug key generated in CI, and the package"
+            echo "id is net.ember.labs.standalone, so it installs beside the released 6.0.0"
+            echo "instead of updating it. It is not signed with the fe833710 release key."
+          } > README.md
+          git add -A
+          git commit -q -m "signed 6.5.1 from run ${{ github.run_id }}"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" build-output
+          echo "::notice title=Signed APK published to branch build-output::$(cut -d' ' -f1 SHA256SUMS.txt)"
       - name: Transfer diagnostics on failure
         if: failure()
         env:
