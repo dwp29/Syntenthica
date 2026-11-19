@@ -305,6 +305,24 @@ jobs:
               print(f"::notice title={variant}::{row}")
           PY
 
+      - name: Publish ZIP to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FM_VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          tag="fresh-milk-14.03__cheese-burger-11.08"
+          zip="$RUNNER_TEMP/${{ matrix.variant }}-result/${{ matrix.name }}-${{ matrix.kver }}.zip"
+          gh release view "$tag" >/dev/null 2>&1 || \
+            gh release create "$tag" --title "Fresh-Milk 14.03 / CHEESE-BURGER 11.08" \
+              --notes "Compiled from this branch. Not boot-tested on a device. No boot backup is taken by the installer." || true
+          # The other matrix job may still be creating the release; retry briefly.
+          for _ in 1 2 3 4 5; do
+            if gh release upload "$tag" "$zip" --clobber; then exit 0; fi
+            sleep 5
+          done
+          exit 1
+
       - name: Upload compile evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
