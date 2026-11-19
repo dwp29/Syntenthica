@@ -122,6 +122,7 @@ jobs:
           SP_BUILD_NAME: ${{ matrix.name }}
           SP_BUILD_KVER: ${{ matrix.kver }}
           SP_EXPECT_RELEASE: ${{ matrix.release }}
+          FM_VARIANT: ${{ matrix.variant }}
           PYTHONOPTIMIZE: '0'
         run: |
           set -euo pipefail
@@ -185,6 +186,8 @@ jobs:
           fi
 
       - name: Record provenance and checksums
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
