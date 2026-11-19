@@ -70,6 +70,7 @@ Alasan: Settings administratif, bukan keadaan perangkat.
   (hemat daya). Ini alasan animasinya ada, bukan sekadar bergerak.
 - Empat kartu statistik: ZRAM, UPTIME, MGLRU, STABILITY.
 - Tiga grafik garis 60 detik: CPU, Memory, Temperature.
+- **Di atas cincin, banner GIF besar** (§16), tinggi maksimum 28% layar.
 
 ### 02 — TUNING
 
@@ -208,6 +209,102 @@ Pindah dari dock ke ikon gerigi di header PULSE. Berisi:
 | SECURITY | konfirmasi sebelum flash, konfirmasi sebelum tulis tunable, lokasi backup |
 | ABOUT | About & Creator, lisensi open source |
 
+### 13 — CUSTOMIZE
+
+![Customize](13-customize.png)
+
+Menyiapkan jalan untuk **multi-tema**. Tiga sumbu, terpisah satu sama lain:
+
+| Sumbu | Pilihan | Catatan |
+|---|---|---|
+| **Theme** | Follow kernel, Last-Dance, Cheese-Burger, Mint, Grape, Monochrome | "Follow kernel" = default, ikut kernel terdeteksi |
+| **Accent** | 8 warna (biru, amber, teal, ungu, pink, hijau, merah, abu) | hanya mengubah aksen, tema tetap |
+| **Motion** | Animasi on/off, intensitas (Subtle/Balanced/Lively), haptic on/off | |
+
+Aturan tema:
+
+1. **Tema = token, bukan salinan layar.** Setiap tema hanya mendefinisikan
+   `colors`, `shapes`, `type scale`, `motion spec`. Tidak ada layout ganda.
+2. **Tema tidak boleh mengubah alur.** Tombol yang sama, di tempat yang sama.
+3. **Tema baru harus lulus kontras.** Rasio minimum 4.5:1 untuk teks badan,
+   3:1 untuk teks besar. Ini diperiksa, bukan dikira-kira.
+4. **`Follow kernel` selalu tersedia** dan menjadi default saat pertama pasang.
+
+### 14 — MODULE SOURCES
+
+![Module sources](14-repo-sources.png)
+
+Sumber modul ditambahkan lewat daftar, **bukan** pencarian bebas di internet.
+
+| Sumber | Kategori | Bentuk |
+|---|---|---|
+| Magisk Modules Alt Repo | root modules | repo GitHub |
+| KernelSU Modules | root modules | repo GitHub |
+| LSPosed Modules | Xposed | repo GitHub |
+| Dolby Atmos ports | audio | repo GitHub |
+| GCam Ports | camera | repo GitHub |
+| Samsung Good Lock ports | OneUI apps | repo GitHub |
+| Viper4Android / JamesDSP | audio DSP | repo GitHub |
+| Folder lokal | manual | `/sdcard/Modules` |
+
+Aturan keamanan sumber:
+
+1. **Daftar bawaan bersifat kurasi**, bukan hasil pencarian. Isinya diperiksa
+   dulu, bukan sekadar ditempel.
+2. **Sumber pihak ketiga wajib ditandai.** Kalau user menambah repo sendiri,
+   app menampilkan peringatan: *"Sumber tidak diverifikasi"*.
+3. **Tidak ada eksekusi otomatis.** Mengunduh ≠ memasang. Pemasangan tetap
+   lewat alur konfirmasi.
+4. **Setiap unduhan menampilkan sha256** bila sumber menyediakannya; kalau
+   tidak, itu juga dikatakan.
+
+### 15 — MODULE DETAIL
+
+![Module detail](15-module-detail.png)
+
+Halaman sedetail mungkin, dengan informasi yang **selalu** ditampilkan:
+
+| Blok | Isi |
+|---|---|
+| Hero | ikon, nama, pengembang, versi, status verifikasi |
+| Stat tiles | ukuran, terakhir diperbarui, jumlah unduhan, versi |
+| Tab | Description, Changelog, Screenshots, Files, Permissions |
+| Kompatibilitas | 3 baris centang/silang: perangkat, Android, batas kernel |
+| Peringatan | kartu amber bila modul butuh HAL/partisi khusus |
+| Aksi | "VIEW ON GITHUB" (sekunder) + "DOWNLOAD" (primer) |
+
+Aturan detail:
+
+1. **Statistik unduhan berasal dari sumber**, bukan karangan. Kalau sumber tidak
+   menyediakan, tampil `—`.
+2. **Tab Permissions wajib ada** — modul bisa menulis ke sistem; user berhak
+   tahu apa yang dimintanya.
+3. **Ukuran dan sha256 ditampilkan sebelum unduh**, bukan sesudah.
+4. Status "VERIFIED" hanya diberikan untuk sumber kurasi, dan artinya
+   **"dari sumber resmi"**, bukan "aman". Kata "aman" tidak boleh dipakai.
+
+### 16 — Banner depan (GIF)
+
+![Banner](16-banner.gif)
+
+Banner besar di halaman PULSE, format **GIF animasi** (`16-banner.gif`,
+480×270, 18 frame, 569 KB, loop tak berujung).
+
+Isi banner: dua identitas kernel dalam satu komposisi — biru untuk
+**LAST-DANCE-14.03**, amber untuk **CHEESE-BURGER-11.08** — dengan denyut
+halus, sapuan cahaya, dan partikel mengambang.
+
+Aturan banner:
+
+1. **Ukuran dibatasi.** 569 KB sudah di atas ambang nyaman; target akhir
+   ≤ 400 KB. Kalau lewat, turunkan jumlah warna sebelum resolusi.
+2. **Banner berhenti saat layar tidak terlihat.** GIF yang berjalan di latar
+   belakang menguras baterai. Ini wajib, bukan opsional.
+3. **Banner tidak boleh menutupi informasi.** Tinggi maksimum 28% layar;
+   konten PULSE harus tetap terlihat tanpa scroll untuk bagian atas.
+4. **Ada fallback statis** `preview/16-banner-frame0.jpg` untuk perangkat atau
+   keadaan di mana animasi dimatikan user.
+
 ## 4A. Konsep yang diadopsi dari UGDP Starter
 
 Sumber: `UGDP-Starter-Source.zip` (Drive). Isi sebenarnya adalah **kerangka
@@ -285,11 +382,11 @@ sebelum dikerjakan**, sesuai permintaan.
 | Layar BakaSU | Alasan usulan |
 |---|---|
 | `DynamicManagerScreen` | dukungan multi-manager sudah dihapus dari BakaSU sendiri (commit `97c102b`); app kita tunggal |
-| `ModuleRepo`, `OnlineModuleDetail`, `RepositorySources` | repo modul daring: permukaan serangan, dan tidak esensial untuk app eksklusif dua kernel |
+| ~~`ModuleRepo`, `OnlineModuleDetail`, `RepositorySources`~~ | **DIBATALKAN** — user meminta halaman module browser lengkap (§14, §15). Layar ini **dibangun ulang**, bukan diwarisi |
 | `ScriptRun` | menjalankan skrip manifest: bertentangan dengan aturan UGDP "tanpa shell bebas", dan berbahaya |
 | `Template`, `TemplateEditor` | pembuat modul — pekerjaan developer, bukan user |
 | `UmountManagerScreen` | bertabrakan dengan panel HIDING/SuSFS kita; satu tempat saja |
-| `themeSettings/*`, `BackgroundCropActivity` | digantikan dua wajah tetap; kustomisasi bebas tidak relevan |
+| ~~`themeSettings/*`, `BackgroundCropActivity`~~ | **DIBATALKAN** — user meminta multi-tema (§13). **Dibangun ulang** sebagai CUSTOMIZE dengan token tema |
 | `about/OpenSourceLicenseScreen` | **dipertahankan** sebagai kewajiban lisensi, tapi dipindah ke Settings |
 
 Yang **dipertahankan** dari BakaSU: `SuperUserPage`, `ModulePage`, `Flash`,
@@ -310,6 +407,9 @@ Yang **dipertahankan** dari BakaSU: `SuperUserPage`, `ModulePage`, `Flash`,
 | 7 | Donate | **Ada**, sebagai halaman tanpa pembayaran in-app |
 | 8 | Identitas pembuat tampil publik | **Ya** — `@Pure_Saturday`, `t.me/breakfastch` |
 | 9 | Prinsip UGDP | **Diadopsi seluruhnya** (§4A) |
+| 10 | Multi-tema | **Ya** — CUSTOMIZE (§13), 6 tema awal |
+| 11 | Module browser lengkap | **Ya** — kurasi multi-sumber (§14) + detail (§15) |
+| 12 | Banner depan | **GIF animasi** (§16), dengan fallback statis |
 
 ### Konsekuensi dari keputusan 2 (TUNING boleh menulis)
 
