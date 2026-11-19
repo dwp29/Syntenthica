@@ -179,7 +179,7 @@ class MainActivity : Activity() {
         section.addView(row("Kernel", report.kernelRelease))
         section.addView(row("Hasil", report.summary()))
         val age = DeviceAudit.ageLabel((System.currentTimeMillis() - report.timestampMs).coerceAtLeast(0))
-        section.addView(row("Umur hasil", "$age lalu"), ThemeCatalog.TEXT_SECONDARY)
+        section.addView(row("Umur hasil", "$age lalu", ThemeCatalog.TEXT_SECONDARY))
         if (report.kernelRelease != release) {
             section.addView(
                 row(
