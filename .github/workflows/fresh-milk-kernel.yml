@@ -248,6 +248,26 @@ jobs:
             exit 1
           fi
 
+      - name: Report packaged ZIP
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          r = Path(os.environ['RUNNER_TEMP']) / f"{os.environ['FM_VARIANT']}-result"
+          zips = sorted(r.glob('*.zip'))
+          if not zips:
+              raise SystemExit('no ZIP was produced')
+          for path in zips:
+              size = path.stat().st_size
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              row = f"{path.name}: {size} bytes sha256 {digest}"
+              print(row)
+              print(f"::notice title={os.environ['FM_VARIANT']} package::{row}")
+          PY
+
       - name: Publish result summary
         env:
           FM_VARIANT: ${{ matrix.variant }}
