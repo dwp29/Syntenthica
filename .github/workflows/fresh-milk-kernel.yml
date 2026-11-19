@@ -231,6 +231,16 @@ jobs:
           PY
           (cd "$RUNNER_TEMP/${{ matrix.variant }}-result" && sha256sum -c SHA256SUMS.txt)
 
+      - name: Package recovery ZIP
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/package_fresh_milk.py \
+            --result "$RUNNER_TEMP/${{ matrix.variant }}-result" \
+            --variant "$FM_VARIANT" \
+            --output "$RUNNER_TEMP/${{ matrix.variant }}-result/${{ matrix.name }}-${{ matrix.kver }}.zip"
+
       - name: Publish result summary
         env:
           FM_VARIANT: ${{ matrix.variant }}
