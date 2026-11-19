@@ -154,26 +154,31 @@ Run **44546020859**, kedua varian sukses:
 
 Rincian: `docs/FRESH-MILK-BUILD.md`.
 
-### Tahap 2 — CHEESE-BURGER-11.08 (gaming)
+### Tahap 2 — CHEESE-BURGER-11.08 (gaming) — **kompilasi SELESAI**
 
 **Revisi setelah membaca kit.** Rencana awal (thermal/boost/GPU/ION berbeda)
-tidak dipakai. Alasannya: kit sudah punya pemisahan ini sebagai **profil**,
-dan profil yang berbeda dari `synthetica` berarti config berbeda dari 3.1 —
-tepat hal yang dijaga oleh resep 3.2-r1.
+tidak dipakai. Kit sudah punya pemisahan ini sebagai profil, jadi jalurnya
+bukan config baru melainkan `ci/rollercoaster/profiles/critical.config`.
 
 | Profil | Dipakai | Isi |
 |---|---|---|
-| `ci/rollercoaster/profiles/synthetica.config` | **ya**, kedua varian | schedutil, mq-deadline, WQ power-efficient |
-| `ci/rollercoaster/profiles/critical.config` | **tidak** | HZ 300, governor performance, KGSL, Adreno devfreq |
+| `synthetica.config` | Fresh-Milk | schedutil, mq-deadline, WQ power-efficient |
+| `critical.config` | **CHEESE-BURGER** | HZ 300, governor performance, deadline |
 
-Jadi saat ini **kedua varian memakai config yang sama persis**. Yang berbeda
-hanya nama. Ini disengaja: membuat CHEESE-BURGER benar-benar gaming menuntut
-profil `critical`, dan itu berarti ABI-nya tidak lagi identik dengan 3.1 —
-keputusan yang harus diambil sadar, bukan sebagai efek samping.
+Efek nyata di atas config 3.1: **10 simbol**, seluruhnya terlacak ke berkas
+profil (rincian di `docs/FRESH-MILK-BUILD.md` §3).
 
-**Terbuka:** kalau CHEESE-BURGER memang harus lebih cepat, langkahnya adalah
-mengizinkan `critical.config` secara eksplisit sebagai varian kedua, lengkap
-dengan penjaga ABI-nya sendiri.
+Dua jebakan yang hanya terlihat lewat CI, sudah diperbaiki:
+
+1. `critical.config` tidak memuat MGLRU/UCLAMP/WALT. Blok fitur itu hanya
+   ditambahkan ke `synthetica.config` oleh `prepare()`. Tanpa perbaikan,
+   varian gaming kehilangan fitur wajib 3.2.
+2. `critical.config` tidak menyebut `F2FS_STAT_FS`, sehingga nilainya kembali
+   ke `=y` dari `00-common` — beban profiling di hot path yang justru tidak
+   diinginkan build gaming.
+
+Bukti: run **44566221539**, kedua varian sukses, selisih ABI **0** untuk
+keduanya, `module_layout` tetap `0xed5659d1`.
 
 ### Tahap 3 — BakaSU
 
