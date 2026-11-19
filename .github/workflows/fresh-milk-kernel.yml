@@ -1,0 +1,199 @@
+name: "Fresh-Milk / CHEESE-BURGER - two variants from one tree"
+
+on:
+  push:
+    branches: [arena/96cbd65a-synthentica]
+    paths:
+      - '.github/workflows/fresh-milk-kernel.yml'
+      - 'build-kit/scripts/build_fresh_milk.py'
+      - 'build-kit/scripts/build_synthetica32_r1.py'
+      - 'build-kit/ci/fresh-milk/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write # public compile evidence only; never export a private key
+
+concurrency:
+  group: fresh-milk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  variant:
+    name: build ${{ matrix.variant }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: fresh-milk
+            release: 4.14.357-openela-Fresh-Milk-14.03
+            kver: 14.03
+          - variant: cheese-burger
+            release: 4.14.357-openela-CHEESE-BURGER-11.08
+            kver: 11.08
+    steps:
+      - name: Check out triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install kernel build tools
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+          sudo apt-get install -y -qq \
+            gcc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc flex bison libssl-dev libelf-dev device-tree-compiler cpio lz4 xz-utils zstd \
+            python3 patch openssl zip unzip rsync git curl binutils kmod
+
+      - name: Fetch exact 3.1 and 3.2 baseline evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/0f815b773d39a8f0b392a7d190be9ca1ad702ead" > "$RUNNER_TEMP/transfer31.zip"
+          echo '67c804f049c9bb00977c067e06bc663f75a8b7782b4f47bd2626b3fd5a36a847  '"$RUNNER_TEMP/transfer31.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer31.zip" generated.config.txt > "$RUNNER_TEMP/config31"
+          unzip -p "$RUNNER_TEMP/transfer31.zip" Module.symvers > "$RUNNER_TEMP/symvers31"
+          echo '4b53a2cb030e9aa55ff798a3ee5c773c0eb50e56cd36430d2874adcb56fa236d  '"$RUNNER_TEMP/config31" | sha256sum -c -
+          echo '1ce7153529b53f3f4bf361ea2e061ec575e712cd47cc5a0f10a854cf91d19ac3  '"$RUNNER_TEMP/symvers31" | sha256sum -c -
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            "repos/${GITHUB_REPOSITORY}/git/blobs/d5e292c91a36c7706deedfdb9f1ca8b7a703ee3e" > "$RUNNER_TEMP/transfer20.zip"
+          echo '742068c09eb99f6eb37d55aa3ee1bca9ee156db592d10d3d901fca738900dabc  '"$RUNNER_TEMP/transfer20.zip" | sha256sum -c -
+          unzip -p "$RUNNER_TEMP/transfer20.zip" generated.config.txt > "$RUNNER_TEMP/config20exp"
+          echo 'c72503550d74446f5af3573288b4e93dc1407854c5df338d20681d1866ccb96c  '"$RUNNER_TEMP/config20exp" | sha256sum -c -
+          {
+            echo "S31_EXACT_CONFIG=$RUNNER_TEMP/config31"
+            echo "S31_EXACT_SYMVERS=$RUNNER_TEMP/symvers31"
+            echo "S3RC_TESTED_CONFIG=$RUNNER_TEMP/config20exp"
+          } >> "$GITHUB_ENV"
+
+      - name: Download and verify the pinned Neutron toolchain
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/neutron-clang-06092026.tar.zst"
+          curl --fail --location --retry 3 --output "$archive" \
+            https://github.com/Neutron-Toolchains/clang-build-catalogue/releases/download/06092026/neutron-clang-06092026.tar.zst
+          echo "531083928c8e37f6b31e324dbfd0b5a8323f989b1c57ff2c1368b889b5b1bd30  $archive" | sha256sum -c -
+          test "$(stat -c %s "$archive")" = 77768187
+          mkdir "$RUNNER_TEMP/neutron"
+          tar -I zstd -xf "$archive" -C "$RUNNER_TEMP/neutron"
+          echo "S2X_TOOLCHAIN_BIN=$RUNNER_TEMP/neutron/bin" >> "$GITHUB_ENV"
+
+      - name: Verify the variant wiring (no compile)
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_fresh_milk.py ${{ matrix.variant }} verify
+
+      - name: Run inherited 3.2-r1 host tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_synthetica32_r1.py' -v
+          python3 -m unittest discover -s tests -p 'test_synthetica3_root.py' -v
+
+      - name: Prepare isolated kit
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica32_r1.py prepare --source build-kit \
+            --destination "$RUNNER_TEMP/${{ matrix.variant }}-kit" --baseline artifacts/generated.config.txt
+
+      - name: Apply variant overrides and compile
+        timeout-minutes: 90
+        env:
+          SP_JOBS: '4'
+          SP_RELEASE_VERSION: ${{ matrix.kver }}
+          SP_PROFILE: synthetica
+          SP_BUILD_NAME: ${{ matrix.variant }}
+          SP_BUILD_KVER: ${{ matrix.kver }}
+          SP_EXPECT_RELEASE: ${{ matrix.release }}
+          PYTHONOPTIMIZE: '0'
+        run: |
+          set -euo pipefail
+          export SP_WORK_DIR="$RUNNER_TEMP/${{ matrix.variant }}-work"
+          export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica32_r1.py"
+          export S2X_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
+          export FM_VARIANT="${{ matrix.variant }}"
+          python3 build-kit/scripts/build_fresh_milk.py "$FM_VARIANT" apply --patch-only
+          if ! python3 "$RUNNER_TEMP/${{ matrix.variant }}-kit/scripts/build_chronicle_base.py"; then
+            python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP']) / f"{os.environ['FM_VARIANT']}-kit/artifacts/build.log"
+          rows = (log.read_text(errors='replace') if log.exists() else 'No build log').splitlines()
+          hits = [i for i, r in enumerate(rows) if re.search(r'error:|fatal error|undefined reference|\bFAIL\b|not found|refused', r, re.I)]
+          chosen = []
+          for i in hits[-12:]:
+              chosen.extend(rows[max(0, i-1):min(len(rows), i+3)])
+          text = re.sub(r'https?://\S+', '<url>', '\n'.join(dict.fromkeys(chosen or rows[-40:]))[-12000:])
+          for n in range(0, len(text), 1800):
+              part = text[n:n+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f"::error title={os.environ['FM_VARIANT']} compile diagnostic {n//1800+1}::{part}")
+          PY
+            exit 1
+          fi
+
+      - name: Check retained features, whole ABI and config
+        run: |
+          set -euo pipefail
+          python3 build-kit/scripts/build_synthetica32_r1.py finish \
+            --kit "$RUNNER_TEMP/${{ matrix.variant }}-kit" \
+            --out "$RUNNER_TEMP/${{ matrix.variant }}-work/tree/out-synthetica" \
+            --baseline artifacts/generated.config.txt --tested-config "$S3RC_TESTED_CONFIG" \
+            --baseline31 "$S31_EXACT_CONFIG" --symvers31 "$S31_EXACT_SYMVERS" \
+            --result "$RUNNER_TEMP/${{ matrix.variant }}-result" \
+            --toolchain-bin "$S2X_TOOLCHAIN_BIN" \
+            --neutron-archive "$RUNNER_TEMP/neutron-clang-06092026.tar.zst" 2> "$RUNNER_TEMP/finish-error.txt" || {
+              tail -40 "$RUNNER_TEMP/finish-error.txt"
+              exit 1
+            }
+
+      - name: Record provenance and checksums
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          variant = os.environ['FM_VARIANT']
+          r = Path(os.environ['RUNNER_TEMP']) / f'{variant}-result'
+          provenance = {
+              'variant': variant,
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'commit': os.environ['GITHUB_SHA'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'run_url': f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              'root': 'KernelSU-Next in-tree (unchanged from 3.2)',
+              'susfs': 'v2.3.0 NON-GKI (unchanged)',
+              'toolchain': 'Neutron clang 24, pinned by 3.2-r1 recipe',
+              'limitations': 'Compile and host tests only; no target ROM integration or physical boot.',
+          }
+          (r / 'PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
+          paths = sorted(p for p in r.rglob('*') if p.is_file() and p.name != 'SHA256SUMS.txt')
+          (r / 'SHA256SUMS.txt').write_text(
+              ''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.relative_to(r).as_posix()}\n' for p in paths))
+          PY
+          (cd "$RUNNER_TEMP/${{ matrix.variant }}-result" && sha256sum -c SHA256SUMS.txt)
+
+      - name: Upload compile evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.variant }}-compile-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}/${{ matrix.variant }}-result/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Preserve diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.variant }}-build-failed-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/${{ matrix.variant }}-kit/artifacts/build.log
+            ${{ runner.temp }}/${{ matrix.variant }}-kit/artifacts/FAILED.txt
+            ${{ runner.temp }}/finish-error.txt
+          if-no-files-found: warn
+          retention-days: 7
