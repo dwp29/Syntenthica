@@ -37,3 +37,6 @@ artifacts/unsigned/
 dist/
 Synthetica-Manager-6.1-Themes-SIGNED.apk
 *.apk
+
+# Render desain resolusi penuh: 46 MB. Yang di-commit hanya preview ringan.
+design/breakfast/*.png
