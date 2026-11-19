@@ -217,6 +217,7 @@ jobs:
       - name: Publish result summary
         env:
           FM_VARIANT: ${{ matrix.variant }}
+          SP_EXPECT_RELEASE: ${{ matrix.release }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -229,7 +230,8 @@ jobs:
           changes = status.get('changes_from_exact_3_1_config', {})
           rows = [
               f"variant        : {variant}",
-              f"release        : {status.get('uname_release')}",
+              f"localversion   : {changes.get('LOCALVERSION')}",
+              f"expected       : {os.environ['SP_EXPECT_RELEASE']}",
               f"image_sha256   : {status.get('output_sha256', {}).get('Image.gz.DO-NOT-FLASH', status.get('image_sha256'))}",
               f"config delta   : {sorted(changes)}",
               f"exports compared: {abi.get('exported_records_compared')}",
@@ -237,6 +239,9 @@ jobs:
               f"module_layout  : {abi.get('module_layout_crc')}",
               f"modules        : {sorted(status.get('same_build_modules_static_checks', {}))}",
           ]
+          got = (changes.get('LOCALVERSION') or {}).get('now', '')
+          want = '\"' + os.environ['SP_EXPECT_RELEASE'].split('openela')[1] + '\"'
+          assert got == want, f'built localversion {got!r} is not {want!r}'
           text = '\n'.join(rows)
           (r / 'SUMMARY.txt').write_text(text + '\n')
           print(text)
