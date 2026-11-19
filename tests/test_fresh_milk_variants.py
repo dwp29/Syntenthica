@@ -132,6 +132,45 @@ class KitProfileGuard(unittest.TestCase):
             self.assertNotIn('[ "$PROFILE" = synthetica ]', text)
 
 
+class FeatureBlock(unittest.TestCase):
+    """A gaming profile must not lose the 3.2 features the kit pins."""
+
+    def setUp(self):
+        self.m = load()
+
+    def test_feature_block_is_copied_verbatim(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles = Path(tmp) / 'ci/rollercoaster/profiles'
+            profiles.mkdir(parents=True)
+            block = ('# Synthetica 2.0 experiment only\n'
+                     'CONFIG_LRU_GEN=y\nCONFIG_LRU_GEN_ENABLED=y\n'
+                     'CONFIG_UCLAMP_TASK=y\nCONFIG_SCHED_WALT=y\n')
+            (profiles / 'synthetica.config').write_text('CONFIG_KSU=y\n\n' + block,
+                                                        encoding='utf-8')
+            (profiles / 'critical.config').write_text('CONFIG_HZ_300=y\n', encoding='utf-8')
+            self.m._carry_features_into_profile(Path(tmp), 'critical')
+            text = (profiles / 'critical.config').read_text(encoding='utf-8')
+            self.assertIn('CONFIG_LRU_GEN_ENABLED=y', text)
+            self.assertIn('CONFIG_UCLAMP_TASK=y', text)
+            # The gaming values must survive the copy.
+            self.assertIn('CONFIG_HZ_300=y', text)
+            # Idempotent: a second call must not duplicate the block.
+            self.m._carry_features_into_profile(Path(tmp), 'critical')
+            self.assertEqual(text, (profiles / 'critical.config').read_text(encoding='utf-8'))
+
+    def test_stability_profile_is_not_modified(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles = Path(tmp) / 'ci/rollercoaster/profiles'
+            profiles.mkdir(parents=True)
+            (profiles / 'synthetica.config').write_text('CONFIG_A=y\n', encoding='utf-8')
+            (profiles / 'critical.config').write_text('CONFIG_B=y\n', encoding='utf-8')
+            self.m._carry_features_into_profile(Path(tmp), 'synthetica')
+            self.assertEqual((profiles / 'critical.config').read_text(encoding='utf-8'),
+                             'CONFIG_B=y\n')
+
+
 class BuildEnvironment(unittest.TestCase):
     """Wrong environment must fail before a compile starts, not after."""
 

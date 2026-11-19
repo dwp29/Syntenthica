@@ -162,12 +162,47 @@ def _allow_profile_in_kit(kit: Path, profile: str) -> None:
     print(f'kit          : profile guard accepts synthetica|{profile}')
 
 
+def _carry_features_into_profile(kit: Path, profile: str) -> None:
+    """Give a non-stability profile the same pinned 3.2 feature block.
+
+    prepare() in the 2.0-experiment recipe appends the pinned feature config and
+    the MGLRU boot-default fragment to profiles/synthetica.config only. Building
+    another profile therefore silently drops MGLRU, UCLAMP and WALT - features
+    Synthetica 3.2 is required to keep - and the build guard then refuses with
+    "LRU_GEN_ENABLED does not match requested on variant".
+
+    Rather than re-typing those symbols, the block that prepare() already wrote
+    into synthetica.config is copied verbatim. One source, one value set.
+    """
+    if profile == 'synthetica':
+        return
+    profiles = kit / 'ci/rollercoaster/profiles'
+    source = profiles / 'synthetica.config'
+    target = profiles / f'{profile}.config'
+    if not source.is_file() or not target.is_file():
+        raise SystemExit(f'kit is missing {source.name} or {target.name}')
+
+    marker = '# Synthetica 2.0 experiment only'
+    source_text = source.read_text(encoding='utf-8')
+    if marker not in source_text:
+        raise SystemExit('prepared kit does not carry the pinned feature block')
+    block = marker + source_text.split(marker, 1)[1]
+
+    text = target.read_text(encoding='utf-8')
+    if block.strip() in text:
+        return
+    target.write_text(text.rstrip('\n') + '\n\n' + block, encoding='utf-8')
+    print(f'kit          : pinned feature block copied from synthetica into {profile}.config')
+
+
 def apply_prepared_kit(kit_dir: str) -> int:
     """Called right after `prepare`: install the variant into the kit copy."""
     variant = _variant_from_env()
     spec = VARIANTS[variant]
     print(f'prepared kit : {kit_dir}')
-    _allow_profile_in_kit(Path(kit_dir), spec['profile'])
+    kit = Path(kit_dir)
+    _allow_profile_in_kit(kit, spec['profile'])
+    _carry_features_into_profile(kit, spec['profile'])
     return 0
 
 
