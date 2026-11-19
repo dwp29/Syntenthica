@@ -47,21 +47,17 @@ jobs:
       - name: Unit tests (JVM, no device)
         run: |
           set -euo pipefail
-          # A failed run must not leave an older APK looking current.
-          rm -f ci-stage/breakfast/BREAKFAST-manager.apk ci-stage/breakfast/APK-*.txt
-          mkdir -p ci-stage/breakfast
-          cd breakfast-app
-          set +e
-          ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee ../ci-stage/breakfast/TEST-LOG.txt
-          STATUS=${PIPESTATUS[0]}
-          set -e
-          find app/build/test-results -name '*.xml' -exec cp {} ../ci-stage/breakfast/ \; 2>/dev/null || true
-          [ "$STATUS" -eq 0 ] || exit "$STATUS"
-          python3 tools/check_test_results.py
+          # Script, not inline shell: this step is the one that silently passed
+          # before, so its exit status is worth keeping in a file that can be
+          # reviewed later.
+          bash breakfast-app/tools/run_gradle_tests.sh
       - name: Build release APK (throwaway CI keystore)
         run: |
           set -euo pipefail
-          rm -rf ci-stage/breakfast
+          # No evidence, no artifact: a green build without recorded tests is
+          # what produced an unverified APK earlier in this session.
+          test -f ci-stage/breakfast/TESTS-PASSED || { echo "::error::unit test evidence missing"; exit 1; }
+          rm -f ci-stage/breakfast/BREAKFAST-manager.apk
           mkdir -p ci-stage/breakfast
           # Ephemeral key: generated inside the runner, never committed, never
           # reused. A fresh key per run means no long-lived signing secret exists
