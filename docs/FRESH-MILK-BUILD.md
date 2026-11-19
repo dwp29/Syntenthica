@@ -8,17 +8,18 @@ SuSFS, atau root yang berbeda.
 
 ## 1. Bukti kompilasi (nyata, bukan klaim)
 
-CI `fresh-milk-kernel.yml` run **44546020859**: kedua varian **sukses**.
+CI `fresh-milk-kernel.yml` run **44566221539**: kedua varian **sukses**.
 
 | | Fresh-Milk | CHEESE-BURGER |
 |---|---|---|
+| profil | `synthetica` (harian) | `critical` (gaming) |
 | LOCALVERSION terbangun | `"-Fresh-Milk-14.03"` | `"-CHEESE-BURGER-11.08"` |
-| config berubah dari 3.1 | `LOCALVERSION` saja | `LOCALVERSION` saja |
+| config berubah dari 3.1 | `LOCALVERSION` saja | 10 simbol (lihat §4) |
 | ekspor dibandingkan | 12.236 | 12.236 |
 | selisih ABI | **0** | **0** |
 | `module_layout` CRC | `0xed5659d1` | `0xed5659d1` |
 | modul ikut dibangun | 6 | 6 |
-| `image_sha256` | `630ed4d7…6067db` | `92120cf4…7cffb7e` |
+| `image_sha256` | `855d138c…aa0535b` | `cf9f4d2f…718a68a` |
 
 Yang **belum** dibuktikan: boot di perangkat, dan kecocokan dengan modul ROM
 tertentu. Jangan menyebut lebih dari ini.
@@ -46,10 +47,27 @@ Jadi kalau `SP_BUILD_NAME=fresh-milk` (huruf kecil), kernel akan bernama
 - CI punya asersi yang gagal kalau `LOCALVERSION` hasil build tidak sama
   dengan identitas varian.
 
-## 3. Perubahan config: tidak ada
+## 3. Perubahan config
+
+**Fresh-Milk** mengubah **nol** simbol config. Hanya `CONFIG_LOCALVERSION`.
+
+**CHEESE-BURGER** menjalankan profil `critical.config` milik kit. Efek nyatanya
+di atas 3.1 hanya 10 simbol, dan seluruhnya berasal dari berkas profil itu
+sendiri — bukan daftar yang dikarang:
+
+| Simbol | 3.1 | Gaming | Sebab |
+|---|---|---|---|
+| `HZ` / `HZ_300` | 100 / n | 300 / y | respons input lebih cepat |
+| `HZ_100` | y | n | eksklusif dengan `HZ_300` (Kconfig) |
+| `CPU_FREQ_DEFAULT_GOV_PERFORMANCE` | n | y | default governor performa |
+| `CPU_FREQ_DEFAULT_GOV_SCHEDUTIL` | y | n | tergantikan pilihan di atas |
+| `DEFAULT_IOSCHED` | `"cfq"` | `"deadline"` | profil memilih deadline |
+| `DEFAULT_DEADLINE` / `DEFAULT_CFQ` | n / — | y / n | pasangan pilihan scheduler |
+| `WQ_POWER_EFFICIENT_DEFAULT` | y | n | profil tidak menyatakannya |
+| `LOCALVERSION` | `synthetica-3.1` | `CHEESE-BURGER` | identitas |
 
 Tiga simbol yang sempat direncanakan ditambahkan ternyata **sudah aktif** di
-baseline 2.0:
+baseline 2.0, jadi dipindah menjadi penjaga `MUST_STAY_ON`:
 
 ```
 CONFIG_CRYPTO_ZSTD=y
@@ -57,9 +75,16 @@ CONFIG_CRYPTO_LZ4HC=y
 CONFIG_TMPFS_XATTR=y
 ```
 
-Karena itu ketiganya dipindah dari daftar "perubahan yang diizinkan" menjadi
-penjaga `MUST_STAY_ON`. Mendaftarkannya sebagai perubahan justru membuat
-penjaga selisih-tepat gagal — dan memang begitulah cara kerjanya.
+### Dua jebakan yang ditemukan lewat CI
+
+1. `critical.config` **tidak memuat MGLRU/UCLAMP/WALT**. Blok fitur itu hanya
+   ditambahkan `prepare()` ke `synthetica.config`. Tanpa perbaikan, varian
+   gaming akan kehilangan fitur wajib 3.2. Solusinya: blok yang sama disalin
+   apa adanya dari `synthetica.config` ke profil gaming saat `prepare`.
+2. `critical.config` juga **tidak menyebut** `F2FS_STAT_FS`, sehingga nilainya
+   kembali ke `=y` dari `00-common`. Statistik f2fs adalah beban profiling di
+   hot path — justru yang paling tidak diinginkan build gaming. Profil gaming
+   kini menyatakan `# CONFIG_F2FS_STAT_FS is not set` secara eksplisit.
 
 ## 4. Penjaga yang berjalan
 
@@ -77,6 +102,14 @@ Tambahan `build_fresh_milk.py`:
 6. **23 simbol** wajib tetap `y`.
 7. **3 simbol** wajib tetap mati, masing-masing beralasan tertulis.
 8. Identitas env diperiksa sebelum kompilasi dimulai.
+9. Set config yang boleh berubah **diturunkan dari berkas profil kit**, bukan
+   diketik tangan. Daftar tulisan tangan pasti menyimpang begitu profilnya
+   berubah.
+10. Simbol di `MUST_STAY_OFF` tidak boleh muncul di set yang boleh berubah.
+11. Guard bawaan yang menuntut *default governor* schedutil diganti dengan
+    versi yang tetap mewajibkan governor schedutil **terkompilasi** — hanya
+    pilihan default-nya yang diserahkan ke profil. Untuk Fresh-Milk, guard
+    aslinya dipakai apa adanya.
 
 ## 5. Nama rilis
 
@@ -138,7 +171,7 @@ kalau `/data` masih terenkripsi.
 
 | Tingkat | Status |
 |---|---|
-| Kompilasi | **lulus** (run 44546020859) |
+| Kompilasi | **lulus** (run 44566221539) |
 | Statis (ABI, config) | **lulus**, 0 selisih |
 | Paket flashable | **belum** dibuat pada varian ini |
 | Boot perangkat | **belum** |
