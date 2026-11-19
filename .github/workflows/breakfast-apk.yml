@@ -47,8 +47,16 @@ jobs:
       - name: Unit tests (JVM, no device)
         run: |
           set -euo pipefail
+          # A failed run must not leave an older APK looking current.
+          rm -f ci-stage/breakfast/BREAKFAST-manager.apk ci-stage/breakfast/APK-*.txt
+          mkdir -p ci-stage/breakfast
           cd breakfast-app
-          ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+          set +e
+          ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee ../ci-stage/breakfast/TEST-LOG.txt
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          find app/build/test-results -name '*.xml' -exec cp {} ../ci-stage/breakfast/ \; 2>/dev/null || true
+          [ "$STATUS" -eq 0 ] || exit "$STATUS"
           python3 tools/check_test_results.py
       - name: Build release APK (throwaway CI keystore)
         run: |

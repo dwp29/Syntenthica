@@ -92,7 +92,9 @@ object StabilityLedger {
     fun score(burden: Int, uptimeHours: Double): Int {
         val hours = if (uptimeHours.isNaN() || uptimeHours < 1.0) 1.0 else uptimeHours
         val raw = 100.0 - (burden * 10.0) / hours
-        return raw.coerceIn(0.0, 100.0).toInt()
+        // round(), not truncate: the spec says round, and truncating would
+        // quietly shave a point off every fractional score.
+        return Math.round(raw.coerceIn(0.0, 100.0)).toInt()
     }
 
     /** Unreadable dmesg must never become a fabricated number. */

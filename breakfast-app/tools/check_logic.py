@@ -32,7 +32,8 @@ def burden(counts: dict[str, int]) -> int:
 
 def score(b: int, hours: float) -> int:
     h = 1.0 if (hours != hours or hours < 1.0) else hours
-    return int(max(0.0, min(100.0, 100.0 - (b * 10.0) / h)))
+    # round() half-up over a non-negative number, matching Math.round in Kotlin.
+    return int(math.floor(max(0.0, min(100.0, 100.0 - (b * 10.0) / h)) + 0.5))
 
 
 def band(value: int) -> str:
