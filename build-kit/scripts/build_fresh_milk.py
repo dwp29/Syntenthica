@@ -1,25 +1,30 @@
 #!/usr/bin/env python3
-"""Fresh-Milk-14.03 / CHEESE-BURGER-11.08 — dua varian dari satu tree.
+"""Fresh-Milk-14.03 / CHEESE-BURGER-11.08 - two identities, one proven tree.
 
-Dibangun di atas resep 3.2-r1 yang sudah lulus 359 tes. Resep lama mengunci
-perubahan config hanya ke LOCALVERSION; modul ini melebarkan kunci itu ke
-daftar yang **eksplisit dan tertutup**, lalu menambahkan pemeriksaan sendiri
-supaya config yang tidak diminta tetap ditolak.
+This module is a thin, explicit layer on the 3.2-r1 recipe (which passed its
+own host tests). It does NOT change code, patches, toolchain, SuSFS or root.
+It changes two things only:
 
-Pemakaian:
-    build_fresh_milk.py <variant> apply --patch-only
+  1. the release identity (CONFIG_LOCALVERSION and therefore vermagic), and
+  2. nothing else - the whole config guard stays exactly as 3.2-r1 left it.
+
+The identity is not written into a config file by hand: the rollercoaster
+builder derives CONFIG_LOCALVERSION from SP_BUILD_NAME and SP_BUILD_KVER
+(LOCALVER="-${NAME}-${KVER}"). So the capitalisation that users see in
+`uname -r` comes from those two variables, and this module refuses to run
+when they disagree with the variant table below.
+
+Why no extra CONFIG_* symbols: the three that were considered
+(CRYPTO_ZSTD, CRYPTO_LZ4HC, TMPFS_XATTR) are already enabled in the 2.0
+baseline that 3.2-r1 was built from, so "adding" them is a no-op. They are
+therefore guarded as must-stay-on instead of listed as allowed changes -
+listing them as changes would make the exact-difference guard fail, which is
+exactly what it is there to do.
+
+Usage
     build_fresh_milk.py <variant> verify
-
-`apply --patch-only` menimpa kunci config lalu keluar. Pekerjaan build tetap
-dilakukan resep 3.2-r1 supaya seluruh penjagaannya tidak terduplikasi.
-
-Yang TIDAK diubah di sini:
-- toolchain (Neutron 24, dipin oleh resep lama)
-- SuSFS (tetap v2.3.0 sampai ABI v2.4.0 diverifikasi)
-- root (tetap KernelSU-Next sampai tahap 2)
-- patch (3.2-r1 + guard MGLRU, tidak ditambah)
-
-Dua varian berbagi source dan patch yang sama. Perbedaan hanya fragment config.
+    build_fresh_milk.py <variant> apply      # same guards, no compile
+    build_fresh_milk.py <3.2-r1 subcommand>  # delegation, variant from FM_VARIANT
 """
 from __future__ import annotations
 
@@ -30,50 +35,47 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / 'build-kit/ci/fresh-milk'
-COMMON = ASSETS / 'common.config'
 
 VARIANTS = {
     'fresh-milk': {
+        'name': 'Fresh-Milk',
+        'kver': '14.03',
         'localversion': '"-Fresh-Milk-14.03"',
         'release': '4.14.357-openela-Fresh-Milk-14.03',
-        'fragment': ASSETS / 'fresh-milk.config',
+        'profile': 'synthetica',
         'focus': 'stability',
     },
     'cheese-burger': {
+        'name': 'CHEESE-BURGER',
+        'kver': '11.08',
         'localversion': '"-CHEESE-BURGER-11.08"',
         'release': '4.14.357-openela-CHEESE-BURGER-11.08',
-        'fragment': ASSETS / 'cheese-burger.config',
+        'profile': 'synthetica',
         'focus': 'gaming-performance',
     },
 }
 
-# Perubahan config yang diizinkan, relatif terhadap 3.1.
-# Ditulis sebagai (nilai_3_1, nilai_baru). Harus sama dengan isi fragment.
-ALLOWED = {
-    'CRYPTO_ZSTD': ('n', 'y'),
-    'CRYPTO_LZ4HC': ('n', 'y'),
-    'TMPFS_XATTR': ('n', 'y'),
-}
+# No config symbol may differ from the 2.0 baseline except the identity.
+ALLOWED = {}
 
-# Fitur yang WAJIB tetap hidup. Kalau salah satu hilang, build dibatalkan.
+# Symbols that must be present in the final .config. The last three were
+# verified to be already enabled in the 2.0 baseline, so they are guards,
+# not changes.
 MUST_STAY_ON = (
     'LRU_GEN', 'LRU_GEN_ENABLED', 'UCLAMP_TASK', 'UCLAMP_TASK_GROUP',
     'SCHED_WALT', 'SCHED_TUNE', 'KSU', 'KSU_MANUAL_HOOK', 'KSU_SUSFS',
     'NOMOUNT', 'SECCOMP', 'SECCOMP_FILTER', 'MODULE_SIG_FORCE', 'MODVERSIONS',
     'SECURITY_SELINUX', 'DM_VERITY', 'F2FS_FS', 'EROFS_FS',
     'BPF_SYSCALL', 'BPF_JIT_ALWAYS_ON',
+    'CRYPTO_ZSTD', 'CRYPTO_LZ4HC', 'TMPFS_XATTR',
 )
 
-# Config yang harus tetap mati, beserta alasannya.
 MUST_STAY_OFF = {
-    'MODULE_FORCE_LOAD': 'memungkinkan pemuatan modul tanpa tanda tangan',
+    'MODULE_FORCE_LOAD': 'allows loading unsigned modules',
     'KSU_SUSFS_TRY_UMOUNT':
-        'port SuSFS 4.14 tidak membawa susfs_try_umount(); sudah diverifikasi '
-        'tidak ada di v2.3.0 maupun v2.4.0',
-    'KSU_SUSFS_SUS_MEMFD': 'dimatikan di base 3.2, tidak diubah tanpa alasan',
+        'this 4.14 SuSFS port has no susfs_try_umount(); forcing it fails the build',
+    'KSU_SUSFS_SUS_MEMFD': 'disabled in the 3.2 base; not changed without a reason',
 }
-
-RELEASE_SAFE = ('FRESH-MILK', 'CHEESE-BURGER')
 
 
 def load(relative: str, name: str):
@@ -86,90 +88,95 @@ def load(relative: str, name: str):
     return module
 
 
-def apply_variant(variant: str) -> None:
-    """Titik masuk: timpa kunci config resep 3.2-r1 untuk satu varian."""
+def _check_build_environment(variant: str) -> None:
+    """Fail before compiling if the builder would print a different identity."""
+    spec = VARIANTS[variant]
+    for var, want in (('SP_BUILD_NAME', spec['name']),
+                      ('SP_BUILD_KVER', spec['kver']),
+                      ('SP_PROFILE', spec['profile'])):
+        got = os.environ.get(var)
+        if got is not None and got != want:
+            raise SystemExit(f'{var}={got!r} but variant {variant} needs {want!r}')
+
+
+def apply_variant(variant: str):
+    """Install the variant identity into the private 3.2-r1 import chain."""
     if variant not in VARIANTS:
         raise SystemExit('variant must be one of: ' + ', '.join(VARIANTS))
     spec = VARIANTS[variant]
+    _check_build_environment(variant)
 
     module = load('build-kit/scripts/build_synthetica32_r1.py',
                   f'synthetica32_r1_for_{variant.replace("-", "_")}')
 
-    # Resep 3.2-r1 mengunci LOCALVERSION di level modulnya sendiri.
     module.RELEASE = spec['release']
     module.LOCALVERSION = spec['localversion']
 
-    # Turunkan kunci ke rantai yang di-import-nya. Resep 3.2-r1 menyimpan
-    # referensi ke base/rc/s2x sebagai variabel modul; kita ubah isinya,
-    # bukan membuat salinan baru, supaya pemeriksaannya tetap berjalan.
-    allowed = dict(module.old.base.rc.s2x.ALLOWED_CHANGES)
+    # The 2.0 experiment instance held by the rc recipe compares
+    # CONFIG_LOCALVERSION against its own expected value, so reshape that.
+    root = module.old.base
+    rc = root.rc
+    s2x = rc.s2x
+    allowed = dict(s2x.ALLOWED_CHANGES)
     allowed['LOCALVERSION'] = ('"-Synthetica-2.0"', spec['localversion'])
-    for key, (before, after) in ALLOWED.items():
-        allowed[key] = (before, after)
-    module.old.base.rc.s2x.ALLOWED_CHANGES = allowed
+    s2x.ALLOWED_CHANGES = allowed
+    s2x.EXPECTED_RELEASE = spec['release']
 
-    module.old.base.EXPECTED_RELEASE = spec['release']
-    module.old.base.EXPECTED_LOCALVERSION = spec['localversion']
-    module.old.base.rc.EXPECTED_RELEASE = spec['release']
-    module.old.base.rc.EXPECTED_LOCALVERSION = spec['localversion']
-    module.old.base.rc.s2x.EXPECTED_RELEASE = spec['release']
-
-    # compare_31_config pada 3.2-r1 membangun ulang `expected` dari konstanta
-    # lokalnya sendiri. Ganti dengan versi yang membaca ALLOWED terbaru.
-    original = module.compare_31_config
+    # rc and root compare the tested config against EXPECTED_LOCALVERSION.
+    rc.EXPECTED_RELEASE = spec['release']
+    rc.EXPECTED_LOCALVERSION = spec['localversion']
+    root.EXPECTED_RELEASE = spec['release']
+    root.EXPECTED_LOCALVERSION = spec['localversion']
 
     def compare_31_config(baseline31: Path, generated: str):
-        """Cocokkan config hasil build dengan 3.1.
+        """Only the identity may differ from the exact 3.1 config.
 
-        Kita tidak mengandalkan nilai 3.1 tersimpan (blob 3.1 tidak selalu bisa
-        dibaca di lingkungan ini). Yang diperiksa:
-
-        1. setiap simbol di ALLOWED berakhir pada nilai yang diminta;
-        2. LOCALVERSION berakhir pada localversion varian;
-        3. TIDAK ada perubahan lain di luar itu;
-        4. semua simbol wajib-hidup tetap y, wajib-mati tetap mati.
+        The 3.2-r1 version of this function expected exactly one change with a
+        hardcoded localversion. Here the expectation follows the variant, and
+        the must-stay-on / must-stay-off sets are enforced on every build.
         """
         v3 = module.v3
         if baseline31.is_symlink() or not baseline31.is_file():
-            raise ValueError('baseline 3.1 config missing or unsafe')
+            raise ValueError('3.1 config must be a regular file')
         previous = v3.read_config(baseline31.read_text(encoding='utf-8'))
         current = v3.read_config(generated)
-        changes = {k: {'before': previous.get(k, 'n'), 'now': current.get(k, 'n')}
+        changes = {k: {'3.1': previous.get(k, 'n'), 'now': current.get(k, 'n')}
                    for k in sorted(previous.keys() | current.keys())
                    if previous.get(k, 'n') != current.get(k, 'n')}
 
         allowed_keys = set(ALLOWED) | {'LOCALVERSION'}
         unexpected = sorted(k for k in changes if k not in allowed_keys)
         if unexpected:
-            raise ValueError('perubahan config di luar daftar izin: '
+            raise ValueError('config changed beyond the variant identity: '
                              + ', '.join(unexpected[:20]))
 
         if current.get('LOCALVERSION') != spec['localversion']:
-            raise ValueError('LOCALVERSION tidak sesuai varian: '
-                             f"{current.get('LOCALVERSION')} != {spec['localversion']}"
-                             )
+            raise ValueError('LOCALVERSION is not this variant: '
+                             f"{current.get('LOCALVERSION')} != {spec['localversion']}")
         for key, (_before, after) in ALLOWED.items():
             if current.get(key, 'n') != after:
-                raise ValueError(f'{key} tidak tercapai: '
+                raise ValueError(f'{key} was not reached: '
                                  f"{current.get(key, 'n')} != {after}")
 
-        for feature in MUST_STAY_ON:
-            if current.get(feature) != 'y':
-                raise ValueError(f'fitur wajib hilang: {feature}')
+        missing = [f for f in MUST_STAY_ON if current.get(f) != 'y']
+        if missing:
+            raise ValueError('required feature missing: ' + ', '.join(missing))
         for key, reason in MUST_STAY_OFF.items():
             if current.get(key) == 'y':
-                raise ValueError(f'{key} harus tetap mati: {reason}')
+                raise ValueError(f'{key} must stay off: {reason}')
 
         return changes
 
     module.compare_31_config = compare_31_config
+
     print(f'variant      : {variant} ({spec["focus"]})')
-    print(f'release      : {spec["release"]}')
-    print(f'localversion : {spec["localversion"]}')
-    print(f'allowed extra: {", ".join(sorted(ALLOWED))}')
+    print(f'builder name : {spec["name"]} / {spec["kver"]}')
+    print(f'release      : {spec["release"]}  ({len(spec["release"])} chars)')
+    print(f'profile      : {spec["profile"]}')
     print(f'must stay on : {len(MUST_STAY_ON)} symbols')
     print(f'must stay off: {", ".join(sorted(MUST_STAY_OFF))}')
-    print('catatan      : toolchain, SuSFS, root dan patch TIDAK diubah')
+    print('changed      : CONFIG_LOCALVERSION only; no code, patch, toolchain,'
+          ' SuSFS or root change')
     return module
 
 
@@ -181,15 +188,6 @@ def _variant_from_env() -> str:
 
 
 def main(argv: list[str]) -> int:
-    """Dua mode:
-
-    1. Eksplisit:  build_fresh_milk.py <variant> verify|apply
-    2. Delegasi:   build_fresh_milk.py <subcommand 3.2-r1> [args...]
-
-    Mode 2 dipakai oleh build_chronicle_base.py, yang memanggil helper lewat
-    $S2X_HELPER. Varian diambil dari FM_VARIANT. Override dipasang di proses
-    yang sama, lalu subcommand diteruskan ke resep 3.2-r1.
-    """
     pending = argv[1:]
     if not pending:
         raise SystemExit('usage: build_fresh_milk.py <variant> verify|apply  |  '
@@ -210,7 +208,6 @@ def main(argv: list[str]) -> int:
             return 0
         raise SystemExit('unknown variant command: ' + ' '.join(pending))
 
-    # Delegasi: bangun ulang argv seolah-olah resep 3.2-r1 dipanggil langsung.
     saved = sys.argv
     try:
         sys.argv = [str(ROOT / 'build-kit/scripts/build_synthetica32_r1.py')] + pending

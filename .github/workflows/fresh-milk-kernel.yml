@@ -27,11 +27,13 @@ jobs:
       matrix:
         include:
           - variant: fresh-milk
+            name: Fresh-Milk
             release: 4.14.357-openela-Fresh-Milk-14.03
-            kver: 14.03
+            kver: '14.03'
           - variant: cheese-burger
+            name: CHEESE-BURGER
             release: 4.14.357-openela-CHEESE-BURGER-11.08
-            kver: 11.08
+            kver: '11.08'
     steps:
       - name: Check out triggering commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,7 +119,7 @@ jobs:
           SP_JOBS: '4'
           SP_RELEASE_VERSION: ${{ matrix.kver }}
           SP_PROFILE: synthetica
-          SP_BUILD_NAME: ${{ matrix.variant }}
+          SP_BUILD_NAME: ${{ matrix.name }}
           SP_BUILD_KVER: ${{ matrix.kver }}
           SP_EXPECT_RELEASE: ${{ matrix.release }}
           PYTHONOPTIMIZE: '0'
