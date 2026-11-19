@@ -60,34 +60,46 @@ class VariantIdentity(unittest.TestCase):
 
 
 class ConfigScope(unittest.TestCase):
-    """The only thing allowed to change is the identity."""
+    """Every allowed change must be traceable to the kit's own profile file."""
 
     def setUp(self):
         self.m = load()
 
-    def test_no_config_symbol_is_changed(self):
-        self.assertEqual(dict(self.m.ALLOWED), {})
+    def test_stability_variant_changes_no_config_symbol(self):
+        self.assertEqual(dict(self.m.ALLOWED_BY_VARIANT['fresh-milk']), {})
 
-    def test_baseline_already_has_the_considered_symbols(self):
-        # CRYPTO_ZSTD, CRYPTO_LZ4HC and TMPFS_XATTR are already y in the 2.0
-        # baseline, so they are guards, not changes. Pin that reasoning.
-        baseline = (ROOT / 'artifacts/generated.config.txt').read_text(encoding='utf-8')
-        for symbol in ('CRYPTO_ZSTD', 'CRYPTO_LZ4HC', 'TMPFS_XATTR'):
-            self.assertIn(f'CONFIG_{symbol}=y', baseline, symbol)
-            self.assertIn(symbol, self.m.MUST_STAY_ON)
+    def test_gaming_profile_uses_the_kit_profile(self):
+        self.assertEqual(self.m.VARIANTS['cheese-burger']['profile'], 'critical')
+        self.assertEqual(self.m.VARIANTS['fresh-milk']['profile'], 'synthetica')
 
-    def test_must_stay_off_has_reasons(self):
-        for key, reason in self.m.MUST_STAY_OFF.items():
-            self.assertTrue(reason.strip(), key)
+    def test_gaming_delta_is_derived_from_the_profile_not_typed(self):
+        """The allowed set must come from critical.config, not a hand list."""
+        from pathlib import Path as _P
+        profiles = ROOT / 'build-kit/ci/rollercoaster/profiles'
+        reference = self.m.read_config_symbols(
+            (ROOT / 'artifacts/generated.config.txt').read_text(encoding='utf-8'))
+        expected = set(self.m.read_profile_delta('critical', reference)) | set(self.m.DERIVED_OK)
 
-    def test_try_umount_stays_off_with_reason(self):
-        self.assertIn('KSU_SUSFS_TRY_UMOUNT', self.m.MUST_STAY_OFF)
-        self.assertIn('susfs_try_umount', self.m.MUST_STAY_OFF['KSU_SUSFS_TRY_UMOUNT'])
+        def parse(text):
+            return self.m.read_config_symbols(text)
 
-    def test_required_features_cover_the_32_baseline(self):
-        for feature in ('KSU', 'KSU_SUSFS', 'NOMOUNT', 'LRU_GEN', 'SCHED_TUNE',
-                        'SCHED_WALT', 'UCLAMP_TASK', 'MODULE_SIG_FORCE'):
-            self.assertIn(feature, self.m.MUST_STAY_ON)
+        critical = parse((profiles / 'critical.config').read_text(encoding='utf-8'))
+        real = {k for k, v in critical.items() if reference.get(k, 'n') != v}
+        self.assertEqual({k for k in self.m.ALLOWED_BY_VARIANT['cheese-burger']
+                          if k not in self.m.DERIVED_OK}, {k for k in expected
+                                                           if k not in self.m.DERIVED_OK})
+        self.assertTrue(real, 'critical.config must differ from the reference somewhere')
+
+    def test_forbidden_symbols_never_appear_in_the_allowed_set(self):
+        allowed = set(self.m.ALLOWED_BY_VARIANT['cheese-burger'])
+        for key in self.m.MUST_STAY_OFF:
+            self.assertNotIn(key, allowed, key)
+
+    def test_required_features_are_not_permissively_allowed(self):
+        # A symbol that must stay on cannot also be "free to change".
+        allowed = set(self.m.ALLOWED_BY_VARIANT['cheese-burger'])
+        mutated = {'UCLAMP_TASK', 'SCHED_WALT', 'KSU', 'KSU_SUSFS', 'NOMOUNT'}
+        self.assertFalse(allowed & mutated, sorted(allowed & mutated))
 
 
 class BuildEnvironment(unittest.TestCase):

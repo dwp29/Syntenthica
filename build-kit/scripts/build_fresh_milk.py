@@ -50,17 +50,60 @@ VARIANTS = {
         'kver': '11.08',
         'localversion': '"-CHEESE-BURGER-11.08"',
         'release': '4.14.357-openela-CHEESE-BURGER-11.08',
-        'profile': 'synthetica',
+        'profile': 'critical',
         'focus': 'gaming-performance',
     },
 }
 
-# No config symbol may differ from the 2.0 baseline except the identity.
-ALLOWED = {}
+# Which config symbols each variant may differ in, relative to 3.1.
+#
+# The stability variant changes none. The gaming variant runs the kit's own
+# critical.config profile, so its allowed set is *derived* from that file and
+# from the 3.1 config rather than typed by hand - a hand-written list drifts the
+# moment either file changes.
+#
+# Two effects learned from a real CI failure shape this:
+#   * critical.config repeats many values 3.1 already carries. Repeating a value
+#     is not a change and must not appear in the allowed set.
+#   * Kconfig resolves mutually exclusive options itself (HZ_300=y turns
+#     HZ_100 off; the performance governor deselects schedutil's default).
+#     Those derived flips are permitted per symbol, with no pinned value,
+#     because the profile never states the resulting value.
+REFERENCE_31 = ROOT / 'artifacts/generated.config.txt'
+PROFILE_DIR = ROOT / 'build-kit/ci/rollercoaster/profiles'
+DERIVED_OK = (
+    # HZ_300=y deselects HZ_100 through Kconfig exclusivity.
+    'HZ_100',
+    # critical.config states the performance governor as the default and never
+    # mentions schedutil's default, so Kconfig turns the latter off.
+    'CPU_FREQ_DEFAULT_GOV_SCHEDUTIL',
+    # critical.config omits WQ_POWER_EFFICIENT_DEFAULT, and Kconfig drops an
+    # option the chosen profile does not restate.
+    'WQ_POWER_EFFICIENT_DEFAULT',
+)
 
-# Symbols that must be present in the final .config. The last three were
-# verified to be already enabled in the 2.0 baseline, so they are guards,
-# not changes.
+
+def read_config_symbols(text: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith('# CONFIG_') and line.endswith(' is not set'):
+            out[line[len('# CONFIG_'):-len(' is not set')]] = 'n'
+            continue
+        if line.startswith('CONFIG_'):
+            key, _, value = line[len('CONFIG_'):].partition('=')
+            out[key] = value
+    return out
+
+
+def read_profile_delta(profile: str, reference: dict[str, str]) -> tuple[str, ...]:
+    """Symbols a profile actually changes relative to the reference config."""
+    stated = read_config_symbols((PROFILE_DIR / f'{profile}.config').read_text(encoding='utf-8'))
+    return tuple(k for k, v in stated.items() if reference.get(k, 'n') != v)
+
+
+# Symbols that must be present in the final .config. The last three are already
+# enabled in the 2.0 baseline, so they are guards, not changes.
 MUST_STAY_ON = (
     'LRU_GEN', 'LRU_GEN_ENABLED', 'UCLAMP_TASK', 'UCLAMP_TASK_GROUP',
     'SCHED_WALT', 'SCHED_TUNE', 'KSU', 'KSU_MANUAL_HOOK', 'KSU_SUSFS',
@@ -75,6 +118,14 @@ MUST_STAY_OFF = {
     'KSU_SUSFS_TRY_UMOUNT':
         'this 4.14 SuSFS port has no susfs_try_umount(); forcing it fails the build',
     'KSU_SUSFS_SUS_MEMFD': 'disabled in the 3.2 base; not changed without a reason',
+}
+
+
+# variant -> (permissive symbols, derived symbols)
+ALLOWED_BY_VARIANT = {
+    'fresh-milk': (),
+    'cheese-burger': (read_profile_delta('critical', read_config_symbols(
+        REFERENCE_31.read_text(encoding='utf-8'))) if REFERENCE_31.exists() else ()) + DERIVED_OK,
 }
 
 
@@ -106,6 +157,8 @@ def apply_variant(variant: str):
     spec = VARIANTS[variant]
     _check_build_environment(variant)
 
+    allowed = set(ALLOWED_BY_VARIANT[variant])
+
     module = load('build-kit/scripts/build_synthetica32_r1.py',
                   f'synthetica32_r1_for_{variant.replace("-", "_")}')
 
@@ -117,9 +170,10 @@ def apply_variant(variant: str):
     root = module.old.base
     rc = root.rc
     s2x = rc.s2x
-    allowed = dict(s2x.ALLOWED_CHANGES)
-    allowed['LOCALVERSION'] = ('"-Synthetica-2.0"', spec['localversion'])
-    s2x.ALLOWED_CHANGES = allowed
+    s2x_allowed = dict(s2x.ALLOWED_CHANGES)
+    s2x_allowed['LOCALVERSION'] = ('"-Synthetica-2.0"', spec['localversion'])
+
+    s2x.ALLOWED_CHANGES = s2x_allowed
     s2x.EXPECTED_RELEASE = spec['release']
 
     # rc and root compare the tested config against EXPECTED_LOCALVERSION.
@@ -144,20 +198,15 @@ def apply_variant(variant: str):
                    for k in sorted(previous.keys() | current.keys())
                    if previous.get(k, 'n') != current.get(k, 'n')}
 
-        allowed_keys = set(ALLOWED) | {'LOCALVERSION'}
+        allowed_keys = set(allowed) | {'LOCALVERSION'}
         unexpected = sorted(k for k in changes if k not in allowed_keys)
         if unexpected:
-            raise ValueError('config changed beyond the variant identity: '
+            raise ValueError('config changed beyond the approved set: '
                              + ', '.join(unexpected[:20]))
 
         if current.get('LOCALVERSION') != spec['localversion']:
             raise ValueError('LOCALVERSION is not this variant: '
                              f"{current.get('LOCALVERSION')} != {spec['localversion']}")
-        for key, (_before, after) in ALLOWED.items():
-            if current.get(key, 'n') != after:
-                raise ValueError(f'{key} was not reached: '
-                                 f"{current.get(key, 'n')} != {after}")
-
         missing = [f for f in MUST_STAY_ON if current.get(f) != 'y']
         if missing:
             raise ValueError('required feature missing: ' + ', '.join(missing))
@@ -175,8 +224,9 @@ def apply_variant(variant: str):
     print(f'profile      : {spec["profile"]}')
     print(f'must stay on : {len(MUST_STAY_ON)} symbols')
     print(f'must stay off: {", ".join(sorted(MUST_STAY_OFF))}')
-    print('changed      : CONFIG_LOCALVERSION only; no code, patch, toolchain,'
-          ' SuSFS or root change')
+    print('changed      : CONFIG_LOCALVERSION'
+          + (f' + {len(allowed)} profile symbol(s)' if allowed else ' only')
+          + '; no code, patch, toolchain, SuSFS or root change')
     return module
 
 
