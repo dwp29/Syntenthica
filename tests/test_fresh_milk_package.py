@@ -144,6 +144,15 @@ class Packaging(unittest.TestCase):
             with self.assertRaises(ValueError, msg=key):
                 self.m.collect(self.result, 'fresh-milk')
 
+    def test_accepts_the_older_release_key(self):
+        # 3.2-r1 wrote `release`; older recipes wrote `uname_release`.
+        status = json.loads((self.result / 'STATUS.json').read_text())
+        status['release'] = status.pop('uname_release')
+        (self.result / 'STATUS.json').write_text(json.dumps(status))
+        out = self.tmp / 'fm.zip'
+        self.m.package(self.result, 'fresh-milk', out)
+        self.assertTrue(out.is_file())
+
     def test_refuses_to_overwrite(self):
         out = self.tmp / 'fm.zip'
         out.write_bytes(b'existing')

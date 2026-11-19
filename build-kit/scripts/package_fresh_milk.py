@@ -92,9 +92,12 @@ def check_evidence(result: Path, variant: str) -> tuple[dict, bytes, bytes, str]
     config = (result / 'generated.config.txt').read_bytes()
     image_sha = sha(image)
 
+    # The recipe has written the identity under both names across generations.
+    written_release = status.get('uname_release') or status.get('release')
+
     checks = {
         'kind': status.get('kind') == build.STATUS_KIND,
-        'release': status.get('uname_release') == spec['release'],
+        'release': written_release == spec['release'],
         'image': status.get('image_sha256') == image_sha,
         'config': status.get('config_sha256') == sha(config),
         'source': status.get('base_source') == V3.SOURCE,
