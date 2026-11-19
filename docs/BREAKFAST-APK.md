@@ -103,3 +103,36 @@ python3 breakfast-app/tools/check_logic.py   # rumus, kontras, whitelist
    zram dari aplikasi belum diambil.
 3. **Uji di perangkat.** Sampai kernel di-boot dan APK dijalankan di atasnya,
    semua klaim di atas hanya berlaku untuk kompilasi dan logika.
+
+## Unduhan
+
+Rilis run 9 sudah diunggah ke Google Drive. Ketiga tautan berisi berkas yang
+sama-sama sudah diverifikasi MD5 terhadap salinan di workspace.
+
+| Berkas | ID Drive | Ukuran |
+|---|---|---|
+| `BREAKFAST-APK-run9.zip` (paket lengkap) | `12wkoTgDOpxixSOuRAxFm6tpNYvrXiJLa` | 698.586 B |
+| `BREAKFAST-manager-0.1.0-run9.apk` (APK saja) | `1fsmJlurVjOd2LFOZTB58N9HTVwhXmCb5` | 695.872 B |
+| `BREAKFAST-APK-verifikasi.txt` (lembar verifikasi) | `1ZYWI-wvkN3OhcfppbA84NrMzD8agxoF5` | 2.744 B |
+
+```
+BREAKFAST-APK-run9.zip                    48ab22d8c8e45242a990c09bdb29762f46a30c84090f5ead97025ac96a962543
+BREAKFAST-manager-0.1.0-run9.apk          8b93c0a870fed4fce16fec4fd2b7c7d3dd4fe11f1710c4588ceb7d1a7df3402d
+sertifikat penandatangan (SHA-256)        9c58d0d7582af0ac34847d46286b53fc9ad668110500e5a70894cc50bd89194e
+```
+
+Paket ZIP memuat: APK, lembar verifikasi, catatan sha256/badging/sertifikat/mode
+penandatanganan, tujuh berkas JUnit XML (60 tes), log Gradle mentah, dan catatan
+teknis ini.
+
+## Yang masih terbuka setelah build ini
+
+1. **Uji di perangkat.** Sampai APK dijalankan di atas kernel yang sudah
+   di-boot, semua klaim di atas hanya berlaku untuk kompilasi dan logika.
+   Ini satu-satunya pekerjaan yang tidak bisa diselesaikan dari sini.
+2. **Kunci penandatangan tetap.** Jalurnya sudah ada: bila empat secret
+   `BREAKFAST_KEYSTORE_B64`, `BREAKFAST_KEYSTORE_PASSWORD`,
+   `BREAKFAST_KEY_ALIAS`, `BREAKFAST_KEY_PASSWORD` diisi, build memakai kunci
+   stabil dan APK bisa menimpa versi lama. Workspace ini tidak punya hak admin
+   untuk menambah secret (API Actions secrets menjawab 404), jadi saat ini yang
+   berjalan adalah jalur kunci sementara.

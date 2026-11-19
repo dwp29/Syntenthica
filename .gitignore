@@ -45,3 +45,9 @@ design/breakfast/*.png
 # to the user by pulling it from the session branch. It is signed with a fresh
 # throwaway key per run, so it carries no long-lived signing secret.
 !ci-stage/breakfast/BREAKFAST-manager.apk
+
+# Local distribution bundles built from ci-stage/ for a single handover. They are
+# uploaded to Drive by ID and can be rebuilt from the committed artifact.
+/BREAKFAST-APK-run*.zip
+/BREAKFAST-manager-*.apk
+/BREAKFAST-APK-verifikasi.txt
