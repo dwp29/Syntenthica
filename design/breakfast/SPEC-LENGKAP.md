@@ -1,5 +1,7 @@
 # BREAKFAST — Pelengkap Spesifikasi
 
+> **HOLD (2026-10-31).** Lihat `docs/HOLD-FITUR-DAN-RENCANA-KERNEL.md`.
+
 Mengisi empat hal yang masih terbuka di `SPEC-LAYAR.md` §14.
 
 Status: dokumen desain. Belum ada kode.

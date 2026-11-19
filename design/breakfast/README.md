@@ -1,5 +1,9 @@
 # BREAKFAST — Spesifikasi Desain
 
+> **HOLD (2026-10-31).** Pengembangan fitur dihentikan sementara sampai kernel
+> siap. Dokumen ini tetap jadi acuan, tapi tidak dikembangkan lebih jauh.
+> Lihat `docs/HOLD-FITUR-DAN-RENCANA-KERNEL.md`.
+
 Manajer kernel eksklusif untuk **Fresh-Milk** dan **CHEESE-BURGER**.
 Bukan rebrand BakaSU. Struktur informasi, identitas, dan geraknya baru.
 

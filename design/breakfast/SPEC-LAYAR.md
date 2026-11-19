@@ -1,5 +1,7 @@
 # BREAKFAST — Spesifikasi Rinci per Layar
 
+> **HOLD (2026-10-31).** Lihat `docs/HOLD-FITUR-DAN-RENCANA-KERNEL.md`.
+
 Pelengkap `README.md`. Dokumen ini menjawab: **apa yang terjadi saat datanya
 kosong, gagal, atau belum diaudit** — dan **teks apa** yang muncul, dalam dua
 bahasa.
