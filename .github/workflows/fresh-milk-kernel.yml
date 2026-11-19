@@ -236,10 +236,14 @@ jobs:
           FM_VARIANT: ${{ matrix.variant }}
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/package_fresh_milk.py \
-            --result "$RUNNER_TEMP/${{ matrix.variant }}-result" \
-            --variant "$FM_VARIANT" \
-            --output "$RUNNER_TEMP/${{ matrix.variant }}-result/${{ matrix.name }}-${{ matrix.kver }}.zip"
+          if ! python3 build-kit/scripts/package_fresh_milk.py \
+              --result "$RUNNER_TEMP/${{ matrix.variant }}-result" \
+              --variant "$FM_VARIANT" \
+              --output "$RUNNER_TEMP/${{ matrix.variant }}-result/${{ matrix.name }}-${{ matrix.kver }}.zip" \
+              2> "$RUNNER_TEMP/package-error.txt"; then
+            python3 -c "import os;from pathlib import Path;t=Path(os.environ['RUNNER_TEMP'])/'package-error.txt';b=t.read_text(errors='replace')[-1500:] if t.exists() else 'no error file';print(b);print('::error title=' + os.environ['FM_VARIANT'] + ' package::' + b.replace('%','%25').replace(chr(13),'%0D').replace(chr(10),'%0A'))"
+            exit 1
+          fi
 
       - name: Publish result summary
         env:
