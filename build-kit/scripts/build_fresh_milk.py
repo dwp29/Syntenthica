@@ -218,6 +218,49 @@ def apply_prepared_kit(kit_dir: str) -> int:
 
 
 
+
+def _install_tested_compare(module, variant: str, allowed: set[str]) -> None:
+    """Widen the tested-config comparison by the variant's own symbol set.
+
+    compare_tested_config() requires the build to differ from the saved 2.0
+    experiment config in LOCALVERSION and nothing else. A variant that
+    deliberately runs a different kit profile necessarily differs more, so the
+    expected-difference map gains exactly the variant's derived symbols, using
+    the value the build actually produced. Every other assertion - the pinned
+    digest, the required feature list - is unchanged.
+    """
+    spec = VARIANTS[variant]
+    rc = module.old.base.rc
+    s2x = rc.s2x
+
+    def compare_tested_config(tested: Path, generated: str):
+        if s2x.v3.digest(tested) != rc.TESTED_CONFIG_SHA256:
+            raise ValueError('tested 2.0 experiment config digest changed')
+        old = s2x.v3.read_config(tested.read_text(encoding='utf-8'))
+        new = s2x.v3.read_config(generated)
+        changes = {key: {'tested_2.0_exp': old.get(key, 'n'), 'now': new.get(key, 'n')}
+                   for key in sorted(old.keys() | new.keys())
+                   if old.get(key, 'n') != new.get(key, 'n')}
+        expected = {'LOCALVERSION': {'tested_2.0_exp': '"-Synthetica-2.0-exp"',
+                                     'now': spec['localversion']}}
+        for key in allowed:
+            expected[key] = {'tested_2.0_exp': old.get(key, 'n'),
+                             'now': new.get(key, 'n')}
+        if changes != expected:
+            bad = sorted(key for key in changes.keys() | expected.keys()
+                         if changes.get(key) != expected.get(key))
+            raise ValueError('config differs from the tested experiment beyond the '
+                             'approved set: ' + ', '.join(bad[:20]))
+        for key in ('SECCOMP', 'SECCOMP_FILTER', 'LRU_GEN', 'LRU_GEN_ENABLED',
+                    'UCLAMP_TASK', 'UCLAMP_TASK_GROUP', 'SCHED_TUNE', 'SCHED_WALT',
+                    'THERMAL', 'KSU', 'KSU_MANUAL_HOOK', 'MODULE_SIG_FORCE', 'MODVERSIONS'):
+            if new.get(key) != 'y':
+                raise ValueError('required feature/security config missing: ' + key)
+        return changes
+
+    rc.compare_tested_config = compare_tested_config
+
+
 def _install_config_check(module, variant: str, allowed: set[str]) -> None:
     """Keep the 2.0-experiment guard, minus its one structural assumption.
 
@@ -360,6 +403,7 @@ def apply_variant(variant: str):
 
     module.compare_31_config = compare_31_config
     _install_config_check(module, variant, allowed)
+    _install_tested_compare(module, variant, allowed)
 
     print(f'variant      : {variant} ({spec["focus"]})')
     print(f'builder name : {spec["name"]} / {spec["kver"]}')
