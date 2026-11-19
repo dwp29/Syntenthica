@@ -13,7 +13,7 @@ Status: **dokumen desain.** Belum ada kode. Visual di bawah adalah render
 konsep, bukan tangkapan layar aplikasi yang sudah jadi.
 
 > Rincian per layar (state, pesan gagal, teks ID/EN) ada di
-> **[`SPEC-LAYAR.md`](SPEC-LAYAR.md)**.
+> **[`SPEC-LAYAR.md`](SPEC-LAYAR.md)** dan **[`SPEC-LENGKAP.md`](SPEC-LENGKAP.md)**.
 
 ---
 
@@ -309,6 +309,34 @@ Aturan banner:
    konten PULSE harus tetap terlihat tanpa scroll untuk bagian atas.
 4. **Ada fallback statis** `preview/16-banner-frame0.jpg` untuk perangkat atau
    keadaan di mana animasi dimatikan user.
+
+### 17–19 — Tiga tema sisa
+
+| Mint | Grape | Monochrome |
+|---|---|---|
+| ![](17-theme-mint.png) | ![](18-theme-grape.png) | ![](19-theme-mono.png) |
+
+Enam tema total: Follow kernel, Last-Dance, Cheese-Burger, Mint, Grape,
+Monochrome. Rasio kontras sudah dihitung dengan rumus WCAG 2.1 — lihat
+[`SPEC-LENGKAP.md`](SPEC-LENGKAP.md) §3.1.
+
+**Aturan penting:** warna status (hijau/amber/oranye/merah) **tidak berubah**
+antar tema. Merah harus tetap berarti bahaya. Monochrome memakai pola (garis,
+titik isi/kosong) sebagai pengganti warna.
+
+### 20 — Stability Ledger
+
+![Stability ledger](20-stability-audit.png)
+
+Skor 0–100 dari kejadian `Oops`/`BUG`/`WARN` sejak boot, dinormalisasi
+terhadap uptime. Rumus, bobot, dan ambang ada di
+[`SPEC-LENGKAP.md`](SPEC-LENGKAP.md) §1.
+
+Dua hal yang wajib tampil di layar ini:
+
+1. **"Sejak boot terakhir"** — supaya user tahu skor kembali 100 setelah reboot.
+2. **Kartu "apa yang diukur"** — supaya skor tidak disalahartikan sebagai
+   diagnosis kesehatan perangkat.
 
 ## 4A. Konsep yang diadopsi dari UGDP Starter
 
