@@ -214,6 +214,37 @@ jobs:
           PY
           (cd "$RUNNER_TEMP/${{ matrix.variant }}-result" && sha256sum -c SHA256SUMS.txt)
 
+      - name: Publish result summary
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          variant = os.environ['FM_VARIANT']
+          r = Path(os.environ['RUNNER_TEMP']) / f'{variant}-result'
+          status = json.loads((r / 'STATUS.json').read_text())
+          abi = status.get('export_abi_against_3_1', {})
+          changes = status.get('changes_from_exact_3_1_config', {})
+          rows = [
+              f"variant        : {variant}",
+              f"release        : {status.get('release_string')}",
+              f"image_sha256   : {status.get('image_sha256')}",
+              f"image_bytes    : {status.get('image_bytes')}",
+              f"config delta   : {sorted(changes)}",
+              f"exports compared: {abi.get('exported_records_compared')}",
+              f"abi mismatch   : {abi.get('missing_added_or_changed')}",
+              f"module_layout  : {abi.get('module_layout_crc')}",
+              f"modules        : {sorted(status.get('same_build_modules_static_checks', {}))}",
+          ]
+          text = '\n'.join(rows)
+          (r / 'SUMMARY.txt').write_text(text + '\n')
+          print(text)
+          for row in rows:
+              print(f"::notice title={variant}::{row}")
+          PY
+
       - name: Upload compile evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
