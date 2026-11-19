@@ -168,6 +168,50 @@ def main() -> int:
     failures += check(gen_pairing.render(pairing) == generated,
                       "generated pairing is stale; re-run gen_pairing.py")
 
+    # --- Audit rules ---------------------------------------------------------
+    COOLDOWN = 30_000
+
+    def cooldown_remaining(last, now):
+        if last is None:
+            return 0
+        if now < last:
+            return COOLDOWN
+        return max(0, COOLDOWN - (now - last))
+
+    for last, now, expected in ((None, 1_000, 0), (100_000, 100_000, 30_000),
+                                (100_000, 120_000, 10_000), (100_000, 130_000, 0),
+                                (100_000, 50_000, 30_000)):
+        got = cooldown_remaining(last, now)
+        failures += check(got == expected, f"cooldown last={last} now={now}: {got} != {expected}")
+
+    def resolve(prev_kernel, new_kernel, running):
+        """Returns ('fresh'|'stale'|'none', kernel)."""
+        if prev_kernel is not None and prev_kernel != running:
+            return ("fresh", new_kernel) if new_kernel else ("none", None)
+        if new_kernel:
+            return ("fresh", new_kernel)
+        return ("stale", prev_kernel) if prev_kernel else ("none", None)
+
+    for prev, new, running, expected in (
+        ("A", "B", "B", ("fresh", "B")),   # flash, new audit ok
+        ("A", "A", "A", ("fresh", "A")),   # same kernel, new audit ok
+        ("A", None, "A", ("stale", "A")),  # same kernel, audit failed
+        ("A", None, "B", ("none", None)),  # flash, audit failed -> discard
+        (None, None, "A", ("none", None)), # never audited
+    ):
+        got = resolve(prev, new, running)
+        failures += check(got == expected, f"resolve {prev}/{new}/{running}: {got} != {expected}")
+
+    # The audit may only ever read: no write API on its interface.
+    runner = (APP / "app/src/main/java/app/breakfast/manager/data/AuditRunner.kt").read_text(encoding="utf-8")
+    fs_block = runner.split("interface Fs {")[1].split("}")[0]
+    failures += check("fun write" not in fs_block, "audit Fs must not expose a write operation")
+
+    # Read-only paths must never be tunable.
+    audit = (APP / "app/src/main/java/app/breakfast/manager/data/DeviceAudit.kt").read_text(encoding="utf-8")
+    for path in ("trip_point_0_temp", "thermal_zone0/type"):
+        failures += check(path in audit, f"audit must inspect {path}")
+
     if failures:
         print(f"FAILED ({len(failures)}):")
         for item in failures:
