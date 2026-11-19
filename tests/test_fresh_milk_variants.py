@@ -96,6 +96,33 @@ class ConfigFragments(unittest.TestCase):
             self.assertIn(feature, self.m.MUST_STAY_ON)
 
 
+class Delegation(unittest.TestCase):
+    """build_chronicle_base.py memanggil $S2X_HELPER; itu harus sampai ke build."""
+
+    def test_helper_accepts_32r1_subcommands(self):
+        import subprocess, sys
+        script = str(SCRIPT)
+        env = {"PATH": "/usr/bin:/bin", "FM_VARIANT": "fresh-milk"}
+        out = subprocess.run([sys.executable, script, "check-config",
+                              "--baseline", "/dev/null", "--generated", "/dev/null"],
+                             capture_output=True, text=True, env=env, timeout=120)
+        combined = out.stdout + out.stderr
+        # Harus gagal karena path config kosong, BUKAN karena argumen tak dikenal.
+        self.assertNotIn("invalid choice", combined)
+        self.assertNotIn("unrecognized arguments", combined)
+        self.assertIn("config paths are required", combined)
+
+    def test_helper_requires_variant_env(self):
+        import subprocess, sys
+        on_disk = {
+            "PATH": "/usr/bin:/bin",
+            "FM_VARIANT": "bukan-varian",
+        }
+        out = subprocess.run([sys.executable, str(SCRIPT), "check-config"],
+                             capture_output=True, text=True, env=on_disk, timeout=120)
+        self.assertIn("FM_VARIANT", out.stdout + out.stderr)
+
+
 class InstallerText(unittest.TestCase):
     def test_installer_is_english_and_plain(self):
         text = (ASSETS / 'anykernel/anykernel.sh').read_text(encoding='utf-8')

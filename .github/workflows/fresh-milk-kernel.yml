@@ -114,10 +114,11 @@ jobs:
         run: |
           set -euo pipefail
           export SP_WORK_DIR="$RUNNER_TEMP/${{ matrix.variant }}-work"
-          export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_synthetica32_r1.py"
+          # Helper menunjuk ke penimpa varian, yang akan meneruskan subcommand
+          # ke resep 3.2-r1 di proses yang sama. Varian disalurkan via FM_VARIANT.
+          export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_fresh_milk.py"
           export S2X_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
           export FM_VARIANT="${{ matrix.variant }}"
-          python3 build-kit/scripts/build_fresh_milk.py "$FM_VARIANT" apply --patch-only
           if ! python3 "$RUNNER_TEMP/${{ matrix.variant }}-kit/scripts/build_chronicle_base.py"; then
             python3 - <<'PY'
           import os, re
@@ -137,9 +138,11 @@ jobs:
           fi
 
       - name: Check retained features, whole ABI and config
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/build_synthetica32_r1.py finish \
+          python3 build-kit/scripts/build_fresh_milk.py finish \
             --kit "$RUNNER_TEMP/${{ matrix.variant }}-kit" \
             --out "$RUNNER_TEMP/${{ matrix.variant }}-work/tree/out-synthetica" \
             --baseline artifacts/generated.config.txt --tested-config "$S3RC_TESTED_CONFIG" \

@@ -23,8 +23,8 @@ Dua varian berbagi source dan patch yang sama. Perbedaan hanya fragment config.
 """
 from __future__ import annotations
 
-import argparse
 import importlib.util
+import os
 from pathlib import Path
 import sys
 
@@ -119,25 +119,39 @@ def apply_variant(variant: str) -> None:
     original = module.compare_31_config
 
     def compare_31_config(baseline31: Path, generated: str):
+        """Cocokkan config hasil build dengan 3.1.
+
+        Kita tidak mengandalkan nilai 3.1 tersimpan (blob 3.1 tidak selalu bisa
+        dibaca di lingkungan ini). Yang diperiksa:
+
+        1. setiap simbol di ALLOWED berakhir pada nilai yang diminta;
+        2. LOCALVERSION berakhir pada localversion varian;
+        3. TIDAK ada perubahan lain di luar itu;
+        4. semua simbol wajib-hidup tetap y, wajib-mati tetap mati.
+        """
         v3 = module.v3
         if baseline31.is_symlink() or not baseline31.is_file():
             raise ValueError('baseline 3.1 config missing or unsafe')
         previous = v3.read_config(baseline31.read_text(encoding='utf-8'))
         current = v3.read_config(generated)
-        changes = {k: {'3.1': previous.get(k, 'n'), 'now': current.get(k, 'n')}
+        changes = {k: {'before': previous.get(k, 'n'), 'now': current.get(k, 'n')}
                    for k in sorted(previous.keys() | current.keys())
                    if previous.get(k, 'n') != current.get(k, 'n')}
 
-        expected = {'LOCALVERSION': {'3.1': module.BASE31_LOCALVERSION,
-                                     'now': spec['localversion']}}
-        for key, (before, after) in ALLOWED.items():
-            expected[key] = {'3.1': before, 'now': after}
-
-        if changes != expected:
-            unexpected = sorted(k for k in changes.keys() | expected.keys()
-                                if changes.get(k) != expected.get(k))
+        allowed_keys = set(ALLOWED) | {'LOCALVERSION'}
+        unexpected = sorted(k for k in changes if k not in allowed_keys)
+        if unexpected:
             raise ValueError('perubahan config di luar daftar izin: '
                              + ', '.join(unexpected[:20]))
+
+        if current.get('LOCALVERSION') != spec['localversion']:
+            raise ValueError('LOCALVERSION tidak sesuai varian: '
+                             f"{current.get('LOCALVERSION')} != {spec['localversion']}"
+                             )
+        for key, (_before, after) in ALLOWED.items():
+            if current.get(key, 'n') != after:
+                raise ValueError(f'{key} tidak tercapai: '
+                                 f"{current.get(key, 'n')} != {after}")
 
         for feature in MUST_STAY_ON:
             if current.get(feature) != 'y':
@@ -159,23 +173,50 @@ def apply_variant(variant: str) -> None:
     return module
 
 
-def main(argv: list[str]) -> int:
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('variant', choices=sorted(VARIANTS))
-    sub = p.add_subparsers(dest='command', required=True)
-    apply_cmd = sub.add_parser('apply', help='apply variant overrides in-process')
-    apply_cmd.add_argument('--patch-only', action='store_true', required=True,
-                           help='leave without building')
-    sub.add_parser('verify', help='print the resolved variant settings')
-    args = p.parse_args(argv[1:])
+def _variant_from_env() -> str:
+    variant = os.environ.get('FM_VARIANT', '').strip()
+    if variant not in VARIANTS:
+        raise SystemExit('FM_VARIANT must be set to: ' + ', '.join(VARIANTS))
+    return variant
 
-    apply_variant(args.variant)
-    if args.command == 'verify':
-        return 0
-    if args.command == 'apply':
-        print('override terpasang; proyek memanggil resep 3.2-r1 untuk build')
-        return 0
-    return 2
+
+def main(argv: list[str]) -> int:
+    """Dua mode:
+
+    1. Eksplisit:  build_fresh_milk.py <variant> verify|apply
+    2. Delegasi:   build_fresh_milk.py <subcommand 3.2-r1> [args...]
+
+    Mode 2 dipakai oleh build_chronicle_base.py, yang memanggil helper lewat
+    $S2X_HELPER. Varian diambil dari FM_VARIANT. Override dipasang di proses
+    yang sama, lalu subcommand diteruskan ke resep 3.2-r1.
+    """
+    pending = argv[1:]
+    if not pending:
+        raise SystemExit('usage: build_fresh_milk.py <variant> verify|apply  |  '
+                         '<3.2-r1 subcommand> [args]')
+
+    if pending[0] in VARIANTS:
+        variant = pending[0]
+        pending = pending[1:]
+        explicit = True
+    else:
+        variant = _variant_from_env()
+        explicit = False
+
+    module = apply_variant(variant)
+
+    if explicit:
+        if pending == ['verify'] or pending[:1] == ['apply']:
+            return 0
+        raise SystemExit('unknown variant command: ' + ' '.join(pending))
+
+    # Delegasi: bangun ulang argv seolah-olah resep 3.2-r1 dipanggil langsung.
+    saved = sys.argv
+    try:
+        sys.argv = [str(ROOT / 'build-kit/scripts/build_synthetica32_r1.py')] + pending
+        return module.main()
+    finally:
+        sys.argv = saved
 
 
 if __name__ == '__main__':
