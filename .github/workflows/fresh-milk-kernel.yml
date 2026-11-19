@@ -100,9 +100,13 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_synthetica3_root.py' -v
 
       - name: Prepare isolated kit
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
         run: |
           set -euo pipefail
-          python3 build-kit/scripts/build_synthetica32_r1.py prepare --source build-kit \
+          # Through build_fresh_milk.py so the disposable kit also learns which
+          # profile this variant is allowed to run.
+          python3 build-kit/scripts/build_fresh_milk.py prepare --source build-kit \
             --destination "$RUNNER_TEMP/${{ matrix.variant }}-kit" --baseline artifacts/generated.config.txt
           helper="$GITHUB_WORKSPACE/build-kit/scripts/build_fresh_milk.py"
           wrapper="$RUNNER_TEMP/${{ matrix.variant }}-kit/scripts/build_chronicle_base.py"

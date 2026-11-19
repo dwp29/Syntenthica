@@ -102,6 +102,36 @@ class ConfigScope(unittest.TestCase):
         self.assertFalse(allowed & mutated, sorted(allowed & mutated))
 
 
+class KitProfileGuard(unittest.TestCase):
+    """The disposable kit must accept exactly the variant's own profile."""
+
+    def setUp(self):
+        self.m = load()
+
+    def test_stability_kit_is_left_untouched(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / 'ci/rollercoaster/build-rollercoaster.sh'
+            script.parent.mkdir(parents=True)
+            guard = '[ "$PROFILE" = synthetica ] || { echo "wrong profile"; exit 1; }'
+            script.write_text(guard + '\n', encoding='utf-8')
+            self.m._allow_profile_in_kit(Path(tmp), 'synthetica')
+            self.assertEqual(script.read_text(encoding='utf-8').strip(), guard)
+
+    def test_gaming_kit_accepts_both_own_profiles(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / 'ci/rollercoaster/build-rollercoaster.sh'
+            script.parent.mkdir(parents=True)
+            script.write_text(
+                '[ "$PROFILE" = synthetica ] || { echo "wrong profile"; exit 1; }\n',
+                encoding='utf-8')
+            self.m._allow_profile_in_kit(Path(tmp), 'critical')
+            text = script.read_text(encoding='utf-8')
+            self.assertIn('synthetica|critical', text)
+            self.assertNotIn('[ "$PROFILE" = synthetica ]', text)
+
+
 class BuildEnvironment(unittest.TestCase):
     """Wrong environment must fail before a compile starts, not after."""
 

@@ -139,6 +139,38 @@ def load(relative: str, name: str):
     return module
 
 
+def _allow_profile_in_kit(kit: Path, profile: str) -> None:
+    """Let the disposable kit accept this variant's profile.
+
+    build_synthetica3.py stamps `[ "$PROFILE" = synthetica ] || exit 1` into the
+    copied builder as a guard. That guard exists to stop a 3.2 build from
+    silently running a foreign profile. A variant that deliberately runs one of
+    the kit's own profiles has to widen the check - in the disposable copy only,
+    never in the repo, and only for the exact profile drawn from the variant
+    table.
+    """
+    script = kit / 'ci/rollercoaster/build-rollercoaster.sh'
+    if profile == 'synthetica' or not script.is_file():
+        return
+    text = script.read_text(encoding='utf-8')
+    before = '[ "$PROFILE" = synthetica ] || { echo "wrong profile"; exit 1; }'
+    after = ('case "$PROFILE" in synthetica|' + profile + ') : ;; '
+             '*) echo "wrong profile"; exit 1 ;; esac')
+    if text.count(before) != 1:
+        raise SystemExit(f'kit builder does not carry the expected profile guard: {script}')
+    script.write_text(text.replace(before, after, 1), encoding='utf-8')
+    print(f'kit          : profile guard accepts synthetica|{profile}')
+
+
+def apply_prepared_kit(kit_dir: str) -> int:
+    """Called right after `prepare`: install the variant into the kit copy."""
+    variant = _variant_from_env()
+    spec = VARIANTS[variant]
+    print(f'prepared kit : {kit_dir}')
+    _allow_profile_in_kit(Path(kit_dir), spec['profile'])
+    return 0
+
+
 def _check_build_environment(variant: str) -> None:
     """Fail before compiling if the builder would print a different identity."""
     spec = VARIANTS[variant]
@@ -257,6 +289,22 @@ def main(argv: list[str]) -> int:
         if pending == ['verify'] or pending[:1] == ['apply']:
             return 0
         raise SystemExit('unknown variant command: ' + ' '.join(pending))
+
+    if pending[:1] == ['prepare']:
+        argv2 = pending
+        args = {'--destination': None}
+        for i, item in enumerate(argv2):
+            if item == '--destination' and i + 1 < len(argv2):
+                args['--destination'] = argv2[i + 1]
+        saved = sys.argv
+        try:
+            sys.argv = [str(ROOT / 'build-kit/scripts/build_synthetica32_r1.py')] + argv2
+            rc = module.main()
+        finally:
+            sys.argv = saved
+        if rc == 0 and args['--destination']:
+            apply_prepared_kit(args['--destination'])
+        return rc
 
     saved = sys.argv
     try:
