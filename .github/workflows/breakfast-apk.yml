@@ -1,0 +1,103 @@
+name: "BREAKFAST - Manager APK"
+on:
+  push:
+    branches:
+      - arena/96cbd65a-synthentica
+    paths:
+      - '.github/workflows/breakfast-apk.yml'
+      - 'breakfast-app/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: breakfast-apk-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Host checks without a JVM (formulas, contrast, whitelist, pairing)
+        run: |
+          set -euo pipefail
+          python3 breakfast-app/tools/gen_pairing.py
+          git diff --exit-code -- breakfast-app/app/src/main/java/app/breakfast/manager/data/PairingGenerated.kt \
+            || { echo "::error::PairingGenerated.kt is stale; run gen_pairing.py and commit"; exit 1; }
+          python3 breakfast-app/tools/check_logic.py
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          SDK="$HOME/android-sdk"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fsSLo /tmp/cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdline.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platform-tools" "platforms;android-36" "build-tools;36.1.0" 2>&1 | tail -5
+      - name: Unit tests (JVM, no device)
+        run: |
+          set -euo pipefail
+          cd breakfast-app
+          ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+          python3 tools/check_test_results.py
+      - name: Build release APK (throwaway CI keystore)
+        run: |
+          set -euo pipefail
+          rm -rf ci-stage/breakfast
+          mkdir -p ci-stage/breakfast
+          # Ephemeral key: generated inside the runner, never committed, never
+          # reused. A fresh key per run means no long-lived signing secret exists
+          # to leak, and the artifact is explicitly a CI build, not a release key.
+          STOREPASS="$(openssl rand -hex 16)"
+          keytool -genkeypair -v -keystore /tmp/breakfast-ci.jks -storetype PKCS12 \
+            -alias breakfast-ci -keyalg RSA -keysize 2048 -validity 2 \
+            -storepass "$STOREPASS" -keypass "$STOREPASS" \
+            -dname "CN=BREAKFAST CI, OU=ephemeral, O=none, L=CI, ST=CI, C=ID"
+          cd breakfast-app
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace \
+            -PbreakfastVersionCode="${{ github.run_number }}" \
+            -PbreakfastVersionName="0.1.0-run${{ github.run_number }}" \
+            -PciStoreFile=/tmp/breakfast-ci.jks \
+            -PciStorePassword="$STOREPASS" \
+            -PciKeyAlias=breakfast-ci \
+            -PciKeyPassword="$STOREPASS"
+          find app/build/outputs/apk/release -name '*.apk' -print
+      - name: Verify APK metadata and alignment
+        run: |
+          set -euo pipefail
+          APK=$(find breakfast-app/app/build/outputs/apk/release -name '*.apk' | head -1)
+          test -n "$APK"
+          BT="$ANDROID_SDK_ROOT/build-tools/36.1.0"
+          "$BT/zipalign" -c -p 4 "$APK"
+          "$BT/aapt" dump badging "$APK" | head -1 | tee ci-stage/breakfast/APK-BADGING.txt
+          grep -F "package: name='app.breakfast.manager'" ci-stage/breakfast/APK-BADGING.txt
+          unzip -t "$APK" | tail -1
+          cp "$APK" ci-stage/breakfast/BREAKFAST-manager.apk
+          sha256sum ci-stage/breakfast/BREAKFAST-manager.apk | tee ci-stage/breakfast/APK-SHA256.txt
+          ls -l ci-stage/breakfast/
+      - name: Save APK and diagnostics to the session branch
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -d ci-stage/breakfast ] || exit 0
+          git config user.name 'breakfast-ci'
+          git config user.email 'ci@users.noreply.github.com'
+          # Unlike the 2.1 build, this APK is deliberately KEPT in git so it can
+          # be pulled into the workspace and handed to the user. It is a CI-signed
+          # artifact with an ephemeral key, and the repository already carries
+          # binary artifacts under the same convention.
+          git add -A -f ci-stage/breakfast/
+          git diff --cached --quiet && exit 0
+          git commit -qm "ci: BREAKFAST manager APK (run ${GITHUB_RUN_ID})"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"

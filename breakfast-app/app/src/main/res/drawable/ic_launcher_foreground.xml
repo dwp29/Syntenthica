@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A plate with an egg: breakfast, drawn as vectors so there is no bitmap to
+     go stale and no binary asset in the repository. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#4A9EFF"
+        android:pathData="M54,26a28,28 0 1,0 0.1,0z" />
+    <path
+        android:fillColor="#0D1117"
+        android:pathData="M54,34a20,20 0 1,0 0.1,0z" />
+    <path
+        android:fillColor="#FFB020"
+        android:pathData="M54,42a12,12 0 1,0 0.1,0z" />
+    <path
+        android:fillColor="#7EE787"
+        android:pathData="M46,78h16v4h-16z" />
+</vector>

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "note": "Kernel release -> manager compatibility. The manager refuses to enable tuning when the running kernel is not listed here. Add a row only after that kernel variant is published.",
+  "kernels": [
+    {
+      "release": "4.14.357-openela-Fresh-Milk-14.03",
+      "variant": "fresh-milk",
+      "profile": "synthetica",
+      "kernel_uapi": 4,
+      "tuning": true,
+      "status": "compiled_not_boot_tested"
+    },
+    {
+      "release": "4.14.357-openela-CHEESE-BURGER-11.08",
+      "variant": "cheese-burger",
+      "profile": "critical",
+      "kernel_uapi": 4,
+      "tuning": true,
+      "status": "compiled_not_boot_tested"
+    }
+  ],
+  "fallback": {
+    "tuning": false,
+    "reason": "unknown_kernel"
+  }
+}
