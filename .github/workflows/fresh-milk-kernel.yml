@@ -100,6 +100,16 @@ jobs:
           set -euo pipefail
           python3 build-kit/scripts/build_synthetica32_r1.py prepare --source build-kit \
             --destination "$RUNNER_TEMP/${{ matrix.variant }}-kit" --baseline artifacts/generated.config.txt
+          helper="$GITHUB_WORKSPACE/build-kit/scripts/build_fresh_milk.py"
+          wrapper="$RUNNER_TEMP/${{ matrix.variant }}-kit/scripts/build_chronicle_base.py"
+          cp "$wrapper" "$RUNNER_TEMP/chronicle-unwrapped.py"
+          {
+            echo '#!/bin/sh'
+            echo '# Wrapper: aktifkan tracing lalu jalankan driver asli.'
+            echo 'set -x'
+            echo "exec python3 '$wrapper' \"\$@\""
+          } > "$RUNNER_TEMP/wrapper.sh"
+          chmod +x "$RUNNER_TEMP/wrapper.sh"
 
       - name: Apply variant overrides and compile
         timeout-minutes: 90
@@ -119,11 +129,16 @@ jobs:
           export S2X_HELPER="$GITHUB_WORKSPACE/build-kit/scripts/build_fresh_milk.py"
           export S2X_BASELINE="$GITHUB_WORKSPACE/artifacts/generated.config.txt"
           export FM_VARIANT="${{ matrix.variant }}"
-          if ! python3 "$RUNNER_TEMP/${{ matrix.variant }}-kit/scripts/build_chronicle_base.py"; then
+          if ! sh "$RUNNER_TEMP/wrapper.sh"; then
             python3 - <<'PY'
           import os, re
           from pathlib import Path
-          log = Path(os.environ['RUNNER_TEMP']) / f"{os.environ['FM_VARIANT']}-kit/artifacts/build.log"
+          kit = Path(os.environ['RUNNER_TEMP']) / f"{os.environ['FM_VARIANT']}-kit"
+          # tampilkan jejak perintah wrapper yang menempel di log langkah ini
+          helper = kit / 'scripts/build_fresh_milk.py'
+          print(f'::notice title=helper exists::{helper.exists()} {helper}')
+          log = kit / 'artifacts/build.log'
+          print(f'::notice title=build.log exists::{log.exists()}')
           rows = (log.read_text(errors='replace') if log.exists() else 'No build log').splitlines()
           hits = [i for i, r in enumerate(rows) if re.search(r'error:|fatal error|undefined reference|\bFAIL\b|not found|refused', r, re.I)]
           chosen = []
@@ -153,6 +168,19 @@ jobs:
               tail -40 "$RUNNER_TEMP/finish-error.txt"
               exit 1
             }
+
+      - name: Print build log tail (always)
+        if: always()
+        run: |
+          set -uo pipefail
+          kit="$RUNNER_TEMP/${{ matrix.variant }}-kit"
+          echo "=== helper present: $([ -f "$kit/scripts/build_fresh_milk.py" ] && echo yes || echo no)"
+          echo "=== artifacts dir ==="
+          ls -la "$kit/artifacts" 2>&1 | head -20 || true
+          if [ -f "$kit/artifacts/build.log" ]; then
+            echo "=== build.log (tail 60) ==="
+            tail -60 "$kit/artifacts/build.log"
+          fi
 
       - name: Record provenance and checksums
         run: |
