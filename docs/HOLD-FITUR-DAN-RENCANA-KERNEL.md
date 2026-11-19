@@ -101,7 +101,7 @@ Konsekuensi:
 
 ## 5. Rencana kernel — tahap
 
-### Tahap 1 — Fresh-Milk-14.03 (stabilitas)
+### Tahap 1 — Fresh-Milk-14.03 (stabilitas) — **kompilasi SELESAI**
 
 Tujuan: kernel yang **paling mungkin boot**, dengan fitur 3.2 utuh.
 
@@ -110,7 +110,7 @@ Tujuan: kernel yang **paling mungkin boot**, dengan fitur 3.2 utuh.
 | 1 | Base: resep 3.2-r1 (`build_synthetica32_r1.py`) | rendah — sudah 359 tes lulus |
 | 2 | `CONFIG_LOCALVERSION="-fresh-milk-14.03"` | rendah |
 | 3 | `EXTRAVERSION` tetap `-openela`, jadi uname = `4.14.357-openela-<LOCALVERSION>` (§5.1) | rendah |
-| 4 | SuSFS v2.3.0 → v2.4.0 | **sedang** — ABI command berubah |
+| 4 | SuSFS v2.3.0 → v2.4.0 | **dibatalkan sekarang** — tetap v2.3.0; v2.4.0 tidak membuka TRY_UMOUNT |
 | 5 | `CONFIG_TMPFS_XATTR=y` | rendah |
 | 6 | `CONFIG_CRYPTO_ZSTD=y` | rendah |
 | 7 | `CONFIG_CRYPTO_LZ4HC=y` | rendah |
@@ -118,32 +118,62 @@ Tujuan: kernel yang **paling mungkin boot**, dengan fitur 3.2 utuh.
 
 ### 5.1 Soal nama di `uname -r`
 
-`CONFIG_LOCALVERSION` **menggantikan** localversion, bukan menambah. Kalau diisi
-`"-fresh-milk-14.03"`, hasil uname adalah:
+`CONFIG_LOCALVERSION` **menggantikan** localversion, bukan menambah. Huruf
+besar/kecil **persis** seperti yang ditulis. Jadi untuk `Fresh-Milk-14.03`
+dengan kapital, nilainya `CONFIG_LOCALVERSION="-Fresh-Milk-14.03"`.
 
+**Keputusan: kapital.** `Fresh-Milk-14.03` dan `CHEESE-BURGER-11.08`, sesuai
+desain BREAKFAST.
+
+#### Koreksi penting (ditemukan lewat CI)
+
+Dokumen ini sempat menyiratkan nama kernel disetel dengan menulis fragment
+config. **Itu salah.** `ci/rollercoaster/build-rollercoaster.sh` membentuk
+`CONFIG_LOCALVERSION` dari `SP_BUILD_NAME` dan `SP_BUILD_KVER`:
+
+```sh
+LOCALVER="-${NAME}-${KVER}"
 ```
-4.14.357-openela-fresh-milk-14.03
-```
 
-karena `EXTRAVERSION = -openela` datang dari `Makefile`, dan `CONFIG_LOCALVERSION`
-ditambahkan setelahnya. Huruf besar/kecil **persis** seperti yang ditulis di
-config. Jadi untuk mendapat `Fresh-Milk-14.03` dengan kapital, config harus
-ditulis `CONFIG_LOCALVERSION="-Fresh-Milk-14.03"`.
+Menulis fragment config tidak berpengaruh apa pun pada nama rilis. Karena itu:
 
-**Perlu dikonfirmasi:** apakah user ingin kapital (`Fresh-Milk-14.03`) atau
-huruf kecil (`fresh-milk-14.03`). Ini memengaruhi string yang dicocokkan
-BREAKFAST nanti.
+- identitas ada di tabel varian `build_fresh_milk.py`, bukan di config;
+- `SP_BUILD_NAME` / `SP_BUILD_KVER` wajib berkapitalisasi benar;
+- CI punya asersi yang gagal kalau hasil build menyimpang.
+
+#### Bukti
+
+Run **44546020859**, kedua varian sukses:
+
+| | Fresh-Milk | CHEESE-BURGER |
+|---|---|---|
+| LOCALVERSION terbangun | `"-Fresh-Milk-14.03"` | `"-CHEESE-BURGER-11.08"` |
+| config berubah dari 3.1 | `LOCALVERSION` saja | `LOCALVERSION` saja |
+| ekspor dibandingkan | 12.236 | 12.236 |
+| selisih ABI | 0 | 0 |
+
+Rincian: `docs/FRESH-MILK-BUILD.md`.
 
 ### Tahap 2 — CHEESE-BURGER-11.08 (gaming)
 
-Satu tree, fragment config berbeda. Beda hanya di:
+**Revisi setelah membaca kit.** Rencana awal (thermal/boost/GPU/ION berbeda)
+tidak dipakai. Alasannya: kit sudah punya pemisahan ini sebagai **profil**,
+dan profil yang berbeda dari `synthetica` berarti config berbeda dari 3.1 —
+tepat hal yang dijaga oleh resep 3.2-r1.
 
-| Parameter | Fresh-Milk | CHEESE-BURGER |
+| Profil | Dipakai | Isi |
 |---|---|---|
-| Thermal | konservatif | agresif |
-| Schedtune boost | sedang | tinggi |
-| GPU devfreq boost | off | on |
-| ION pool refill | default | 100 MB |
+| `ci/rollercoaster/profiles/synthetica.config` | **ya**, kedua varian | schedutil, mq-deadline, WQ power-efficient |
+| `ci/rollercoaster/profiles/critical.config` | **tidak** | HZ 300, governor performance, KGSL, Adreno devfreq |
+
+Jadi saat ini **kedua varian memakai config yang sama persis**. Yang berbeda
+hanya nama. Ini disengaja: membuat CHEESE-BURGER benar-benar gaming menuntut
+profil `critical`, dan itu berarti ABI-nya tidak lagi identik dengan 3.1 —
+keputusan yang harus diambil sadar, bukan sebagai efek samping.
+
+**Terbuka:** kalau CHEESE-BURGER memang harus lebih cepat, langkahnya adalah
+mengizinkan `critical.config` secara eksplisit sebagai varian kedua, lengkap
+dengan penjaga ABI-nya sendiri.
 
 ### Tahap 3 — BakaSU
 

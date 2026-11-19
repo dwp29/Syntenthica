@@ -1,74 +1,96 @@
 # Fresh-Milk / CHEESE-BURGER — Panduan Build
 
-Dua varian, satu tree, satu resep induk (`build_synthetica32_r1.py` yang sudah
-lulus 359 tes). Perbedaan varian **hanya** fragment config.
+Dua varian, satu tree, satu resep induk (`build_synthetica32_r1.py`).
+Perbedaan varian **hanya identitas rilis**. Tidak ada kode, patch, toolchain,
+SuSFS, atau root yang berbeda.
 
 ---
 
-## 1. Berkas
+## 1. Bukti kompilasi (nyata, bukan klaim)
 
-| Berkas | Isi |
-|---|---|
-| `build-kit/scripts/build_fresh_milk.py` | penimpa kunci config + pemeriksaan tambahan |
-| `build-kit/ci/fresh-milk/common.config` | 3 simbol bersama |
-| `build-kit/ci/fresh-milk/fresh-milk.config` | hanya `LOCALVERSION` |
-| `build-kit/ci/fresh-milk/cheese-burger.config` | hanya `LOCALVERSION` |
-| `build-kit/ci/fresh-milk/anykernel/anykernel.sh` | installer, teks Inggris |
-| `.github/workflows/fresh-milk-kernel.yml` | CI dua varian |
-| `tests/test_fresh_milk_variants.py` | 10 tes host |
+CI `fresh-milk-kernel.yml` run **44546020859**: kedua varian **sukses**.
 
-## 2. Perubahan config
-
-Hanya **tiga** simbol ditambahkan di atas 3.2-r1:
-
-| Simbol | Dari | Ke | Alasan |
-|---|---|---|---|
-| `CRYPTO_ZSTD` | n | y | opsi kompresor zram ketiga |
-| `CRYPTO_LZ4HC` | n | y | kompresi boot image |
-| `TMPFS_XATTR` | n | y | syarat Mountify |
-
-**Tidak** ada perubahan lain. Resep menolak build kalau ada config di luar
-daftar ini, di luar `LOCALVERSION`.
-
-## 3. Yang sengaja TIDAK diubah
-
-| Hal | Nilai | Alasan |
+| | Fresh-Milk | CHEESE-BURGER |
 |---|---|---|
-| Toolchain | Neutron clang 24 (dipin) | naik versi mengubah seluruh kode, membatalkan perbandingan ABI |
-| SuSFS | v2.3.0 NON-GKI | ABI v2.4.0 belum diverifikasi; ganti nanti, satu variabel |
-| Root | KernelSU-Next in-tree | BakaSU = tahap 2, supaya kegagalan boot bisa dilacak |
-| Patch | 3.2-r1 + guard MGLRU | tidak ada patch baru |
+| LOCALVERSION terbangun | `"-Fresh-Milk-14.03"` | `"-CHEESE-BURGER-11.08"` |
+| config berubah dari 3.1 | `LOCALVERSION` saja | `LOCALVERSION` saja |
+| ekspor dibandingkan | 12.236 | 12.236 |
+| selisih ABI | **0** | **0** |
+| `module_layout` CRC | `0xed5659d1` | `0xed5659d1` |
+| modul ikut dibangun | 6 | 6 |
+| `image_sha256` | `630ed4d7…6067db` | `92120cf4…7cffb7e` |
 
-## 4. Penjaga yang tetap berjalan
+Yang **belum** dibuktikan: boot di perangkat, dan kecocokan dengan modul ROM
+tertentu. Jangan menyebut lebih dari ini.
+
+## 2. Dari mana nama kernel berasal
+
+Ini sumber kesalahan pertama yang butuh tiga iterasi CI untuk ketahuan:
+`CONFIG_LOCALVERSION` **tidak** dibaca dari berkas fragment config.
+
+`ci/rollercoaster/build-rollercoaster.sh` membentuknya dari dua variabel:
+
+```sh
+NAME="${SP_BUILD_NAME:-$NAME}"
+KVER="${SP_BUILD_KVER:-$KVER}"
+LOCALVER="-${NAME}-${KVER}"
+printf '\nCONFIG_LOCALVERSION="%s"\n' "$LOCALVER" >> "$DEFCONFIG"
+```
+
+Jadi kalau `SP_BUILD_NAME=fresh-milk` (huruf kecil), kernel akan bernama
+`fresh-milk` — bukan `Fresh-Milk`. Karena itu:
+
+- tabel varian menyimpan `name` dan `kver` berkapitalisasi benar;
+- workflow mengirimkannya sebagai `SP_BUILD_NAME` / `SP_BUILD_KVER`;
+- `apply_variant()` **menolak jalan** kalau environment tidak cocok;
+- CI punya asersi yang gagal kalau `LOCALVERSION` hasil build tidak sama
+  dengan identitas varian.
+
+## 3. Perubahan config: tidak ada
+
+Tiga simbol yang sempat direncanakan ditambahkan ternyata **sudah aktif** di
+baseline 2.0:
+
+```
+CONFIG_CRYPTO_ZSTD=y
+CONFIG_CRYPTO_LZ4HC=y
+CONFIG_TMPFS_XATTR=y
+```
+
+Karena itu ketiganya dipindah dari daftar "perubahan yang diizinkan" menjadi
+penjaga `MUST_STAY_ON`. Mendaftarkannya sebagai perubahan justru membuat
+penjaga selisih-tepat gagal — dan memang begitulah cara kerjanya.
+
+## 4. Penjaga yang berjalan
 
 Warisan 3.2-r1, tidak dilonggarkan:
 
-1. Semua rekaman `Module.symvers` (**12.236**) dibandingkan dengan 3.1:
-   nama, pemilik, jenis ekspor, CRC. Selisih satu = build gagal.
-2. `module_layout` CRC harus tetap `0xed5659d1`.
+1. 12.236 rekaman `Module.symvers` dibandingkan dengan 3.1: nama, pemilik,
+   jenis ekspor, CRC. Selisih satu = build gagal.
+2. `module_layout` harus tetap `0xed5659d1`.
 3. `MODULE_FORCE_LOAD` harus tetap mati.
-4. Config wajib-cocok dengan `CONFIG_LOCALVERSION` yang dipin.
-5. Hash sumber `mm/vmscan.c` sebelum & sesudah patch diperiksa.
+4. Config wajib cocok dengan `CONFIG_LOCALVERSION` yang dipin.
+5. Hash `mm/vmscan.c` sebelum & sesudah patch MGLRU diperiksa.
 
-Tambahan dari `build_fresh_milk.py`:
+Tambahan `build_fresh_milk.py`:
 
-6. **20 simbol** wajib tetap `y` (KSU, KSU_SUSFS, NOMOUNT, LRU_GEN, SCHED_TUNE,
-   UCLAMP, SELinux, dm-verity, BPF, EROFS, F2FS, …).
-7. **3 simbol** wajib tetap mati, masing-masing dengan alasan tertulis.
+6. **23 simbol** wajib tetap `y`.
+7. **3 simbol** wajib tetap mati, masing-masing beralasan tertulis.
+8. Identitas env diperiksa sebelum kompilasi dimulai.
 
 ## 5. Nama rilis
 
 ```
 4.14.357-openela-Fresh-Milk-14.03      (33 karakter)
-4.14.357-openela-CHEESE-BURGER-11.08   (37 karakter)
+4.14.357-openela-CHEESE-BURGER-11.08   (36 karakter)
 ```
 
-Batas `utsname` 64 karakter. Kapitalisasi **dipertahankan** persis seperti di
-`CONFIG_LOCALVERSION` — ini yang dicocokkan BREAKFAST nanti.
+Batas `utsname` 64. Kapitalisasi **dipertahankan** persis — ini yang akan
+dicocokkan BREAKFAST.
 
 ## 6. Menjalankan
 
-Lokal (tanpa kompilasi):
+Lokal, tanpa kompilasi:
 
 ```sh
 python3 build-kit/scripts/build_fresh_milk.py fresh-milk verify
@@ -81,52 +103,46 @@ Kompilasi hanya lewat CI (sandbox tidak punya clang / cross-compiler):
 gh workflow run fresh-milk-kernel.yml --ref arena/96cbd65a-synthentica
 ```
 
-CI menjalankan **dua varian paralel**, masing-masing:
-ambil bukti 3.1 yang dipin → verifikasi Neutron 24 → tes host → siapkan kit →
-kompilasi → periksa seluruh ABI → unggah bukti.
-
 ## 7. Installer
 
-`anykernel/anykernel.sh`, teks **Inggris saja**, sesuai permintaan:
+Ada di `build-kit/ci/rollercoaster/anykernel/anykernel.sh` — **bukan** di
+`ci/fresh-milk/`. Alasan: paket flashable dibangun dari
+`ci/rollercoaster/anykernel`, jadi installer di folder lain tidak pernah ikut
+ke dalam zip.
+
+Teks Inggris saja, nama kernel sebagai satu-satunya elemen besar:
 
 ```
-        ____                  _      __  __ _ _ __
-       | __ ) _ __ ___  __ _ / _|  |  \/  (_) | | __
-       |  _ \| '__/ _ \/ _` | |_   | |\/| | | | |/ /
-       | |_) | | |  __/ (_| |  _|  | |  | | | |   <
-       |____/|_|  \___|\__,_|_|    |_|  |_|_|_|_|\_\
-
    4.14.357-openela-Fresh-Milk-14.03
-
-   Installing kernel
-
+    Installing kernel
   [##.......................] 10%  Checking device
   [########.................] 35%  Writing boot image
   [##################.......] 75%  Finalising
   [#########################] 100%  Finished
-
    Kernel installed.
    Reboot when ready.
 ```
 
-Tidak ada doa, tidak ada nama di layar, tidak ada auto-reboot.
+Pemasangan `ksud` tetap ada dan senyap saat berhasil; pesan hanya muncul
+kalau `/data` masih terenkripsi.
 
-Tiga hal yang **dihilangkan** dari installer lama dan akibatnya:
-
-| Dihilangkan | Akibat |
+| Perilaku | Nilai |
 |---|---|
-| `do.modules=0` tetap | berkas modul tidak dipasang; modul ROM memakai yang ada |
-| backup boot | **tidak ada jalan pulang dari installer ini**; cadangkan manual dulu |
-| auto-reboot | user harus reboot sendiri (disengaja) |
+| doa / teks Indonesia / Arab | tidak ada |
+| nama pembuat di layar | tidak ada |
+| auto-reboot | tidak ada |
+| cadangan boot | **tidak ada** |
+| log | `/sdcard/Breakfast/install-<waktu>.txt` bila bisa ditulis |
 
 ## 8. Status klaim
 
 | Tingkat | Status |
 |---|---|
-| Kompilasi | **belum dijalankan** |
-| Statis (ABI, config) | akan diperiksa CI |
+| Kompilasi | **lulus** (run 44546020859) |
+| Statis (ABI, config) | **lulus**, 0 selisih |
+| Paket flashable | **belum** dibuat pada varian ini |
 | Boot perangkat | **belum** |
 | Teruji | **belum** |
 
-Sesuai aturan kerja §1, tidak ada tingkat di atas yang boleh diklaim sebelum
-bukti ada.
+Sesuai `docs/KERNEL-WORK-RULES.md` §1, tidak ada tingkat di atas yang boleh
+diklaim sebelum buktinya ada.
