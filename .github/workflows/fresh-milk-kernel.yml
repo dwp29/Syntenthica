@@ -229,9 +229,8 @@ jobs:
           changes = status.get('changes_from_exact_3_1_config', {})
           rows = [
               f"variant        : {variant}",
-              f"release        : {status.get('release_string')}",
-              f"image_sha256   : {status.get('image_sha256')}",
-              f"image_bytes    : {status.get('image_bytes')}",
+              f"release        : {status.get('uname_release')}",
+              f"image_sha256   : {status.get('output_sha256', {}).get('Image.gz.DO-NOT-FLASH', status.get('image_sha256'))}",
               f"config delta   : {sorted(changes)}",
               f"exports compared: {abi.get('exported_records_compared')}",
               f"abi mismatch   : {abi.get('missing_added_or_changed')}",
