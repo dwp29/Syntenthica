@@ -22,8 +22,8 @@ Installing Android SDK Build-Tools 35 in /home/runner/android-sdk/build-tools/35
 [=========                              ] 25%                                   > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
-> Task :app:checkDebugAarMetadata
 > Task :app:processDebugNavigationResources
+> Task :app:checkDebugAarMetadata
 > Task :app:generateDebugResValues
 > Task :app:compileDebugNavigationResources
 > Task :app:mapDebugSourceSetPaths
@@ -36,14 +36,14 @@ Installing Android SDK Build-Tools 35 in /home/runner/android-sdk/build-tools/35
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
 > Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest
 > Task :app:javaPreCompileDebug
-> Task :app:javaPreCompileDebugUnitTest FROM-CACHE
 > Task :app:processDebugManifestForPackage
 > Task :app:processDebugResources
 > Task :app:compileDebugKotlin
 > Task :app:compileDebugJavaWithJavac NO-SOURCE
-> Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
 > Task :app:processDebugJavaRes
 > Task :app:compileDebugUnitTestKotlin
 > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
@@ -58,6 +58,6 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/9.2.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 59s
-24 actionable tasks: 23 executed, 1 from cache
+BUILD SUCCESSFUL in 1m 16s
+24 actionable tasks: 24 executed
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.2.0/userguide/configuration_cache_enabling.html
