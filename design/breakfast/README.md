@@ -176,8 +176,8 @@ Halaman pembuat. Berisi:
 
 | Bagian | Isi |
 |---|---|
-| CREATOR | nama **Pure Saturday**, peran, perangkat target (miatoll) |
-| COMMUNITY | **channel Telegram** + tombol buka |
+| CREATOR | **@Pure_Saturday**, peran, perangkat target (miatoll) |
+| COMMUNITY | channel Telegram **https://t.me/breakfastch** + tombol buka |
 | SUPPORT | pintasan ke halaman Donate |
 | SOURCE CODE | tautan sumber GPL-3.0 |
 | KERNELS SUPPORTED | dua chip identitas kernel |
@@ -208,6 +208,75 @@ Pindah dari dock ke ikon gerigi di header PULSE. Berisi:
 | SECURITY | konfirmasi sebelum flash, konfirmasi sebelum tulis tunable, lokasi backup |
 | ABOUT | About & Creator, lisensi open source |
 
+## 4A. Konsep yang diadopsi dari UGDP Starter
+
+Sumber: `UGDP-Starter-Source.zip` (Drive). Isi sebenarnya adalah **kerangka
+read-only**, bukan modul performa jadi: `mode: monitor`, `service.sh` hanya
+mencetak info perangkat, `performance` dan `battery` berlabel *"not active in
+starter"*. Nilainya ada di prinsipnya, bukan di kodenya.
+
+Lima konsep yang diadopsi:
+
+### 1. Audit sebelum kontrol
+
+UGDP: *"Collect output before any tuning. Some paths may not exist on a given
+kernel/ROM; that is useful information, not a reason to create them manually."*
+
+**Penerapan:** BREAKFAST menjalankan **audit perangkat sekali** saat pertama
+dibuka, dan mengulanginya kalau `uname -r` berubah. Audit mencatat, untuk setiap
+parameter: node ada/tidak, izin baca/tulis, nilai sekarang, dan rentang yang
+diizinkan driver.
+
+**Tanpa audit, tab TUNING tidak menampilkan slider yang bisa ditulis.** Lebih
+baik menampilkan "belum diaudit" daripada slider yang gagal diam-diam.
+
+### 2. Tiga status, bukan dua
+
+| Status | Arti | Tampilan |
+|---|---|---|
+| **supported** | node ada, bisa ditulis | slider aktif |
+| **read-only** | node ada, hanya bisa dibaca | nilai + ikon kunci |
+| **unsupported** | node tidak ada | baris abu-abu + alasan |
+
+Ini menggantikan rencana awal yang hanya punya "bisa tulis" dan "dikunci".
+Bedanya penting: `read-only` berarti kernel *punya* fiturnya, `unsupported`
+berarti tidak punya sama sekali.
+
+### 3. Pemulihan state
+
+UGDP memakai `restore_on_exit: true`, artinya profil dikembalikan saat service
+berhenti. **Penerapan:** BREAKFAST menyimpan (a) nilai default 3.2, (b) nilai
+terakhir yang diterapkan user, dan bisa mengembalikan ke default kapan pun —
+bukan hanya saat exit. Default 3.2 **tidak pernah ditimpa**; ia dibaca dari
+kernel saat audit.
+
+### 4. Proteksi termal bukan sakelar
+
+UGDP menaruh `thermal_protection: true` sebagai konstanta config, bukan toggle.
+**Penerapan:** BREAKFAST **tidak akan pernah** menawarkan opsi mematikan
+proteksi termal. Yang bisa diubah hanya agresivitasnya
+(conservative/balanced/aggressive), dan `aggressive` tetap tunduk pada trip point
+bawaan kernel. Trip point **tidak pernah** ditulis.
+
+### 5. Interval polling adaptif
+
+UGDP memakai `poll_interval_ms: 3000`. Untuk grafik 60 detik itu terlalu kasar.
+**Penerapan:** 1 detik saat layar aktif, berhenti total saat layar mati.
+Alasannya baterai: dashboard yang menguras baterai membatalkan gunanya.
+
+### Yang tidak diadopsi
+
+| Dari UGDP | Alasan |
+|---|---|
+| WebUI JavaScript | BREAKFAST native Compose; WebUI hanya untuk modul |
+| `device_codename_expected: joyeuse` | miatoll unified: curtana/excalibur/gram/joyeuse |
+| `cpu_policy: "bounded"` | terlalu kabur; kita butuh node dan nilai nyata |
+| Bentuk modul terpisah | UGDP jadi halaman native di BREAKFAST |
+
+Catatan: dokumen arsitektur UGDP menyebut integrasi **"Both"** (modul + halaman
+native). ZIP starter **hanya berisi modul**. Halaman native belum ada dan harus
+ditulis sendiri — itu pekerjaan BREAKFAST, bukan pekerjaan yang diwarisi.
+
 ## 5. Yang dibuang dari BakaSU Official
 
 BakaSU punya **35 layar**. Daftar ini yang diusulkan dibuang — **perlu persetujuan
@@ -237,8 +306,10 @@ Yang **dipertahankan** dari BakaSU: `SuperUserPage`, `ModulePage`, `Flash`,
 | 3 | Skor stabilitas | **Jadi** (Stability Ledger) |
 | 4 | Bahasa UI | **Indonesia + English** |
 | 5 | Daftar buang §5 | **Disetujui seluruhnya** |
-| 6 | Halaman pembuat | **Pure Saturday** + channel Telegram |
+| 6 | Halaman pembuat | **@Pure_Saturday** + channel Telegram |
 | 7 | Donate | **Ada**, sebagai halaman tanpa pembayaran in-app |
+| 8 | Identitas pembuat tampil publik | **Ya** — `@Pure_Saturday`, `t.me/breakfastch` |
+| 9 | Prinsip UGDP | **Diadopsi seluruhnya** (§4A) |
 
 ### Konsekuensi dari keputusan 2 (TUNING boleh menulis)
 
@@ -265,3 +336,14 @@ sebagai `—`, bukan angka palsu.
 Seluruh string lewat `strings.xml` + `values-in/`. Tidak ada teks yang ditanam
 langsung di Compose. Nama kernel (`Last-Dance-14.03`, `CHEESE-BURGER-11.08`)
 **tidak** diterjemahkan — itu identitas, bukan label.
+
+---
+
+## 7. Rujukan
+
+| Sumber | Dipakai untuk |
+|---|---|
+| `UGDP-Starter-Source.zip` (Drive, 8.422 B) | prinsip audit/status/pemulihan (§4A) |
+| `docs/KERNEL-WORK-RULES.md` | aturan kerja kernel yang mengikat |
+| `SYNTHETICA-3.2-r1.md` + `artifacts/synthetica-3.2/STATUS.json` | baseline fitur kernel |
+| BakaSU Official (35 layar) | bahan pembanding daftar buang (§5) |
