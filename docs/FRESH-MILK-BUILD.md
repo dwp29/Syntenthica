@@ -139,9 +139,19 @@ gh workflow run fresh-milk-kernel.yml --ref arena/96cbd65a-synthentica
 ## 7. Installer
 
 Ada di `build-kit/ci/rollercoaster/anykernel/anykernel.sh` — **bukan** di
-`ci/fresh-milk/`. Alasan: paket flashable dibangun dari
-`ci/rollercoaster/anykernel`, jadi installer di folder lain tidak pernah ikut
-ke dalam zip.
+`ci/fresh-milk/`. Alasan: kalau kit kelak memaketkan zip, sumbernya adalah
+`ci/rollercoaster/anykernel`, jadi installer di folder lain tidak akan pernah
+ikut.
+
+**Status: belum ikut ke dalam paket.** Resep 3.2-r1 memotong langkah pemaketan
+secara sengaja — `build_synthetica3.py` mengganti sisa builder dengan
+`echo "Image and matching modules only: no installer or flashable package"`.
+Jadi hasil build adalah `Image.gz` + 6 modul, bukan zip. Skrip installer di
+bawah sudah ditulis dan lolos `sh -n`, tetapi belum pernah dipaketkan.
+
+Untuk memaketkannya, pemotongan itu harus dilewati — keputusan yang tidak
+boleh diambil diam-diam, karena zip tanpa uji perangkat adalah risiko yang
+berbeda kelas dari image mentah.
 
 Teks Inggris saja, nama kernel sebagai satu-satunya elemen besar:
 
@@ -173,7 +183,7 @@ kalau `/data` masih terenkripsi.
 |---|---|
 | Kompilasi | **lulus** (run 44566221539) |
 | Statis (ABI, config) | **lulus**, 0 selisih |
-| Paket flashable | **belum** dibuat pada varian ini |
+| Paket flashable | **belum** — resep 3.2-r1 sengaja tidak memaketkan |
 | Boot perangkat | **belum** |
 | Teruji | **belum** |
 
