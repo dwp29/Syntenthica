@@ -171,6 +171,70 @@ def apply_prepared_kit(kit_dir: str) -> int:
     return 0
 
 
+
+def _install_config_check(module, variant: str, allowed: set[str]) -> None:
+    """Keep the 2.0-experiment guard, minus its one structural assumption.
+
+    check_config() in the experiment recipe asserts that the *default* CPU
+    governor is schedutil. That is right for a daily-use build and wrong for a
+    gaming profile, whose whole point is the performance governor. The check is
+    reimplemented here with exactly one difference: the schedutil *governor* must
+    still be compiled in, while the *default* choice is left to the profile.
+
+    Every other assertion - the required baseline set, the forbidden set,
+    LRU_GEN_STATS, the MGLRU boot default, and the exact allowed difference -
+    is kept as-is. The allowed difference is widened only by the variant's own
+    derived symbol set, which is itself derived from a profile file.
+    """
+    spec = VARIANTS[variant]
+    s2x = module.old.base.rc.s2x
+    v3 = s2x.v3
+
+    def check_config(baseline: str, generated: str, mglru: str = 'on'):
+        if mglru not in s2x.MGLRU_FRAGMENTS:
+            raise ValueError('MGLRU variant must be on or off')
+        old, new = v3.read_config(baseline), v3.read_config(generated)
+
+        required = list((*v3.REQUIRED_Y, 'SCHED_WALT', 'SCHED_TUNE',
+                         'CPU_FREQ_GOV_SCHEDUTIL', 'CGROUP_SCHED'))
+        if spec['profile'] == 'synthetica':
+            # Identical to the inherited guard, baseline included.
+            required.append('CPU_FREQ_DEFAULT_GOV_SCHEDUTIL')
+        for symbol in required:
+            if old.get(symbol) != 'y' or new.get(symbol) != 'y':
+                raise ValueError('required baseline, thermal/security or scheduler '
+                                 f'feature not preserved: {symbol}')
+        if spec['profile'] != 'synthetica':
+            # The gaming profile must still expose a working default choice.
+            if new.get('CPU_FREQ_DEFAULT_GOV_PERFORMANCE') != 'y' and \
+               new.get('CPU_FREQ_DEFAULT_GOV_SCHEDUTIL') != 'y':
+                raise ValueError('no usable default CPU governor is enabled')
+
+        for symbol in (*v3.FORBIDDEN_Y, 'LRU_GEN_STATS'):
+            if new.get(symbol, 'n') != 'n':
+                raise ValueError(f'unsafe or premature experimental option enabled: {symbol}')
+        if new.get('LRU_GEN_ENABLED', 'n') != ('y' if mglru == 'on' else 'n'):
+            raise ValueError(f'LRU_GEN_ENABLED does not match requested {mglru} variant')
+
+        changed = {k: {'2.0': old.get(k, 'n'), 'experiment': new.get(k, 'n')}
+                   for k in sorted(old.keys() | new.keys())
+                   if old.get(k, 'n') != new.get(k, 'n')}
+        expected_values = dict(s2x.ALLOWED_CHANGES)
+        if mglru == 'on':
+            expected_values['LRU_GEN_ENABLED'] = ('n', 'y')
+        for key in allowed:
+            before = old.get(key, 'n')
+            expected_values[key] = (before, new.get(key, 'n'))
+        expected = {k: {'2.0': a, 'experiment': b} for k, (a, b) in expected_values.items()}
+        if changed != expected:
+            bad = sorted(k for k in changed.keys() | expected.keys()
+                         if changed.get(k) != expected.get(k))
+            raise ValueError('unexpected configuration difference(s): ' + ', '.join(bad[:20]))
+        return changed
+
+    s2x.check_config = check_config
+
+
 def _check_build_environment(variant: str) -> None:
     """Fail before compiling if the builder would print a different identity."""
     spec = VARIANTS[variant]
@@ -249,6 +313,7 @@ def apply_variant(variant: str):
         return changes
 
     module.compare_31_config = compare_31_config
+    _install_config_check(module, variant, allowed)
 
     print(f'variant      : {variant} ({spec["focus"]})')
     print(f'builder name : {spec["name"]} / {spec["kver"]}')
