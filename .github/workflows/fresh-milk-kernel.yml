@@ -7,7 +7,10 @@ on:
       - '.github/workflows/fresh-milk-kernel.yml'
       - 'build-kit/scripts/build_fresh_milk.py'
       - 'build-kit/scripts/build_synthetica32_r1.py'
-      - 'build-kit/ci/fresh-milk/**'
+      - 'build-kit/scripts/package_fresh_milk.py'
+      - 'build-kit/ci/rollercoaster/anykernel/**'
+      - 'build-kit/ci/synthetica2-experimental/test-installer/**'
+      - 'tests/test_fresh_milk_*.py'
   workflow_dispatch:
 
 permissions:
