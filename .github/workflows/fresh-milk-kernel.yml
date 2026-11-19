@@ -164,6 +164,7 @@ jobs:
       - name: Check retained features, whole ABI and config
         env:
           FM_VARIANT: ${{ matrix.variant }}
+          SP_EXPECT_RELEASE: ${{ matrix.release }}
         run: |
           set -euo pipefail
           python3 build-kit/scripts/build_fresh_milk.py finish \
@@ -174,7 +175,17 @@ jobs:
             --result "$RUNNER_TEMP/${{ matrix.variant }}-result" \
             --toolchain-bin "$S2X_TOOLCHAIN_BIN" \
             --neutron-archive "$RUNNER_TEMP/neutron-clang-06092026.tar.zst" 2> "$RUNNER_TEMP/finish-error.txt" || {
-              tail -40 "$RUNNER_TEMP/finish-error.txt"
+              python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = Path(os.environ['RUNNER_TEMP']) / 'finish-error.txt'
+          rows = text.read_text(errors='replace').splitlines() if text.exists() else ['no error file']
+          body = '\n'.join(rows[-30:])
+          print(body)
+          for n in range(0, len(body), 1800):
+              part = body[n:n+1800].replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+              print(f"::error title={os.environ['FM_VARIANT']} finish diagnostic {n//1800+1}::{part}")
+          PY
               exit 1
             }
 
