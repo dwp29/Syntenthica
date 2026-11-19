@@ -1,0 +1,32 @@
+BREAKFAST — Fresh-Milk 14.03 / CHEESE-BURGER 11.08
+===================================================
+
+Halaman rilis (buka di HP, lalu ketuk file untuk mengunduh):
+https://github.com/dwp29/Synthentica/releases/tag/fresh-milk-14.03__cheese-burger-11.08
+
+Tautan langsung:
+  Fresh-Milk-14.03.zip
+  https://github.com/dwp29/Synthentica/releases/download/fresh-milk-14.03__cheese-burger-11.08/Fresh-Milk-14.03.zip
+  ukuran : 15.718.504 byte
+  sha256 : 633478ddbd3b9d62f39a4bc3839a508352d9e956d52dca9e4d6e53da08980ba9
+
+  CHEESE-BURGER-11.08.zip
+  https://github.com/dwp29/Synthentica/releases/download/fresh-milk-14.03__cheese-burger-11.08/CHEESE-BURGER-11.08.zip
+  ukuran : 15.719.436 byte
+  sha256 : 8753447fa6110c26555c4ca38e50d5f6bcc505f9505d60c6941e594f08a8b2bc
+
+Cek unduhan sebelum flash:
+  sha256sum Fresh-Milk-14.03.zip
+
+Pilih yang mana:
+  Fresh-Milk 14.03   - pemakaian harian (HZ 100, schedutil, mq-deadline)
+  CHEESE-BURGER 11.08 - gaming (HZ 300, governor performance, deadline)
+
+Keduanya tetap membawa: KernelSU-Next, SuSFS v2.3.0, NoMount,
+MGLRU, WALT, schedtune, UCLAMP.
+
+BELUM DIUJI BOOT DI PERANGKAT.
+Installer TIDAK membuat cadangan boot otomatis - cadangkan boot lama dulu.
+Boot trust AVB dan kompatibilitas modul ROM belum diverifikasi.
+
+Kontak: @Pure_Saturday - https://t.me/breakfastch
