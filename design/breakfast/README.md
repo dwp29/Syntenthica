@@ -12,6 +12,9 @@ Nama `Fresh-Milk-14.03` menggantikan nama kerja sebelumnya (`Last-Dance-14.03`).
 Status: **dokumen desain.** Belum ada kode. Visual di bawah adalah render
 konsep, bukan tangkapan layar aplikasi yang sudah jadi.
 
+> Rincian per layar (state, pesan gagal, teks ID/EN) ada di
+> **[`SPEC-LAYAR.md`](SPEC-LAYAR.md)**.
+
 ---
 
 ## 1. Prinsip yang mengikat desain ini
