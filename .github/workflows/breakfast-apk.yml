@@ -51,7 +51,19 @@ jobs:
           # before, so its exit status is worth keeping in a file that can be
           # reviewed later.
           bash breakfast-app/tools/run_gradle_tests.sh
-      - name: Build release APK (throwaway CI keystore)
+      - name: Build release APK
+        env:
+          # Optional stable signing. When these four secrets exist, the APK can be
+          # installed over a previous build; when they do not, a fresh ephemeral
+          # key is generated and the artifact is labelled as CI-only. Creating
+          # secrets needs admin rights this workspace does not have, so the
+          # fallback is real rather than theoretical.
+          # Defaults are empty so `set -u` cannot fail when the secrets are absent,
+          # which is the normal case until someone with admin rights adds them.
+          KEYSTORE_B64: ${{ secrets.BREAKFAST_KEYSTORE_B64 || '' }}
+          KEYSTORE_PASS: ${{ secrets.BREAKFAST_KEYSTORE_PASSWORD || '' }}
+          KEY_ALIAS: ${{ secrets.BREAKFAST_KEY_ALIAS || '' }}
+          KEY_PASS: ${{ secrets.BREAKFAST_KEY_PASSWORD || '' }}
         run: |
           set -euo pipefail
           # No evidence, no artifact: a green build without recorded tests is
@@ -59,22 +71,36 @@ jobs:
           test -f ci-stage/breakfast/TESTS-PASSED || { echo "::error::unit test evidence missing"; exit 1; }
           rm -f ci-stage/breakfast/BREAKFAST-manager.apk
           mkdir -p ci-stage/breakfast
-          # Ephemeral key: generated inside the runner, never committed, never
-          # reused. A fresh key per run means no long-lived signing secret exists
-          # to leak, and the artifact is explicitly a CI build, not a release key.
-          STOREPASS="$(openssl rand -hex 16)"
-          keytool -genkeypair -v -keystore /tmp/breakfast-ci.jks -storetype PKCS12 \
-            -alias breakfast-ci -keyalg RSA -keysize 2048 -validity 2 \
-            -storepass "$STOREPASS" -keypass "$STOREPASS" \
-            -dname "CN=BREAKFAST CI, OU=ephemeral, O=none, L=CI, ST=CI, C=ID"
+
+          STORE=/tmp/breakfast-signing.jks
+          if [ -n "${KEYSTORE_B64:-}" ] && [ -n "${KEYSTORE_PASS:-}" ] && [ -n "${KEY_ALIAS:-}" ]; then
+            echo "signing: stable key from repository secrets"
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$STORE"
+            KEYPASS="${KEY_PASS:-$KEYSTORE_PASS}"
+            echo "stable" > ci-stage/breakfast/SIGNING-MODE.txt
+          else
+            echo "signing: ephemeral key generated for this run"
+            KEYSTORE_PASS="$(openssl rand -hex 16)"
+            KEYPASS="$KEYSTORE_PASS"
+            KEY_ALIAS=breakfast-ci
+            # A throwaway key means no long-lived signing secret exists to leak,
+            # and no artifact can be mistaken for an official release. The cost
+            # is that installs do not upgrade across runs.
+            keytool -genkeypair -v -keystore "$STORE" -storetype PKCS12 \
+              -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
+              -storepass "$KEYSTORE_PASS" -keypass "$KEYPASS" \
+              -dname "CN=BREAKFAST CI, OU=ephemeral, O=none, L=CI, ST=CI, C=ID"
+            echo "ephemeral" > ci-stage/breakfast/SIGNING-MODE.txt
+          fi
+
           cd breakfast-app
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
             -PbreakfastVersionCode="${{ github.run_number }}" \
             -PbreakfastVersionName="0.1.0-run${{ github.run_number }}" \
-            -PciStoreFile=/tmp/breakfast-ci.jks \
-            -PciStorePassword="$STOREPASS" \
-            -PciKeyAlias=breakfast-ci \
-            -PciKeyPassword="$STOREPASS"
+            -PciStoreFile="$STORE" \
+            -PciStorePassword="$KEYSTORE_PASS" \
+            -PciKeyAlias="$KEY_ALIAS" \
+            -PciKeyPassword="$KEYPASS"
           find app/build/outputs/apk/release -name '*.apk' -print
       - name: Verify APK metadata and alignment
         run: |
@@ -88,6 +114,11 @@ jobs:
           unzip -t "$APK" | tail -1
           cp "$APK" ci-stage/breakfast/BREAKFAST-manager.apk
           sha256sum ci-stage/breakfast/BREAKFAST-manager.apk | tee ci-stage/breakfast/APK-SHA256.txt
+          # The certificate digest is the fingerprint a user can compare to know
+          # whether an update will install over the build they already have.
+          "$BT/apksigner" verify --print-certs "$APK" | grep -i "SHA-256" \
+            > ci-stage/breakfast/APK-CERT.txt || true
+          cat ci-stage/breakfast/APK-CERT.txt 2>/dev/null || true
           ls -l ci-stage/breakfast/
       - name: Save APK and diagnostics to the session branch
         if: always()
