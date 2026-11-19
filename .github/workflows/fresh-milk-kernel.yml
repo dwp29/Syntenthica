@@ -169,7 +169,7 @@ jobs:
           set -euo pipefail
           python3 build-kit/scripts/build_fresh_milk.py finish \
             --kit "$RUNNER_TEMP/${{ matrix.variant }}-kit" \
-            --out "$RUNNER_TEMP/${{ matrix.variant }}-work/tree/out-synthetica" \
+            --out "$RUNNER_TEMP/${{ matrix.variant }}-work/tree/out-${{ matrix.profile }}" \
             --baseline artifacts/generated.config.txt --tested-config "$S3RC_TESTED_CONFIG" \
             --baseline31 "$S31_EXACT_CONFIG" --symvers31 "$S31_EXACT_SYMVERS" \
             --result "$RUNNER_TEMP/${{ matrix.variant }}-result" \
