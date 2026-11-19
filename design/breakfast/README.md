@@ -1,11 +1,13 @@
 # BREAKFAST — Spesifikasi Desain
 
-
-> **Gambar.** `*.png` adalah render konsep resolusi penuh (total 46 MB, tidak
-> di-commit — lihat `.gitignore`). Versi ringan untuk di-commit ada di
-> `preview/*.jpg` (1,5 MB total). Keduanya isi yang sama.
-Manajer kernel eksklusif untuk **Last-Dance** dan **CHEESE-BURGER**.
+Manajer kernel eksklusif untuk **Fresh-Milk** dan **CHEESE-BURGER**.
 Bukan rebrand BakaSU. Struktur informasi, identitas, dan geraknya baru.
+
+Nama `Fresh-Milk-14.03` menggantikan nama kerja sebelumnya (`Last-Dance-14.03`).
+
+> **Gambar.** `*.png` adalah render konsep resolusi penuh (tidak di-commit —
+> lihat `.gitignore`). Versi ringan yang di-commit ada di `preview/*.jpg`.
+> Banner `16-banner.gif` (454 KB) ikut di-commit karena ia aset, bukan render.
 
 Status: **dokumen desain.** Belum ada kode. Visual di bawah adalah render
 konsep, bukan tangkapan layar aplikasi yang sudah jadi.
@@ -26,7 +28,7 @@ konsep, bukan tangkapan layar aplikasi yang sudah jadi.
 
 ## 2. Dua wajah
 
-| | **Last-Dance-14.03** | **CHEESE-BURGER-11.08** |
+| | **Fresh-Milk-14.03** | **CHEESE-BURGER-11.08** |
 |---|---|---|
 | Kesan | tenang, terpercaya | cepat, agresif |
 | Latar | `#0D1117` | `#0A0A0C` |
@@ -62,9 +64,9 @@ Alasan: Settings administratif, bukan keadaan perangkat.
 
 ## 4. Layar
 
-### 01 — PULSE (Last-Dance)
+### 01 — PULSE (Fresh-Milk)
 
-![PULSE Last-Dance](01-pulse-led.png)
+![PULSE Fresh-Milk](01-pulse-fresh-milk.png)
 
 - Cincin pulse besar: denyut mengikuti aktivitas CPU. **Berhenti saat idle**
   (hemat daya). Ini alasan animasinya ada, bukan sekadar bergerak.
@@ -217,7 +219,7 @@ Menyiapkan jalan untuk **multi-tema**. Tiga sumbu, terpisah satu sama lain:
 
 | Sumbu | Pilihan | Catatan |
 |---|---|---|
-| **Theme** | Follow kernel, Last-Dance, Cheese-Burger, Mint, Grape, Monochrome | "Follow kernel" = default, ikut kernel terdeteksi |
+| **Theme** | Follow kernel, Fresh-Milk, Cheese-Burger, Mint, Grape, Monochrome | "Follow kernel" = default, ikut kernel terdeteksi |
 | **Accent** | 8 warna (biru, amber, teal, ungu, pink, hijau, merah, abu) | hanya mengubah aksen, tema tetap |
 | **Motion** | Animasi on/off, intensitas (Subtle/Balanced/Lively), haptic on/off | |
 
@@ -288,16 +290,16 @@ Aturan detail:
 ![Banner](16-banner.gif)
 
 Banner besar di halaman PULSE, format **GIF animasi** (`16-banner.gif`,
-480×270, 18 frame, 569 KB, loop tak berujung).
+420×236, 14 frame, 454 KB, loop tak berujung).
 
 Isi banner: dua identitas kernel dalam satu komposisi — biru untuk
-**LAST-DANCE-14.03**, amber untuk **CHEESE-BURGER-11.08** — dengan denyut
+**FRESH-MILK-14.03**, amber untuk **CHEESE-BURGER-11.08** — dengan denyut
 halus, sapuan cahaya, dan partikel mengambang.
 
 Aturan banner:
 
-1. **Ukuran dibatasi.** 569 KB sudah di atas ambang nyaman; target akhir
-   ≤ 400 KB. Kalau lewat, turunkan jumlah warna sebelum resolusi.
+1. **Ukuran dibatasi.** 454 KB masih di atas target ≤ 400 KB. Kalau perlu
+   turun lagi, kurangi jumlah warna (32 → 24) sebelum menurunkan resolusi.
 2. **Banner berhenti saat layar tidak terlihat.** GIF yang berjalan di latar
    belakang menguras baterai. Ini wajib, bukan opsional.
 3. **Banner tidak boleh menutupi informasi.** Tinggi maksimum 28% layar;
@@ -434,7 +436,7 @@ sebagai `—`, bukan angka palsu.
 ### Konsekuensi dari keputusan 4 (dua bahasa)
 
 Seluruh string lewat `strings.xml` + `values-in/`. Tidak ada teks yang ditanam
-langsung di Compose. Nama kernel (`Last-Dance-14.03`, `CHEESE-BURGER-11.08`)
+langsung di Compose. Nama kernel (`Fresh-Milk-14.03`, `CHEESE-BURGER-11.08`)
 **tidak** diterjemahkan — itu identitas, bukan label.
 
 ---

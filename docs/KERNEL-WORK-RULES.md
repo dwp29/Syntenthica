@@ -74,7 +74,7 @@ di `build-kit/ci/patches/`. Itu proyek berbeda. Synthetica memakai **v2.3.0 NON-
 |---|---|---|---|
 | **pure-noz-0.1** | v1.5.9 (patch eksternal) | KernelSU-Next UAPI 4 | `release/pure-noz-0.1/` |
 | **Synthetica** | v2.3.0 in-tree | KernelSU-Next in-tree | `build-kit/ci/synthetica2-experimental/` |
-| **Last-Dance / CHEESE-BURGER** | v2.4.0 (target) | BakaSU UAPI 6 | *belum ada* |
+| **Fresh-Milk / CHEESE-BURGER** | v2.4.0 (target) | BakaSU UAPI 6 | *belum ada* |
 
 **Aturan:** patch, config, atau versi dari satu proyek tidak boleh dipinjam ke
 proyek lain tanpa verifikasi ulang. Nama berkas yang mirip bukan bukti kesamaan.
@@ -171,7 +171,7 @@ Varian yang direncanakan:
 
 | Nama | Fokus | LOCALVERSION | Panjang |
 |---|---|---|---|
-| Last-Dance | stabilitas | `4.14.357-openela-Last-Dance-14.03` | 35 |
+| Fresh-Milk | stabilitas | `4.14.357-openela-Fresh-Milk-14.03` | 33 |
 | CHEESE-BURGER | performa gaming | `4.14.357-openela-CHEESE-BURGER-11.08` | 37 |
 
 ---
