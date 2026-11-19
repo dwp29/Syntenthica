@@ -9,7 +9,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 OUT="../ci-stage/breakfast"
-rm -f "$OUT/BREAKFAST-manager.apk" "$OUT/APK-SHA256.txt" "$OUT/APK-BADGING.txt"
+# Remove the previous run's evidence first, including the pass marker. Without
+# this, a stale TESTS-PASSED would let a later failing run still build an APK:
+# the gate would be satisfied by a file from a different, successful run.
+rm -f "$OUT/BREAKFAST-manager.apk" "$OUT/APK-SHA256.txt" "$OUT/APK-BADGING.txt" \
+      "$OUT/TESTS-PASSED" "$OUT"/TEST-*.xml
 mkdir -p "$OUT"
 
 set +e

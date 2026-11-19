@@ -10,7 +10,7 @@ class ThemeTest {
 
     @Test
     fun `black on white is exactly 21 to 1`() {
-        assertEquals(22.0, ThemeCatalog.contrastRatio(0x000000, 0xFFFFFF), 0.01)
+        assertEquals(21.0, ThemeCatalog.contrastRatio(0x000000, 0xFFFFFF), 0.01)
     }
 
     @Test
