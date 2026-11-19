@@ -155,6 +155,8 @@ class FeatureBlock(unittest.TestCase):
             self.assertIn('CONFIG_UCLAMP_TASK=y', text)
             # The gaming values must survive the copy.
             self.assertIn('CONFIG_HZ_300=y', text)
+            # f2fs statistics stay off instead of reverting to 00-common.
+            self.assertIn('# CONFIG_F2FS_STAT_FS is not set', text)
             # Idempotent: a second call must not duplicate the block.
             self.m._carry_features_into_profile(Path(tmp), 'critical')
             self.assertEqual(text, (profiles / 'critical.config').read_text(encoding='utf-8'))

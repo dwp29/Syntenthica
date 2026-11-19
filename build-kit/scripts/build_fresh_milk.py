@@ -80,6 +80,8 @@ DERIVED_OK = (
     # critical.config omits WQ_POWER_EFFICIENT_DEFAULT, and Kconfig drops an
     # option the chosen profile does not restate.
     'WQ_POWER_EFFICIENT_DEFAULT',
+    # DEFAULT_IOSCHED="deadline" makes Kconfig drop the cfq default companion.
+    'DEFAULT_CFQ',
 )
 
 
@@ -191,6 +193,15 @@ def _carry_features_into_profile(kit: Path, profile: str) -> None:
     text = target.read_text(encoding='utf-8')
     if block.strip() in text:
         return
+    # critical.config never mentions F2FS_STAT_FS, so it would revert to the
+    # value in 00-common (=y). 3.2 deliberately keeps f2fs statistics off: they
+    # are profiling overhead in a hot path, which a gaming build least wants.
+    # Stating the same choice here keeps the two profiles aligned on it.
+    if 'F2FS_STAT_FS' not in text:
+        block += ('\n# Statistics are profiling overhead; 3.2 keeps them off and so\n'
+                  '# does this profile, rather than reverting to 00-common.\n'
+                  '# CONFIG_F2FS_STAT_FS is not set\n')
+
     target.write_text(text.rstrip('\n') + '\n\n' + block, encoding='utf-8')
     print(f'kit          : pinned feature block copied from synthetica into {profile}.config')
 
