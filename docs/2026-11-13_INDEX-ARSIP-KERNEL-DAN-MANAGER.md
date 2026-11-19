@@ -44,7 +44,7 @@ tiap folder sudah bernomor dan berkas di dalamnya sudah diberi nama detail.
 > **Catatan:** baris di bawah merujuk kunci yang sudah dimusnahkan. Lihat
 > `PURE-MANAGER-DISCONTINUED.md`. Sertifikat Pure Manager release key (historis):
 `A2:F9:42:45:2E:EC:1C:D8:76:3E:6C:F3:3B:99:37:C1:A9:9B:38:49:C6:27:73:A7:3B:F4:44:77:67:43:F2:D8`
-**Peringatan:** keystore ini juga tersalin di repo GitHub publik `dwp29/Synthentica`
+**Peringatan:** keystore ini juga tersalin di repo GitHub publik `dwp29/Syntenthica`
 folder `ci-stage/` (dipakai sekali untuk menandatangani APK 0.10.0). Anggap kunci
 ini hangus untuk rilis publik; ganti sebelum aplikasi dibagikan ke selain owner.
 

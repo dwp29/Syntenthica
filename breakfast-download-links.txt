@@ -1,17 +1,25 @@
 BREAKFAST — Fresh-Milk 14.03 / CHEESE-BURGER 11.08
 ===================================================
 
+CATATAN EJAAN
+Nama repo: dwp29 / Syntenthica    (S-y-n-t-e-n-t-h-i-c-a)
+Yang sering salah: S-y-n-t-h-e-n-t-i-c-a  -> 404
+Keduanya nyaris sama. Kalau tautan 404, salin URL dari baris di bawah,
+jangan diketik ulang.
+
+Tautan sudah diuji: halaman 200, unduhan 302 (redirect normal).
+
 Halaman rilis (buka di HP, lalu ketuk file untuk mengunduh):
-https://github.com/dwp29/Synthentica/releases/tag/fresh-milk-14.03__cheese-burger-11.08
+https://github.com/dwp29/Syntenthica/releases/tag/fresh-milk-14.03__cheese-burger-11.08
 
 Tautan langsung:
   Fresh-Milk-14.03.zip
-  https://github.com/dwp29/Synthentica/releases/download/fresh-milk-14.03__cheese-burger-11.08/Fresh-Milk-14.03.zip
+  https://github.com/dwp29/Syntenthica/releases/download/fresh-milk-14.03__cheese-burger-11.08/Fresh-Milk-14.03.zip
   ukuran : 15.718.504 byte
   sha256 : 633478ddbd3b9d62f39a4bc3839a508352d9e956d52dca9e4d6e53da08980ba9
 
   CHEESE-BURGER-11.08.zip
-  https://github.com/dwp29/Synthentica/releases/download/fresh-milk-14.03__cheese-burger-11.08/CHEESE-BURGER-11.08.zip
+  https://github.com/dwp29/Syntenthica/releases/download/fresh-milk-14.03__cheese-burger-11.08/CHEESE-BURGER-11.08.zip
   ukuran : 15.719.436 byte
   sha256 : 8753447fa6110c26555c4ca38e50d5f6bcc505f9505d60c6941e594f08a8b2bc
 

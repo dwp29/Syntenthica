@@ -360,9 +360,17 @@ Pada 2026-11-10 filter di 52 workflow diseragamkan ke nama branch yang benar.
 `workflow_dispatch` juga tidak tersedia untuk token `contents`-only di sandbox,
 jadi run harus dipicu lewat push.
 
-Nama repo juga mudah tertukar: yang benar adalah `dwp29/Synthentica`, sementara
-`Synthentica` mengembalikan 404. URL remote lokal sudah dikoreksi dan seluruh
-tautan CI di dokumen ini mengarah ke ejaan yang benar.
+Nama repo juga mudah tertukar. Catatan sebelumnya di sini justru terbalik.
+Yang benar, diverifikasi 2026-11-19 terhadap GitHub:
+
+```
+dwp29/Syntenthica   -> HTTP 200
+dwp29/Synthentica   -> HTTP 404
+```
+
+Ejaan yang benar adalah **Synthentica**. Nama folder kerja lokal
+`/home/user/Synthentica` salah ketik dan mudah menyesatkan; selalu ambil ejaan
+dari `git remote -v` atau API, jangan dari nama folder.
 
 Begitu filter diperbaiki, 52 workflow lama ikut berjalan dan tiga di antaranya
 (`synthetica-step1`, `synthetica-step2`, `synthetica-2.1-manager`) menulis
