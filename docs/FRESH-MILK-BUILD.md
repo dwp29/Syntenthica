@@ -8,7 +8,7 @@ SuSFS, atau root yang berbeda.
 
 ## 1. Bukti kompilasi (nyata, bukan klaim)
 
-CI `fresh-milk-kernel.yml` run **44566221539**: kedua varian **sukses**.
+CI `fresh-milk-kernel.yml` run **44580909494**: kedua varian **sukses**, termasuk pemaketan.
 
 | | Fresh-Milk | CHEESE-BURGER |
 |---|---|---|
@@ -19,7 +19,10 @@ CI `fresh-milk-kernel.yml` run **44566221539**: kedua varian **sukses**.
 | selisih ABI | **0** | **0** |
 | `module_layout` CRC | `0xed5659d1` | `0xed5659d1` |
 | modul ikut dibangun | 6 | 6 |
-| `image_sha256` | `855d138c…aa0535b` | `cf9f4d2f…718a68a` |
+| `image_sha256` | `9c21fc83…b99912f0` | `bc178e66…3f133847` |
+| ZIP | `Fresh-Milk-14.03.zip` | `CHEESE-BURGER-11.08.zip` |
+| ukuran ZIP | 15.718.511 B | 15.719.382 B |
+| `sha256` ZIP | `e2bb21e2…32815f51` | `4e0a847c…5fcce7bc` |
 
 Yang **belum** dibuktikan: boot di perangkat, dan kecocokan dengan modul ROM
 tertentu. Jangan menyebut lebih dari ini.
@@ -143,15 +146,25 @@ Ada di `build-kit/ci/rollercoaster/anykernel/anykernel.sh` — **bukan** di
 `ci/rollercoaster/anykernel`, jadi installer di folder lain tidak akan pernah
 ikut.
 
-**Status: belum ikut ke dalam paket.** Resep 3.2-r1 memotong langkah pemaketan
-secara sengaja — `build_synthetica3.py` mengganti sisa builder dengan
-`echo "Image and matching modules only: no installer or flashable package"`.
-Jadi hasil build adalah `Image.gz` + 6 modul, bukan zip. Skrip installer di
-bawah sudah ditulis dan lolos `sh -n`, tetapi belum pernah dipaketkan.
+**Status: sudah dipaketkan.** Resep 3.2-r1 memang berhenti di "Image and
+matching modules only". Pemaketan ditambahkan sebagai tahap tersendiri,
+`build-kit/scripts/package_fresh_milk.py`, tanpa mengubah resep itu.
 
-Untuk memaketkannya, pemotongan itu harus dilewati — keputusan yang tidak
-boleh diambil diam-diam, karena zip tanpa uji perangkat adalah risiko yang
-berbeda kelas dari image mentah.
+Pemaket memakai ulang bagian yang membuat zip bisa dipercaya, semuanya dipin
+dengan digest:
+
+| Bagian | Sumber |
+|---|---|
+| kerangka AnyKernel (busybox, magiskboot, update-binary) | `release/Synthetica-2.0.zip`, sha `b1a0be5c…` |
+| skrip installer | `ci/synthetica2-experimental/test-installer/anykernel.sh`, sha `d6fa389a…` |
+| penyiap boot | `prepare-boot.sh`, sha `0a6eedd6…` |
+
+Dan menolak bukti build yang tidak cocok: rilis, digest image, digest config,
+sumber, toolchain, flag MGLRU, identitas manager, serta flag
+`installer_created`/`private_key_exported`. ZIP tidak pernah memuat kunci
+privat maupun arsip debug.
+
+Installer menanam **digest image yang tepat** dan hanya mau menulis image itu.
 
 Teks Inggris saja, nama kernel sebagai satu-satunya elemen besar:
 
@@ -181,9 +194,9 @@ kalau `/data` masih terenkripsi.
 
 | Tingkat | Status |
 |---|---|
-| Kompilasi | **lulus** (run 44566221539) |
+| Kompilasi | **lulus** (run 44580909494) |
 | Statis (ABI, config) | **lulus**, 0 selisih |
-| Paket flashable | **belum** — resep 3.2-r1 sengaja tidak memaketkan |
+| Paket flashable | **lulus** — ZIP + installer + penjaga digest |
 | Boot perangkat | **belum** |
 | Teruji | **belum** |
 
