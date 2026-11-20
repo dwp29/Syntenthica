@@ -289,3 +289,48 @@ diambil:
    perubahan yang diklaim tidak ada di dalam sumber. Diam bukan lagi hasil yang
    mungkin dari sebuah suntingan.
 
+## Run 23-24: tiga halaman yang kosong, dan 88 °C yang akhirnya terbaca
+
+### Halaman yang ternyata placeholder
+
+ROOT, MODULES, dan setelan bukan "kurang rapi" — mereka belum ada. ROOT hanya
+satu tombol dengan tulisan "halamannya belum dibuat", MODULES menyatakan daftar
+modul "belum ada di build ini" (padahal `/proc/modules` bisa dibaca tanpa root),
+dan setelan hanya pemilih tema.
+
+Sekarang:
+
+| Halaman | Isi | Sumber fakta |
+|---|---|---|
+| ROOT | pengelola root, jalur `su`, uid proses, izin dmesg, izin tulis node | diperiksa saat dibuka |
+| MODULES | modul termuat: nama, ukuran, pemakai | `/proc/modules` |
+| SETELAN | laju sampel 1/2/5/10 dtk, tema, kernel, varian, audit, reset | preferensi + probe |
+
+`null` (tidak bisa dibaca) dan daftar kosong (tidak ada modul) sengaja tidak
+pernah disatukan; keduanya jawaban yang berbeda.
+
+### 88 °C bukan ambang, dan bukan sensor CPU
+
+LAB run 22 menampilkan seluruh zona termal:
+
+```
+soc          88,0 °C   <- dipakai cincin
+aoss-0-usr   40,4 °C
+cpu-0-0-usr  39,8 °C
+cpu-0-1-usr  39,2 °C
+pm6150-tz    37,0 °C
+```
+
+Cincin diberi label "CPU" tetapi diberi nilai dari zona bernama `soc`.
+Sekarang cincin memilih sensor `cpu` lebih dulu, lalu `gpu`, lalu yang lain;
+zona `soc` tetap tampil di LAB. Kalau kernel tidak punya sensor `cpu`, cincin
+tetap menyebut nama zona yang dipakainya — angka yang tidak bisa diatribusikan
+tidak boleh tampil sebagai angka.
+
+### Angka yang tidak boleh diketik dua kali
+
+Baris "Hasil" di LAB pernah menampilkan `0 / 6 / 3 / 6 / 1` dengan legenda
+terpotong. Sekarang satu baris per keranjang, dihasilkan dari laporan itu
+sendiri (`countsBreakdown`), dan `counted()` menjamin jumlahnya sama dengan
+`nodes.size`.
+
