@@ -135,6 +135,12 @@ jobs:
       - name: Prepare isolated kit
         env:
           FM_VARIANT: ${{ matrix.variant }}
+          # resolve_hook_choice() runs during prepare and rewrites the profile
+          # this build will use. Without SP_PROFILE it falls back to the
+          # synthetica default, so a variant on another profile (cheese-burger ->
+          # critical) would keep SuSFS on and drop the manual hook, and the
+          # compile step would then fail its retained-feature gate.
+          SP_PROFILE: ${{ matrix.profile }}
         run: |
           set -euo pipefail
           # Through build_fresh_milk.py so the disposable kit also learns which
