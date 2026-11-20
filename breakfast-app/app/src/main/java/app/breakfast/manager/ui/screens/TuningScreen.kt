@@ -149,7 +149,10 @@ fun TuningScreen(
                 var shown = 0
                 for ((key, label) in sched) {
                     val node = report.nodes.firstOrNull { DeviceAudit.nodeToKey(it.path) == key }
-                    if (node != null && node.support != DeviceAudit.Support.ABSENT) {
+                    val usable = node != null &&
+                        (node.support == DeviceAudit.Support.SUPPORTED ||
+                            node.support == DeviceAudit.Support.READ_ONLY)
+                    if (usable) {
                         shown++
                         DataRow(
                             label = label,
@@ -181,23 +184,21 @@ fun TuningScreen(
             Spacer(Modifier.height(14.dp))
         }
 
-        // Locked parameters: marked, never hidden, and never repeated. A node
-        // already shown in its own group is skipped here - on the reporting
-        // device zram_mem_limit appeared twice, once per list.
+        // Parameters with no row of their own: marked, never hidden, never
+        // repeated. The list is derived from what the groups above actually draw.
         item {
-            val shownInGroups = setOf("zram_comp_algorithm", "zram_disksize", "zram_mem_limit",
-                "schedutil_up_rate", "schedutil_down_rate", "schedutil_iowait")
-            val locked = TuningWhitelist.PARAMETERS.filter { parameter ->
-                parameter.key !in shownInGroups || report.nodes.none {
-                    DeviceAudit.nodeToKey(it.path) == parameter.key
-                }
-            }
+            // Derived, not guessed: a hardcoded list hid iowait_boost_enable from
+            // both its group and this list, on a kernel that has the node.
+            val locked = app.breakfast.manager.data.TuningVisibility.missingKeys(report)
             if (locked.isNotEmpty()) {
                 SectionLabel("tidak tersedia")
                 SurfaceCard {
                     for (parameter in locked) {
+                        val node = report.nodes.firstOrNull {
+                            DeviceAudit.nodeToKey(it.path) == parameter.key
+                        }
                         PathRow(
-                            label = "🔒 ${parameter.key}",
+                            label = "🔒 ${parameter.key} · ${node?.support?.label ?: "tidak di audit"}",
                             path = parameter.path,
                         )
                     }
@@ -249,16 +250,23 @@ private fun ZramControl(
     val comp = report.nodes.firstOrNull { DeviceAudit.nodeToKey(it.path) == "zram_comp_algorithm" }
 
     if (mem == null && disk == null && comp == null) {
+        // "zram belum aktif" is a claim about the kernel, and the audit recorded
+        // no verdict for any of these nodes, so the honest statement is that we
+        // could not look. Verified absence is reported per node below, not here.
         Text(
-            text = "zram belum aktif di perangkat ini. Modul zram dimuat saat swap zram dipakai, " +
-                "jadi node-nya baru muncul setelah itu.",
+            text = "Node zram tidak bisa dipastikan: tidak ada catatan audit untuk node ini, " +
+                "jadi belum terbukti ada maupun tidak ada.",
             style = MaterialTheme.typography.bodyMedium,
             color = c.textSecondary,
         )
         return
     }
 
-    if (comp != null && comp.support != DeviceAudit.Support.ABSENT) {
+    val compUsable = comp != null &&
+        (comp.support == DeviceAudit.Support.SUPPORTED ||
+            comp.support == DeviceAudit.Support.READ_ONLY) &&
+        !comp.value.isNullOrBlank()
+    if (compUsable) {
         val offered = TuningWhitelist.parseOffered(comp.value ?: "")
         DataRow(
             label = "comp_algorithm",
@@ -291,12 +299,20 @@ private fun ZramControl(
             onChange = { pending["zram_mem_limit"] = it },
         )
     } else if (mem != null) {
-        val why = when (mem.support) {
-            DeviceAudit.Support.UNREADABLE -> "node ada, tapi isinya tidak bisa dibaca tanpa root"
-            DeviceAudit.Support.ABSENT -> "node tidak ada di kernel ini"
-            else -> mem.note
+        // Three different facts used to collapse into "node tidak ada di kernel
+        // ini" (zram) or "tidak bisa dibaca" (schedutil). On the same device, for
+        // nodes the kernel does have. The audit's verdict decides the wording now.
+        val (value, why) = when (mem.support) {
+            DeviceAudit.Support.UNREADABLE ->
+                "—" to "node ada, isinya tidak bisa dibaca tanpa root"
+            DeviceAudit.Support.ABSENT ->
+                "tidak ada" to "terverifikasi: direktori induk terbaca dan node ini tidak ada di dalamnya"
+            DeviceAudit.Support.UNKNOWN ->
+                "tidak bisa dipastikan" to "direktori induk tidak bisa dibaca, jadi ada atau tidaknya node ini belum terbukti"
+            DeviceAudit.Support.SUPPORTED, DeviceAudit.Support.READ_ONLY ->
+                (mem.value ?: "—") to mem.note
         }
-        DataRow("mem_limit", "—", c.statusAttention, mono = true, note = why)
+        DataRow("mem_limit", value, c.statusAttention, mono = true, note = why)
     }
 
     if (disk != null && disk.support == DeviceAudit.Support.SUPPORTED) {

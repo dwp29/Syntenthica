@@ -33,8 +33,17 @@ object Uptime {
         return ms / 3_600_000.0
     }
 
+    /**
+     * Human uptime.
+     *
+     * A phone rebooted 20 minutes ago used to display "0j", which reads as
+     * "zero hours of uptime" - a wrong number rather than a coarse one. Anything
+     * under an hour is now shown in minutes.
+     */
     fun format(hours: Double?): String {
         if (hours == null) return "—"
+        val minutes = (hours * 60).toInt()
+        if (minutes < 60) return "${minutes}m"
         val total = hours.toInt()
         val days = total / 24
         val rest = total % 24

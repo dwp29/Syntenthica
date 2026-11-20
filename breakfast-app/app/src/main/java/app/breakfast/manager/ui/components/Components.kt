@@ -249,6 +249,44 @@ fun StatTile(
  * chart is honest about having no history, whereas a flat line at zero would
  * claim the value has been zero all along.
  */
+/**
+ * Vertical bounds for a sparkline.
+ *
+ * Percentages are not auto-scaled to their own minimum any more: a flat 61%
+ * memory load drew as a line on the floor, which is arithmetically fine and
+ * visually false. A percentage series keeps a real band (45..100) and only the
+ * wobble matters inside it.
+ */
+internal fun graphBounds(series: List<Float>, normalise: Boolean, fixedMax: Float?): Pair<Float, Float> {
+    if (series.isEmpty()) return 0f to 1f
+    val dataMin = series.min()
+    val dataMax = series.max()
+    return if (normalise) {
+        val lo = minOf(dataMin, 0f)
+        val hi = maxOf(dataMax, lo + 1f)
+        val pad = (hi - lo) * 0.08f
+        (lo - pad) to (hi + pad)
+    } else {
+        val floor = fixedMax?.let { it * 0.45f } ?: 0f
+        val ceiling = fixedMax ?: (dataMax.takeIf { it > 0f } ?: 1f)
+        val pad = ((ceiling - floor) * 0.06f).coerceAtLeast(0.5f)
+        (floor - pad).coerceAtLeast(0f) to (ceiling + pad).coerceAtMost(fixedMax ?: Float.MAX_VALUE)
+    }
+}
+
+/** Where a value sits in a chart, 0 at the bottom and 1 at the top. */
+internal fun scaleForTest(value: Float, fixedMax: Float?): Float {
+    val (lo, hi) = graphBounds(listOf(value, value, fixedMax ?: value), normalise = false, fixedMax = fixedMax)
+    val span = (hi - lo).takeIf { it > 0.0001f } ?: 1f
+    return ((value - lo) / span).coerceIn(0f, 1f)
+}
+
+/** CPU usage from two /proc/stat samples, or null when the delta is too small. */
+internal fun statDeltaForTest(totalDelta: Long, idleDelta: Long): Float? {
+    if (totalDelta < 20L || idleDelta < 0L) return null
+    return ((totalDelta - idleDelta).toFloat() / totalDelta.toFloat()).coerceIn(0f, 1f)
+}
+
 @Composable
 fun Sparkline(
     series: List<Float>,
@@ -269,12 +307,14 @@ fun Sparkline(
             )
             return@Canvas
         }
-        val min = if (normalise) series.min() else 0f
-        val max = when {
-            fixedMax != null -> fixedMax
-            normalise -> series.max()
-            else -> series.max().takeIf { it > 0f } ?: 1f
-        }
+        // Auto-scaling to the series minimum drew a constant 61% memory load as
+        // a line glued to the floor: correct maths, false impression. When a
+        // series sits inside a narrow band it is now expanded around its own mean
+        // and clamped to the real axis, so the shape of the wobble is visible
+        // while the value stays readable.
+        val bounds = graphBounds(series, normalise, fixedMax)
+        val min = bounds.first
+        val max = bounds.second
         val span = (max - min).takeIf { it > 0.0001f } ?: 1f
         val stepX = size.width / (series.size - 1)
 
@@ -334,8 +374,44 @@ fun DataRow(
     mono: Boolean = false,
     note: String? = null,
     maxValueLines: Int = 2,
+    /**
+     * Stack the value under the label instead of beside it.
+     *
+     * Used for values that are word lists ("userspace powersave performance
+     * schedutil"). Even with bounded columns, a value like that next to a label
+     * truncates to something unreadable, and the whole point of LAB is to read
+     * the raw kernel value.
+     */
+    fullWidthValue: Boolean = false,
 ) {
     val c = LocalBreakfastColors.current
+    if (fullWidthValue) {
+        Column(modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Text(
+                text = label,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                color = c.textSecondary,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = value,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.let {
+                    if (mono) it.merge(NumericStyle) else it
+                },
+                fontWeight = FontWeight.SemiBold,
+                color = valueColor,
+            )
+            if (note != null) {
+                Text(
+                    text = note,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    color = c.textTertiary,
+                )
+            }
+        }
+        return
+    }
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

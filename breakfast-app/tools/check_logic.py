@@ -202,29 +202,33 @@ def main() -> int:
         got = resolve(prev, new, running)
         failures += check(got == expected, f"resolve {prev}/{new}/{running}: {got} != {expected}")
 
-    def classify_node(readable, has_value, writable, declared_ro, permissions):
-        # Four states. "No permissions string" means the file was not there at
-        # all; a permissions string with no value means it is there and closed.
-        if permissions is None:
+    def classify_node(readable, has_value, writable, declared_ro, presence):
+        # Five states. Absence must be VERIFIED by a directory listing; being
+        # unable to look is its own state, because claiming absence without
+        # proof is what reported ten existing nodes as missing on a real phone.
+        if presence == "absent":
             return "absent"
+        if presence == "unknown":
+            return "unknown"
         if not readable or not has_value:
             return "unreadable"
         if declared_ro or not writable:
             return "read_only"
         return "supported"
 
-    for readable, has_value, writable, declared_ro, permissions, expected in (
-        (False, False, False, False, None, "absent"),            # not there
-        (False, False, False, False, "-rw-r--r--", "unreadable"), # there, closed
-        (True, False, False, False, "-rw-r--r--", "unreadable"),  # read gave nothing
-        (True, True, False, False, "-rw-r--r--", "read_only"),    # readable, unwritable
-        (True, True, True, True, "-rw-r--r--", "read_only"),      # declared read-only
-        (True, True, True, False, "-rw-r--r--", "supported"),
+    for readable, has_value, writable, declared_ro, presence, expected in (
+        (False, False, False, False, "absent", "absent"),        # verified missing
+        (False, False, False, False, "unknown", "unknown"),      # cannot look
+        (False, False, False, False, "present", "unreadable"),   # there, closed
+        (True, False, False, False, "present", "unreadable"),    # read gave nothing
+        (True, True, False, False, "present", "read_only"),      # readable, unwritable
+        (True, True, True, True, "present", "read_only"),        # declared read-only
+        (True, True, True, False, "present", "supported"),
     ):
-        got = classify_node(readable, has_value, writable, declared_ro, permissions)
+        got = classify_node(readable, has_value, writable, declared_ro, presence)
         failures += check(got == expected,
                           f"audit classify readable={readable} value={has_value} writable={writable} "
-                          f"ro={declared_ro} perms={permissions}: {got} != {expected}")
+                          f"ro={declared_ro} presence={presence}: {got} != {expected}")
 
     # The ledger reads dmesg, so its failure copy must not name sysfs.
     states = (APP / "app/src/main/java/app/breakfast/manager/ui/States.kt").read_text(encoding="utf-8")
@@ -253,6 +257,25 @@ def main() -> int:
 
     # The source must actually gate on plausibility, not merely contain the word.
     pulse = (APP / "app/src/main/java/app/breakfast/manager/ui/PulseData.kt").read_text(encoding="utf-8")
+
+    # --- Nothing may state absence it has not verified ---------------------
+    audit = (APP / "app/src/main/java/app/breakfast/manager/data/AuditRunner.kt").read_text(encoding="utf-8")
+    failures += check("VERIFIED_ABSENT" in audit and "UNKNOWN" in audit,
+                      "audit must distinguish verified absence from cannot-tell")
+    failures += check("fun listing(" in (APP / "app/src/main/java/app/breakfast/manager/data/AuditRunner.kt").read_text(encoding="utf-8"),
+                      "absence may only be concluded from a directory listing")
+
+    # --- uptime must never print "0j" for twenty minutes --------------------
+    uptime = (APP / "app/src/main/java/app/breakfast/manager/data/SystemClockSource.kt").read_text(encoding="utf-8")
+    failures += check('"${minutes}m"' in uptime,
+                      "uptime under an hour must show minutes, not a rounded 0j")
+
+    # --- a graph must not pin a real value to the floor ---------------------
+    components = (APP / "app/src/main/java/app/breakfast/manager/ui/components/Components.kt").read_text(encoding="utf-8")
+    failures += check("fun graphBounds(" in components,
+                      "sparkline bounds must be a pure, testable function")
+    failures += check("val min = if (normalise) series.min() else 0f" not in components,
+                      "sparkline must not auto-scale a percentage to its own minimum")
     failures += check("isPlausibleTemperature(it)" in pulse,
                       "PulseReader must filter implausible temperatures before publishing them")
     failures += check("MIN_PLAUSIBLE_C = 5f" in pulse, "lower plausibility bound missing")

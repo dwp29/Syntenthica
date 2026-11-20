@@ -15,6 +15,14 @@ private class FakeFs(
     override fun writable(path: String) = nodes[path]?.third ?: false
     override fun read(path: String) = nodes[path]?.takeIf { it.second }?.first
     override fun permissions(path: String) = if (nodes.containsKey(path)) "-rw-r--r-- root:root" else null
+
+    /**
+     * A fake fake filesystem: directories are listable and contain exactly the
+     * nodes that were declared. Tests that need "cannot look" override this.
+     */
+    override fun listing(path: String): List<String>? =
+        nodes.keys.filter { it.substringBeforeLast('/') == path.substringBeforeLast('/') }
+            .map { it.substringAfterLast('/') }
 }
 
 class DeviceAuditTest {
@@ -92,6 +100,24 @@ class DeviceAuditTest {
         assertEquals(DeviceAudit.Support.UNREADABLE, node.support)
         assertTrue(node.note!!.contains("tidak bisa dibaca"))
         assertFalse(node.readable)
+    }
+
+    @Test
+    fun `a directory that cannot be listed yields unknown, never absent`() {
+        // This is the device case: ten nodes reported "tidak ada" that the
+        // kernel demonstrably has, because the sandbox could not traverse.
+        val blind = object : AuditRunner.Fs {
+            override fun exists(path: String) = false
+            override fun listing(path: String): List<String>? = null
+            override fun readable(path: String) = false
+            override fun writable(path: String) = false
+            override fun read(path: String): String? = null
+            override fun permissions(path: String): String? = null
+        }
+        val report = AuditRunner.run(blind, "k", 0L, specs, readOnly)
+        assertEquals(0, report.absent)
+        assertEquals(specs.sumOf { it.second.size }, report.unknown)
+        assertFalse(report.isComplete)
     }
 
     @Test

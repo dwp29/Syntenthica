@@ -15,18 +15,34 @@ object RootBridge {
 
     private const val TIMEOUT_SECONDS = 8L
 
-    data class Output(val ok: Boolean, val stdout: String, val exitCode: Int)
+    data class Output(
+        val ok: Boolean,
+        val stdout: String,
+        val exitCode: Int,
+        /** True when su never answered; a different problem from being refused. */
+        val timedOut: Boolean = false,
+    )
 
-    /** Runs a fixed command with root. Returns ok=false when root was refused. */
+    /**
+     * Runs a fixed command with root. Returns ok=false when root was refused.
+     *
+     * The previous version read stdout to EOF before waitFor(), so the timeout
+     * could never fire: if su started and then blocked waiting for a prompt the
+     * user never saw, this call blocked forever and the app looked frozen. The
+     * wait now comes first, and the stream is drained afterwards.
+     */
     fun run(command: String): Output = try {
         val process = ProcessBuilder("su", "-c", command)
-            .redirectErrorStream(false)
+            .redirectErrorStream(true)
             .start()
-        val stdout = process.inputStream.bufferedReader().use { it.readText() }
+        // Feed su's stdin nothing and close it: if a manager is waiting for a
+        // keystroke on stdin it gets EOF instead of hanging.
+        process.outputStream.close()
         val finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val stdout = process.inputStream.bufferedReader().use { it.readText() }.trim()
         if (!finished) {
             process.destroyForcibly()
-            Output(false, stdout, -1)
+            Output(false, stdout, -1, timedOut = true)
         } else {
             Output(process.exitValue() == 0, stdout, process.exitValue())
         }

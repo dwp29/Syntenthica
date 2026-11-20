@@ -30,7 +30,18 @@ object DeviceAudit {
         SUPPORTED("didukung"),
         READ_ONLY("baca-saja"),
         UNREADABLE("tidak bisa dibaca"),
+        /** Verified missing: the parent directory could be listed and it was not there. */
         ABSENT("tidak ada"),
+        /**
+         * Cannot tell whether it exists.
+         *
+         * The previous build reported ten nodes as "tidak ada" on a device whose
+         * own kernel source contains them, because `File.exists()` returns false
+         * when the app may not traverse the directory. Claiming absence from a
+         * lack of permission is the same sin as claiming a temperature of zero:
+         * it states a fact the app never established.
+         */
+        UNKNOWN("tidak bisa dipastikan"),
     }
 
     data class Node(
@@ -54,12 +65,17 @@ object DeviceAudit {
         val readOnly: Int get() = nodes.count { it.support == Support.READ_ONLY }
         val unreadable: Int get() = nodes.count { it.support == Support.UNREADABLE }
         val absent: Int get() = nodes.count { it.support == Support.ABSENT }
+        val unknown: Int get() = nodes.count { it.support == Support.UNKNOWN }
+
+        /** True when every node's fate was established either way. */
+        val isComplete: Boolean get() = unknown == 0
 
         fun summary(): String = buildString {
             append("Audit selesai: $supported didukung, $readOnly baca-saja")
             // Only mention the unreadable bucket when it is non-empty, so a
             // normal rooted audit stays short.
             if (unreadable > 0) append(", $unreadable tidak bisa dibaca")
+            if (unknown > 0) append(", $unknown tidak bisa dipastikan")
             append(", $absent tidak ada.")
         }
 
@@ -69,7 +85,7 @@ object DeviceAudit {
             .associate { nodeToKey(it.path) to it.value!! }
 
         fun isPresent(path: String): Boolean =
-            nodes.any { it.path == path && it.support != Support.ABSENT }
+            nodes.any { it.path == path && it.support != Support.ABSENT && it.support != Support.UNKNOWN }
 
         /** Nodes the kernel has but will not let us read; usually a root problem. */
         fun unreadableNodes(): List<Node> = nodes.filter { it.support == Support.UNREADABLE }

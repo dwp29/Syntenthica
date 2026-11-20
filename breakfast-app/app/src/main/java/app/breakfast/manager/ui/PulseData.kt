@@ -135,6 +135,7 @@ object PulseReader {
      */
     private var lastStat: Pair<Long, Long>? = null
 
+
     fun cpuUsageFromStat(): Float? {
         val line = read("/proc/stat")?.lineSequence()?.firstOrNull { it.startsWith("cpu ") }
             ?: return null
@@ -147,8 +148,11 @@ object PulseReader {
         if (previous == null) return null
         val totalDelta = total - previous.first
         val idleDelta = idle - previous.second
-        if (totalDelta <= 0L) return null
-        return ((totalDelta - idleDelta).toFloat() / totalDelta.toFloat()).coerceIn(0f, 1f)
+        // A /proc/stat line has jiffies that can fail to advance between two
+        // 2-second samples on a throttled kernel. A delta of a few ticks is not
+        // a load measurement, so it is reported as "not measurable" rather than
+        // as 0% or 100%.
+        return app.breakfast.manager.ui.components.statDeltaForTest(totalDelta, idleDelta)
     }
 
     /**
@@ -182,7 +186,13 @@ object PulseReader {
         val load = loadRaw ?: cpuUsageFromStat()
         val loadReason = when {
             loadRaw != null || load != null -> null
-            else -> "load average tidak terbaca dan /proc/stat tidak memberikan delta"
+            // Say which of the two sources failed, because the fix differs:
+            // an unreadable /proc/loadavg wants root, a missing delta does not.
+            else -> if (read("/proc/loadavg") == null) {
+                "load average tidak terbaca tanpa root, dan /proc/stat belum memberi delta"
+            } else {
+                "load average kosong, dan /proc/stat belum memberi delta"
+            }
         }
         val uptime = uptimeHours(clock)
         val zram = zramPercent()
@@ -232,13 +242,8 @@ object PulseReader {
         thermal.clear()
     }
 
-    fun formatUptime(hours: Double?): String {
-        if (hours == null) return "—"
-        val totalHours = hours.toInt()
-        val days = totalHours / 24
-        val rest = totalHours % 24
-        return if (days > 0) "${days}d ${rest}h" else "${rest}j"
-    }
+    fun formatUptime(hours: Double?): String =
+        app.breakfast.manager.data.Uptime.format(hours)
 
     fun stabilityLabel(score: Int?): String = when {
         score == null -> "—"

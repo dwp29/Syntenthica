@@ -15,6 +15,15 @@ object AuditRunner {
     /** Minimal seam so the runner can be exercised without a device. */
     interface Fs {
         fun exists(path: String): Boolean
+
+        /**
+         * Names in the parent directory, or null when it cannot be listed.
+         *
+         * Only a listing can prove absence. exists() == false is not proof: it
+         * also happens when a parent directory is not traversable, which is the
+         * normal case for a sandboxed app looking at /data/adb.
+         */
+        fun listing(path: String): List<String>? = null
         fun readable(path: String): Boolean
         fun writable(path: String): Boolean
         fun read(path: String): String?
@@ -29,11 +38,22 @@ object AuditRunner {
      * separate is what lets a node be "exists and reads fine" while also being
      * honest that a non-root manager cannot write to it.
      */
+    /** What we managed to establish about a node's existence. */
+    enum class Presence {
+        /** exists() returned true. */
+        PRESENT,
+        /** The parent directory was listed and the name was not in it. */
+        VERIFIED_ABSENT,
+        /** No permission to look; existence is genuinely unknown. */
+        UNKNOWN,
+    }
+
     data class Observation(
         val value: String?,
         val readable: Boolean,
         val writable: Boolean,
         val permissions: String?,
+        val presence: Presence = Presence.PRESENT,
     )
 
     private const val MAX_VALUE_CHARS = 80
@@ -80,19 +100,30 @@ object AuditRunner {
 
     fun observe(fs: Fs, path: String, readOnlyPaths: Set<String> = emptySet()): Observation {
         if (!fs.exists(path)) {
-            // exists() can be false either because the node is missing or because
-            // the app is not allowed to see the directory it lives in, so the
-            // permission probe is consulted before concluding "absent".
-            val permissions = fs.permissions(path)
-            return Observation(null, readable = false, writable = false, permissions = permissions)
+            // exists() is not evidence of absence. Only a directory listing is.
+            val listing = fs.listing(path)
+            if (listing == null) {
+                // Cannot even look: the only honest answer is "cannot tell".
+                return Observation(null, readable = false, writable = false, permissions = null,
+                    presence = Presence.UNKNOWN)
+            }
+            val name = path.substringAfterLast('/')
+            if (name !in listing) {
+                return Observation(null, readable = false, writable = false, permissions = null,
+                    presence = Presence.VERIFIED_ABSENT)
+            }
+            // The name IS in the listing but exists() said no: a policy is
+            // blocking this process, so the node is there but closed.
+            return Observation(null, readable = false, writable = false,
+                permissions = fs.permissions(path), presence = Presence.PRESENT)
         }
         val permissions = fs.permissions(path)
         val readable = fs.readable(path)
         val value = if (readable) fs.read(path) else null
-        // canWrite is asked even when the node is absent, because "exists but
-        // not writable" and "does not exist" are different facts.
+        // canWrite is only meaningful once we know we can see the node.
         val writable = if (value != null) fs.writable(path) else false
-        return Observation(value, readable && value != null, writable, permissions)
+        return Observation(value, readable && value != null, writable, permissions,
+            presence = Presence.PRESENT)
     }
 
     /**
@@ -104,8 +135,11 @@ object AuditRunner {
      * hides the nodes that are physically present.
      */
     fun classify(observation: Observation, declaredReadOnly: Boolean): DeviceAudit.Support = when {
-        // No permissions string means observe() never found the file at all.
-        observation.permissions == null -> DeviceAudit.Support.ABSENT
+        // Verified: the directory was listed and the name was not in it.
+        observation.presence == Presence.VERIFIED_ABSENT -> DeviceAudit.Support.ABSENT
+        // We were not allowed to look. Saying "tidak ada" here is how ten nodes
+        // that the kernel does have were reported as missing.
+        observation.presence == Presence.UNKNOWN -> DeviceAudit.Support.UNKNOWN
         // The file is there but the read did not produce a value. That is a
         // permission or a policy problem, not an absence, and saying "tidak ada"
         // here is what made LAB contradict TUNING on the same screen.
@@ -127,9 +161,16 @@ object AuditRunner {
         hasRoot: Boolean = false,
     ): String? {
         if (!observation.readable || observation.value == null) {
-            return when {
-                observation.permissions == null -> "tidak bisa dibaca"
-                else -> "tidak bisa dibaca (${observation.permissions})"
+            return when (observation.presence) {
+                Presence.UNKNOWN ->
+                    "tidak bisa dipastikan: direktori induk tidak bisa dibaca, jadi ada atau tidaknya node ini tidak diketahui"
+                Presence.VERIFIED_ABSENT -> "tidak ada (direktori induk sudah diperiksa)"
+                Presence.PRESENT ->
+                    if (observation.permissions != null) {
+                        "tidak bisa dibaca (${observation.permissions})"
+                    } else {
+                        "tidak bisa dibaca tanpa root"
+                    }
             }
         }
         if (declaredReadOnly) return "hanya dibaca, tidak pernah ditulis"

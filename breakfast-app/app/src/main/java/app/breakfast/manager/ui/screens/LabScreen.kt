@@ -167,12 +167,16 @@ fun LabScreen(
                                 // TUNING called the same node "tidak bisa dibaca".
                                 DeviceAudit.Support.UNREADABLE -> "tidak bisa dibaca"
                                 DeviceAudit.Support.ABSENT -> "tidak ada"
+                                // Never seen "tidak ada" unless a directory
+                                // listing proved it; otherwise say so.
+                                DeviceAudit.Support.UNKNOWN -> "tidak bisa dipastikan"
                             },
                             valueColor = when (node.support) {
                                 DeviceAudit.Support.SUPPORTED -> c.statusStable
                                 DeviceAudit.Support.READ_ONLY -> c.statusNormal
                                 DeviceAudit.Support.UNREADABLE -> c.statusAttention
                                 DeviceAudit.Support.ABSENT -> c.textTertiary
+                                DeviceAudit.Support.UNKNOWN -> c.textTertiary
                             },
                             mono = true,
                             note = node.note ?: if (node.support == DeviceAudit.Support.ABSENT) {

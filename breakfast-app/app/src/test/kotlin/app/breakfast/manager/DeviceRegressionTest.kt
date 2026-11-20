@@ -3,8 +3,11 @@ package app.breakfast.manager
 import app.breakfast.manager.data.AuditRunner
 import app.breakfast.manager.data.ClockSource
 import app.breakfast.manager.data.DeviceAudit
+import app.breakfast.manager.data.TuningVisibility
+import app.breakfast.manager.data.TuningWhitelist
 import app.breakfast.manager.data.Uptime
 import app.breakfast.manager.ui.PulseReader
+import app.breakfast.manager.ui.components.Components
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -96,7 +99,10 @@ class DeviceRegressionTest {
                 node(DeviceAudit.Support.ABSENT),
             ),
         )
-        assertEquals(4, report.supported + report.readOnly + report.unreadable + report.absent)
+        assertEquals(
+            4,
+            report.supported + report.readOnly + report.unreadable + report.unknown + report.absent,
+        )
         assertTrue(report.summary().contains("1 tidak bisa dibaca"))
         assertEquals(1, report.unreadableNodes().size)
     }
@@ -105,5 +111,144 @@ class DeviceRegressionTest {
     fun `a clean audit does not mention the unreadable bucket`() {
         val report = DeviceAudit.Report("k", 0L, emptyList())
         assertEquals("Audit selesai: 0 didukung, 0 baca-saja, 0 tidak ada.", report.summary())
+    }
+}
+
+/** Audit's honesty about existence, and the numbers the device got wrong. */
+class Run17RegressionTest {
+
+    private fun obs(
+        presence: AuditRunner.Presence,
+        value: String? = null,
+        permissions: String? = null,
+    ) = AuditRunner.Observation(
+        value = value,
+        readable = value != null,
+        writable = false,
+        permissions = permissions,
+        presence = presence,
+    )
+
+    @Test
+    fun `cannot look is not the same as not there`() {
+        // Ten nodes the kernel demonstrably has were reported "tidak ada".
+        assertEquals(
+            DeviceAudit.Support.UNKNOWN,
+            AuditRunner.classify(obs(AuditRunner.Presence.UNKNOWN), declaredReadOnly = false),
+        )
+        assertEquals(
+            DeviceAudit.Support.ABSENT,
+            AuditRunner.classify(obs(AuditRunner.Presence.VERIFIED_ABSENT), declaredReadOnly = false),
+        )
+    }
+
+    @Test
+    fun `an unverified node is never counted as absent`() {
+        val node = DeviceAudit.Node(
+            group = "GPU", path = "/sys/class/kgsl/kgsl-3d0/gpuclk",
+            support = DeviceAudit.Support.UNKNOWN, nodePermissions = null,
+            readable = false, value = null,
+        )
+        val report = DeviceAudit.Report("k", 0L, listOf(node))
+        assertEquals(0, report.absent)
+        assertEquals(1, report.unknown)
+        assertFalse(report.isComplete)
+        assertTrue(report.summary().contains("1 tidak bisa dipastikan"))
+    }
+
+    @Test
+    fun `one unreadable file does not make a fake absence`() {
+        assertEquals(
+            "tidak ada (direktori induk sudah diperiksa)",
+            AuditRunner.noteFor(obs(AuditRunner.Presence.VERIFIED_ABSENT), declaredReadOnly = false),
+        )
+        val unknownNote = AuditRunner.noteFor(obs(AuditRunner.Presence.UNKNOWN), declaredReadOnly = false)!!
+        assertTrue(unknownNote.contains("tidak bisa dipastikan"))
+    }
+
+    // --- Memory line drew a real 61% as a flat line at the bottom ----------
+
+    @Test
+    fun `a flat percentage series keeps its true height`() {
+        // Same numbers as the device: 60.6..61.2 out of 100. Before the fix the
+        // lowest of these was drawn ON the floor and the highest at the ceiling.
+        val series = listOf(60.6f, 60.8f, 61.0f, 61.1f, 61.2f)
+        val drawn = Components.scaleForTest(series.first(), fixedMax = 100f) to
+            Components.scaleForTest(series.last(), fixedMax = 100f)
+        assertTrue("memory must sit above the floor, was ${drawn.first}", drawn.first > 0.15f)
+        assertTrue("memory must sit below the ceiling", drawn.second < 0.9f)
+        assertTrue("61% must be visibly high, not pinned to the bottom", drawn.second > 0.2f)
+    }
+
+    @Test
+    fun `a percentage series still shows its wobble`() {
+        val calm = Components.scaleForTest(60.6f, fixedMax = 100f)
+        val high = Components.scaleForTest(61.2f, fixedMax = 100f)
+        // Visible, but not exaggerated to the full height of the chart.
+        assertTrue("difference must be visible", high - calm > 0.0005f)
+        assertTrue("difference must not be 100% of the chart", high - calm < 0.3f)
+    }
+
+    // --- uptime printed "0j" twenty minutes after boot ---------------------
+
+    @Test
+    fun `minutes are not rounded away to zero hours`() {
+        assertEquals("m", Uptime.format(0.33).last().toString())
+        assertEquals("20m", Uptime.format(0.33))
+        assertEquals("2j", Uptime.format(2.5))
+        assertEquals("1d 3h", Uptime.format(27.7))
+    }
+
+    // --- CPU Load: a delta too small to measure is not a measurement -------
+
+    @Test
+    fun `a stat delta below one tick window is rejected`() {
+        assertNull(Components.statDeltaForTest(totalDelta = 4L, idleDelta = 1L))
+        assertEquals(0.5f, Components.statDeltaForTest(totalDelta = 400L, idleDelta = 200L)!!, 0.001f)
+    }
+}
+
+
+class TuningVisibilityTest {
+
+    private fun node(keyPath: String, support: DeviceAudit.Support, value: String? = null) =
+        DeviceAudit.Node(
+            group = "g", path = keyPath, support = support,
+            nodePermissions = null, readable = value != null, value = value,
+        )
+
+    private fun report(vararg nodes: DeviceAudit.Node) = DeviceAudit.Report("k", 0L, nodes.toList())
+
+    @Test
+    fun `a parameter with no row of its own is listed, not hidden`() {
+        // The device bug: iowait_boost_enable exists in the kernel, but the screen
+        // only draws schedutil nodes it can use, so the hardcoded dedupe list hid
+        // it from both the group and the "tidak tersedia" list.
+        val r = report(
+            node("/sys/devices/system/cpu/cpu0/cpufreq/schedutil/up_rate_limit_us",
+                DeviceAudit.Support.READ_ONLY, "0"),
+            node("/sys/devices/system/cpu/cpu0/cpufreq/schedutil/iowait_boost_enable",
+                DeviceAudit.Support.UNKNOWN),
+        )
+        val missing = TuningVisibility.missingKeys(r).map { it.key }
+        assertTrue("iowait_boost_enable must be listed", "schedutil_iowait" in missing)
+    }
+
+    @Test
+    fun `a rendered parameter is not repeated in the missing list`() {
+        val r = report(
+            node("/sys/devices/system/cpu/cpu0/cpufreq/schedutil/up_rate_limit_us",
+                DeviceAudit.Support.READ_ONLY, "0"),
+        )
+        val missing = TuningVisibility.missingKeys(r).map { it.key }
+        assertFalse("up_rate is drawn in its group", "schedutil_up_rate" in missing)
+        // And its sibling, which has no value, must be named.
+        assertTrue("down_rate must be listed", "schedutil_down_rate" in missing)
+    }
+
+    @Test
+    fun `an empty audit lists every parameter rather than pretending they exist`() {
+        val missing = TuningVisibility.missingKeys(report())
+        assertEquals(TuningWhitelist.PARAMETERS.size, missing.size)
     }
 }
