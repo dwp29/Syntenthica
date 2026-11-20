@@ -31,7 +31,7 @@ MAX_RAW_IMAGE = 128 * 1024 * 1024
 PINNED_INPUTS = {
     "scripts/build_chronicle_base.py": "c92f32b1792d999008de18bd2d91418472219349798f0d546b7ef223e3747cdc",
     "ci/SOURCES_CHRONICLE_BASE.json": "9a09ae658bbc6e5f48f5404f56b108380c5659aba2786c108d87be253fb13912",
-    "ci/rollercoaster/build-rollercoaster.sh": "40da0a8f335c301e4324fc00412a1d182923fecf4768150a56be7660a841522d",
+    "ci/rollercoaster/build-rollercoaster.sh": "0054120bbdf3165c894a8b55b5315b38a79220b70ef9839027daa559169a22cb",
     "ci/rollercoaster/profiles/synthetica.config": "b2680e2cd32c76a2c64849a8a635d48c6a2a6df2699a7f75bde09c8efa3ec0e3",
     "ci/rollercoaster/profiles/00-common.config": "9bbcc9ddd63d9cc4aacc06b8a0dfd808f2888be9d6d59d9c93b286b8a4ab945e",
     "ci/rollercoaster/patches/kernelsu-1.0.0.patch": "d0b6cf8ffb87a7e65c08595d745b25896fa6078725d35422fbe451a4c662d622",

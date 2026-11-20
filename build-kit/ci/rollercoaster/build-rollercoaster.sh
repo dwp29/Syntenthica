@@ -126,7 +126,7 @@ fi
 # scheme found!"). Akibatnya APK yang ditandatangani alat modern (v2+v3) tidak
 # pernah dikenali sebagai Manager: uname menampilkan m0, Manager "No root",
 # padahal su berjalan. Identitas tetap ditentukan sertifikat blok v2.
-if [ -f "$APK_SIGN_C" ]; then
+if [ -f "$APK_SIGN_C" ] && [ "${SKIP_KSU_NEXT_SIGN_PATCHES:-}" = "" ]; then
   if grep -q "v2 verified - accepted (Rollercoaster)" "$APK_SIGN_C"; then
     echo "[patch] toleransi blok v3: sudah terpasang"
   else
