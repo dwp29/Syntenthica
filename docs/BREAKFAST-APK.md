@@ -198,3 +198,28 @@ berubah: nol izin, tanpa INTERNET, tidak ada data yang disimpan atau dikirim.
 tidak punya emulator maupun Android SDK, jadi yang terbukti hanya kompilasi,
 63 tes logika, dan APK yang terbentuk benar. Tampilan sebenarnya baru terbukti
 saat dipasang di perangkat.
+
+## Run 16: apa yang ditemukan perangkat, dan apa yang diperbaiki
+
+Tujuh tangkapan layar dari pemasangan nyata menemukan 11 cacat. Semuanya
+diperbaiki di run 16, dan tiap perbaikan punya tes regresi.
+
+| # | Yang terlihat di layar | Penyebab | Perbaikan |
+|---|---|---|---|
+| 1 | `0 °C` hijau **"Normal"** | nilai `< 45` dianggap sehat, termasuk 0 | nilai di luar 5..125 °C = "tidak terukur"; busur tidak digambar |
+| 2 | titik hijau di ujung busur kosong | *round cap* dari busur sepanjang nol | busur nol tidak digambar sama sekali |
+| 3 | `Ker nel` | kolom nilai tanpa batas lebar, label menyusut | kedua kolom dibatasi + berbobot |
+| 4 | kartu setinggi layar | sama dengan #3 | path panjang pindah ke `PathRow` |
+| 5 | `UPTIME —` | bergantung `/proc/uptime` | `SystemClock.elapsedRealtime` |
+| 6 | CPU Load garis kosong | `/proc/loadavg` tak terbaca | sebut sebabnya + cadangan `/proc/stat` |
+| 7 | semua kartu `—` | aplikasi tak pernah minta root | kartu "tanpa root" + tombol BERI ROOT |
+| 8 | LAB "tidak ada" vs TUNING "tidak bisa dibaca" | hanya ada 3 status | status keempat `UNREADABLE` |
+| 9 | "Audit terakhir" = uptime | salah sambung | umur audit sebenarnya |
+| 10 | MGLRU `—` vs `TIDAK ADA` | dua jalur tampilan | seragam |
+| 11 | `zram_mem_limit` dua kali; ROOT/MODULES buntu; Memory datar | dedupe, aksi, skala | diperbaiki |
+
+**Catatan yang paling penting:** cacat #1 bukan cacat tampilan. Aplikasi
+mengarang angka sehat pada metrik yang paling mudah dipercaya, dan itu
+membatalkan klaim "tidak pernah mengarang angka". Klaim itu sekarang dijaga
+oleh tes, bukan oleh niat.
+
