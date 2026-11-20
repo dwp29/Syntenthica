@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.ThemeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-20T02:09:46.414Z" hostname="ip-10-0-142-248" time="0.001">
+<testsuite name="app.breakfast.manager.ThemeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-20T02:11:57.844Z" hostname="runnervm8axu0" time="0.002">
   <properties/>
   <testcase name="black on white is exactly 21 to 1" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
   <testcase name="light on light is rejected by the same rule" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
-  <testcase name="all five themes are offered" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
+  <testcase name="all five themes are offered" classname="app.breakfast.manager.ThemeTest" time="0.001"/>
   <testcase name="status colours are fixed and do not follow the theme" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
-  <testcase name="every offered theme passes wcag" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
+  <testcase name="every offered theme passes wcag" classname="app.breakfast.manager.ThemeTest" time="0.001"/>
   <testcase name="contrast is symmetric" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

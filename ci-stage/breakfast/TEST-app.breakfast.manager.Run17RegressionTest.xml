@@ -1,58 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.Run17RegressionTest" tests="7" skipped="0" failures="1" errors="0" timestamp="2026-11-20T02:09:46.403Z" hostname="ip-10-0-142-248" time="0.004">
+<testsuite name="app.breakfast.manager.Run17RegressionTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T02:11:57.827Z" hostname="runnervm8axu0" time="0.004">
   <properties/>
-  <testcase name="minutes are not rounded away to zero hours" classname="app.breakfast.manager.Run17RegressionTest" time="0.001">
-    <failure message="org.junit.ComparisonFailure: expected:&lt;[20]m&gt; but was:&lt;[19]m&gt;" type="org.junit.ComparisonFailure">org.junit.ComparisonFailure: expected:&lt;[20]m&gt; but was:&lt;[19]m&gt;
-	at app//org.junit.Assert.assertEquals(Assert.java:117)
-	at app//org.junit.Assert.assertEquals(Assert.java:146)
-	at app//app.breakfast.manager.Run17RegressionTest.minutes are not rounded away to zero hours(DeviceRegressionTest.kt:199)
-	at java.base@21.0.13/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base@21.0.13/java.lang.reflect.Method.invoke(Method.java:580)
-	at app//org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
-	at app//org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
-	at app//org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
-	at app//org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
-	at app//org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
-	at app//org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
-	at app//org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
-	at app//org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
-	at app//org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
-	at app//org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
-	at app//org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
-	at app//org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
-	at app//org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
-	at app//org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
-	at app//org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
-	at app//org.junit.runners.ParentRunner.run(ParentRunner.java:413)
-	at app//org.junit.runner.JUnitCore.run(JUnitCore.java:137)
-	at app//org.junit.runner.JUnitCore.run(JUnitCore.java:115)
-	at org.gradle.api.internal.tasks.testing.junit.JUnitTestClassExecutor.runRequest(JUnitTestClassExecutor.java:176)
-	at org.gradle.api.internal.tasks.testing.junit.JUnitTestClassExecutor.execute(JUnitTestClassExecutor.java:84)
-	at org.gradle.api.internal.tasks.testing.junit.JUnitTestClassExecutor.execute(JUnitTestClassExecutor.java:45)
-	at org.gradle.api.internal.tasks.testing.junit.AbstractJUnitTestClassProcessor.processTestClass(AbstractJUnitTestClassProcessor.java:61)
-	at org.gradle.api.internal.tasks.testing.SuiteTestClassProcessor.processTestClass(SuiteTestClassProcessor.java:54)
-	at java.base@21.0.13/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base@21.0.13/java.lang.reflect.Method.invoke(Method.java:580)
-	at org.gradle.internal.dispatch.MethodInvocation.invokeOn(MethodInvocation.java:77)
-	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:28)
-	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:19)
-	at org.gradle.internal.dispatch.ContextClassLoaderDispatch.dispatch(ContextClassLoaderDispatch.java:33)
-	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:88)
-	at jdk.proxy1/jdk.proxy1.$Proxy4.processTestClass(Unknown Source)
-	at org.gradle.api.internal.tasks.testing.worker.TestWorker$2.run(TestWorker.java:177)
-	at org.gradle.api.internal.tasks.testing.worker.TestWorker.executeAndMaintainThreadName(TestWorker.java:126)
-	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:103)
-	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:63)
-	at org.gradle.process.internal.worker.child.ActionExecutionWorker.execute(ActionExecutionWorker.java:56)
-	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:122)
-	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
-	at app//worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
-	at app//worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
-</failure>
-  </testcase>
+  <testcase name="minutes are not rounded away to zero hours" classname="app.breakfast.manager.Run17RegressionTest" time="0.001"/>
   <testcase name="a percentage series still shows its wobble" classname="app.breakfast.manager.Run17RegressionTest" time="0.002"/>
-  <testcase name="a flat percentage series keeps its true height" classname="app.breakfast.manager.Run17RegressionTest" time="0.001"/>
-  <testcase name="an unverified node is never counted as absent" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
+  <testcase name="a flat percentage series keeps its true height" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
+  <testcase name="an unverified node is never counted as absent" classname="app.breakfast.manager.Run17RegressionTest" time="0.001"/>
   <testcase name="a stat delta below one tick window is rejected" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
   <testcase name="cannot look is not the same as not there" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
   <testcase name="one unreadable file does not make a fake absence" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
