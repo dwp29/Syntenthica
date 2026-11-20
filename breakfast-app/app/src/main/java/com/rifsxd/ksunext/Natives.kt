@@ -37,9 +37,9 @@ object Natives {
     fun versionOrNull(): String? = probe { getVersion() }
 
     /** Kernel UAPI version, which is the number that decides compatibility. */
-    fun kernelUapiOrNull(): Int? = probe { kernelUAPIVersion() }
+    fun kernelUapiOrNull(): Int? = probe { getKernelUAPIVersion() }
 
-    fun managerUapiOrNull(): Int? = probe { managerUAPIVersion() }
+    fun managerUapiOrNull(): Int? = probe { getManagerUAPIVersion() }
 
     /** Whether the manager reports su as enabled at all. */
     fun suEnabledOrNull(): Boolean? = probe { isSuEnabled() }
