@@ -341,7 +341,7 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
     # GNU cross-objdump is a post-build auditor, never the selected compiler/linker.
     audit_objdump = Path("/usr/bin/aarch64-linux-gnu-objdump")
     manager_object = out / "drivers/kernelsu/manager" / "apk_sign.o"
-    if os.environ.get("BAKASU_ARCHIVE"):
+    if os.environ.get("SP_ROOT_STACK") == "bakasu":
         # The auditable -fno-builtin-strncmp flag and the strncmp relocation check
         # are KernelSU-Next manager build properties. BakaSU's manager is built
         # without that flag, so verify only that the object exists rather than

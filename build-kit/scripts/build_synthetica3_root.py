@@ -116,7 +116,7 @@ def finish(kit: Path, out: Path, baseline: Path, tested: Path, result: Path,
            toolchain_bin: Path, neutron_archive: Path) -> None:
     check_inputs()
     out = rc.s2x.ensure_disposable(out)
-    if os.environ.get('BAKASU_ARCHIVE'):
+    if os.environ.get('SP_ROOT_STACK') == 'bakasu':
         # The Manager fd patch is a KernelSU-Next-only change: it calls
         # ksu_install_manager_exec_fd() from fs/exec.c and edits
         # KernelSU-Next/kernel/supercall/supercall.c. BakaSU exports no such

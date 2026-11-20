@@ -136,7 +136,7 @@ def finish(kit: Path, out: Path, baseline: Path, tested: Path, result: Path,
            toolchain_bin: Path, neutron_archive: Path) -> None:
     check_inputs()
     out = s2x.ensure_disposable(out)
-    if os.environ.get("BAKASU_ARCHIVE"):
+    if os.environ.get("SP_ROOT_STACK") == "bakasu":
         # The Manager seccomp/setuid-hook patch is a KernelSU-Next-only change:
         # it edits KernelSU-Next/kernel/hook/setuid_hook.c and
         # KernelSU-Next/kernel/policy/app_profile.c, neither of which exists
