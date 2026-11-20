@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import importlib.util
+import os
 import json
 import re
 import shutil
@@ -247,9 +248,14 @@ def prepare_tree(tree: Path) -> None:
     # own rules before anything is compiled, so a missing hook stops the build
     # here rather than minutes later inside the driver with a vaguer message.
     import bakasu_root
-    archive = Path(__file__).resolve().parents[1] / "bakasu-cache" / "bakasu.tar.gz"
+    # CI downloads the pinned archive once; BAKASU_ARCHIVE points at it. The
+    # fallback exists for local runs that keep it beside the kit.
+    archive = Path(os.environ.get("BAKASU_ARCHIVE",
+                                  Path(__file__).resolve().parents[1] / "bakasu-cache"
+                                  / "bakasu.tar.gz"))
     if not archive.is_file():
-        raise ValueError(f"BakaSU archive is missing: {archive}")
+        raise ValueError(f"BakaSU archive is missing: {archive} "
+                         "(set BAKASU_ARCHIVE to the pinned download)")
     bakasu_root.fetch(tree, archive)
     print(bakasu_root.apply_tree_patch(tree), flush=True)
     print(bakasu_root.vendor(tree), flush=True)

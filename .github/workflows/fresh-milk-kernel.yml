@@ -149,6 +149,8 @@ jobs:
           SP_EXPECT_RELEASE: ${{ matrix.release }}
           FM_VARIANT: ${{ matrix.variant }}
           PYTHONOPTIMIZE: '0'
+          # prepare_tree() checks this archive by digest before unpacking it.
+          BAKASU_ARCHIVE: ${{ runner.temp }}/bakasu.tar.gz
         run: |
           set -euo pipefail
           export SP_WORK_DIR="$RUNNER_TEMP/${{ matrix.variant }}-work"
