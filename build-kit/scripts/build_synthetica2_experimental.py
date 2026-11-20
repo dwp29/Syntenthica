@@ -334,8 +334,14 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
     if not match or match.group(1).decode("ascii", "replace") != EXPECTED_RELEASE:
         raise ValueError("unexpected image release string")
     v3.verify_embedded_config(raw, cfg)
+    # KernelSU-Next embeds the Manager certificate hash as a literal in the image.
+    # BakaSU recognises the Manager by APK signature index at runtime and carries
+    # no such literal, so that one pinned string is KernelSU-Next-only.
+    bakasu_stack = os.environ.get("SP_ROOT_STACK") == "bakasu"
     for label, value in (("KernelSU", b"KernelSU"), ("Manager package", manager["package"].encode()),
                          ("Manager certificate hash", manager["cert_sha256"].encode())):
+        if bakasu_stack and label == "Manager certificate hash":
+            continue
         if value not in raw:
             raise ValueError(f"pinned {label} not found in image")
     # GNU cross-objdump is a post-build auditor, never the selected compiler/linker.
