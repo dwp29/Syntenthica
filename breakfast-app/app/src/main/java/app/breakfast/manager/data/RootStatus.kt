@@ -48,21 +48,19 @@ object RootStatus {
         "/debug_ramdisk/su",
     )
 
+    /** Existence check that treats a denied path as "not found", never as a crash. */
+    private fun exists(path: String): Boolean = try {
+        java.io.File(path).exists()
+    } catch (e: SecurityException) {
+        false
+    }
+
     fun snapshot(root: RootBridge = RootBridge): Snapshot {
-        val manager = MANAGERS.firstOrNull { path ->
-            try {
-                java.io.File(path).exists()
-            } catch (e: SecurityException) {
-                false
-            }
-        }?.second
-        val suPath = SU_PATHS.firstOrNull { path ->
-            try {
-                java.io.File(path).exists()
-            } catch (e: SecurityException) {
-                false
-            }
-        }
+        // MANAGERS holds (path, name) pairs, so the lambda argument is a Pair and
+        // the path is its first element. Passing the Pair to File() was the
+        // compile error: none of File's constructors takes a Pair.
+        val manager = MANAGERS.firstOrNull { (path, _) -> exists(path) }?.second
+        val suPath = SU_PATHS.firstOrNull { path -> exists(path) }
         val id = root.run("id -u")
         val uid = id.stdout.trim().takeIf { it.isNotEmpty() }
         val granted = uid == "0"

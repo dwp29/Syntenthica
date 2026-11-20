@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.breakfast.manager.ui.ThemeCatalog
+import app.breakfast.manager.ui.components.ChoiceChip
+import app.breakfast.manager.ui.components.DataRow
 import app.breakfast.manager.ui.components.GhostButton
 import app.breakfast.manager.ui.components.SectionLabel
 import app.breakfast.manager.ui.components.SurfaceCard
