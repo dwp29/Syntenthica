@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.TuningEngineTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:06:33.630Z" hostname="ip-10-0-141-182" time="0.007">
+<testsuite name="app.breakfast.manager.TuningEngineTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:22:10.752Z" hostname="runnervm8axu0" time="0.009">
   <properties/>
-  <testcase name="unknown choice is rejected and the offered list is honoured" classname="app.breakfast.manager.TuningEngineTest" time="0.001"/>
+  <testcase name="unknown choice is rejected and the offered list is honoured" classname="app.breakfast.manager.TuningEngineTest" time="0.002"/>
   <testcase name="disksize is marked needs reboot and applies live" classname="app.breakfast.manager.TuningEngineTest" time="0.0"/>
   <testcase name="bracketed read back is not a false mismatch" classname="app.breakfast.manager.TuningEngineTest" time="0.001"/>
-  <testcase name="successful write is read back and confirmed" classname="app.breakfast.manager.TuningEngineTest" time="0.001"/>
+  <testcase name="successful write is read back and confirmed" classname="app.breakfast.manager.TuningEngineTest" time="0.0"/>
   <testcase name="silently ignored write is a mismatch not a success" classname="app.breakfast.manager.TuningEngineTest" time="0.0"/>
   <testcase name="offered list parsing handles the active bracket" classname="app.breakfast.manager.TuningEngineTest" time="0.001"/>
   <testcase name="permission denied is reported as permission denied" classname="app.breakfast.manager.TuningEngineTest" time="0.0"/>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.RootHonestyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:06:33.602Z" hostname="ip-10-0-141-182" time="0.001">
+<testsuite name="app.breakfast.manager.RootHonestyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:22:10.717Z" hostname="runnervm8axu0" time="0.003">
   <properties/>
-  <testcase name="a granted snapshot reports the privileged reads as checked" classname="app.breakfast.manager.RootHonestyTest" time="0.0"/>
+  <testcase name="a granted snapshot reports the privileged reads as checked" classname="app.breakfast.manager.RootHonestyTest" time="0.001"/>
   <testcase name="a blind probe is not a negative answer" classname="app.breakfast.manager.RootHonestyTest" time="0.001"/>
   <testcase name="the root shell is what decides, not the blind directory" classname="app.breakfast.manager.RootHonestyTest" time="0.0"/>
   <testcase name="a readable manager with a refusing su is not called unreadable" classname="app.breakfast.manager.RootHonestyTest" time="0.0"/>
