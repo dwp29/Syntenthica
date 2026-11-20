@@ -102,7 +102,8 @@ object RootStatus {
          * true, and useless.
          */
         fun verdictUnknown(): String =
-            "/data/adb dan su sama-sama tidak terbaca, jadi status root di perangkat ini " +
+            "Aplikasi tidak bisa memeriksa root sama sekali: /data/adb dan su sama-sama " +
+                "tidak terbaca, jadi status root di perangkat ini " +
                 "BELUM DIKETAHUI - bukan negatif. Ada dua sebab dengan arti yang berbeda: " +
                 "(1) kernel ini belum menjalankan pengelola root, artinya memang tidak ada root; " +
                 "(2) root ada, tetapi aplikasi ini berjalan di profil terisolasi terpisah sehingga " +

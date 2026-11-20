@@ -518,9 +518,15 @@ class NativeGuardTest {
     @Test
     fun `a skipped load still yields a complete snapshot`() {
         val snapshot = RootStatus.snapshot(allowLibrary = false)
-        // Seven rows, none of them null, and a verdict a person can act on.
-        assertEquals(7, snapshot.lines().size)
+        // Six rows, none of them null, and a verdict a person can act on.
+        assertEquals(6, snapshot.lines().size)
         assertTrue(snapshot.verdict().isNotEmpty())
+        // The multi-manager row is a kernel fact and is answered without a library,
+        // because no manager-only ioctl is available: it must always be present.
+        assertTrue(
+            "the backend answer must not depend on the library",
+            snapshot.libraryLines().any { it.first == "multi-manager" },
+        )
     }
 }
 
