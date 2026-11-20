@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.breakfast.manager.ui.PulseReadings
+import app.breakfast.manager.ui.components.AccentButton
 import app.breakfast.manager.ui.components.Chip
 import app.breakfast.manager.ui.components.DataRow
 import app.breakfast.manager.ui.components.PulseRing
@@ -179,7 +180,7 @@ fun PulseScreen(
                     valueColor = when (readings.mglruEnabled) {
                         true -> c.statusStable
                         false -> c.statusAttention
-                        null -> c.statusAttention,
+                        null -> c.statusAttention
                     },
                     modifier = Modifier.weight(1f),
                 )
