@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.Run23RegressionTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:04:40.570Z" hostname="runnervm8axu0" time="0.006">
+<testsuite name="app.breakfast.manager.Run23RegressionTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:06:33.615Z" hostname="ip-10-0-141-182" time="0.005">
   <properties/>
   <testcase name="a threshold zone never reaches the ring" classname="app.breakfast.manager.Run23RegressionTest" time="0.001"/>
-  <testcase name="an unreadable proc modules is not an empty module list" classname="app.breakfast.manager.Run23RegressionTest" time="0.0"/>
+  <testcase name="an unreadable proc modules is not an empty module list" classname="app.breakfast.manager.Run23RegressionTest" time="0.001"/>
   <testcase name="the audit breakdown always adds up to the node count" classname="app.breakfast.manager.Run23RegressionTest" time="0.0"/>
   <testcase name="a missing proc modules is named as such" classname="app.breakfast.manager.Run23RegressionTest" time="0.0"/>
-  <testcase name="module parsing reads proc modules and ignores junk" classname="app.breakfast.manager.Run23RegressionTest" time="0.003"/>
+  <testcase name="module parsing reads proc modules and ignores junk" classname="app.breakfast.manager.Run23RegressionTest" time="0.001"/>
   <testcase name="only a successful read may say zero modules" classname="app.breakfast.manager.Run23RegressionTest" time="0.0"/>
   <testcase name="the ring shows a CPU sensor, not a bare soc zone" classname="app.breakfast.manager.Run23RegressionTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>

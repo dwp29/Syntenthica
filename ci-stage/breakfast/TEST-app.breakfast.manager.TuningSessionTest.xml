@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.TuningSessionTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:04:40.610Z" hostname="runnervm8axu0" time="0.005">
+<testsuite name="app.breakfast.manager.TuningSessionTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:06:33.639Z" hostname="ip-10-0-141-182" time="0.003">
   <properties/>
-  <testcase name="empty plan says nothing changed" classname="app.breakfast.manager.TuningSessionTest" time="0.002"/>
-  <testcase name="missing node is rejected rather than planned with an invented original" classname="app.breakfast.manager.TuningSessionTest" time="0.0"/>
+  <testcase name="empty plan says nothing changed" classname="app.breakfast.manager.TuningSessionTest" time="0.001"/>
+  <testcase name="missing node is rejected rather than planned with an invented original" classname="app.breakfast.manager.TuningSessionTest" time="0.001"/>
   <testcase name="reset restores the captured originals" classname="app.breakfast.manager.TuningSessionTest" time="0.0"/>
   <testcase name="needs-reboot parameter is marked pending, not applied live" classname="app.breakfast.manager.TuningSessionTest" time="0.001"/>
   <testcase name="invalid proposals never reach apply" classname="app.breakfast.manager.TuningSessionTest" time="0.0"/>
