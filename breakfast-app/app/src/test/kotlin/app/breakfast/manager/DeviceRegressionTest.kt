@@ -272,3 +272,43 @@ class TuningVisibilityTest {
         assertEquals(TuningWhitelist.PARAMETERS.size, missing.size)
     }
 }
+
+/** Thermal zones: a throttle limit is not a thermometer. */
+class ThermalZoneTest {
+
+    private fun zone(name: String, celsius: Float) = PulseReader.ThermalZone(name, celsius)
+
+    @Test
+    fun `a zone named like a limit is not a sensor`() {
+        // This is what produced a flat 81 then a flat 88: the maximum over every
+        // zone whose name contains "cpu" picked a throttle threshold, and a
+        // threshold does not move when the CPU heats up.
+        val zones = listOf(
+            zone("cpu-0-usr", 41.2f),
+            zone("cpu-0-limit", 88.0f),
+            zone("cpu-0-trip-point-0", 95.0f),
+            zone("soc-thermal", 39.5f),
+        )
+        val sensors = zones.filter { PulseReader.isThermometerForTest(it) }
+        assertEquals(listOf("cpu-0-usr", "soc-thermal"), sensors.map { it.name })
+    }
+
+    @Test
+    fun `the hottest real sensor wins, not the hottest number`() {
+        val zones = listOf(
+            zone("cpu-1-usr", 44.0f),
+            zone("cpu-0-usr", 41.0f),
+            zone("cpu-0-stage", 99.0f),
+        )
+        val hottest = zones.filter { PulseReader.isThermometerForTest(it) }.maxByOrNull { it.celsius }
+        assertEquals("cpu-1-usr", hottest?.name)
+        assertEquals(44.0f, hottest!!.celsius, 0.01f)
+    }
+
+    @Test
+    fun `an implausible zone is dropped before it can be shown`() {
+        assertFalse(PulseReader.isPlausibleTemperature(0f))
+        assertFalse(PulseReader.isPlausibleTemperature(999f))
+        assertTrue(PulseReader.isPlausibleTemperature(41f))
+    }
+}

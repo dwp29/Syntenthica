@@ -14,6 +14,10 @@ import java.io.File
  */
 data class PulseReadings(
     val temperatureC: Float?,
+    /** Name of the thermal zone the reading came from, e.g. "cpu-0-usr". */
+    val thermalZoneName: String?,
+    /** Every plausible thermal zone, including throttle thresholds, for LAB. */
+    val thermalZones: List<ThermalZone>,
     val thermalLabel: String,
     val zramPercent: Float?,
     val uptimeHours: Double?,
@@ -36,6 +40,8 @@ data class PulseReadings(
         /** A device with nothing readable yet. */
         fun empty() = PulseReadings(
             temperatureC = null,
+            thermalZoneName = null,
+            thermalZones = emptyList(),
             thermalLabel = "—",
             zramPercent = null,
             uptimeHours = null,
@@ -88,23 +94,50 @@ object PulseReader {
     fun isPlausibleTemperature(celsius: Float?): Boolean =
         celsius != null && celsius > MIN_PLAUSIBLE_C && celsius < MAX_PLAUSIBLE_C
 
-    private fun cpuTemps(): List<Float> =
-        (0 until 16).mapNotNull { zone ->
-            val type = read("/sys/class/thermal/thermal_zone$zone/type") ?: return@mapNotNull null
-            if (!type.contains("cpu", ignoreCase = true) &&
-                !type.contains("soc", ignoreCase = true) &&
-                !type.contains("gpu", ignoreCase = true)
-            ) {
-                return@mapNotNull null
-            }
+    /**
+     * Zone names that describe a threshold, not a thermometer.
+     *
+     * This is why the ring showed a flat 81 then a flat 88: a thermal zone named
+     * something like "cpu-0-limit" reports the temperature at which the kernel
+     * starts throttling, and that number does not move. Taking the maximum over
+     * every zone whose name contains "cpu" therefore selected a constant limit
+     * and presented it as a measurement - flat, plausible-looking, and wrong.
+     */
+    private val THRESHOLD_MARKERS = listOf(
+        "limit", "trip", "stage", "threshold", "target", "cool", "warn", "crit",
+        "virtual", "step", "hint", "predict", "max_state", "min_state",
+    )
+
+    /** One thermal zone as the kernel reports it. */
+    data class ThermalZone(val name: String, val celsius: Float)
+
+    /** Every zone that is readable and inside a plausible range, thresholds included. */
+    private fun allThermalZones(): List<ThermalZone> =
+        (0 until 20).mapNotNull { zone ->
+            val name = read("/sys/class/thermal/thermal_zone$zone/type")?.trim()
+                ?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             val raw = read("/sys/class/thermal/thermal_zone$zone/temp")?.toFloatOrNull()
                 ?: return@mapNotNull null
             // Kernels disagree on the unit: most report millidegrees, a few
             // report whole degrees. A value under 200 cannot be a real
             // millidegree reading above freezing, so it is taken as Celsius.
             val celsius = if (raw > 200f) raw / 1000f else raw
-            celsius.takeIf { isPlausibleTemperature(it) }
+            celsius.takeIf { isPlausibleTemperature(it) }?.let { ThermalZone(name, it) }
         }
+
+    /** Exposed for tests; see ThermalZoneTest. */
+    internal fun isThermometerForTest(zone: ThermalZone): Boolean = isThermometer(zone)
+
+    private fun isThermometer(zone: ThermalZone): Boolean {
+        val n = zone.name.lowercase()
+        val looksLikeCpu = n.contains("cpu") || n.contains("soc") ||
+            n.contains("gpu") || n.contains("tsens") || n.contains("apc")
+        return looksLikeCpu && THRESHOLD_MARKERS.none { n.contains(it) }
+    }
+
+    /** Real CPU/SoC sensors, hottest first. Threshold zones are excluded. */
+    fun cpuTemps(): List<ThermalZone> =
+        allThermalZones().filter { isThermometer(it) }.sortedByDescending { it.celsius }
 
     private fun memory(): Pair<Float?, Float?> {
         val info = read("/proc/meminfo") ?: return null to null
@@ -179,8 +212,10 @@ object PulseReader {
         hasRoot: Boolean = false,
         clock: app.breakfast.manager.data.ClockSource = app.breakfast.manager.data.AndroidClock,
     ): PulseReadings {
-        val temps = cpuTemps()
-        val temp = temps.maxOrNull()
+        val zones = allThermalZones()
+        val temps = zones.filter { isThermometer(it) }
+        val hottest = temps.maxByOrNull { it.celsius }
+        val temp = hottest?.celsius
         val (usedGb, totalGb) = memory()
         val loadRaw = cpuLoad()
         val load = loadRaw ?: cpuUsageFromStat()
@@ -207,8 +242,12 @@ object PulseReader {
 
         return PulseReadings(
             temperatureC = temp,
+            thermalZoneName = hottest?.name,
+            thermalZones = zones.sortedByDescending { it.celsius },
+            // Bands re-cut: 88 C was called merely "Panas" while the arc was
+            // nearly full. On a phone SoC, 60 is already hot.
             thermalLabel = when {
-                temp == null -> "suhu tidak tersedia"
+                temp == null -> "tidak terukur"
                 temp < 45f -> "Normal"
                 temp < 60f -> "Hangat"
                 else -> "Panas"

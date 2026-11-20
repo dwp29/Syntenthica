@@ -141,10 +141,17 @@ fun PulseScreen(
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     PulseRing(
                         value = readings.temperatureC,
-                        max = 90f,
+                        // The arc is a 0..100 C thermometer; it used to cap at 90,
+                        // which made 88 C look like a nearly full tank.
+                        max = 100f,
                         label = "CPU",
-                        caption = readings.thermalLabel,
+                        // Name the zone: an unattributed temperature cannot be
+                        // checked, and this one was a threshold pretending to be
+                        // a sensor.
+                        caption = readings.thermalZoneName ?: "zona tidak terbaca",
                         color = tempColor,
+                        valueText = readings.temperatureC?.let { "${it.toInt()}°" }
+                            ?: "—",
                     )
                 }
             }

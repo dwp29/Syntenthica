@@ -38,6 +38,7 @@ import app.breakfast.manager.ui.theme.LocalBreakfastColors
 @Composable
 fun LabScreen(
     report: DeviceAudit.Report,
+    readings: PulseReadings,
     hasRoot: Boolean,
     ledger: StabilityLedger.Score?,
     ledgerReason: String?,
@@ -116,6 +117,34 @@ fun LabScreen(
         }
 
         item {
+            // Every thermal zone, thresholds included, with the value it reports.
+            // This exists so the number on the ring can be checked rather than
+            // trusted: a zone that never moves is a throttle limit, not a sensor.
+            SectionLabel("zona termal")
+            if (readings.thermalZones.isEmpty()) {
+                SurfaceCard {
+                    Text(
+                        text = "Tidak ada zona termal yang bisa dibaca tanpa root.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = c.textSecondary,
+                    )
+                }
+            } else {
+                SurfaceCard {
+                    for (zone in readings.thermalZones) {
+                        val isSensor = zone.name.equals(readings.thermalZoneName, ignoreCase = true)
+                        DataRow(
+                            label = zone.name,
+                            value = "%.1f °C".format(zone.celsius),
+                            valueColor = if (isSensor) c.accent else c.textSecondary,
+                            mono = true,
+                            note = if (isSensor) "dipakai di cincin PULSE" else null,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+
             SectionLabel("audit perangkat")
             SurfaceCard {
                 if (report.nodes.isEmpty()) {
@@ -134,10 +163,14 @@ fun LabScreen(
                     DataRow("Kernel", report.kernelRelease, c.textPrimary, mono = true)
                     DataRow(
                         label = "Hasil",
-                        value = "${report.supported} / ${report.readOnly} / ${report.unreadable} / ${report.absent}",
+                        // Five counts now, and this line is generated from the
+                        // report itself so it cannot drift out of sync again: the
+                        // device showed 0/6/3/1 = 10 while the note promised four
+                        // buckets that add up to 16.
+                        value = report.countsLine(),
                         valueColor = c.textPrimary,
                         mono = true,
-                        note = "didukung / baca-saja / tidak bisa dibaca / tidak ada",
+                        note = report.countsLegend(),
                     )
                     DataRow(
                         label = "Root",

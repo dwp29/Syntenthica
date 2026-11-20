@@ -103,6 +103,7 @@ fun BreakfastApp(
 
                         Tab.LAB -> LabScreen(
                             report = state.report,
+                            readings = state.readings,
                             hasRoot = state.hasRoot,
                             ledger = state.ledger,
                             ledgerReason = state.ledgerReason,

@@ -65,6 +65,7 @@ jobs:
           git diff --exit-code -- breakfast-app/app/src/main/java/app/breakfast/manager/data/PairingGenerated.kt \
             || { echo "::error::PairingGenerated.kt is stale; run gen_pairing.py and commit"; exit 1; }
           python3 breakfast-app/tools/check_logic.py
+          python3 breakfast-app/tools/verify_edits.py
       - name: Install Android SDK
         run: |
           set -euo pipefail

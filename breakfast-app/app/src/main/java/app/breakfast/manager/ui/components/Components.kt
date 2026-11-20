@@ -70,6 +70,7 @@ fun PulseRing(
     label: String,
     caption: String,
     color: Color,
+    valueText: String = value?.let { "${it.toInt()}°" } ?: "—",
     size: Dp = 240.dp,
 ) {
     val c = LocalBreakfastColors.current

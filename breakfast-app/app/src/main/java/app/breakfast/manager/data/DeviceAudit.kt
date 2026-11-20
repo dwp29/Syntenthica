@@ -70,6 +70,24 @@ object DeviceAudit {
         /** True when every node's fate was established either way. */
         val isComplete: Boolean get() = unknown == 0
 
+        /**
+         * The counts line shown in LAB.
+         *
+         * Generated from the same fields the legend names, so the row and its
+         * explanation can never disagree again. On the device this line read
+         * "0 / 6 / 3 / 1" - four numbers, three labels, and a tenth node that
+         * belonged to no bucket at all.
+         */
+        fun countsLine(): String = listOf(supported, readOnly, unreadable, unknown, absent)
+            .joinToString(" / ")
+
+        /** Legend for [countsLine], in the same order. */
+        fun countsLegend(): String =
+            "didukung / baca-saja / tidak bisa dibaca / tidak bisa dipastikan / tidak ada"
+
+        /** Total nodes represented by [countsLine]; must equal nodes.size. */
+        fun counted(): Int = supported + readOnly + unreadable + unknown + absent
+
         fun summary(): String = buildString {
             append("Audit selesai: $supported didukung, $readOnly baca-saja")
             // Only mention the unreadable bucket when it is non-empty, so a
