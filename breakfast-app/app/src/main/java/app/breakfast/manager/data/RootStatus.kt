@@ -42,6 +42,8 @@ object RootStatus {
         val suEnabled: Boolean?,
         val superuserCount: Int?,
         val safeMode: Boolean?,
+        val libraryLoaded: Boolean,
+        val librarySkippedReason: String?,
         val checkedAtMs: Long,
     ) {
         /**
@@ -131,11 +133,17 @@ object RootStatus {
         }
     }
 
-    fun snapshot(root: RootBridge = RootBridge): Snapshot {
+    fun snapshot(root: RootBridge = RootBridge, allowLibrary: Boolean = false): Snapshot {
         // The library is the strongest signal: only a KernelSU kernel answers it.
         // Any JNI call can throw on a device without the library, so all five are
         // wrapped once, here, rather than trusting each getter to be safe.
-        val lib = try {
+        // Only loaded when the caller says it is safe: at start-up the answer is
+        // no, because run 30 proved this library can kill the process while
+        // loading, and that cannot be caught. See NativeGuard.
+        val loaded = allowLibrary && Natives.load()
+        val lib = if (!loaded) {
+            LibraryFacts(null, null, null, null, null)
+        } else try {
             LibraryFacts(
                 version = Natives.versionOrNull(),
                 uapi = Natives.kernelUapiOrNull(),
@@ -146,6 +154,9 @@ object RootStatus {
         } catch (e: Throwable) {
             LibraryFacts(null, null, null, null, null)
         }
+        val skippedReason = if (allowLibrary) null else
+            "libkernelsu.so tidak dimuat otomatis karena percobaan sebelumnya menutup aplikasi. " +
+                "Tekan PERIKSA ULANG untuk mencoba sekali lagi."
         val libVersion = lib.version
         val libUapi = lib.uapi
         val suEnabled = lib.suEnabled
@@ -216,6 +227,8 @@ object RootStatus {
             suEnabled = suEnabled,
             superuserCount = superusers,
             safeMode = safe,
+            libraryLoaded = loaded,
+            librarySkippedReason = skippedReason,
             checkedAtMs = System.currentTimeMillis(),
         )
     }

@@ -19,6 +19,7 @@ import app.breakfast.manager.data.LedgerReader
 import app.breakfast.manager.data.PairingGenerated
 import app.breakfast.manager.data.RootBridge
 import app.breakfast.manager.data.ModuleScan
+import app.breakfast.manager.data.NativeGuard
 import app.breakfast.manager.data.RootRequest
 import app.breakfast.manager.data.RootStatus
 import app.breakfast.manager.data.StabilityLedger
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var auditStore: AuditStore
     private lateinit var themeStore: ThemeStore
+    private lateinit var nativeGuard: NativeGuard
 
     private var release: String = "—"
     private var decision: KernelPairing.Decision =
@@ -68,6 +70,9 @@ class MainActivity : ComponentActivity() {
     private var lastPlan: TuningSession.Plan? = null
     private var lastAuditMs = 0L
     private var rootMessage: String? = null
+
+    /** A start-up failure shown on screen instead of a force close. */
+    private var startupError: String? = null
     private var rootSnapshot: RootStatus.Snapshot? = null
     private var modules: ModuleScan.Result? = null
 
@@ -82,6 +87,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         auditStore = AuditStore(this)
         themeStore = ThemeStore(this)
+        nativeGuard = NativeGuard(this)
         palette = ThemeCatalog.byId(themeStore.current()) ?: ThemeCatalog.offered().first()
 
         setContent {
@@ -135,21 +141,31 @@ class MainActivity : ComponentActivity() {
         }
 
         worker.execute {
-            release = RootBridge.kernelRelease() ?: "—"
-            decision = KernelPairing.decide(release, PairingGenerated.KERNELS)
-            val stored = auditStore.load()
-            report = stored ?: DeviceAudit.Report(release, 0L, emptyList())
-            hasRoot = RootBridge.hasRoot()
-            intervalSeconds = themeStore.interval()
-            lastAuditMs = stored?.timestampMs ?: 0L
-            rootSnapshot = RootStatus.snapshot()
-            modules = ModuleScan.scan()
+            // Nothing that happens while collecting facts may close the app. The
+            // worker is the only place that touches files, su and JNI; a failure
+            // there used to propagate out of the executor and kill the process.
+            try {
+                release = RootBridge.kernelRelease() ?: "—"
+                decision = KernelPairing.decide(release, PairingGenerated.KERNELS)
+                val stored = auditStore.load()
+                report = stored ?: DeviceAudit.Report(release, 0L, emptyList())
+                hasRoot = RootBridge.hasRoot()
+                intervalSeconds = themeStore.interval()
+                lastAuditMs = stored?.timestampMs ?: 0L
+                // At start-up the native library is NOT loaded. Run 30 proved it can
+                // abort the process while loading, and nothing in Java can catch that.
+                rootSnapshot = RootStatus.snapshot(allowLibrary = false)
+                modules = ModuleScan.scan()
 
-            publish {
-                readLedger()
-                readAudit(force = true)
-                sampleOnce()
-                startTicker()
+                publish {
+                    readLedger()
+                    readAudit(force = true)
+                    sampleOnce()
+                    startTicker()
+                }
+            } catch (e: Throwable) {
+                startupError = "${e.javaClass.simpleName}: ${e.message ?: "tanpa pesan"}"
+                publish { frame++ }
             }
         }
     }
@@ -241,10 +257,22 @@ class MainActivity : ComponentActivity() {
 
     // ------------------------------------------------------------------ actions
 
-    /** Re-probes root without asking for it; used by the ROOT page refresh. */
+    /**
+     * Re-probes root. The ROOT page button is also the only place that consents
+     * to loading libkernelsu.so, because that load is what closed the app in run
+     * 30. The attempt is marked on disk first, so a process that dies during the
+     * load is remembered on the next start instead of repeating forever.
+     */
     private fun refreshRoot() {
         worker.execute {
-            rootSnapshot = RootStatus.snapshot()
+            val mayLoad = nativeGuard.mayLoad()
+            if (mayLoad) nativeGuard.markAttempt()
+            rootSnapshot = RootStatus.snapshot(allowLibrary = mayLoad)
+            if (mayLoad && rootSnapshot?.libraryLoaded == true) {
+                // The library answered, so this process survived it.
+                nativeGuard.clearAttempt()
+                nativeGuard.setUserAllowedRetry(false)
+            }
             hasRoot = rootSnapshot?.granted == true
             publish { frame++ }
         }
@@ -357,7 +385,7 @@ class MainActivity : ComponentActivity() {
         uptimeText = PulseReader.formatUptime(readings.uptimeHours),
         palette = palette,
         auditAgeText = auditAge(),
-        rootMessage = rootMessage,
+        rootMessage = startupError?.let { "Gagal menyiapkan data: $it" } ?: rootMessage,
         onAudit = { audit(manual = true) },
         onRequestRoot = { requestRoot() },
         onRefreshRoot = { refreshRoot() },

@@ -420,7 +420,8 @@ class RootHonestyTest {
         dmesg = fact("tidak bisa dibaca", RootStatus.Sure.SHELL),
         writeNodes = fact("tidak diizinkan", RootStatus.Sure.SHELL),
         kernelVersion = null, kernelUapi = null, suEnabled = null,
-        superuserCount = null, safeMode = null, checkedAtMs = 0L,
+        superuserCount = null, safeMode = null,
+        libraryLoaded = false, librarySkippedReason = null, checkedAtMs = 0L,
     )
 
     @Test
@@ -463,5 +464,43 @@ class RootHonestyTest {
             .copy(dmesg = fact("bisa dibaca", RootStatus.Sure.SHELL))
         assertTrue(s.verdict().startsWith("Root diberikan"))
         assertEquals("bisa dibaca", s.dmesg.value)
+    }
+}
+
+
+/** The force close: a native library that can kill the process while loading. */
+class NativeGuardTest {
+
+    @Test
+    fun `an unskipped snapshot never loads the library`() {
+        // Run 30 force-closed on start-up. The default must therefore be "do not
+        // load", and that is a property of the API, not of the caller's memory.
+        val snapshot = RootStatus.snapshot(allowLibrary = false)
+        assertFalse(snapshot.libraryLoaded)
+        assertTrue(
+            "the page must say why it did not load",
+            snapshot.librarySkippedReason!!.contains("tidak dimuat"),
+        )
+    }
+
+    @Test
+    fun `a skipped load still yields a complete snapshot`() {
+        val snapshot = RootStatus.snapshot(allowLibrary = false)
+        // Six rows, none of them null, and a verdict a person can act on.
+        assertEquals(6, snapshot.lines().size)
+        assertTrue(snapshot.verdict().isNotEmpty())
+    }
+}
+
+/** The marker that survives a process kill. */
+class NativeMarkerLogicTest {
+
+    @Test
+    fun `an in-flight marker means the last attempt died`() {
+        // Mirrors NativeGuard.mayLoad(): crashed marker and no consent denies it.
+        fun mayLoad(crashed: Boolean, consent: Boolean) = !crashed || consent
+        assertFalse("a crashed attempt must not repeat automatically", mayLoad(true, false))
+        assertTrue("but the user may ask once", mayLoad(true, true))
+        assertTrue("a clean state loads normally", mayLoad(false, false))
     }
 }

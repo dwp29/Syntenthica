@@ -71,6 +71,18 @@ fun RootScreen(
                     )
                 }
 
+                if (!snapshot.libraryLoaded && snapshot.librarySkippedReason != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Chip("pustaka tidak dimuat", c.statusAttention, filled = true)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = snapshot.librarySkippedReason,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        color = c.textTertiary,
+                    )
+                }
+
                 val library = snapshot.libraryLines()
                 if (library.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
