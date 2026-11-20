@@ -8,6 +8,7 @@ These checks cannot prove boot, runtime features, module ABI, or module trust.
 """
 from __future__ import annotations
 
+import os
 import argparse
 import gzip
 import hashlib
@@ -44,8 +45,20 @@ PINNED_INPUTS = {
 REQUIRED_Y = (
     "IKCONFIG", "IKCONFIG_PROC", "MODULES", "MODVERSIONS", "MODULE_SIG",
     "MODULE_SIG_FORCE", "MODULE_SIG_ALL", "SECURITY", "SECURITY_SELINUX",
-    "DM_VERITY", "KSU", "KSU_MANUAL_HOOK", "KSU_SUSFS", "NOMOUNT",
+    "DM_VERITY", "KSU", "NOMOUNT",
 )
+# The hook method is not universal.
+#
+# The KernelSU-Next config this tree was tested with carries CONFIG_KSU_SUSFS=y
+# *and* CONFIG_KSU_MANUAL_HOOK=y, because that Kconfig lets them coexist.
+# BakaSU instead puts tracepoint, manual hook and SuSFS in one `choice`, so a
+# 4.14 kernel must take KSU_MANUAL_HOOK and cannot also have KSU_SUSFS.
+# Requiring KSU_SUSFS, as this list did, makes every BakaSU build fail its own
+# feature check.
+HOOK_METHOD_BY_STACK = {
+    "kernelsu-next": ("KSU_SUSFS", "KSU_MANUAL_HOOK"),
+    "bakasu": ("KSU_MANUAL_HOOK",),
+}
 FORBIDDEN_Y = ("MODULE_FORCE_LOAD", "SECURITY_SELINUX_DISABLE")
 
 
@@ -88,9 +101,17 @@ def check_config(baseline: str, generated: str) -> dict[str, dict[str, str]]:
         raise ValueError("unexpected 2.0 LOCALVERSION")
     if new.get("LOCALVERSION") != '"-Synthetica-3.0"':
         raise ValueError("3.0 LOCALVERSION missing or incorrect")
-    for symbol in REQUIRED_Y:
+    stack = os.environ.get("SP_ROOT_STACK", "kernelsu-next")
+    if stack not in HOOK_METHOD_BY_STACK:
+        raise ValueError(f"unknown root stack: {stack}")
+    required = (*REQUIRED_Y, *HOOK_METHOD_BY_STACK[stack])
+    for symbol in required:
         if old.get(symbol) != "y" or new.get(symbol) != "y":
             raise ValueError(f"required 2.0 feature/security config is not y: {symbol}")
+    # Only BakaSU's choice is exclusive. Its config must not claim SuSFS, or the
+    # release would advertise hiding features the kernel will not compile.
+    if stack == "bakasu" and new.get("KSU_SUSFS") == "y":
+        raise ValueError("KSU_SUSFS conflicts with BakaSU's manual-hook choice")
     for symbol in FORBIDDEN_Y:
         if old.get(symbol, "n") != "n" or new.get(symbol, "n") != "n":
             raise ValueError(f"unsafe config is enabled: {symbol}")

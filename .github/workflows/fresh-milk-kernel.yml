@@ -165,6 +165,8 @@ jobs:
           PYTHONOPTIMIZE: '0'
           # prepare_tree() checks this archive by digest before unpacking it.
           BAKASU_ARCHIVE: ${{ runner.temp }}/bakasu.tar.gz
+          # Tells the config checks which hook method this release must carry.
+          SP_ROOT_STACK: bakasu
         run: |
           set -euo pipefail
           export SP_WORK_DIR="$RUNNER_TEMP/${{ matrix.variant }}-work"
