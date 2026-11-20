@@ -18,6 +18,7 @@ on:
       - 'build-kit/scripts/bakasu_root.py'
       # The builder and the recipes it chains through: a change here changes
       # the kernel, so it must start a build.
+      - 'build-kit/scripts/build_synthetica3.py'
       - 'build-kit/scripts/build_synthetica3_root.py'
       - 'build-kit/scripts/build_synthetica2_experimental.py'
       - 'build-kit/scripts/build_chronicle_base.py'
