@@ -76,14 +76,29 @@ class DeviceRegressionTest {
     }
 
     @Test
-    fun `missing node is absent, not unreadable`() {
+    fun `verified missing node is absent, not unreadable`() {
         val observation = AuditRunner.Observation(
             value = null,
             readable = false,
             writable = false,
             permissions = null,
+            // Absence is a claim that needs this evidence; without it the honest
+            // answer is UNKNOWN, which the next test covers.
+            presence = AuditRunner.Presence.VERIFIED_ABSENT,
         )
         assertEquals(DeviceAudit.Support.ABSENT, AuditRunner.classify(observation, declaredReadOnly = false))
+    }
+
+    @Test
+    fun `a node we never saw is never called absent`() {
+        val observation = AuditRunner.Observation(
+            value = null,
+            readable = false,
+            writable = false,
+            permissions = null,
+            presence = AuditRunner.Presence.UNKNOWN,
+        )
+        assertEquals(DeviceAudit.Support.UNKNOWN, AuditRunner.classify(observation, declaredReadOnly = false))
     }
 
     @Test
@@ -195,8 +210,11 @@ class Run17RegressionTest {
 
     @Test
     fun `minutes are not rounded away to zero hours`() {
-        assertEquals("m", Uptime.format(0.33).last().toString())
-        assertEquals("20m", Uptime.format(0.33))
+        // 20 minutes exactly.
+        assertEquals("20m", Uptime.format(20.0 / 60.0))
+        // 0.33 h is 19.8 minutes; truncation gives 19m, which is right - the point
+        // is that it is not "0j".
+        assertTrue(Uptime.format(0.33).endsWith("m"))
         assertEquals("2j", Uptime.format(2.5))
         assertEquals("1d 3h", Uptime.format(27.7))
     }
