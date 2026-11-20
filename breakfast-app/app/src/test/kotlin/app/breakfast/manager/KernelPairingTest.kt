@@ -94,8 +94,10 @@ class KernelPairingTest {
         // release string establishes what the kernel can do.
         val decision = KernelPairing.decide(freshMilk, PairingGenerated.KERNELS)
         assertTrue(decision.known)
-        // known=true is all it means; there is no field asserting capability.
-        assertEquals("paired", decision.reason)
+        // known=true is all it means. The reason must say "name only", because any
+        // word closer to "paired" reads as a verdict this table cannot support.
+        assertEquals("name_only", decision.reason)
+        assertFalse(decision.tuningAllowed)
     }
 
     @Test
