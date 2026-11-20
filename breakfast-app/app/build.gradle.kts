@@ -84,3 +84,17 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
 }
+
+/**
+ * kotlin-stdlib 2.x still declares a dependency on kotlin-stdlib-common, an
+ * artifact that stopped being published when the multiplatform stdlib was
+ * folded into kotlin-stdlib. Resolving it is impossible, not merely slow, so it
+ * is excluded here. The classes it used to contain now live in kotlin-stdlib
+ * itself, which is present.
+ *
+ * This is the one place a dependency is excluded, and it is excluded because the
+ * module does not exist - not to make a conflict go away.
+ */
+configurations.all {
+    exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-common")
+}
