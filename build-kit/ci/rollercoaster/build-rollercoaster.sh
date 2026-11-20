@@ -200,8 +200,21 @@ chk BPF_EVENTS y; chk RD_LZ4 y; chk EROFS_FS y; chk DM_DEFAULT_KEY y
 chk DEBUG_LIST n; chk BUG_ON_DATA_CORRUPTION n; chk DEBUG_INFO n
 chk CRYPTO_LZ4 y; chk FRONTSWAP y; chk DEFAULT_BBR y; chk DEFAULT_FQ_CODEL y
 if [ "$KSU" = "yes" ]; then
-  chk KSU y; chk KSU_MANUAL_HOOK y; chk KSU_SUSFS y; chk KSU_SUSFS_SUS_PATH y
-  chk KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG y; chk KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS y
+  # Audit ini ditulis untuk KernelSU-Next, yang boleh memuat manual hook DAN
+  # SuSFS sekaligus. BakaSU tidak: ketiganya satu `choice`, dan pada 4.14 yang
+  # menang adalah KSU_MANUAL_HOOK. Mengaudit SuSFS di sini bukan sekadar
+  # "fitur kurang" - ia menuntut config yang tidak mungkin ada, jadi build
+  # BakaSU gagal di audit builder sebelum gerbang config mana pun sempat
+  # berjalan. Itu sebabnya baris SuSFS dipisah, bukan dihapus: di stack
+  # KernelSU-Next auditnya tetap persis seperti sebelumnya.
+  chk KSU y
+  if [ "${BAKASU_ARCHIVE:-}" != "" ]; then
+    chk KSU_MANUAL_HOOK y
+    chk KSU_SUSFS n; chk KSU_SUSFS_SUS_PATH n; chk KSU_TRACEPOINT_HOOK n
+  else
+    chk KSU_MANUAL_HOOK y; chk KSU_SUSFS y; chk KSU_SUSFS_SUS_PATH y
+    chk KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG y; chk KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS y
+  fi
   if [ "$NOMOUNT" = "yes" ]; then chk NOMOUNT y; else chk NOMOUNT n; fi
 else
   chk KSU n; chk KSU_SUSFS n; chk NOMOUNT n
@@ -217,10 +230,14 @@ case "$PROFILE" in
             chk MODVERSIONS n; chk MODULE_UNLOAD y; chk MODULE_FORCE_LOAD y
             chk MODULE_SIG n; chk PSTORE y; chk PSTORE_CONSOLE y
             chk PSTORE_PMSG y; chk PSTORE_RAM y
-            chk KSU_SUSFS_SUS_PATH y; chk KSU_SUSFS_SUS_MOUNT y
-            chk KSU_SUSFS_SUS_KSTAT y; chk KSU_SUSFS_SUS_MAP y
-            chk KSU_SUSFS_SPOOF_UNAME y; chk KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG y
-            chk KSU_SUSFS_OPEN_REDIRECT y; chk KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS y
+            # SuSFS sub-options only exist on the KernelSU-Next stack; BakaSU
+            # turns the whole family off when the manual hook wins the choice.
+            if [ "${BAKASU_ARCHIVE:-}" = "" ]; then
+              chk KSU_SUSFS_SUS_PATH y; chk KSU_SUSFS_SUS_MOUNT y
+              chk KSU_SUSFS_SUS_KSTAT y; chk KSU_SUSFS_SUS_MAP y
+              chk KSU_SUSFS_SPOOF_UNAME y; chk KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG y
+              chk KSU_SUSFS_OPEN_REDIRECT y; chk KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS y
+            fi
             chk F2FS_FS_COMPRESSION y; chk IOSCHED_BFQ y ;;
 esac
 # khusus port: pastikan uname berakhir -perf dan patch vermagic benar-benar masuk

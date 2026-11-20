@@ -258,6 +258,46 @@ class BakasuDelta(unittest.TestCase):
             self.assertIn(key, m.BAKASU_CONFIG_DELTA, key)
 
 
+class HookResolutionOrder(unittest.TestCase):
+    """The hook choice must be resolved before the builder reads the profiles.
+
+    build-rollercoaster.sh concatenates profiles/*.config into the defconfig and
+    immediately runs olddefconfig. Resolving the choice during prepare-tree -
+    after the tree is unpacked - rewrites a file whose content was already
+    consumed. Locally that produced CONFIG_KSU_SUSFS=y and no manual hook, while
+    the log said "hook choice resolved": the build would have compiled SuSFS and
+    then failed its own audit.
+    """
+
+    SCRIPT = ROOT / 'build-kit/scripts/build_synthetica32_r1.py'
+    BUILDER = ROOT / 'build-kit/ci/rollercoaster/build-rollercoaster.sh'
+
+    def test_resolution_happens_in_prepare_not_prepare_tree(self):
+        text = self.SCRIPT.read_text(encoding='utf-8')
+        prepare, _, rest = text.partition('def prepare_tree(')
+        self.assertIn('resolve_hook_choice', prepare)
+        self.assertNotIn('resolve_hook_choice', rest)
+
+    def test_builder_audits_susfs_off_for_bakasu(self):
+        # If the builder refuses SuSFS=n on this stack, no BakaSU build can pass
+        # its own config audit no matter what the profile says.
+        text = self.BUILDER.read_text(encoding='utf-8')
+        audit = text[text.index('# --- audit: gagal cepat'):
+                     text.index('# khusus port: pastikan uname')]
+        self.assertIn('BAKASU_ARCHIVE', audit)
+        branch = audit[audit.index('if [ "${BAKASU_ARCHIVE:-}" != "" ]; then'):
+                       audit.index('else')]
+        self.assertIn('chk KSU_MANUAL_HOOK y', branch)
+        self.assertIn('chk KSU_SUSFS n', branch)
+
+    def test_builder_still_demands_susfs_for_kernelsu_next(self):
+        text = self.BUILDER.read_text(encoding='utf-8')
+        audit = text[text.index('# --- audit: gagal cepat'):
+                     text.index('# khusus port: pastikan uname')]
+        after_else = audit[audit.index('else'):]
+        self.assertIn('chk KSU_SUSFS y', after_else)
+
+
 class KitProfileGuard(unittest.TestCase):
     """The disposable kit must accept exactly the variant's own profile."""
 

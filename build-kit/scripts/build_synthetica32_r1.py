@@ -126,6 +126,22 @@ def prepare(source: Path, destination: Path, baseline20: Path) -> None:
         raise ValueError('unexpected inherited 3.1 driver layout')
     driver.write_text(text.replace(before, '3.2-r1 compiled; verification and device tests still required', 1), encoding='utf-8')
 
+    # BakaSU puts tracepoint, manual hook and SuSFS in ONE Kconfig `choice`.
+    # Whatever the profile file says, exactly one member survives olddefconfig;
+    # for this 4.14 tree the surviving member must be CONFIG_KSU_MANUAL_HOOK.
+    #
+    # This has to happen while the kit is being prepared, because the builder
+    # (`build-rollercoaster.sh`) concatenates these very files into the
+    # defconfig and then runs olddefconfig. Resolving the hook any later - for
+    # example during prepare-tree, after the tree is unpacked - rewrites a file
+    # whose content has already been consumed, and the build compiles SuSFS and
+    # drops the manual hook while the log claims the choice was resolved.
+    if os.environ.get('BAKASU_ARCHIVE'):
+        import bakasu_root
+        print(bakasu_root.resolve_hook_choice(
+            destination / 'ci/rollercoaster',
+            os.environ.get('SP_PROFILE', 'synthetica')), flush=True)
+
 
 def verify_vmscan(tree: Path, patched: bool) -> None:
     path = tree / 'mm/vmscan.c'
@@ -150,13 +166,6 @@ def prepare_tree(tree: Path) -> None:
         import bakasu_root
         print(bakasu_root.apply_tree_patch(tree), flush=True)
         print(bakasu_root.check_tree(tree), flush=True)
-        # The profile files live in the kit (build-rollercoaster.sh reads
-        # $SELF/profiles), not in the kernel tree. Resolving the hook choice
-        # here means the config check reads the corrected values later.
-        import os as _os
-        print(bakasu_root.resolve_hook_choice(
-            Path(__file__).resolve().parents[1] / 'ci/rollercoaster',
-            _os.environ.get('SP_PROFILE', 'synthetica')), flush=True)
 
     verify_vmscan(tree, patched=False)
     subprocess.run(['git', 'apply', '--check', str(PATCH)], cwd=tree, check=True)

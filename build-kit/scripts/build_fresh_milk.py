@@ -154,6 +154,14 @@ BAKASU_CONFIG_DELTA = (
     'KSU_SUSFS_OPEN_REDIRECT', 'KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS',
     'KSU_SUSFS_ENABLE_LOG', 'KSU_SUSFS_TRY_UMOUNT',
     'KSU_MULTI_MANAGER_SUPPORT', 'KSU_FULL_NAME_FORMAT',
+    # BakaSU opens a `menu depends on KSU_MANUAL_HOOK` block; these three are
+    # its only members and they default to y. Taking the manual hook therefore
+    # turns them on, and Kconfig writes them into .config. They were found by
+    # running olddefconfig against this tree, not guessed: the first local run
+    # of the real gate listed exactly these three as "outside the BakaSU set".
+    'KSU_MANUAL_HOOK_AUTO_SETUID_HOOK',
+    'KSU_MANUAL_HOOK_AUTO_INPUT_HOOK',
+    'KSU_MANUAL_HOOK_AUTO_INITRC_HOOK',
 )
 
 # variant -> (permissive symbols, derived symbols)
