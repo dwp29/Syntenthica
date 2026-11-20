@@ -136,11 +136,11 @@ object RootStatus {
         // wrapped once, here, rather than trusting each getter to be safe.
         val lib = try {
             LibraryFacts(
-                version = Natives.kernelVersion(),
-                uapi = Natives.kernelUAPIVersion(),
-                suEnabled = Natives.suEnabled(),
-                superusers = Natives.superuserCount(),
-                safeMode = Natives.safeMode(),
+                version = Natives.versionOrNull(),
+                uapi = Natives.kernelUapiOrNull(),
+                suEnabled = Natives.suEnabledOrNull(),
+                superusers = Natives.superuserCountOrNull(),
+                safeMode = Natives.safeModeOrNull(),
             )
         } catch (e: Throwable) {
             LibraryFacts(null, null, null, null, null)

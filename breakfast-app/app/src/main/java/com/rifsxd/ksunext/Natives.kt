@@ -33,28 +33,25 @@ object Natives {
         }
     }
 
-    private val kernelUAPI: Int get() = getKernelUAPIVersion()
-    private val managerUAPI: Int get() = getManagerUAPIVersion()
-
     /** Version tag reported by the kernel side, e.g. "v0.9.2"; null if unavailable. */
-    fun kernelVersion(): String? = probe { getVersion() }
+    fun versionOrNull(): String? = probe { getVersion() }
 
     /** Kernel UAPI version, which is the number that decides compatibility. */
-    fun kernelUAPIVersion(): Int? = probe { kernelUAPI }
+    fun kernelUapiOrNull(): Int? = probe { kernelUAPIVersion() }
 
-    fun managerUAPIVersion(): Int? = probe { managerUAPI }
+    fun managerUapiOrNull(): Int? = probe { managerUAPIVersion() }
 
     /** Whether the manager reports su as enabled at all. */
-    fun suEnabled(): Boolean? = probe { isSuEnabled() }
+    fun suEnabledOrNull(): Boolean? = probe { isSuEnabled() }
 
     /** Number of apps granted superuser; a coarse but real signal. */
-    fun superuserCount(): Int? = probe { getSuperuserCount() }
+    fun superuserCountOrNull(): Int? = probe { getSuperuserCount() }
 
     /** Safe mode means the manager disabled modules after a bad boot. */
-    fun safeMode(): Boolean? = probe { isSafeMode() }
+    fun safeModeOrNull(): Boolean? = probe { isSafeMode() }
 
     /** Whether the kernel reports itself as a manager process. */
-    fun isManager(): Boolean? = probe { isManager() }
+    fun managerProcessOrNull(): Boolean? = probe { isManager() }
 
     private inline fun <T> probe(block: () -> T): T? = try {
         if (available) block() else null
