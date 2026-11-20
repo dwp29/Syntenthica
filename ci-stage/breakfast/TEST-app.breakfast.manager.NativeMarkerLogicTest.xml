@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.breakfast.manager.NativeMarkerLogicTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:04:40.555Z" hostname="runnervm8axu0" time="0.0">
+  <properties/>
+  <testcase name="an in-flight marker means the last attempt died" classname="app.breakfast.manager.NativeMarkerLogicTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
