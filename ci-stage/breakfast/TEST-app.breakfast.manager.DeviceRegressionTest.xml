@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.breakfast.manager.DeviceRegressionTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:08:49.622Z" hostname="ip-10-0-133-52" time="0.017">
+  <properties/>
+  <testcase name="real and implausible temperatures are told apart" classname="app.breakfast.manager.DeviceRegressionTest" time="0.012"/>
+  <testcase name="a node we never saw is never called absent" classname="app.breakfast.manager.DeviceRegressionTest" time="0.001"/>
+  <testcase name="summary counts the buckets in a way that adds up" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <testcase name="uptime comes from the monotonic clock" classname="app.breakfast.manager.DeviceRegressionTest" time="0.001"/>
+  <testcase name="uptime formats days and hours" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <testcase name="a clock reading zero is not uptime either" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <testcase name="a clean audit does not mention the unreadable bucket" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <testcase name="exists but unreadable is its own state" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <testcase name="verified missing node is absent, not unreadable" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <testcase name="zero degrees is not a temperature" classname="app.breakfast.manager.DeviceRegressionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
