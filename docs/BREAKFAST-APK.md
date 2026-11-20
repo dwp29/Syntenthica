@@ -223,3 +223,39 @@ mengarang angka sehat pada metrik yang paling mudah dipercaya, dan itu
 membatalkan klaim "tidak pernah mengarang angka". Klaim itu sekarang dijaga
 oleh tes, bukan oleh niat.
 
+## Run 17-20: klaim yang tidak pernah dibuktikan
+
+Tangkapan layar run 16 memperlihatkan bahwa perbaikan suhu bekerja (81 °C,
+"Panas", cincin oranye) dan umur audit bekerja ("40 detik lalu"). Tetapi
+tangkapan yang sama memperlihatkan cacat yang bentuknya persis sama dengan
+`0 °C`: menyatakan fakta yang tidak pernah ditetapkan.
+
+| Yang terlihat | Klaim yang dibuat | Bukti sesungguhnya |
+|---|---|---|
+| LAB: 10 node "tidak ada" | node tidak ada di kernel | `File.exists()` = false karena direktori induk tidak bisa ditelusuri |
+| TUNING: "node tidak ada di kernel ini" | idem, untuk node yang sama | audit hanya tidak bisa memeriksa |
+| PULSE: "perangkat ini tidak punya su" | tidak ada root | KernelSU terpasang; dmesg dan sysfs dipakai |
+| Grafik Memory | garis datar di dasar | nilai 61% nyata, skalanya yang salah |
+| UPTIME "0j" | nol jam | 20 menit |
+
+Aturan yang sekarang berlaku, dan dijaga tes:
+
+1. **Ketiadaan butuh bukti.** `tidak ada` hanya keluar kalau isi direktori induk
+   sudah dibaca dan nama node tidak ada di dalamnya. Selain itu
+   `tidak bisa dipastikan`. Status support menjadi lima, dan kelimanya selalu
+   berjumlah 16.
+2. **Satu fakta, satu kata.** LAB, TUNING, dan PULSE memakai sumber yang sama;
+   tidak ada lagi tiga kata berbeda untuk satu node.
+3. **Klaim tentang perangkat butuh pemeriksaan perangkat.** "Tidak punya su"
+   hanya boleh diucapkan setelah memeriksa penanda pengelola root.
+4. **Angka yang benar bisa tetap menyesatkan.** Grafik dengan skala
+   min..maks deret menggambar 61% datar sebagai garis di lantai; sekarang deret
+   persen memakai pita nyata. "0j" menjadi "20m".
+5. **Fungsi yang tidak pernah menunggu tidak punya batas waktu.** `RootBridge`
+   membaca stdout sampai EOF sebelum `waitFor`, sehingga timeout 10 detik tidak
+   pernah bisa terjadi.
+
+Yang tidak bisa diperbaiki dari sisi aplikasi: kalau SELinux atau kebijakan
+KernelSU memblokir proses aplikasi, aplikasi sekarang **mengatakannya**, bukan
+berpura-pura node-nya tidak ada.
+
