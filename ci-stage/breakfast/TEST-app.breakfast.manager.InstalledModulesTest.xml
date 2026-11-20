@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.InstalledModulesTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:23:52.421Z" hostname="runnervmeozm8" time="0.009">
+<testsuite name="app.breakfast.manager.InstalledModulesTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-20T05:49:25.800Z" hostname="ip-10-0-131-205" time="0.011">
   <properties/>
-  <testcase name="only a successful listing may say zero modules" classname="app.breakfast.manager.InstalledModulesTest" time="0.003"/>
+  <testcase name="only a successful listing may say zero modules" classname="app.breakfast.manager.InstalledModulesTest" time="0.004"/>
   <testcase name="kernel su state files decide enabled, update and removal" classname="app.breakfast.manager.InstalledModulesTest" time="0.001"/>
-  <testcase name="the kernel object list is never described as installed modules" classname="app.breakfast.manager.InstalledModulesTest" time="0.001"/>
-  <testcase name="an installed module is listed with what its directory says" classname="app.breakfast.manager.InstalledModulesTest" time="0.003"/>
-  <testcase name="prop parsing does not invent values" classname="app.breakfast.manager.InstalledModulesTest" time="0.0"/>
-  <testcase name="dotfiles are not modules" classname="app.breakfast.manager.InstalledModulesTest" time="0.001"/>
+  <testcase name="the kernel object list is never described as installed modules" classname="app.breakfast.manager.InstalledModulesTest" time="0.0"/>
+  <testcase name="an installed module is listed with what its directory says" classname="app.breakfast.manager.InstalledModulesTest" time="0.004"/>
+  <testcase name="prop parsing does not invent values" classname="app.breakfast.manager.InstalledModulesTest" time="0.001"/>
+  <testcase name="dotfiles are not modules" classname="app.breakfast.manager.InstalledModulesTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

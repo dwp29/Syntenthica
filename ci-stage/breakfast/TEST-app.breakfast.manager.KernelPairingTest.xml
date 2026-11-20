@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.KernelPairingTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:23:52.431Z" hostname="runnervmeozm8" time="0.002">
+<testsuite name="app.breakfast.manager.KernelPairingTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-20T05:49:25.813Z" hostname="ip-10-0-131-205" time="0.003">
   <properties/>
-  <testcase name="no row in the table claims verified capabilities" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
+  <testcase name="no row in the table claims verified capabilities" classname="app.breakfast.manager.KernelPairingTest" time="0.001"/>
   <testcase name="no kernel claims a boot test" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
-  <testcase name="a read node works even when the kernel name is unknown" classname="app.breakfast.manager.KernelPairingTest" time="0.001"/>
-  <testcase name="a published kernel is recognised by name and by nothing else" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
+  <testcase name="a read node works even when the kernel name is unknown" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
+  <testcase name="a published kernel is recognised by name and by nothing else" classname="app.breakfast.manager.KernelPairingTest" time="0.001"/>
   <testcase name="neither a name nor a root shell is called proof" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
   <testcase name="a prefix of a real release is not a match" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
   <testcase name="unknown kernel is refused rather than guessed" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
   <testcase name="cheese burger maps to its own variant" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
-  <testcase name="a matching name is not permission" classname="app.breakfast.manager.KernelPairingTest" time="0.0"/>
+  <testcase name="a matching name is not permission" classname="app.breakfast.manager.KernelPairingTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.RootBackendTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:23:54.521Z" hostname="runnervmeozm8" time="0.001">
+<testsuite name="app.breakfast.manager.RootBackendTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-20T05:49:27.885Z" hostname="ip-10-0-131-205" time="0.001">
   <properties/>
   <testcase name="two backends in one kernel is never claimed" classname="app.breakfast.manager.RootBackendTest" time="0.0"/>
   <testcase name="one backend is reported as one, from CONFIG_KSU" classname="app.breakfast.manager.RootBackendTest" time="0.0"/>
-  <testcase name="a read config without CONFIG_KSU claims nothing" classname="app.breakfast.manager.RootBackendTest" time="0.001"/>
+  <testcase name="a read config without CONFIG_KSU claims nothing" classname="app.breakfast.manager.RootBackendTest" time="0.0"/>
   <testcase name="an unreadable config is not an answer about the kernel" classname="app.breakfast.manager.RootBackendTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

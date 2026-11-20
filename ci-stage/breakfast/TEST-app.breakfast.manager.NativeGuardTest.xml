@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.NativeGuardTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-20T04:23:52.440Z" hostname="runnervmeozm8" time="2.078">
+<testsuite name="app.breakfast.manager.NativeGuardTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-20T05:49:25.826Z" hostname="ip-10-0-131-205" time="2.055">
   <properties/>
-  <testcase name="a skipped load still yields a complete snapshot" classname="app.breakfast.manager.NativeGuardTest" time="1.073"/>
-  <testcase name="an unskipped snapshot never loads the library" classname="app.breakfast.manager.NativeGuardTest" time="1.005"/>
+  <testcase name="a skipped load still yields a complete snapshot" classname="app.breakfast.manager.NativeGuardTest" time="1.05"/>
+  <testcase name="an unskipped snapshot never loads the library" classname="app.breakfast.manager.NativeGuardTest" time="1.004"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

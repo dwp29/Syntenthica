@@ -1,1 +1,1 @@
-Signer #1 certificate SHA-256 digest: 611fa10e74da55d343967916c812c023678a770212e251e3099921f0de40f374
+Signer #1 certificate SHA-256 digest: af4d61f6dfa0e8518801eab8c47bdc6631394f148dd468764edc2f5d4d6e38cc
