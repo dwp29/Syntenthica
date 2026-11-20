@@ -34,6 +34,17 @@ android {
                 storePassword = project.findProperty("ciStorePassword") as String?
                 keyAlias = project.findProperty("ciKeyAlias") as String?
                 keyPassword = project.findProperty("ciKeyPassword") as String?
+
+                // BakaSU reads the APK signing block and rejects the whole APK
+                // when it finds a v3 scheme block ("Unexpected signature block
+                // id"), so a v2+v3 signature is invisible to it as a manager.
+                // v1+v2 is enough for minSdk 26. Both v3 and v4 are off on
+                // purpose: this is a compatibility requirement of the kernel
+                // this app administers, not a preference.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = false
+                enableV4Signing = false
             }
         }
     }

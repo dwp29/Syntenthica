@@ -94,12 +94,25 @@ apply_patch() { # <patch> <berkas-penanda> <penanda> <present|absent> <deskripsi
   fi
   echo "[patch] GAGAL: $desc belum terpasang dan patch tidak bisa dipakai"; return 1
 }
+# --- BakaSU menjalankan manajer dengan aturannya sendiri ----------------------
+# Dua tambalan di bawah ini ditulis untuk apk_sign.c milik KernelSU-Next, dan
+# keduanya justru berbahaya bila dipaksakan ke BakaSU:
+#   * batas sertifikat 1024 byte tetap berlaku di BakaSU, jadi menaikkannya
+#     tidak diperlukan;
+#   * BakaSU MENOLAK APK yang membawa blok v3 ("Unexpected signature block id"),
+#     jadi menambal penolakan itu berarti memaksa kernel menerima APK yang
+#     sebenarnya tidak ia kenali.
+# Karena itu keduanya dilewati untuk stack BakaSU, bukan dipaksa lolos.
+if [ "${BAKASU_ARCHIVE:-}" != "" ]; then
+  echo "[patch] root stack BakaSU: tambalan sertifikat/v3 KernelSU-Next dilewati"
+  SKIP_KSU_NEXT_SIGN_PATCHES=yes
+fi
 # --- sertifikat Manager: batas panjang sertifikat di KernelSU-Next -------------
 # KernelSU-Next membatasi sertifikat 1024 byte. Sertifikat RSA 4096 kita 1431 byte
 # (0x597). Tanpa kenaikan batas ini, seluruh pemeriksaan sha256 menjadi kode mati
 # dan Manager TIDAK PERNAH dikenali (gejala: menu Manager mati / "bukan Manager").
 APK_SIGN_C="$TREE/drivers/kernelsu/manager/apk_sign.c"
-if [ -f "$APK_SIGN_C" ]; then
+if [ -f "$APK_SIGN_C" ] && [ "${SKIP_KSU_NEXT_SIGN_PATCHES:-}" = "" ]; then
   if grep -q "#define CERT_MAX_LENGTH 1024" "$APK_SIGN_C"; then
     sed -i 's/#define CERT_MAX_LENGTH 1024/#define CERT_MAX_LENGTH 2048/' "$APK_SIGN_C"
     echo "[patch] sertifikat Manager: batas 1024 -> 2048 byte (wajib untuk RSA 4096 kita)"
