@@ -22,6 +22,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('breakfast-app/**/*.kts', 'breakfast-app/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
       - name: Provide the KernelSU bridge library
         run: |
           set -euo pipefail
