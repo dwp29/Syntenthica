@@ -144,6 +144,18 @@ BAKASU_MUST_STAY_OFF = {
 }
 
 
+# Symbols whose value changes on the BakaSU stack, and nothing else. Each is a
+# consequence of BakaSU's Kconfig, not a preference: SuSFS and manual hooks share
+# one `choice`, so taking the manual hook turns the SuSFS family off.
+BAKASU_CONFIG_DELTA = (
+    'KSU_MANUAL_HOOK', 'KSU_SUSFS', 'KSU_SUSFS_SUS_PATH', 'KSU_SUSFS_SUS_MOUNT',
+    'KSU_SUSFS_SUS_KSTAT', 'KSU_SUSFS_SUS_MEMFD', 'KSU_SUSFS_SUS_MAP',
+    'KSU_SUSFS_SPOOF_UNAME', 'KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG',
+    'KSU_SUSFS_OPEN_REDIRECT', 'KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS',
+    'KSU_SUSFS_ENABLE_LOG', 'KSU_SUSFS_TRY_UMOUNT',
+    'KSU_MULTI_MANAGER_SUPPORT', 'KSU_FULL_NAME_FORMAT',
+)
+
 # variant -> (permissive symbols, derived symbols)
 ALLOWED_BY_VARIANT = {
     'fresh-milk': (),
@@ -332,6 +344,13 @@ def _install_config_check(module, variant: str, allowed: set[str]) -> None:
         expected_values = dict(s2x.ALLOWED_CHANGES)
         if mglru == 'on':
             expected_values['LRU_GEN_ENABLED'] = ('n', 'y')
+        if spec.get('root_stack') == 'bakasu':
+            # BakaSU's Kconfig differs from KernelSU-Next's, so these exact
+            # symbols are expected to move. The list is closed: any other
+            # difference still fails the check, rather than "anything KSU* is
+            # fine", which would accept a config nobody reviewed.
+            for key in BAKASU_CONFIG_DELTA:
+                expected_values[key] = (old.get(key, 'n'), new.get(key, 'n'))
         for key in allowed:
             before = old.get(key, 'n')
             expected_values[key] = (before, new.get(key, 'n'))
