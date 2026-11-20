@@ -39,6 +39,7 @@ import app.breakfast.manager.ui.components.SectionLabel
 import app.breakfast.manager.ui.components.SurfaceCard
 import app.breakfast.manager.ui.theme.LocalBreakfastColors
 import app.breakfast.manager.ui.theme.NumericStyle
+import app.breakfast.manager.ui.theme.chipShape
 
 /**
  * TUNING - the screen the design sheet draws with sliders.
