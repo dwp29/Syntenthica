@@ -67,6 +67,14 @@ data class PulseReadings(
  * something to draw; the first sample after launch is a single point, which
  * renders as a baseline rather than an invented curve.
  */
+/**
+ * One thermal zone as the kernel reports it.
+ *
+ * Top level, not nested in PulseReader, because PulseReadings carries a list of
+ * them and the two types are siblings.
+ */
+data class ThermalZone(val name: String, val celsius: Float)
+
 object PulseReader {
 
     private const val HISTORY = 60
@@ -107,9 +115,6 @@ object PulseReader {
         "limit", "trip", "stage", "threshold", "target", "cool", "warn", "crit",
         "virtual", "step", "hint", "predict", "max_state", "min_state",
     )
-
-    /** One thermal zone as the kernel reports it. */
-    data class ThermalZone(val name: String, val celsius: Float)
 
     /** Every zone that is readable and inside a plausible range, thresholds included. */
     private fun allThermalZones(): List<ThermalZone> =

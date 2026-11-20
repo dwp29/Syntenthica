@@ -7,6 +7,7 @@ import app.breakfast.manager.data.TuningVisibility
 import app.breakfast.manager.data.TuningWhitelist
 import app.breakfast.manager.data.Uptime
 import app.breakfast.manager.ui.PulseReader
+import app.breakfast.manager.ui.ThermalZone
 import app.breakfast.manager.ui.components.graphBounds
 import app.breakfast.manager.ui.components.cpuUsageFromDelta
 import app.breakfast.manager.ui.components.graphScale
@@ -276,7 +277,7 @@ class TuningVisibilityTest {
 /** Thermal zones: a throttle limit is not a thermometer. */
 class ThermalZoneTest {
 
-    private fun zone(name: String, celsius: Float) = PulseReader.ThermalZone(name, celsius)
+    private fun zone(name: String, celsius: Float) = ThermalZone(name, celsius)
 
     @Test
     fun `a zone named like a limit is not a sensor`() {

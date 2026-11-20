@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import app.breakfast.manager.data.AuditRunner
 import app.breakfast.manager.data.DeviceAudit
 import app.breakfast.manager.data.StabilityLedger
+import app.breakfast.manager.ui.PulseReadings
 import app.breakfast.manager.ui.components.AccentButton
 import app.breakfast.manager.ui.components.Chip
 import app.breakfast.manager.ui.components.DataRow
