@@ -140,9 +140,29 @@ object PulseReader {
         return looksLikeCpu && THRESHOLD_MARKERS.none { n.contains(it) }
     }
 
-    /** Real CPU/SoC sensors, hottest first. Threshold zones are excluded. */
+    /** Real sensors, hottest first. Threshold zones are excluded. */
     fun cpuTemps(): List<ThermalZone> =
         allThermalZones().filter { isThermometer(it) }.sortedByDescending { it.celsius }
+
+    /**
+     * The zone the CPU ring should show.
+     *
+     * The ring is labelled "CPU", so it must be fed by a CPU sensor. On the
+     * reporting device the previous rule picked a zone named plain "soc" reading
+     * 88 C while every cpu-*-usr sensor read 37-40 C, so a mostly idle phone
+     * showed a red 88 -- either a real substrate sensor we were mislabelling, or
+     * a bogus zone. Either way, "CPU: 88" was not a CPU temperature.
+     *
+     * Preference order: a cpu sensor, then any other real sensor. A bare "soc"
+     * zone is still listed in LAB so nothing is hidden, it just cannot claim to
+     * be the CPU.
+     */
+    fun ringZone(zones: List<ThermalZone>): ThermalZone? {
+        val sensors = zones.filter { isThermometer(it) }
+        return sensors.filter { it.name.lowercase().contains("cpu") }.maxByOrNull { it.celsius }
+            ?: sensors.filter { it.name.lowercase().contains("gpu") }.maxByOrNull { it.celsius }
+            ?: sensors.maxByOrNull { it.celsius }
+    }
 
     private fun memory(): Pair<Float?, Float?> {
         val info = read("/proc/meminfo") ?: return null to null
@@ -218,8 +238,7 @@ object PulseReader {
         clock: app.breakfast.manager.data.ClockSource = app.breakfast.manager.data.AndroidClock,
     ): PulseReadings {
         val zones = allThermalZones()
-        val temps = zones.filter { isThermometer(it) }
-        val hottest = temps.maxByOrNull { it.celsius }
+        val hottest = ringZone(zones)
         val temp = hottest?.celsius
         val (usedGb, totalGb) = memory()
         val loadRaw = cpuLoad()

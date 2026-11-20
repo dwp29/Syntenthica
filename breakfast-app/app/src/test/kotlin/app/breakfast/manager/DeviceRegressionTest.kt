@@ -3,6 +3,7 @@ package app.breakfast.manager
 import app.breakfast.manager.data.AuditRunner
 import app.breakfast.manager.data.ClockSource
 import app.breakfast.manager.data.DeviceAudit
+import app.breakfast.manager.data.ModuleScan
 import app.breakfast.manager.data.TuningVisibility
 import app.breakfast.manager.data.TuningWhitelist
 import app.breakfast.manager.data.Uptime
@@ -311,5 +312,71 @@ class ThermalZoneTest {
         assertFalse(PulseReader.isPlausibleTemperature(0f))
         assertFalse(PulseReader.isPlausibleTemperature(999f))
         assertTrue(PulseReader.isPlausibleTemperature(41f))
+    }
+}
+
+/** The pages that used to be placeholders, and the zone that lied about being the CPU. */
+class Run23RegressionTest {
+
+    private fun zone(name: String, celsius: Float) = ThermalZone(name, celsius)
+
+    @Test
+    fun `the ring shows a CPU sensor, not a bare soc zone`() {
+        // Exactly the device's numbers: a zone named "soc" read 88 C while every
+        // cpu-*-usr sensor read 37-40 C, and the ring is labelled "CPU".
+        val zones = listOf(
+            zone("soc", 88.0f),
+            zone("aoss-0-usr", 40.4f),
+            zone("cpu-0-0-usr", 39.8f),
+            zone("cpu-0-1-usr", 39.2f),
+            zone("pm6150-tz", 37.0f),
+        )
+        val ring = PulseReader.ringZone(zones)
+        assertEquals("cpu-0-0-usr", ring?.name)
+        assertEquals(39.8f, ring!!.celsius, 0.01f)
+    }
+
+    @Test
+    fun `a threshold zone never reaches the ring`() {
+        val zones = listOf(zone("cpu-0-limit", 99f), zone("cpu-0-usr", 41f))
+        assertEquals("cpu-0-usr", PulseReader.ringZone(zones)?.name)
+    }
+
+    @Test
+    fun `module parsing reads proc modules and ignores junk`() {
+        val text = """
+            zram 40960 3 - Live 0x0000000000000000
+            kheaders 12345 0 - Live 0x0000000000000000
+            broken-line
+        """.trimIndent()
+        val modules = ModuleScan.parse(text)
+        assertEquals(2, modules.size)
+        assertEquals("kheaders", modules.first().name)
+        assertEquals(40960L, modules.first { it.name == "zram" }.sizeBytes)
+    }
+
+    @Test
+    fun `an unreadable proc modules is null, not an empty list`() {
+        // "could not read" and "no modules" are different answers.
+        assertTrue(ModuleScan.parse(null).isEmpty())
+        assertEquals(emptyList<ModuleScan.Module>(), ModuleScan.parse(null))
+    }
+
+    @Test
+    fun `the audit breakdown always adds up to the node count`() {
+        fun node(s: DeviceAudit.Support) = DeviceAudit.Node("g", "/p/${s.name}", s, null, false, null)
+        val report = DeviceAudit.Report(
+            "k", 0L,
+            listOf(
+                node(DeviceAudit.Support.SUPPORTED),
+                node(DeviceAudit.Support.READ_ONLY),
+                node(DeviceAudit.Support.UNREADABLE),
+                node(DeviceAudit.Support.UNKNOWN),
+                node(DeviceAudit.Support.ABSENT),
+            ),
+        )
+        assertEquals(report.nodes.size, report.counted())
+        assertEquals(5, report.countsBreakdown().size)
+        assertEquals(5, report.countsBreakdown().sumOf { it.second })
     }
 }

@@ -1,6 +1,8 @@
 package app.breakfast.manager.ui
 
 import app.breakfast.manager.data.DeviceAudit
+import app.breakfast.manager.data.ModuleScan
+import app.breakfast.manager.data.RootStatus
 import app.breakfast.manager.data.StabilityLedger
 import app.breakfast.manager.data.TuningSession
 
@@ -30,6 +32,15 @@ data class BreakfastUiState(
     val onRequestRoot: () -> Unit = {},
     val auditAgeText: String = "—",
     val rootMessage: String? = null,
+    /** Checked facts for the ROOT page; null until the first probe finishes. */
+    val rootSnapshot: RootStatus.Snapshot? = null,
+    /** /proc/modules, or null when the file could not be read at all. */
+    val modules: List<ModuleScan.Module>? = null,
+    val onRefreshRoot: () -> Unit = {},
+    val onRefreshModules: () -> Unit = {},
+    val intervalSeconds: Int = 2,
+    val onIntervalPick: (Int) -> Unit = { _ -> },
+    val variantName: String = "—",
     val onApply: (List<TuningSession.Proposal>) -> Unit = {},
     val onReset: () -> Unit = {},
 )

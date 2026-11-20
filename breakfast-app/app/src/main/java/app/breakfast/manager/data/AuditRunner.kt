@@ -24,6 +24,16 @@ object AuditRunner {
          * normal case for a sandboxed app looking at /data/adb.
          */
         fun listing(path: String): List<String>? = null
+
+        /**
+         * True when the parent directory itself does not exist.
+         *
+         * Distinguishes "zram is not loaded, so /sys/block/zram0 is missing" from
+         * "we may not read /sys/block/zram0". The first is proof of absence; the
+         * second is not, and calling it absence is what produced 'tidak ada' for
+         * nodes the kernel has.
+         */
+        fun parentMissing(path: String): Boolean = false
         fun readable(path: String): Boolean
         fun writable(path: String): Boolean
         fun read(path: String): String?
@@ -103,12 +113,22 @@ object AuditRunner {
             // exists() is not evidence of absence. Only a directory listing is.
             val listing = fs.listing(path)
             if (listing == null) {
+                // No listing AND no parent: the directory leading to this node
+                // does not exist at all (zram inactive, MGLRU not compiled in), so
+                // the node cannot exist either. That is proof, not ignorance.
+                val parentMissing = fs.parentMissing(path)
+                if (parentMissing) {
+                    return Observation(null, readable = false, writable = false, permissions = null,
+                        presence = Presence.VERIFIED_ABSENT)
+                }
                 // Cannot even look: the only honest answer is "cannot tell".
                 return Observation(null, readable = false, writable = false, permissions = null,
                     presence = Presence.UNKNOWN)
             }
             val name = path.substringAfterLast('/')
             if (name !in listing) {
+                // Named in the listing but still invisible is a policy block, not
+                // absence; a name that is not in the listing is gone.
                 return Observation(null, readable = false, writable = false, permissions = null,
                     presence = Presence.VERIFIED_ABSENT)
             }
@@ -207,6 +227,17 @@ object AuditRunner {
             File(path).parentFile?.list()?.toList()
         } catch (e: Exception) {
             null
+        }
+
+        override fun parentMissing(path: String): Boolean = try {
+            val parent = File(path).parentFile
+            // exists() false while the grandparent lists the parent name would be
+            // a policy block; but a parent that is neither visible nor listed in
+            // its own parent is genuinely gone.
+            parent != null && !parent.exists() &&
+                (parent.parentFile?.list()?.contains(parent.name) != true)
+        } catch (e: Exception) {
+            false
         }
 
         override fun exists(path: String) = File(path).exists()

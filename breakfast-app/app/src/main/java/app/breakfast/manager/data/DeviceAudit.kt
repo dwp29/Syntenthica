@@ -81,9 +81,17 @@ object DeviceAudit {
         fun countsLine(): String = listOf(supported, readOnly, unreadable, unknown, absent)
             .joinToString(" / ")
 
-        /** Legend for [countsLine], in the same order. */
-        fun countsLegend(): String =
-            "didukung / baca-saja / tidak bisa dibaca / tidak bisa dipastikan / tidak ada"
+        /** "16 node" for the header of the breakdown. */
+        fun total(): Int = counted()
+
+        /** Human legend, one line per bucket, for screens that have the room. */
+        fun countsBreakdown(): List<Pair<String, Int>> = listOf(
+            "didukung" to supported,
+            "baca-saja" to readOnly,
+            "tidak bisa dibaca" to unreadable,
+            "tidak bisa dipastikan" to unknown,
+            "tidak ada" to absent,
+        )
 
         /** Total nodes represented by [countsLine]; must equal nodes.size. */
         fun counted(): Int = supported + readOnly + unreadable + unknown + absent

@@ -19,7 +19,24 @@ class ThemeStore(context: Context) {
         prefs.edit().putString(KEY_THEME, id).apply()
     }
 
+    /**
+     * Sampling interval in seconds.
+     *
+     * Clamped to what the settings sheet offers: a stored 0 or 900 would either
+     * spin the worker or freeze the dashboard, and a preference file is not a
+     * trusted input.
+     */
+    fun interval(): Int = prefs.getInt(KEY_INTERVAL, DEFAULT_INTERVAL)
+        .takeIf { it in ALLOWED_INTERVALS } ?: DEFAULT_INTERVAL
+
+    fun saveInterval(seconds: Int) {
+        prefs.edit().putInt(KEY_INTERVAL, seconds.coerceIn(1, 10)).apply()
+    }
+
     companion object {
         private const val KEY_THEME = "theme.id"
+        private const val KEY_INTERVAL = "interval.seconds"
+        const val DEFAULT_INTERVAL = 2
+        val ALLOWED_INTERVALS = setOf(1, 2, 5, 10)
     }
 }

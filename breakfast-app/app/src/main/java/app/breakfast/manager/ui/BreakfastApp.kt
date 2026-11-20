@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.breakfast.manager.ui.components.AccentButton
 import app.breakfast.manager.ui.screens.LabScreen
+import app.breakfast.manager.ui.screens.ModulesScreen
+import app.breakfast.manager.ui.screens.RootScreen
 import app.breakfast.manager.ui.screens.PulseScreen
 import app.breakfast.manager.ui.screens.TuningScreen
 import app.breakfast.manager.ui.theme.LocalBreakfastColors
@@ -111,10 +113,15 @@ fun BreakfastApp(
                             onAudit = state.onAudit,
                         )
 
-                        Tab.ROOT, Tab.MODULES -> ComingSoon(
-                            tab = target,
-                            state = state,
-                            onAction = if (target == Tab.ROOT) state.onRequestRoot else state.onAudit,
+                        Tab.ROOT -> RootScreen(
+                            snapshot = state.rootSnapshot,
+                            message = state.rootMessage,
+                            onRequestRoot = state.onRequestRoot,
+                            onRefresh = state.onRefreshRoot,
+                        )
+                        Tab.MODULES -> ModulesScreen(
+                            modules = state.modules,
+                            onRefresh = state.onRefreshModules,
                         )
                     }
                 }
@@ -124,60 +131,6 @@ fun BreakfastApp(
     }
 }
 
-/**
- * A page that is not built yet, plus a way out.
- *
- * The empty-state rule in SPEC-LAYAR says an empty screen must carry one action,
- * because a screen with no button is a dead end. The first version of this page
- * broke that rule; it now offers the action that is actually useful here - grant
- * root, or re-run the audit.
- */
-@Composable
-private fun ComingSoon(tab: Tab, state: BreakfastUiState, onAction: () -> Unit) {
-    val c = LocalBreakfastColors.current
-    Column(
-        Modifier.fillMaxSize().padding(28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.height(80.dp))
-        Text(
-            text = tab.glyph,
-            fontSize = 44.sp,
-            color = c.accent.copy(alpha = 0.5f),
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = tab.label,
-            style = MaterialTheme.typography.headlineMedium,
-            color = c.textPrimary,
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = when (tab) {
-                Tab.ROOT -> "Daftar aplikasi superuser dan mode hook belum ada di build ini. " +
-                    "Root tetap dipakai untuk dmesg dan sysfs; halamannya belum dibuat."
-                Tab.MODULES -> "Daftar modul terpasang belum ada di build ini. " +
-                    "Mengelola modul butuh antarmuka instalasi yang belum dibangun."
-                else -> ""
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = c.textSecondary,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(24.dp))
-        AccentButton(
-            text = if (tab == Tab.ROOT) "BERI ROOT" else "AUDIT ULANG",
-            onClick = onAction,
-            modifier = Modifier.fillMaxWidth(0.8f),
-        )
-        Spacer(Modifier.height(14.dp))
-        Text(
-            text = "Kernel ${state.kernelRelease}",
-            fontSize = 11.sp,
-            color = c.textTertiary,
-        )
-    }
-}
 
 /**
  * Floating dock. Selection is marked with a filled plate and the accent colour;

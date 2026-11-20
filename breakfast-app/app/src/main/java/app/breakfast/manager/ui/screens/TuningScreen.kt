@@ -1,10 +1,7 @@
 package app.breakfast.manager.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,7 +20,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,6 +29,7 @@ import app.breakfast.manager.data.TuningSession
 import app.breakfast.manager.data.TuningWhitelist
 import app.breakfast.manager.ui.components.AccentButton
 import app.breakfast.manager.ui.components.Chip
+import app.breakfast.manager.ui.components.ChoiceChip
 import app.breakfast.manager.ui.components.DataRow
 import app.breakfast.manager.ui.components.GhostButton
 import app.breakfast.manager.ui.components.PathRow
@@ -326,29 +323,7 @@ private fun ZramControl(
     }
 }
 
-/** A pill that is actually tappable, with a filled state for the selection. */
-@Composable
-private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val c = LocalBreakfastColors.current
-    Box(
-        modifier = Modifier
-            .clip(c.chipShape)
-            .background(if (selected) c.accent.copy(alpha = 0.18f) else Color.Transparent)
-            .border(
-                width = 1.dp,
-                color = if (selected) c.accent else c.hairline,
-                shape = c.chipShape,
-            )
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) c.accent else c.textSecondary,
-        )
-    }
-}
+
 
 @Composable
 private fun SliderRow(

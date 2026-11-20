@@ -162,17 +162,29 @@ fun LabScreen(
                     )
                 } else {
                     DataRow("Kernel", report.kernelRelease, c.textPrimary, mono = true)
-                    DataRow(
-                        label = "Hasil",
-                        // Five counts now, and this line is generated from the
-                        // report itself so it cannot drift out of sync again: the
-                        // device showed 0/6/3/1 = 10 while the note promised four
-                        // buckets that add up to 16.
-                        value = report.countsLine(),
-                        valueColor = c.textPrimary,
-                        mono = true,
-                        note = report.countsLegend(),
+                    // One row per bucket instead of "0 / 6 / 3 / 6 / 1" plus a
+                    // truncated legend. The old line was unreadable on a phone and
+                    // the legend was cut to "tidak bisa dip...".
+                    Text(
+                        text = "Hasil audit · ${report.total()} node",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = c.textSecondary,
                     )
+                    Spacer(Modifier.height(6.dp))
+                    for ((name, count) in report.countsBreakdown()) {
+                        val colour = when (name) {
+                            "didukung" -> c.statusStable
+                            "tidak ada" -> c.textTertiary
+                            else -> c.statusAttention
+                        }
+                        DataRow(
+                            label = name,
+                            value = count.toString(),
+                            valueColor = colour,
+                            mono = true,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
                     DataRow(
                         label = "Root",
                         value = if (hasRoot) "diberikan" else "belum",

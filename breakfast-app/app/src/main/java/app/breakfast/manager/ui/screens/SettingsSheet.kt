@@ -25,7 +25,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.breakfast.manager.ui.ThemeCatalog
+import app.breakfast.manager.ui.components.GhostButton
 import app.breakfast.manager.ui.components.SectionLabel
+import app.breakfast.manager.ui.components.SurfaceCard
+import app.breakfast.manager.data.DeviceAudit
 import app.breakfast.manager.ui.theme.LocalBreakfastColors
 import app.breakfast.manager.ui.theme.colorsFor
 
@@ -42,6 +45,16 @@ fun SettingsSheet(
     current: ThemeCatalog.Palette,
     onPick: (ThemeCatalog.Palette) -> Unit,
     onDismiss: () -> Unit,
+    /** Ticker interval in seconds; the dashboard samples at this rate. */
+    intervalSeconds: Int = 2,
+    intervalOptions: List<Int> = listOf(1, 2, 5, 10),
+    onIntervalPick: (Int) -> Unit = {},
+    /** Audit cadence is fixed by design, but it is stated here where it belongs. */
+    auditCooldownSeconds: Int = 30,
+    kernelRelease: String = "—",
+    variantName: String = "—",
+    onRunAudit: () -> Unit = {},
+    onResetSettings: () -> Unit = {},
 ) {
     if (!visible) return
     val c = LocalBreakfastColors.current
@@ -64,10 +77,38 @@ fun SettingsSheet(
                 .padding(20.dp),
         ) {
             Text(
-                text = "TEMA",
+                text = "SETELAN",
                 style = MaterialTheme.typography.headlineMedium,
                 color = c.textPrimary,
             )
+            Text(
+                text = "Tampilan, laju pembaruan, dan diagnostik. Tidak ada yang dikirim keluar perangkat.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = c.textSecondary,
+            )
+
+            Spacer(Modifier.height(14.dp))
+            SectionLabel("laju pembaruan")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (option in intervalOptions) {
+                    ChoiceChip(
+                        label = "${option} detik",
+                        selected = option == intervalSeconds,
+                        onClick = { onIntervalPick(option) },
+                    )
+                }
+            }
+            Text(
+                text = "Dashboard mengambil sampel tiap ${intervalSeconds} detik. " +
+                    "Audit penuh punya jeda ${auditCooldownSeconds} detik karena " +
+                    "membaca ${DeviceAudit.totalNodeCount()} node.",
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                color = c.textTertiary,
+            )
+
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("tema")
             Text(
                 text = "Kelima tema lolos kontras WCAG. Warna status tidak ikut berubah.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -123,8 +164,25 @@ fun SettingsSheet(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-            SectionLabel("catatan")
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("tentang")
+            SurfaceCard {
+                DataRow("Kernel", kernelRelease, c.textPrimary, mono = true)
+                DataRow("Varian", variantName, c.textPrimary)
+                DataRow(
+                    "Izin",
+                    "tidak ada izin Android yang diminta",
+                    c.textSecondary,
+                    note = "semua pembacaan lewat file dan su, bukan API berizin",
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GhostButton("AUDIT SEKARANG", onRunAudit, modifier = Modifier.weight(1f))
+                GhostButton("KEMBALIKAN", onResetSettings, modifier = Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = "Pilihan disimpan di perangkat ini saja. Tema tidak mengubah status merah/hijau.",
                 fontSize = 11.sp,

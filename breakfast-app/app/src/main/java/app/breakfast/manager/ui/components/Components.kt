@@ -524,3 +524,32 @@ fun GhostButton(
         )
     }
 }
+
+/**
+ * A pill that is actually tappable, with a filled state for the selection.
+ *
+ * Lives here rather than in TUNING because the settings sheet needs the same
+ * control for the sampling interval, and two copies would drift.
+ */
+@Composable
+fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val c = LocalBreakfastColors.current
+    Box(
+        modifier = Modifier
+            .clip(c.chipShape)
+            .background(if (selected) c.accent.copy(alpha = 0.18f) else Color.Transparent)
+            .border(
+                width = 1.dp,
+                color = if (selected) c.accent else c.hairline,
+                shape = c.chipShape,
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = label,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+            color = if (selected) c.accent else c.textSecondary,
+        )
+    }
+}

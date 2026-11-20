@@ -18,7 +18,9 @@ import app.breakfast.manager.data.KernelPairing
 import app.breakfast.manager.data.LedgerReader
 import app.breakfast.manager.data.PairingGenerated
 import app.breakfast.manager.data.RootBridge
+import app.breakfast.manager.data.ModuleScan
 import app.breakfast.manager.data.RootRequest
+import app.breakfast.manager.data.RootStatus
 import app.breakfast.manager.data.StabilityLedger
 import app.breakfast.manager.data.ThemeStore
 import app.breakfast.manager.data.TuningSession
@@ -66,6 +68,11 @@ class MainActivity : ComponentActivity() {
     private var lastPlan: TuningSession.Plan? = null
     private var lastAuditMs = 0L
     private var rootMessage: String? = null
+    private var rootSnapshot: RootStatus.Snapshot? = null
+    private var modules: List<ModuleScan.Module>? = null
+
+    /** Sampling interval, chosen in settings; 2 s was the only option before. */
+    private var intervalSeconds = 2
 
     private var palette: ThemeCatalog.Palette = ThemeCatalog.ALL.first()
     private var settingsOpen by mutableStateOf(false)
@@ -99,6 +106,29 @@ class MainActivity : ComponentActivity() {
                             frame++
                         },
                         onDismiss = { settingsOpen = false },
+                        intervalSeconds = intervalSeconds,
+                        onIntervalPick = { seconds ->
+                            intervalSeconds = seconds
+                            themeStore.saveInterval(seconds)
+                            // The ticker must actually change rate, not just relabel.
+                            restartTicker()
+                            frame++
+                        },
+                        kernelRelease = release,
+                        variantName = decision.variant?.let { "FRESH-MILK-14.03" } ?: release.takeLast(16),
+                        onRunAudit = {
+                            settingsOpen = false
+                            audit(manual = true)
+                        },
+                        onResetSettings = {
+                            palette = ThemeCatalog.ALL.first()
+                            themeStore.save(palette.id)
+                            intervalSeconds = 2
+                            themeStore.saveInterval(2)
+                            restartTicker()
+                            settingsOpen = false
+                            frame++
+                        },
                     )
                 }
             }
@@ -110,7 +140,10 @@ class MainActivity : ComponentActivity() {
             val stored = auditStore.load()
             report = stored ?: DeviceAudit.Report(release, 0L, emptyList())
             hasRoot = RootBridge.hasRoot()
+            intervalSeconds = themeStore.interval()
             lastAuditMs = stored?.timestampMs ?: 0L
+            rootSnapshot = RootStatus.snapshot()
+            modules = ModuleScan.scan()
 
             publish {
                 readLedger()
@@ -139,10 +172,17 @@ class MainActivity : ComponentActivity() {
                     publish { frame++ }
                 }
             },
-            2,
-            2,
+            intervalSeconds.toLong(),
+            intervalSeconds.toLong(),
             TimeUnit.SECONDS,
         )
+    }
+
+    /** Applies a new sampling interval by replacing the scheduled task. */
+    private fun restartTicker() {
+        ticker?.shutdownNow()
+        ticker = null
+        startTicker()
     }
 
     private fun sampleOnce() {
@@ -200,6 +240,22 @@ class MainActivity : ComponentActivity() {
     }
 
     // ------------------------------------------------------------------ actions
+
+    /** Re-probes root without asking for it; used by the ROOT page refresh. */
+    private fun refreshRoot() {
+        worker.execute {
+            rootSnapshot = RootStatus.snapshot()
+            hasRoot = rootSnapshot?.granted == true
+            publish { frame++ }
+        }
+    }
+
+    private fun refreshModules() {
+        worker.execute {
+            modules = ModuleScan.scan()
+            publish { frame++ }
+        }
+    }
 
     private fun audit(manual: Boolean) {
         worker.execute {
@@ -266,6 +322,7 @@ class MainActivity : ComponentActivity() {
             val outcome = RootRequest.request()
             hasRoot = outcome == RootRequest.Outcome.Granted
             rootMessage = RootRequest.message(outcome)
+            rootSnapshot = RootStatus.snapshot()
             if (hasRoot) {
                 readLedger()
                 readAudit(force = true)
@@ -303,6 +360,18 @@ class MainActivity : ComponentActivity() {
         rootMessage = rootMessage,
         onAudit = { audit(manual = true) },
         onRequestRoot = { requestRoot() },
+        onRefreshRoot = { refreshRoot() },
+        onRefreshModules = { refreshModules() },
+        rootSnapshot = rootSnapshot,
+        modules = modules,
+        intervalSeconds = intervalSeconds,
+        onIntervalPick = { seconds ->
+            intervalSeconds = seconds
+            themeStore.saveInterval(seconds)
+            restartTicker()
+            frame++
+        },
+        variantName = decision.variant?.let { "FRESH-MILK-14.03" } ?: release.takeLast(16),
         onApply = { proposals -> apply(proposals) },
         onReset = { reset() },
     )
