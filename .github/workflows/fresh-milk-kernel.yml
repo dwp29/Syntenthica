@@ -16,6 +16,13 @@ on:
       # nothing.
       - 'build-kit/bakasu/**'
       - 'build-kit/scripts/bakasu_root.py'
+      # The builder and the recipes it chains through: a change here changes
+      # the kernel, so it must start a build.
+      - 'build-kit/scripts/build_synthetica3_root.py'
+      - 'build-kit/scripts/build_synthetica2_experimental.py'
+      - 'build-kit/scripts/build_chronicle_base.py'
+      - 'build-kit/ci/rollercoaster/**'
+      - 'build-kit/ci/synthetica3-root/**'
       - 'tests/test_fresh_milk_*.py'
   workflow_dispatch:
 
