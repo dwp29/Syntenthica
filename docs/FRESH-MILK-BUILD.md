@@ -316,6 +316,15 @@ Delta config = tepat `BAKASU_CONFIG_DELTA` (KSU hook/identitas + simbol
 - Sandbox **tidak bisa** mengunduh aset rilis / artifact CI (host
   `release-assets.githubusercontent.com` dan blob hasil produksi diblokir).
   Download ZIP dilakukan dari tautan rilis di luar sandbox.
+- **Jebakan installer (perbaikan `083b795`):** `ak3-core.sh` (dari skeleton
+  `Synthetica-2.0.zip`) membaca partisi target dari **`$BLOCK` (uppercase)** di
+  `setup_ak`/`write_boot`. `anykernel.sh` rollercoaster harus set
+  **`BLOCK=` (uppercase)**. Kalau pakai lowercase `block=`, `$BLOCK` kosong →
+  `setup_ak` masuk branch `*` → `parttype` kosong → `target` kosong → abort
+  **`Unable to determine  partition`** (spasi ganda = `$BLOCK` kosong) →
+  recovery `Updater process ended with ERROR: 1`, ZIP gagal flash. Packager
+  (`package_fresh_milk.py`) kini menjaga nama ini via `require()` dan test
+  `test_installer_block_var_matches_ak3_core`.
 - Build hanya bisa dikompilasi lewat CI (sandbox tidak punya clang/cross-
   compiler aarch64). Reproduksi config lokal dengan `make olddefconfig` + gcc
   host masih mungkin untuk mengecek gerbang config.
