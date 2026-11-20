@@ -136,7 +136,12 @@ def prepare(source: Path, destination: Path, baseline20: Path) -> None:
     # example during prepare-tree, after the tree is unpacked - rewrites a file
     # whose content has already been consumed, and the build compiles SuSFS and
     # drops the manual hook while the log claims the choice was resolved.
-    if os.environ.get('BAKASU_ARCHIVE'):
+    #
+    # The gate is the root stack, not BAKASU_ARCHIVE: the prepare step is given
+    # only FM_VARIANT, and build_fresh_milk.apply_variant publishes
+    # SP_ROOT_STACK from the variant spec before delegating here. Keying on the
+    # archive would skip this step in CI and leave the profiles raw.
+    if os.environ.get('SP_ROOT_STACK') == 'bakasu':
         import bakasu_root
         print(bakasu_root.resolve_hook_choice(
             destination / 'ci/rollercoaster',

@@ -278,6 +278,23 @@ class HookResolutionOrder(unittest.TestCase):
         self.assertIn('resolve_hook_choice', prepare)
         self.assertNotIn('resolve_hook_choice', rest)
 
+    def test_resolution_gates_on_stack_not_archive(self):
+        # The CI "Prepare isolated kit" step sets only FM_VARIANT, never
+        # BAKASU_ARCHIVE. Keying the resolution on the archive skips it there,
+        # leaves the profiles raw, and the compile step then fails its config
+        # gate on a config that never carried the manual hook. This was the
+        # exact failure behind the KSU_MANUAL_HOOK compile-step rejection.
+        text = self.SCRIPT.read_text(encoding='utf-8')
+        prepare = text[:text.index('def prepare_tree(')]
+        # The gate line itself must test SP_ROOT_STACK, and must not test the
+        # archive environment variable (the comment prose is allowed to name it).
+        gate = [line.strip() for line in prepare.splitlines()
+                if line.strip().startswith('if ') and 'resolve_hook_choice' not in line]
+        gate = [line for line in gate if 'bakasu' in line]
+        self.assertTrue(gate, 'no bakasu gate line found in prepare')
+        self.assertIn('SP_ROOT_STACK', gate[-1])
+        self.assertNotIn('BAKASU_ARCHIVE', gate[-1])
+
     def test_builder_audits_susfs_off_for_bakasu(self):
         # If the builder refuses SuSFS=n on this stack, no BakaSU build can pass
         # its own config audit no matter what the profile says.

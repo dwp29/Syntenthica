@@ -515,6 +515,17 @@ def main(argv: list[str]) -> int:
 
     module = apply_variant(variant)
 
+    # The build-kit recipes distinguish the root stack through SP_ROOT_STACK.
+    # The compile step receives it from the workflow, but the prepare step sets
+    # only FM_VARIANT. Publish it here from the variant spec so the hook choice
+    # resolution - gated on the stack, not on the archive - runs during kit
+    # preparation too. Without this the prepare step leaves the profiles raw
+    # (SuSFS on, manual hook dropped by olddefconfig) and the compile step then
+    # fails its config gate on a config that never carried the manual hook.
+    # Setting it here, not in apply_variant, keeps direct apply_variant calls
+    # from leaking SP_ROOT_STACK into other test modules that expect the default.
+    os.environ['SP_ROOT_STACK'] = VARIANTS[variant]['root_stack']
+
     if explicit:
         if pending == ['verify'] or pending[:1] == ['apply']:
             return 0
