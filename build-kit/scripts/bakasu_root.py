@@ -304,6 +304,59 @@ def _driver_version(destination: Path) -> int:
     return 30000 + int(count) + 700
 
 
+def resolve_hook_choice(tree: Path) -> dict[str, object]:
+    """Make the hook method explicit.
+
+    BakaSU's Kconfig puts three methods in one `choice`: tracepoint (5.10+),
+    manual hook (3.4+) and SuSFS inline hook. A choice admits exactly one, and
+    this kernel is 4.14, so the valid answer is KSU_MANUAL_HOOK.
+
+    Profiles written for KernelSU-Next also set CONFIG_KSU_SUSFS=y. Under
+    BakaSU that is a competing member of the same choice, and whatever the file
+    order, one of the two gets dropped. The build then fails its own "retained
+    feature" check with `not preserved: KSU_MANUAL_HOOK`, which is how this was
+    found. Turning SUSFS off is the honest resolution rather than patching the
+    choice apart: with manual hooks selected, BakaSU does not compile its SuSFS
+    path anyway, so claiming SuSFS is on would be a label on nothing.
+
+    This is recorded in the build output so the release does not imply hiding
+    features it does not have.
+    """
+    profiles = tree / "profiles"
+    if not profiles.is_dir():
+        raise ValueError(f"missing profiles directory: {profiles}")
+    changed = []
+    for config in sorted(profiles.glob("*.config")):
+        text = config.read_text(encoding="utf-8")
+        lines = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            # The whole SuSFS family, not just CONFIG_KSU_SUSFS. Leaving the
+            # sub-options on while their parent is off states a capability the
+            # kernel will not have, which is the same mistake as any other
+            # unproven claim in a config file.
+            if stripped.startswith(("CONFIG_KSU_SUSFS", "CONFIG_KSU_TRACEPOINT_HOOK")) and \
+                    stripped.endswith("=y"):
+                # Object syntax: `# CONFIG_X is not set` - the `=y` must go, or
+                # the line is a comment Kconfig will not read as "off".
+                entry = "# " + stripped[:-2] + " is not set"
+                lines.append(entry)
+                changed.append(f"{config.name}: {stripped} -> off")
+                continue
+            lines.append(line)
+        new = "\n".join(lines) + "\n"
+        if "CONFIG_KSU_MANUAL_HOOK=y" not in new:
+            new = new.replace("CONFIG_KSU=y\n", "CONFIG_KSU=y\nCONFIG_KSU_MANUAL_HOOK=y\n", 1)
+            changed.append(f"{config.name}: CONFIG_KSU_MANUAL_HOOK=y")
+        if new != text:
+            config.write_text(new, encoding="utf-8")
+    print("[bakasu] hook choice resolved to KSU_MANUAL_HOOK:", changed or "already explicit",
+          flush=True)
+    return {"hook_method": "KSU_MANUAL_HOOK",
+            "susfs": "not available under manual hooks in BakaSU",
+            "changes": changed}
+
+
 def apply_tree_patch(tree: Path) -> dict[str, object]:
     """Apply the manual-hook patch, refusing if it does not land exactly."""
     tree = tree.resolve()

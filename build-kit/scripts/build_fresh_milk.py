@@ -113,7 +113,7 @@ def read_profile_delta(profile: str, reference: dict[str, str]) -> tuple[str, ..
 # enabled in the 2.0 baseline, so they are guards, not changes.
 MUST_STAY_ON = (
     'LRU_GEN', 'LRU_GEN_ENABLED', 'UCLAMP_TASK', 'UCLAMP_TASK_GROUP',
-    'SCHED_WALT', 'SCHED_TUNE', 'KSU', 'KSU_MANUAL_HOOK', 'KSU_SUSFS',
+    'SCHED_WALT', 'SCHED_TUNE', 'KSU', 'KSU_MANUAL_HOOK',
     'NOMOUNT', 'SECCOMP', 'SECCOMP_FILTER', 'MODULE_SIG_FORCE', 'MODVERSIONS',
     'SECURITY_SELINUX', 'DM_VERITY', 'F2FS_FS', 'EROFS_FS',
     'BPF_SYSCALL', 'BPF_JIT_ALWAYS_ON',
@@ -125,6 +125,22 @@ MUST_STAY_OFF = {
     'KSU_SUSFS_TRY_UMOUNT':
         'this 4.14 SuSFS port has no susfs_try_umount(); forcing it fails the build',
     'KSU_SUSFS_SUS_MEMFD': 'disabled in the 3.2 base; not changed without a reason',
+}
+
+# On the BakaSU stack, SuSFS is not "off because someone changed their mind": it
+# is a competing member of the same Kconfig `choice` as KSU_MANUAL_HOOK, and a
+# 4.14 kernel must take the manual hook. Declaring SuSFS impossible here keeps
+# the build from flipping back and forth depending on file order.
+BAKASU_MUST_STAY_OFF = {
+    'KSU_SUSFS': 'BakaSU ties SuSFS and manual hooks to one choice; 4.14 takes the manual hook',
+    'KSU_SUSFS_SUS_PATH': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_SUS_MOUNT': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_SUS_KSTAT': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_SUS_MAP': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_SPOOF_UNAME': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_OPEN_REDIRECT': 'SuSFS sub-option; parent is off on this stack',
+    'KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS': 'SuSFS sub-option; parent is off on this stack',
 }
 
 
@@ -400,9 +416,14 @@ def apply_variant(variant: str):
         missing = [f for f in MUST_STAY_ON if current.get(f) != 'y']
         if missing:
             raise ValueError('required feature missing: ' + ', '.join(missing))
-        for key, reason in MUST_STAY_OFF.items():
+        must_off = dict(MUST_STAY_OFF)
+        if spec.get('root_stack') == 'bakasu':
+            must_off.update(BAKASU_MUST_STAY_OFF)
+        for key, reason in must_off.items():
             if current.get(key) == 'y':
                 raise ValueError(f'{key} must stay off: {reason}')
+        if spec.get('root_stack') == 'bakasu' and current.get('KSU_MANUAL_HOOK') != 'y':
+            raise ValueError('BakaSU on 4.14 requires KSU_MANUAL_HOOK=y')
 
         return changes
 
