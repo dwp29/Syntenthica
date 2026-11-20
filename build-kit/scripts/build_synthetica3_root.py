@@ -76,6 +76,16 @@ def prepare(source: Path, destination: Path, baseline: Path) -> None:
 def prepare_tree(tree: Path) -> None:
     check_inputs()
     tree = rc.s2x.ensure_disposable(tree)
+    if os.environ.get('BAKASU_ARCHIVE'):
+        # This patch has two halves: it calls ksu_install_manager_exec_fd() from
+        # fs/exec.c, and it edits KernelSU-Next/kernel/supercall/supercall.c.
+        # BakaSU exports no such function and has no such directory, so the
+        # patch is not applicable to this root stack rather than "temporarily
+        # broken". Skipped deliberately, and said so in the log.
+        print('[prepare] BakaSU stack: Manager fd patch not applicable, skipped',
+              flush=True)
+        rc.prepare_tree(tree)
+        return
     verify_root_source(tree, patched=False)
     rc.prepare_tree(tree)
     subprocess.run(['git', 'apply', '--check', str(PATCH)], cwd=tree, check=True)

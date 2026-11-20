@@ -137,6 +137,20 @@ def prepare_tree(tree: Path) -> None:
     check_inputs()
     tree = base.rc.s2x.ensure_disposable(tree)
     base.prepare_tree(tree)  # 3.1 MGLRU/UCLAMP, seccomp and Manager fd patches
+
+    # BakaSU's manual hooks are applied last, on purpose. Its patch rewrites the
+    # call sites in fs/exec.c, fs/stat.c and friends, and the Manager fd patch
+    # above also edits fs/exec.c; applying BakaSU first made that patch fail to
+    # land ("patch does not apply") and stopped every build. Guarded by
+    # BAKASU_ARCHIVE so the KernelSU-Next recipes are untouched.
+    if os.environ.get('BAKASU_ARCHIVE'):
+        # The Manager fd patch (applied deeper in the chain) touches a
+        # KernelSU-Next directory that no longer exists under BakaSU; that
+        # recipe skips itself when BAKASU_ARCHIVE is set.
+        import bakasu_root
+        print(bakasu_root.apply_tree_patch(tree), flush=True)
+        print(bakasu_root.check_tree(tree), flush=True)
+
     verify_vmscan(tree, patched=False)
     subprocess.run(['git', 'apply', '--check', str(PATCH)], cwd=tree, check=True)
     subprocess.run(['git', 'apply', str(PATCH)], cwd=tree, check=True)

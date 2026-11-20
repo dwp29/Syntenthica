@@ -247,6 +247,9 @@ def prepare_tree(tree: Path) -> None:
     # refuses to build without them. bakasu_root checks the tree with BakaSU's
     # own rules before anything is compiled, so a missing hook stops the build
     # here rather than minutes later inside the driver with a vaguer message.
+    # Only unpack and link here. The hook patch must land *after* every other
+    # patch that touches fs/exec.c and fs/stat.c - the Manager fd patch among
+    # them - so it is applied by the outermost recipe once this returns.
     import bakasu_root
     # CI downloads the pinned archive once; BAKASU_ARCHIVE points at it. The
     # fallback exists for local runs that keep it beside the kit.
@@ -257,9 +260,7 @@ def prepare_tree(tree: Path) -> None:
         raise ValueError(f"BakaSU archive is missing: {archive} "
                          "(set BAKASU_ARCHIVE to the pinned download)")
     bakasu_root.fetch(tree, archive)
-    print(bakasu_root.apply_tree_patch(tree), flush=True)
     print(bakasu_root.vendor(tree), flush=True)
-    print(bakasu_root.check_tree(tree), flush=True)
 
 
 def toolchain_info(kind: str, toolchain_bin: Path, neutron_archive: Path | None) -> dict[str, object]:
