@@ -116,8 +116,21 @@ def finish(kit: Path, out: Path, baseline: Path, tested: Path, result: Path,
            toolchain_bin: Path, neutron_archive: Path) -> None:
     check_inputs()
     out = rc.s2x.ensure_disposable(out)
-    verify_root_source(out.parent, patched=True)
-    objects = verify_exec_objects(out)
+    if os.environ.get('BAKASU_ARCHIVE'):
+        # The Manager fd patch is a KernelSU-Next-only change: it calls
+        # ksu_install_manager_exec_fd() from fs/exec.c and edits
+        # KernelSU-Next/kernel/supercall/supercall.c. BakaSU exports no such
+        # function and has no such directory, so prepare_tree deliberately
+        # skips the patch. The source-hash check and the compiled-object check
+        # below verify exactly that KernelSU-Next-only patch, so they are not
+        # applicable on the BakaSU stack; skip them and record the omission.
+        objects = {'not_applicable': True,
+                   'reason': 'Manager fd patch is KernelSU-Next-only and is skipped on the BakaSU stack'}
+        manager_patch_sha = None
+    else:
+        verify_root_source(out.parent, patched=True)
+        objects = verify_exec_objects(out)
+        manager_patch_sha = PATCH_SHA256
     # rc1 finish verifies both rc1 source hashes, full config, embedded identity,
     # image, toolchain, signed same-build modules, and public certificate.
     rc.finish(kit, out, baseline, tested, result, toolchain_bin, neutron_archive)
@@ -126,7 +139,7 @@ def finish(kit: Path, out: Path, baseline: Path, tested: Path, result: Path,
     status.update({
         'kind': STATUS_KIND,
         'candidate': '3.0 Manager root-path candidate; NOT a device-validated stable release',
-        'manager_exec_fd_patch_sha256': PATCH_SHA256,
+        'manager_exec_fd_patch_sha256': manager_patch_sha,
         'manager_exec_fd_objects': objects,
         'manager_exec_fd_scope': (
             'After successful libksud.so exec by the recognized Manager UID, install an ordinary '

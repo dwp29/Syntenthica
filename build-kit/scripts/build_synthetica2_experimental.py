@@ -340,7 +340,18 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
             raise ValueError(f"pinned {label} not found in image")
     # GNU cross-objdump is a post-build auditor, never the selected compiler/linker.
     audit_objdump = Path("/usr/bin/aarch64-linux-gnu-objdump")
-    manager_object = verify_manager_object(out, audit_objdump, manager)
+    manager_object = out / "drivers/kernelsu/manager" / "apk_sign.o"
+    if os.environ.get("BAKASU_ARCHIVE"):
+        # The auditable -fno-builtin-strncmp flag and the strncmp relocation check
+        # are KernelSU-Next manager build properties. BakaSU's manager is built
+        # without that flag, so verify only that the object exists rather than
+        # the KernelSU-Next compile flag and strncmp relocation.
+        if not manager_object.is_file():
+            raise ValueError("BakaSU Manager object missing")
+        manager_object_check = "object present; KernelSU-Next strncmp-audit flags not applicable"
+    else:
+        manager_object = verify_manager_object(out, audit_objdump, manager)
+        manager_object_check = "object uses strncmp; identity literals present in object and image"
     kit_manager = kit / "artifacts/manager/MANAGER.json"
     if v3.digest(kit_manager) != v3.PINNED_INPUTS["artifacts/manager/MANAGER.json"]:
         raise ValueError("disposable kit's Manager identity changed after preparation")
@@ -378,7 +389,7 @@ def finish(kit: Path, out: Path, baseline: Path, result: Path, kind: str,
                     "apk_sha256": MANAGER_APK_SHA,
                     "apk_sign_object_sha256": v3.digest(manager_object),
                     "audit_objdump_sha256": v3.digest(audit_objdump),
-                    "package_comparison": "object uses strncmp; identity literals present in object and image",
+                    "package_comparison": manager_object_check,
                     "runtime_pairing_tested": False},
         "module_layout_crc": f"0x{crc:08x}",
         "same_build_modules_static_checks": {name: item[1] for name, item in checked_modules.items()},

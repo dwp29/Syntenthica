@@ -136,9 +136,22 @@ def finish(kit: Path, out: Path, baseline: Path, tested: Path, result: Path,
            toolchain_bin: Path, neutron_archive: Path) -> None:
     check_inputs()
     out = s2x.ensure_disposable(out)
-    verify_source(out.parent, patched=True)
+    if os.environ.get("BAKASU_ARCHIVE"):
+        # The Manager seccomp/setuid-hook patch is a KernelSU-Next-only change:
+        # it edits KernelSU-Next/kernel/hook/setuid_hook.c and
+        # KernelSU-Next/kernel/policy/app_profile.c, neither of which exists
+        # under the BakaSU root, and prepare_tree skips the patch on this
+        # stack. The source-hash check and the compiled-hook-object check below
+        # verify exactly that KernelSU-Next-only patch, so they are not
+        # applicable here; skip them and record the omission.
+        hook = {"not_applicable": True,
+                "reason": "Manager seccomp/setuid-hook patch is KernelSU-Next-only and is skipped on the BakaSU stack"}
+        seccomp_patch_sha = None
+    else:
+        verify_source(out.parent, patched=True)
+        hook = verify_hook_object(out)
+        seccomp_patch_sha = PATCH_SHA256
     changes = check_config(baseline, out / ".config", tested, "on")
-    hook = verify_hook_object(out)
     # The inherited helper checks the compiler archive, embedded config, Manager
     # identity, signed same-build modules and image before producing evidence.
     s2x.finish(kit, out, baseline, result, "neutron", toolchain_bin, neutron_archive, "on")
@@ -151,7 +164,7 @@ def finish(kit: Path, out: Path, baseline: Path, tested: Path, result: Path,
         "tested_2_0_experiment_config_sha256": TESTED_CONFIG_SHA256,
         "tested_2_0_experiment_module_public_cert_sha256": TESTED_CERT_SHA256,
         "config_comparison": changes,
-        "manager_seccomp_patch_sha256": PATCH_SHA256,
+        "manager_seccomp_patch_sha256": seccomp_patch_sha,
         "setuid_hook_object": hook,
         "seccomp_scope": "Preserve Manager's inherited filter on kernel 4.14; no UI spoof. Other root-allowed UIDs and the root escape retain their existing behavior.",
         "seccomp_on_device": "NOT TESTED; depends on ROM filter and actual calling thread",
