@@ -136,3 +136,40 @@ teknis ini.
    stabil dan APK bisa menimpa versi lama. Workspace ini tidak punya hak admin
    untuk menambah secret (API Actions secrets menjawab 404), jadi saat ini yang
    berjalan adalah jalur kunci sementara.
+
+## Ditulis setelah melihat perangkat sungguhan
+
+Laporan layar dari pemasangan nyata (kernel `4.14.357-openela-synthetica-3.2`)
+menemukan lima cacat yang tidak bisa ditangkap tes mana pun di sisi ini. Semua
+sudah diperbaiki di run 11:
+
+1. **Audit saling bertentangan.** Ringkasan "0 didukung, 6 baca-saja, 10 tidak
+   ada" berjumlah 16 padahal audit memeriksa 15 node. Penyebabnya: node yang
+   bisa dibaca tapi tidak bisa ditulis dihitung sebagai "baca-saja" tanpa
+   dihitung sebagai hadir. Sekarang klasifikasi dibangun di atas satu
+   `Observation` (nilai/terbaca/tertulis/izin) sehingga satu node hanya masuk
+   satu kategori.
+2. **Kesalahan menyalahkan kernel.** Tanpa root, `canWrite` bernilai salah untuk
+   semua node, sehingga semuanya dilabeli "kernel menolak penulisan". Sekarang
+   dibedakan: "perlu root untuk menulis" versus penolakan kernel yang sungguhan.
+3. **Copy ledger menyebut objek yang salah.** Ledger membaca `dmesg`, bukan
+   sysfs. Kalimatnya kini menyebut dmesg.
+4. **Nama node panjang menabrak nilainya.** Kedua sisi sekarang membungkus
+   sendiri dengan jarak.
+5. **`Kernel UAPI` menampilkan "—".** Nilainya kini dibaca dari
+   `libkernelsu.so` (`Java_com_rifsxd_ksunext_Natives_getKernelUAPIVersion`),
+   dengan digest dan keberadaan simbolnya dipin di CI. Kalau kernel tidak punya
+   KernelSU-Next, tetap "—" — itu jawaban jujur.
+
+Yang **tidak** perlu diperbaiki, meski terlihat seperti masalah di layar:
+
+- **"Skor —" + "dmesg tidak bisa dibaca"** berarti aplikasi belum diberi root.
+  Perilaku ini sesuai rancangan: skor tidak dikarang.
+- **Tuning nonaktif pada kernel `synthetica-3.2`** karena kernel itu memang tidak
+  ada di tabel pairing. Menebak tata letak sysfs kernel yang tidak dikenal lebih
+  berbahaya daripada menonaktifkan tuning. Untuk menyalakannya, 3.2 harus
+  diterbitkan lebih dulu lalu ditambahkan ke `breakfast-app/tools/pairing.json`.
+
+Catatan: dua cacat di atas (butir 1 dan 2) hanya bisa ditemukan dari data
+perangkat. Ini alasan konkret mengapa klaim "belum diuji di perangkat" terus
+diulang: tanpa laporan Anda, APK run 9 akan tetap tampak benar.
