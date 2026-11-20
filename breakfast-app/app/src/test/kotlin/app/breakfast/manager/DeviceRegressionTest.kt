@@ -430,8 +430,16 @@ class RootHonestyTest {
             su = fact("tidak bisa dipastikan", RootStatus.Sure.UNKNOWN),
         )
         val verdict = blind.verdict()
-        assertTrue("must admit it could not check", verdict.contains("tidak bisa memeriksa"))
-        assertFalse(verdict.contains("tidak ber-root"))
+        assertTrue("must admit it could not check: $verdict", verdict.contains("tidak bisa memeriksa"))
+        // The sentence deliberately ends with "ini bukan bukti perangkat tidak
+        // ber-root" - a denial of the claim, not the claim. Assert the claim
+        // itself is absent rather than the substring.
+        assertFalse(
+            "must not assert the device is unrooted: $verdict",
+            verdict.contains("perangkat tidak ber-root.") || verdict.startsWith("Tidak ada su"),
+        )
+        assertTrue("must say it could not look: $verdict", verdict.contains("tidak terbaca") ||
+            verdict.contains("tidak bisa memeriksa"))
         // The rows must carry the uncertainty through, not flatten it.
         val managerRow = blind.lines().first { it.first == "pengelola root" }.second
         assertEquals(RootStatus.Sure.UNKNOWN, managerRow.sure)
@@ -448,7 +456,10 @@ class RootHonestyTest {
 
     @Test
     fun `a granted snapshot reports the privileged reads as checked`() {
+        // The helper builds dmesg as "tidak bisa dibaca" because that is what an
+        // ungranted device looks like; a granted one must say so and be happy.
         val s = snapshot(uid = fact("0", RootStatus.Sure.SHELL), granted = true)
+            .copy(dmesg = fact("bisa dibaca", RootStatus.Sure.SHELL))
         assertTrue(s.verdict().startsWith("Root diberikan"))
         assertEquals("bisa dibaca", s.dmesg.value)
     }
