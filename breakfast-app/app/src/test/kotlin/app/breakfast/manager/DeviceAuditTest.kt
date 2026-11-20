@@ -37,6 +37,36 @@ class DeviceAuditTest {
     }
 
     @Test
+    fun `readable but unwritable node is read-only, never absent`() {
+        // This is the bug the device screenshots exposed: a non-root manager can
+        // read up_rate_limit_us but cannot write it, and the audit reported
+        // "0 didukung" while the node was plainly there.
+        val fs = FakeFs(mapOf("/sys/devices/system/cpu/cpu0/cpufreq/schedutil/up_rate_limit_us" to Triple("0", true, false)))
+        val node = AuditRunner.run(fs, "k", 0L, specs, readOnly).nodes
+            .first { it.path.endsWith("up_rate_limit_us") }
+        assertEquals(DeviceAudit.Support.READ_ONLY, node.support)
+        assertEquals("0", node.value)
+    }
+
+    @Test
+    fun `read-only node found without root blames root, not the kernel`() {
+        val fs = FakeFs(mapOf("/sys/block/zram0/mem_limit" to Triple("0", true, false)))
+        val withoutRoot = AuditRunner.run(fs, "k", 0L, specs, readOnly, hasRoot = false)
+            .nodes.first { it.path.endsWith("mem_limit") }
+        val withRoot = AuditRunner.run(fs, "k", 0L, specs, readOnly, hasRoot = true)
+            .nodes.first { it.path.endsWith("mem_limit") }
+        assertEquals("perlu root untuk menulis", withoutRoot.note)
+        assertEquals("kernel menyediakan tapi menolak penulisan", withRoot.note)
+    }
+
+    @Test
+    fun `summary says when it ran without root`() {
+        val report = DeviceAudit.Report("k", 0L, emptyList())
+        assertEquals("Audit selesai: 0 didukung, 0 baca-saja, 0 tidak ada.", AuditRunner.describe(report, hasRoot = true))
+        assertTrue(AuditRunner.describe(report, hasRoot = false).contains("tanpa root"))
+    }
+
+    @Test
     fun `writable node is supported and its value is kept`() {
         val fs = FakeFs(mapOf("/sys/block/zram0/mem_limit" to Triple("2048\n", true, true)))
         val node = AuditRunner.run(fs, "k", 0L, specs, readOnly).nodes.first { it.support == DeviceAudit.Support.SUPPORTED }

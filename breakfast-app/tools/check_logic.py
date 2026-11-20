@@ -202,6 +202,30 @@ def main() -> int:
         got = resolve(prev, new, running)
         failures += check(got == expected, f"resolve {prev}/{new}/{running}: {got} != {expected}")
 
+    def classify_node(readable, has_value, writable, declared_ro):
+        if not readable or not has_value:
+            return "absent"
+        if declared_ro or not writable:
+            return "read_only"
+        return "supported"
+
+    for readable, has_value, writable, declared_ro, expected in (
+        (False, False, False, False, "absent"),   # not readable at all
+        (True, False, False, False, "absent"),    # read returned nothing
+        (True, True, False, False, "read_only"),  # THE device bug: readable, unwritable
+        (True, True, True, True, "read_only"),    # declared read-only wins over writable
+        (True, True, True, False, "supported"),
+    ):
+        got = classify_node(readable, has_value, writable, declared_ro)
+        failures += check(got == expected,
+                          f"audit classify readable={readable} value={has_value} writable={writable} ro={declared_ro}: {got} != {expected}")
+
+    # The ledger reads dmesg, so its failure copy must not name sysfs.
+    states = (APP / "app/src/main/java/app/breakfast/manager/ui/States.kt").read_text(encoding="utf-8")
+    ledger_permission = [l for l in states.splitlines() if "FailureKind.PERMISSION ->" in l][0]
+    failures += check("dmesg" in ledger_permission, "ledger permission copy must name dmesg, not sysfs")
+    failures += check("sysfs" not in ledger_permission, "ledger permission copy must not name sysfs")
+
     # The audit may only ever read: no write API on its interface.
     runner = (APP / "app/src/main/java/app/breakfast/manager/data/AuditRunner.kt").read_text(encoding="utf-8")
     fs_block = runner.split("interface Fs {")[1].split("}")[0]

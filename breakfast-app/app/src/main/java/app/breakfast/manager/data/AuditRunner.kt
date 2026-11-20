@@ -21,6 +21,21 @@ object AuditRunner {
         fun permissions(path: String): String?
     }
 
+    /**
+     * What the kernel actually showed us for one node.
+     *
+     * `value` is what was read, `readable` is whether the read worked, and
+     * `writable` is the kernel's own answer to canWrite. Keeping these three
+     * separate is what lets a node be "exists and reads fine" while also being
+     * honest that a non-root manager cannot write to it.
+     */
+    data class Observation(
+        val value: String?,
+        val readable: Boolean,
+        val writable: Boolean,
+        val permissions: String?,
+    )
+
     private const val MAX_VALUE_CHARS = 80
 
     fun run(
@@ -29,11 +44,12 @@ object AuditRunner {
         nowMs: Long,
         specs: List<Pair<String, List<String>>> = DeviceAudit.NODE_SPECS,
         readOnlyPaths: Set<String> = DeviceAudit.READ_ONLY_PATHS,
+        hasRoot: Boolean = false,
     ): DeviceAudit.Report {
         val nodes = mutableListOf<DeviceAudit.Node>()
         for ((group, paths) in specs) {
             for (path in paths) {
-                nodes += inspect(group, path, fs, readOnlyPaths)
+                nodes += inspect(group, path, fs, readOnlyPaths, hasRoot)
             }
         }
         return DeviceAudit.Report(
@@ -48,49 +64,80 @@ object AuditRunner {
         path: String,
         fs: Fs,
         readOnlyPaths: Set<String>,
+        hasRoot: Boolean,
     ): DeviceAudit.Node {
-        if (!fs.exists(path)) {
-            return DeviceAudit.Node(
-                group = group,
-                path = path,
-                support = DeviceAudit.Support.ABSENT,
-                nodePermissions = null,
-                readable = false,
-                value = null,
-            )
-        }
-
-        val permissions = fs.permissions(path)
-        val readable = fs.readable(path)
-        val raw = if (readable) fs.read(path) else null
-
-        // A node that exists but cannot be read is recorded as absent *for
-        // reading*, with the reason. Reporting it as supported would make TUNING
-        // offer a control whose current value we cannot show.
-        val support = when {
-            raw == null -> DeviceAudit.Support.ABSENT
-            readOnlyPaths.contains(path) -> DeviceAudit.Support.READ_ONLY
-            !fs.writable(path) -> DeviceAudit.Support.READ_ONLY
-            else -> DeviceAudit.Support.SUPPORTED
-        }
-
-        val note = when {
-            raw == null && !readable && permissions != null -> "tidak bisa dibaca ($permissions)"
-            raw == null -> "tidak bisa dibaca"
-            readOnlyPaths.contains(path) -> "hanya dibaca, tidak pernah ditulis"
-            support == DeviceAudit.Support.READ_ONLY -> "kernel menyediakan tapi menolak penulisan"
-            else -> null
-        }
-
+        val observation = observe(fs, path, readOnlyPaths)
         return DeviceAudit.Node(
             group = group,
             path = path,
-            support = support,
-            nodePermissions = permissions,
-            readable = raw != null,
-            value = raw?.trim()?.take(MAX_VALUE_CHARS),
-            note = note,
+            support = classify(observation, readOnlyPaths.contains(path)),
+            nodePermissions = observation.permissions,
+            readable = observation.readable,
+            value = observation.value?.trim()?.take(MAX_VALUE_CHARS),
+            note = noteFor(observation, readOnlyPaths.contains(path), hasRoot),
         )
+    }
+
+    fun observe(fs: Fs, path: String, readOnlyPaths: Set<String> = emptySet()): Observation {
+        if (!fs.exists(path)) {
+            return Observation(null, readable = false, writable = false, permissions = null)
+        }
+        val permissions = fs.permissions(path)
+        val readable = fs.readable(path)
+        val value = if (readable) fs.read(path) else null
+        // canWrite is asked even when the node is absent, because "exists but
+        // not writable" and "does not exist" are different facts.
+        val writable = if (value != null) fs.writable(path) else false
+        return Observation(value, readable && value != null, writable, permissions)
+    }
+
+    /**
+     * Turns one observation into a support level.
+     *
+     * A node that can be read but not written is READ_ONLY, not ABSENT. The
+     * distinction is the whole point of the audit: on a stock, non-root install
+     * every readable node is unwritable, and reporting that as "0 supported"
+     * hides the nodes that are physically present.
+     */
+    fun classify(observation: Observation, declaredReadOnly: Boolean): DeviceAudit.Support = when {
+        !observation.readable || observation.value == null -> DeviceAudit.Support.ABSENT
+        declaredReadOnly -> DeviceAudit.Support.READ_ONLY
+        !observation.writable -> DeviceAudit.Support.READ_ONLY
+        else -> DeviceAudit.Support.SUPPORTED
+    }
+
+    /**
+     * Explains the classification in the user's terms. A read-only node found on
+     * a manager without root says so; telling the user "kernel refused writes"
+     * when the truth is "this app was not granted root" would send them looking
+     * for a kernel problem that does not exist.
+     */
+    fun noteFor(
+        observation: Observation,
+        declaredReadOnly: Boolean,
+        hasRoot: Boolean = false,
+    ): String? {
+        if (!observation.readable || observation.value == null) {
+            return when {
+                observation.permissions == null -> "tidak bisa dibaca"
+                else -> "tidak bisa dibaca (${observation.permissions})"
+            }
+        }
+        if (declaredReadOnly) return "hanya dibaca, tidak pernah ditulis"
+        if (!observation.writable) {
+            return if (hasRoot) {
+                "kernel menyediakan tapi menolak penulisan"
+            } else {
+                "perlu root untuk menulis"
+            }
+        }
+        return null
+    }
+
+    /** Summary that separates "not there" from "there but not writable by us". */
+    fun describe(report: DeviceAudit.Report, hasRoot: Boolean): String {
+        val suffix = if (hasRoot) "" else " (tanpa root: node hanya bisa dibaca)"
+        return report.summary() + suffix
     }
 
     /** Real filesystem access. `permissions` uses `stat`, the same tool a user would. */

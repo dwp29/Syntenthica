@@ -55,6 +55,18 @@ class MainActivity : Activity() {
     /** Set when a write makes the stored audit stale; triggers a re-audit. */
     private var auditDirty = false
 
+    /**
+     * Whether `su` is usable right now. Probed once at start-up because it
+     * decides how the audit should describe every unwritable node: "kernel
+     * refused the write" and "you have not granted root" are different problems
+     * with different fixes, and the screenshots that prompted this showed the
+     * app guessing the first when the second was true.
+     */
+    private var hasRoot = false
+
+    /** Kernel UAPI reported by libkernelsu, or null when it cannot be read. */
+    private var kernelUapi: Int? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         auditStore = AuditStore(this)
@@ -64,17 +76,28 @@ class MainActivity : Activity() {
         release = RootBridge.kernelRelease() ?: "—"
         decision = KernelPairing.decide(release, PairingGenerated.KERNELS)
 
-        // First install, or the kernel changed since the last audit: audit now.
-        val stored = auditStore.load()
-        val needsAudit = stored == null || stored.kernelRelease != release
-        report = stored ?: emptyReport()
+        report = auditStore.load() ?: emptyReport()
 
+        // Draw immediately with what we already know, then ask for root and
+        // audit. Asking first would mean a blank screen while su prompts.
         render()
-
-        if (needsAudit) {
-            // Automatic audits are exempt from the manual cooldown, which exists
-            // to stop spamming sysfs by hand, not to block a first run.
-            runAudit(manual = false)
+        workers.execute {
+            val root = RootBridge.hasRoot()
+            // The getter is a non-null Int that throws when KernelSU-Next is not
+            // the running kernel, so it is wrapped here rather than at the call.
+            val uapi = try {
+                com.rifsxd.ksunext.Natives.kernelUAPIVersion.takeIf { it > 0 }
+            } catch (e: Throwable) {
+                null
+            }
+            runOnUiThread {
+                hasRoot = root
+                kernelUapi = uapi
+                render()
+                // Force: the stored report may have been produced before root was
+                // granted, in which case every node was recorded as read-only.
+                runAudit(manual = false, force = true)
+            }
         }
     }
 
@@ -135,7 +158,9 @@ class MainActivity : Activity() {
 
         root.addView(section("TENTANG"))
         root.addView(row("Manager UAPI", KernelPairing.MANAGER_UAPI.toString()))
-        root.addView(row("Kernel UAPI", if (decision.known) "4" else "—"))
+        // Read from the kernel, never assumed. A kernel without KernelSU-Next
+        // has no UAPI to report, and "—" is the honest answer.
+        root.addView(row("Kernel UAPI", kernelUapi?.toString() ?: "—"))
         root.addView(body("Tanpa izin apa pun. Root dipakai hanya saat membaca dmesg dan menulis parameter yang kamu konfirmasi."))
 
         setContentView(scroll)
@@ -177,7 +202,7 @@ class MainActivity : Activity() {
             return
         }
         section.addView(row("Kernel", report.kernelRelease))
-        section.addView(row("Hasil", report.summary()))
+        section.addView(row("Hasil", AuditRunner.describe(report, hasRoot)))
         val age = DeviceAudit.ageLabel((System.currentTimeMillis() - report.timestampMs).coerceAtLeast(0))
         section.addView(row("Umur hasil", "$age lalu", ThemeCatalog.TEXT_SECONDARY))
         if (report.kernelRelease != release) {
@@ -251,7 +276,19 @@ class MainActivity : Activity() {
         }
 
         if (editable.isEmpty()) {
-            section.addView(body("Tidak ada parameter yang bisa ditulis di kernel ini. Itu hasil audit, bukan kesalahan."))
+            // Three different truths, three different sentences. Collapsing them
+            // into one message is how a user ends up believing their kernel
+            // lacks a feature when the app simply was not granted root.
+            val allAbsent = TuningWhitelist.PARAMETERS.all { parameter ->
+                val node = report.nodes.firstOrNull { DeviceAudit.nodeToKey(it.path) == parameter.key }
+                node == null || node.support == DeviceAudit.Support.ABSENT
+            }
+            val message = when {
+                allAbsent -> "Tidak ada satu pun parameter yang ada di kernel ini. Itu hasil audit, bukan kesalahan."
+                !hasRoot -> "Parameter ditemukan, tetapi aplikasi belum diberi root, jadi semuanya hanya bisa dibaca. Beri izin root lalu audit ulang."
+                else -> "Parameter ada, tetapi kernel menolak penulisan untuk semuanya. Tidak ada yang bisa diubah dari sini."
+            }
+            section.addView(body(message))
             return
         }
 
@@ -349,7 +386,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun runAudit(manual: Boolean) {
+    private fun runAudit(manual: Boolean, force: Boolean = false) {
         if (auditing) return
         val now = System.currentTimeMillis()
         if (manual) {
@@ -362,12 +399,17 @@ class MainActivity : Activity() {
         // Automatic audits are for a first run, a kernel change, or a write that
         // made the stored values stale. Otherwise the last report still stands.
         val automatic = report.kernelRelease != release || report.timestampMs == 0L || auditDirty
-        if (!manual && !automatic) return
+        if (!manual && !automatic && !force) return
         auditing = true
 
         workers.execute {
             val fresh = try {
-                AuditRunner.run(AuditRunner.SystemFs, release, System.currentTimeMillis())
+                AuditRunner.run(
+                    AuditRunner.SystemFs,
+                    release,
+                    System.currentTimeMillis(),
+                    hasRoot = hasRoot,
+                )
             } catch (e: Exception) {
                 null
             }
@@ -454,6 +496,14 @@ class MainActivity : Activity() {
         setOnClickListener { onClick() }
     }
 
+    /**
+     * Label on the left, value on the right, each wrapped in a weighted box.
+     *
+     * A single-weight value used to run into a long label with no gap (visible
+     * on device as "baca-saja · userspace powersave performance schedutil").
+     * Both sides now wrap independently, and the value gets a little over half
+     * the width because values here are longer than labels.
+     */
     private fun row(label: String, value: String, valueColor: Long = ThemeCatalog.TEXT_PRIMARY) =
         LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -463,7 +513,9 @@ class MainActivity : Activity() {
                 text = label
                 textSize = 15f
                 setTextColor(ThemeCatalog.TEXT_SECONDARY.toInt())
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.9f).apply {
+                    marginEnd = (12 * resources.displayMetrics.density).toInt()
+                }
             })
             addView(TextView(context).apply {
                 text = value
@@ -471,6 +523,7 @@ class MainActivity : Activity() {
                 setTextColor(valueColor.toInt())
                 gravity = Gravity.END
                 setTypeface(typeface, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.1f)
             })
         }
 

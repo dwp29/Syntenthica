@@ -23,8 +23,12 @@ sealed interface ScreenState<out T> {
 /** Indonesian and English copy for the states that carry text. */
 object Copy {
     fun failedReason(kind: FailureKind): String = when (kind) {
-        FailureKind.PERMISSION -> "sysfs tidak bisa dibaca (izin ditolak)"
+        // The ledger reads the kernel ring buffer, never sysfs. Naming sysfs
+        // here sent a real user looking in the wrong place, so the cause names
+        // the thing that actually failed.
+        FailureKind.PERMISSION -> "dmesg tidak bisa dibaca (izin ditolak)"
         FailureKind.NOT_MOUNTED -> "dmesg tidak tersedia (bukan root atau sudah dirotasi)"
+        FailureKind.AUDIT -> "audit tidak bisa membaca node (izin ditolak)"
         FailureKind.VANISHED -> "node hilang. Audit ulang diperlukan."
     }
 
@@ -38,4 +42,4 @@ object Copy {
     }
 }
 
-enum class FailureKind { PERMISSION, NOT_MOUNTED, VANISHED }
+enum class FailureKind { PERMISSION, NOT_MOUNTED, VANISHED, AUDIT }

@@ -22,6 +22,33 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Provide the KernelSU bridge library
+        run: |
+          set -euo pipefail
+          # The UAPI row must come from the kernel, not from a guess, and the only
+          # way to ask is libkernelsu.so. It is taken from the pinned donor APK
+          # already in the repository rather than downloaded, so the build has no
+          # new external input.
+          mkdir -p breakfast-app/app/src/main/jniLibs/arm64-v8a
+          unzip -o -q build-kit/ci/rollercoaster/manager/base.apk \
+            lib/arm64-v8a/libkernelsu.so -d /tmp/ksu-lib
+          cp /tmp/ksu-lib/lib/arm64-v8a/libkernelsu.so \
+             breakfast-app/app/src/main/jniLibs/arm64-v8a/libkernelsu.so
+          # Pin the bytes: a different library would mean a different JNI surface.
+          # Digest read from the library itself, not invented: a placeholder here
+          # would look like pinning while pinning nothing.
+          EXPECTED=f69d947a6f7e8f2f30a7813d278b26e78d5aa94e38f708bf1e66abd9ee1079ef
+          ACTUAL=$(sha256sum breakfast-app/app/src/main/jniLibs/arm64-v8a/libkernelsu.so | cut -d' ' -f1)
+          echo "libkernelsu.so sha256: $ACTUAL"
+          test "$ACTUAL" = "$EXPECTED" \
+            || { echo "::error::libkernelsu.so digest changed: $ACTUAL"; exit 1; }
+          test "$(stat -c%s breakfast-app/app/src/main/jniLibs/arm64-v8a/libkernelsu.so)" -eq 13896 \
+            || { echo "::error::libkernelsu.so is not the pinned 13896-byte library"; exit 1; }
+          # The symbol this app binds must exist, or the UAPI row would silently
+          # fall back to "—" on every device.
+          strings breakfast-app/app/src/main/jniLibs/arm64-v8a/libkernelsu.so \
+            | grep -q "Java_com_rifsxd_ksunext_Natives_getKernelUAPIVersion" \
+            || { echo "::error::getKernelUAPIVersion symbol missing from libkernelsu.so"; exit 1; }
       - name: Host checks without a JVM (formulas, contrast, whitelist, pairing)
         run: |
           set -euo pipefail
@@ -112,6 +139,8 @@ jobs:
           "$BT/aapt" dump badging "$APK" | head -1 | tee ci-stage/breakfast/APK-BADGING.txt
           grep -F "package: name='app.breakfast.manager'" ci-stage/breakfast/APK-BADGING.txt
           unzip -t "$APK" | tail -1
+          unzip -l "$APK" | grep -q "lib/arm64-v8a/libkernelsu.so" \
+            || { echo "::error::libkernelsu.so missing from the APK"; exit 1; }
           cp "$APK" ci-stage/breakfast/BREAKFAST-manager.apk
           sha256sum ci-stage/breakfast/BREAKFAST-manager.apk | tee ci-stage/breakfast/APK-SHA256.txt
           # The certificate digest is the fingerprint a user can compare to know
