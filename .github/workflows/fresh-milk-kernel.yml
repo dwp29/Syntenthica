@@ -10,6 +10,12 @@ on:
       - 'build-kit/scripts/package_fresh_milk.py'
       - 'build-kit/ci/rollercoaster/anykernel/**'
       - 'build-kit/ci/synthetica2-experimental/test-installer/**'
+      # The root stack lives here. Without these two entries a change to the
+      # BakaSU integration - the patch, the shims, the module - would not
+      # trigger a build at all, which is how a fix can look like it did
+      # nothing.
+      - 'build-kit/bakasu/**'
+      - 'build-kit/scripts/bakasu_root.py'
       - 'tests/test_fresh_milk_*.py'
   workflow_dispatch:
 
