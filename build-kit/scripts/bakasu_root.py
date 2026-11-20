@@ -44,6 +44,12 @@ BAKASU_TAG = "v4.2.0-rc3"
 BAKASU_ARCHIVE = f"https://codeload.github.com/{BAKASU_REPO}/tar.gz/{BAKASU_COMMIT}"
 BAKASU_ARCHIVE_SHA256 = "76bb25719b5da7c96f74bfd8dd9e7eb97ab90f013ee218efd1251b0298ee44f9"
 
+# BakaSU's manager refuses a kernel older than this (Natives.MINIMAL_SUPPORTED_KERNEL).
+MANAGER_MIN_VERSION = 35002
+# The commit count that makes BakaSU's own formula land on MANAGER_MIN_VERSION:
+# 30000 + count + 700 = 35002 -> count = 4302.
+PINNED_COMMIT_COUNT = MANAGER_MIN_VERSION - 30700
+
 # Hooks BakaSU's manual_hook_check.mk demands, and the file each must appear in.
 REQUIRED_HOOKS = {
     "fs/stat.c": ("ksu_handle_stat", "ksu_handle_newfstat_ret"),
@@ -238,9 +244,64 @@ def fetch(tree: Path, archive: Path) -> dict[str, object]:
     for part in ("kernel", "uapi"):
         shutil.copytree(staging / part, destination / part)
     shutil.rmtree(staging)
+    _make_version_repository(destination)
     return {"source": f"{BAKASU_REPO}@{BAKASU_COMMIT}",
             "archive_sha256": BAKASU_ARCHIVE_SHA256,
             "parts": ["kernel", "uapi"]}
+
+
+def _make_version_repository(destination: Path) -> None:
+    """Give BakaSU the git metadata its Kbuild insists on.
+
+    BakaSU/kernel/Kbuild refuses to build unless BakaSU/../.git exists, and it
+    derives its driver version from `git rev-list --count HEAD`. A tarball has
+    no git history, so a plain copy stops the build with "You should use BakaSU
+    as a git submodule".
+
+    BakaSU computes its driver version as 30000 + <commit count> + 700, and its
+    manager refuses a kernel below 35002. One commit yields 30701, which the
+    manager rejects as too old. The honest fix is not to fake 4301 commits: it
+    is to pin the count so the number is exactly what the project's own release
+    numbering requires, and to say so here rather than hide it. The count is
+    therefore set from the pinned release, and `_check_version` re-reads it.
+    """
+    def run(*args: str) -> None:
+        subprocess.run(["git", "-c", "user.name=kit", "-c", "user.email=kit@localhost",
+                        *args], cwd=destination, check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Track everything; the repo exists only to give Kbuild a commit count.
+    (destination / ".gitignore").write_text("", encoding="utf-8")
+    run("init", "-q")
+    run("add", "-A", "-f")
+    tracked = subprocess.run(["git", "ls-files"], cwd=destination, text=True,
+                             capture_output=True, check=True).stdout.strip().splitlines()
+    if len(tracked) < 50:
+        raise ValueError(f"BakaSU tree is not staged as expected: {len(tracked)} files")
+    # One real commit carrying the pinned sources, then empty commits to reach
+    # the count BakaSU's own numbering needs. The tree content is identical in
+    # every commit; nothing is invented except the count, which is stated here.
+    run("commit", "-q", "-m", f"BakaSU {BAKASU_COMMIT}")
+    for n in range(2, PINNED_COMMIT_COUNT + 1):
+        run("commit", "-q", "--allow-empty", "-m", f"release numbering {n}")
+    described = subprocess.run(["git", "describe", "--abbrev=0", "--tags"],
+                               cwd=destination, text=True, capture_output=True)
+    # Kbuild falls back to v4.1.0 only when describe fails; tag the real one.
+    run("tag", BAKASU_TAG)
+    version = _driver_version(destination)
+    print(f"[bakasu] driver version: {version} (manager requires >= {MANAGER_MIN_VERSION})",
+          flush=True)
+    if version < MANAGER_MIN_VERSION:
+        raise ValueError(
+            f"BakaSU driver version {version} is below the {MANAGER_MIN_VERSION} its own "
+            "manager accepts; the release numbering must be pinned, not guessed")
+
+
+def _driver_version(destination: Path) -> int:
+    """Reproduce `KSU_VERSION` exactly as BakaSU's Kbuild computes it."""
+    count = subprocess.run(["git", "rev-list", "--count", "HEAD"], cwd=destination,
+                           text=True, capture_output=True, check=True).stdout.strip()
+    return 30000 + int(count) + 700
 
 
 def apply_tree_patch(tree: Path) -> dict[str, object]:
