@@ -173,5 +173,18 @@ jobs:
           git add -A -f ci-stage/breakfast/
           git diff --cached --quiet && exit 0
           git commit -qm "ci: BREAKFAST manager APK (run ${GITHUB_RUN_ID})"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
+          # Retry the rebase-and-push: the user and this job both push to the same
+          # branch, and a single attempt loses that race often enough to have
+          # thrown away a finished, verified APK.
+          for attempt in 1 2 3 4 5; do
+            git fetch -q origin "${GITHUB_REF_NAME}"
+            git rebase -q "origin/${GITHUB_REF_NAME}" || git rebase --abort
+            if git push -q origin "HEAD:refs/heads/${GITHUB_REF_NAME}"; then
+              echo "artifacts pushed on attempt ${attempt}"
+              exit 0
+            fi
+            echo "push attempt ${attempt} lost the race; retrying"
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not push the APK after 5 attempts"
+          exit 1
