@@ -334,3 +334,53 @@ terpotong. Sekarang satu baris per keranjang, dihasilkan dari laporan itu
 sendiri (`countsBreakdown`), dan `counted()` menjamin jumlahnya sama dengan
 `nodes.size`.
 
+## Run 25-30: ROOT dan MODULES
+
+Fokus putaran ini hanya dua layar itu. Tidak ada fitur lain yang disentuh.
+
+### ROOT berkata "tidak ditemukan" pada perangkat KernelSU
+
+TUNING pada perangkat yang sama menunjukkan node schedutil terbaca dan sysfs
+dipakai — hal yang mustahil tanpa root. Jadi aplikasinya yang salah, bukan
+perangkatnya.
+
+Sebabnya satu baris: `File.exists("/data/adb/ksu")`. Android mengembalikan
+`false` bukan hanya untuk jalur yang tidak ada, tetapi juga untuk jalur yang
+tidak boleh **dit traversali**. Sandbox aplikasi tidak bisa melihat `/data/adb`.
+Kode membaca "tidak bisa melihat" sebagai "tidak ada".
+
+Yang paling disayangkan: `libkernelsu.so` (13.896 byte) **sudah ada di dalam APK
+sejak awal** dan tidak pernah dipanggil. Pustaka itu menjawab dari kernel:
+
+| simbol | arti |
+|---|---|
+| `getVersion` | versi KernelSU |
+| `getKernelUAPIVersion` / `getManagerUAPIVersion` | UAPI kernel dan manager |
+| `isSuEnabled` | su aktif atau tidak |
+| `getSuperuserCount` | berapa aplikasi diberi root |
+| `isSafeMode` | modul dinonaktifkan setelah boot gagal |
+
+Ketujuh simbol diverifikasi ada di pustaka sebelum dipanggil. Setiap baris ROOT
+sekarang membawa asal-usulnya: `LIBRARY`, `SHELL`, `FILESYSTEM`, atau `UNKNOWN`.
+"tidak ditemukan" hanya dicetak ketika direktori benar-benar bisa dibaca.
+
+### MODULES mengklaim nol modul tanpa membuktikannya
+
+Kode lama mengembalikan daftar kosong untuk **berkas tidak terbaca** dan untuk
+**berkas kosong**, sehingga layar menyimpulkan "Kernel ini tidak memuat modul apa
+pun". Bentuk kesalahannya identik dengan `0 °C`: ketiadaan yang tidak pernah
+dibuktikan, dinyatakan sebagai fakta.
+
+Sekarang `FileRead` membedakan `Ok`, `Denied`, `Missing`, `NotAFile`, `Failed`,
+dan `ModuleScan` mengembalikan `Loaded`, `Unreadable`, atau `NoProcModules`.
+Kalimat "0 modul" hanya boleh keluar dari `Loaded`, dan ada tes yang mengunci itu.
+
+### Kegagalan proses yang lain
+
+Enam kiriman gagal build karena kesalahan mekanis saya (impor, tipe, nama
+bentrok). Sandbox tidak punya JDK, jadi CI dipakai sebagai kompiler — mahal dan
+tidak adil terhadap waktu pengguna. Satu kegagalan bukan soal kode: build dan
+verifikasi APK **lolos**, lalu langkah penyimpanan artefak kalah cepat karena
+agent dan job push ke branch yang sama. APK yang sudah jadi terbuang. Langkah itu
+sekarang mencoba ulang sampai lima kali.
+
