@@ -136,6 +136,17 @@ class BakasuDelta(unittest.TestCase):
         'CONFIG_LOCALVERSION="-Fresh-Milk-14.03B"',
     ]
 
+    TESTED = [
+        'CONFIG_KSU=y', '# CONFIG_KSU_MANUAL_HOOK is not set', 'CONFIG_KSU_SUSFS=y',
+        'CONFIG_KSU_SUSFS_SUS_PATH=y', 'CONFIG_KSU_MULTI_MANAGER_SUPPORT=y',
+        'CONFIG_KSU_FULL_NAME_FORMAT=y', 'CONFIG_SECCOMP=y', 'CONFIG_SECCOMP_FILTER=y',
+        'CONFIG_SCHED_WALT=y', 'CONFIG_SCHED_TUNE=y', 'CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y',
+        'CONFIG_CGROUP_SCHED=y', 'CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y',
+        'CONFIG_LRU_GEN=y', 'CONFIG_LRU_GEN_ENABLED=y', 'CONFIG_THERMAL=y',
+        'CONFIG_MODULE_SIG_FORCE=y', 'CONFIG_MODVERSIONS=y', 'CONFIG_UCLAMP_TASK=y',
+        'CONFIG_UCLAMP_TASK_GROUP=y', 'CONFIG_LOCALVERSION="-Synthetica-2.0-exp"',
+    ]
+
     def install(self):
         m = load()
         module = type('Module', (), {})()
@@ -171,6 +182,64 @@ class BakasuDelta(unittest.TestCase):
             s2x.check_config(self.write(self.BASE), self.write(stray))
         self.assertIn('outside the BakaSU set', str(ctx.exception))
         self.assertIn('KSU_NOT_REVIEWED', str(ctx.exception))
+
+    def install_tested(self):
+        """The other gate: the build against the saved 2.0-experiment config."""
+        m = load()
+        module = type('Module', (), {})()
+        v3 = type('V3', (), {'digest': lambda _self, _p: 'x',
+                             'read_config': staticmethod(m.read_config_symbols)})()
+        s2x = type('S2X', (), {})()
+        s2x.v3 = v3
+        rc = type('RC', (), {})()
+        rc.s2x = s2x
+        rc.TESTED_CONFIG_SHA256 = 'x'
+        module.old = type('Old', (), {'base': type('Base', (), {'rc': rc})()})()
+        m._install_tested_compare(module, 'fresh-milk', set())
+        return rc
+
+    def test_tested_gate_accepts_the_bakasu_hook_swap(self):
+        # This exact difference - KSU_MANUAL_HOOK n->y with the identity flags
+        # off - failed run 44692397153 after the 2.0-baseline gate was fixed.
+        rc = self.install_tested()
+        now = [line for line in self.TESTED]
+        now = [('CONFIG_KSU_MANUAL_HOOK=y' if line == '# CONFIG_KSU_MANUAL_HOOK is not set'
+                else '# CONFIG_KSU_SUSFS is not set' if line == 'CONFIG_KSU_SUSFS=y'
+                else '# CONFIG_KSU_SUSFS_SUS_PATH is not set' if line == 'CONFIG_KSU_SUSFS_SUS_PATH=y'
+                else '# CONFIG_KSU_MULTI_MANAGER_SUPPORT is not set'
+                if line == 'CONFIG_KSU_MULTI_MANAGER_SUPPORT=y'
+                else '# CONFIG_KSU_FULL_NAME_FORMAT is not set'
+                if line == 'CONFIG_KSU_FULL_NAME_FORMAT=y'
+                else 'CONFIG_LOCALVERSION="-Fresh-Milk-14.03B"'
+                if line.startswith('CONFIG_LOCALVERSION') else line) for line in now]
+
+        class Stub:
+            def __init__(self, text):
+                self.text = text
+
+            def read_text(self, encoding=None):
+                return self.text
+
+        changed = rc.compare_tested_config(Stub('\n'.join(self.TESTED) + '\n'),
+                                           '\n'.join(now) + '\n')
+        self.assertEqual(changed['KSU_MANUAL_HOOK'], {'tested_2.0_exp': 'n', 'now': 'y'})
+        self.assertEqual(changed['KSU_SUSFS'], {'tested_2.0_exp': 'y', 'now': 'n'})
+
+    def test_tested_gate_refuses_a_symbol_outside_the_list(self):
+        rc = self.install_tested()
+
+        class Stub:
+            def __init__(self, text):
+                self.text = text
+
+            def read_text(self, encoding=None):
+                return self.text
+
+        now = self.TESTED + ['CONFIG_KSU_RANDOM_FLAG=y']
+        with self.assertRaises(ValueError) as ctx:
+            rc.compare_tested_config(Stub('\n'.join(self.TESTED) + '\n'),
+                                     '\n'.join(now) + '\n')
+        self.assertIn('outside the BakaSU set', str(ctx.exception))
 
     def test_the_delta_is_closed_and_names_no_susfs_requirement(self):
         m = load()

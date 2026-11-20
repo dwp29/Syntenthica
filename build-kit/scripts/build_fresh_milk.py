@@ -252,6 +252,27 @@ def apply_prepared_kit(kit_dir: str) -> int:
 
 
 
+def _bakasu_delta_expectations(old: dict[str, str], new: dict[str, str]) -> dict[str, tuple[str, str]]:
+    """Expected differences contributed by the BakaSU stack, and nothing else.
+
+    A symbol in BAKASU_CONFIG_DELTA is *allowed* to move, not *required* to:
+    most of the SuSFS family is already off in both reference configs, so
+    demanding that it move fails a build whose config is correct. The closed
+    set is enforced in the other direction - any KSU* symbol that moved but is
+    not in the list is refused by name, which is the whole point of having a
+    list instead of a "KSU* is fine" wildcard.
+    """
+    moved = {key for key in BAKASU_CONFIG_DELTA
+             if old.get(key, 'n') != new.get(key, 'n')}
+    stray = sorted(key for key in old.keys() | new.keys()
+                   if key.startswith('KSU') and key not in BAKASU_CONFIG_DELTA
+                   and old.get(key, 'n') != new.get(key, 'n'))
+    if stray:
+        raise ValueError('config symbol changed outside the BakaSU set: '
+                         + ', '.join(stray[:20]))
+    return {key: (old.get(key, 'n'), new.get(key, 'n')) for key in moved}
+
+
 def _install_tested_compare(module, variant: str, allowed: set[str]) -> None:
     """Widen the tested-config comparison by the variant's own symbol set.
 
@@ -276,6 +297,12 @@ def _install_tested_compare(module, variant: str, allowed: set[str]) -> None:
                    if old.get(key, 'n') != new.get(key, 'n')}
         expected = {'LOCALVERSION': {'tested_2.0_exp': '"-Synthetica-2.0-exp"',
                                      'now': spec['localversion']}}
+        if spec.get('root_stack') == 'bakasu':
+            # The saved 2.0-experiment config is a KernelSU-Next one, so the
+            # hook choice and the identity flags move on this stack. Same
+            # closed-set rule as the 2.0-baseline gate below.
+            for key, (before, after) in _bakasu_delta_expectations(old, new).items():
+                expected[key] = {'tested_2.0_exp': before, 'now': after}
         for key in allowed:
             expected[key] = {'tested_2.0_exp': old.get(key, 'n'),
                              'now': new.get(key, 'n')}
@@ -345,26 +372,7 @@ def _install_config_check(module, variant: str, allowed: set[str]) -> None:
         if mglru == 'on':
             expected_values['LRU_GEN_ENABLED'] = ('n', 'y')
         if spec.get('root_stack') == 'bakasu':
-            # BakaSU's Kconfig differs from KernelSU-Next's, so these symbols
-            # are allowed to move. The list is closed in both directions:
-            #
-            #   * a symbol that moved must be in this list, and
-            #   * a symbol in this list may only move the way the build says.
-            #
-            # A symbol that is in the list but did NOT move is not an error:
-            # most of the SuSFS family is already off in the 2.0 baseline, so
-            # "allowed to change" cannot mean "must change" - that would fail
-            # every build with symbols whose old and new values are identical.
-            for key in BAKASU_CONFIG_DELTA:
-                if key in changed:
-                    expected_values[key] = (old.get(key, 'n'), new.get(key, 'n'))
-            # Anything else that moved and starts with KSU_ is exactly what the
-            # earlier version of this guard let slip through. Name it plainly.
-            stray = sorted(k for k in changed
-                           if k.startswith('KSU') and k not in BAKASU_CONFIG_DELTA)
-            if stray:
-                raise ValueError('config symbol changed outside the BakaSU set: '
-                                 + ', '.join(stray[:20]))
+            expected_values.update(_bakasu_delta_expectations(old, new))
         for key in allowed:
             before = old.get(key, 'n')
             expected_values[key] = (before, new.get(key, 'n'))
