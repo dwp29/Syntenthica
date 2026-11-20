@@ -28,15 +28,30 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'build-kit/ci/synthetica2-experimental/test-installer'
 BASE = ROOT / 'release/Synthetica-2.0.zip'
 BASE_SHA256 = 'b1a0be5c7402a14d25f64fab495d6dd7e945dab18fa55c2fd164c5ced853897c'
-ENTRY_SHA256 = 'd6fa389a46945be0c050cd462bcfc46123004242728011c4bce7d2cbd2d0bbe3'
-PREPARE_SHA256 = '0a6eedd69f2d2432b57bcaf64d7bd291b6466b59ad0658a6ed5ba403228a7ad4'
+# The installer that ships is the rollercoaster one, which installs ksud.
+# The previous template (ci/synthetica2-experimental/test-installer) was a pure
+# boot repack: it never mentioned KernelSU, so no build from it could ever have
+# brought root up, and no APK could have changed that.
+SCRIPTS = ROOT / 'build-kit/ci/rollercoaster/anykernel'
+ENTRY_SHA256 = '97fb41196bea39911dce9f5ab3247c76c4581fba0a42e32f95b14f8504959db9'
+KSUD = SCRIPTS / 'ksud'
+KSUD_SHA256 = '52ba3da465459bfbac98dd25c53f8d31f93ee5a8ee89d84f67a28fe0d18cdef2'
+KSUD_BYTES = 5518552
+# KernelSU-Next looks for its daemon at exactly this path; installing it anywhere
+# else is the same as not installing it.
+KSUD_DEST = '/data/adb/ksud'
+# Only the README comes from here; its installer does not install ksud at all.
+LEGACY_INSTALLER = ROOT / 'build-kit/ci/synthetica2-experimental/test-installer'
 REFERENCE_DTB_SHA256 = '6ae7105b5ad512e40af1f14e53a8c27010b2d7caf0934d53c58cfcc24cc3f239'
 UPDATE_BINARY = 'META-INF/com/google/android/update-binary'
 BASE_FILES = ('LICENSE', 'META-INF/com/google/android/update-binary',
-              'META-INF/com/google/android/updater-script', 'tools/busybox', 'tools/magiskboot')
+              'META-INF/com/google/android/updater-script', 'tools/busybox', 'tools/magiskboot',
+              # The shipped installer does `. tools/ak3-core.sh` and calls
+              # dump_boot/write_boot from it. Shipping anykernel.sh without this
+              # file is a ZIP that cannot write the boot partition at all.
+              'tools/ak3-core.sh')
 PACKAGED_KIND = 'FRESH_MILK_COMPILED_ZIP_NOT_DEVICE_TESTED'
 
 
@@ -159,18 +174,54 @@ def collect(result: Path, variant: str) -> dict[str, bytes]:
     files[UPDATE_BINARY] = backend[:start] + b'debugging() { :; } # no persistent debug archive\n' + backend[end:]
 
     entry = (SCRIPTS / 'anykernel.sh').read_bytes()
-    prepare = (SCRIPTS / 'prepare-boot.sh').read_bytes()
-    if sha(entry) != ENTRY_SHA256 or sha(prepare) != PREPARE_SHA256:
+    if sha(entry) != ENTRY_SHA256:
         raise ValueError('tested installer template changed')
 
-    # The installer verifies the exact image it may write.
-    entry = replace_once(entry, TEMPLATE_IMAGE_SHA256.encode(), image_sha.encode())
-    entry = replace_once(entry, b'kernel.string=Synthetica 2.0 Experimental - Neutron - MGLRU ON',
-                         f'kernel.string={spec["name"]} {spec["kver"]} - Neutron - MGLRU ON'.encode())
-    entry = replace_once(entry, b"'Synthetica 2.0 EXPERIMENTAL - Neutron / MGLRU ON'",
-                         f"'{spec['release']}'".encode())
-    if entry.count(REFERENCE_DTB_SHA256.encode()) != 1:
-        raise ValueError('reference DTB guard is missing or ambiguous')
+    # The installer installs ksud conditionally - `if [ -f ./ksud ]` - so a ZIP
+    # that does not contain it installs no root stack and says nothing. That is
+    # how every earlier ZIP shipped: root silently absent, blamed on the APK.
+    # Both halves are now checked before anything is packaged.
+    def require(text: bytes, needle: bytes, what: str) -> None:
+        if needle not in text:
+            raise ValueError(f'the installer no longer {what}; refusing to ship a ZIP '
+                             'that cannot bring root up')
+
+    require(entry, b'if [ -f ./ksud ]', 'looks for ./ksud')
+    require(entry, f'cp -f ./ksud {KSUD_DEST}'.encode(), f'copies ksud to {KSUD_DEST}')
+    require(entry, f'chmod 0755 {KSUD_DEST}'.encode(), f'makes {KSUD_DEST} executable')
+    require(entry, b'/data/adb/ksu', 'creates the KernelSU data directory')
+
+    # The boot-writing helpers come from ak3-core.sh, not from anykernel.sh.
+    require(entry, b'. tools/ak3-core.sh;', 'sources tools/ak3-core.sh')
+    core = files['tools/ak3-core.sh']
+    for helper in (b'dump_boot()', b'write_boot()'):
+        if helper not in core:
+            raise ValueError(f'ak3-core.sh no longer defines {helper.decode()}; '
+                             'the installer could not write the boot partition')
+    if not KSUD.is_file() or KSUD.is_symlink():
+        raise ValueError('the KernelSU daemon that must be installed is missing')
+    ksud = KSUD.read_bytes()
+    if sha(ksud) != KSUD_SHA256 or len(ksud) != KSUD_BYTES:
+        raise ValueError('ksud digest changed; refusing to ship an unknown daemon')
+
+    # The banner is the release string, and it must be the one this build emitted
+    # rather than whatever the template happened to ship with.
+    entry = replace_once(entry, b'SP_RELEASE="4.14.357-openela-Fresh-Milk-14.03";',
+                         f'SP_RELEASE="{spec["release"]}";'.encode())
+    # kernel.version is printed by the recovery UI; leaving the template's value
+    # would tell the user a different build went in than the one that did.
+    entry = replace_once(entry, b'kernel.version=Fresh-Milk-14.03 / CHEESE-BURGER-11.08',
+                         f'kernel.version={spec["name"]} {spec["kver"]}'.encode())
+    if entry.count(spec['release'].encode()) != 1:
+        raise ValueError('the banner does not name exactly this release')
+    # The rollercoaster installer pins the boot block by name and checks the
+    # image it writes; it does not carry the 2.0 template's DTB constant, so
+    # requiring that constant here would demand something the shipped installer
+    # never had. What matters instead is that the block it writes is the boot
+    # partition and that it refuses a device that is not miatoll.
+    require(entry, b'block=/dev/block/bootdevice/by-name/boot;',
+            'targets the boot partition')
+    require(entry, b'device.name1=miatoll', 'checks the device before writing')
 
     metadata = {
         'kind': PACKAGED_KIND,
@@ -185,15 +236,30 @@ def collect(result: Path, variant: str) -> dict[str, bytes]:
         'physical_boot_test_this_image': 'NOT RUN',
         'rom_module_abi_and_signatures': 'NOT VERIFIED; fresh module signing certificate',
         'avb_boot_trust': 'NOT VERIFIED; existing signature may not validate modified boot',
-        'writes': ['boot partition only, after runtime checks'],
-        'does_not_write': ['vbmeta', 'dtbo', 'vendor', 'system', 'userdata', 'ksud', 'modules'],
+        'writes': [
+            'boot partition only, after runtime checks',
+            f'{KSUD_DEST} plus /data/adb/ksu directories, so KernelSU can come up',
+        ],
+        'does_not_write': ['vbmeta', 'dtbo', 'vendor', 'system', 'userdata', 'modules'],
+        'root_userspace': {
+            'entry': 'ksud',
+            'destination': KSUD_DEST,
+            'sha256': KSUD_SHA256,
+            'bytes': KSUD_BYTES,
+            'note': ('Installed by anykernel.sh. Without it a KernelSU kernel has no '
+                     'daemon, root never comes up and /data/adb/ksu is never created.'),
+        },
         'auto_backup': False,
     }
     files.update({
         'Image.gz': image,
         'anykernel.sh': entry,
-        'tools/prepare-boot.sh': prepare,
-        'README-FLASH.txt': (SCRIPTS / 'README-FLASH.txt').read_bytes(),
+        # Without this entry the installer's `if [ -f ./ksud ]` is false and it
+        # quietly installs no root stack at all - which is exactly what every ZIP
+        # built before this change did.
+        'ksud': ksud,
+        # Documentation only: it explains the flash and must not claim a boot test.
+        'README-FLASH.txt': (LEGACY_INSTALLER / 'README-FLASH.txt').read_bytes(),
         'BUILD-INFO.json': (json.dumps(metadata, indent=2) + '\n').encode('utf-8'),
     })
     return files
@@ -209,7 +275,7 @@ def package(result: Path, variant: str, output: Path) -> None:
             info = zipfile.ZipInfo(name, date_time=(2026, 11, 7, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = (0o755 if name in (
-                'anykernel.sh', 'tools/prepare-boot.sh', 'tools/busybox', 'tools/magiskboot',
+                'anykernel.sh', 'ksud', 'tools/busybox', 'tools/magiskboot',
                 UPDATE_BINARY) else 0o644) << 16
             z.writestr(info, data)
     print(f'packaged {variant}: {output} '

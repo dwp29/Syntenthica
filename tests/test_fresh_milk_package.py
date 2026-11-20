@@ -18,7 +18,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / 'build-kit/scripts/package_fresh_milk.py'
-RELEASE = '4.14.357-openela-Fresh-Milk-14.03'
+RELEASE = '4.14.357-openela-Fresh-Milk-14.03B'
 
 
 def load():
@@ -77,28 +77,41 @@ class Packaging(unittest.TestCase):
         self.m.package(self.result, 'fresh-milk', out)
         with zipfile.ZipFile(out) as z:
             names = set(z.namelist())
-            for required in ('Image.gz', 'anykernel.sh', 'tools/prepare-boot.sh',
+            # ksud is the point of this test: without it the installer's
+            # `if [ -f ./ksud ]` is false and the ZIP installs no root stack.
+            # ak3-core.sh carries dump_boot/write_boot, without which the ZIP
+            # cannot write the boot partition at all.
+            for required in ('Image.gz', 'anykernel.sh', 'ksud', 'tools/ak3-core.sh',
                              'tools/busybox', 'tools/magiskboot', 'LICENSE',
                              'META-INF/com/google/android/update-binary',
                              'META-INF/com/google/android/updater-script'):
                 self.assertIn(required, names, required)
+            # The daemon inside the ZIP must be the measured one, at the path
+            # the installer copies it to.
+            self.assertEqual(z.getinfo('ksud').file_size, self.m.KSUD_BYTES)
+            self.assertEqual(sha(z.read('ksud')), self.m.KSUD_SHA256)
+            entry = z.read('anykernel.sh').decode()
+            self.assertIn(f'cp -f ./ksud {self.m.KSUD_DEST}', entry)
 
-    def test_installer_pins_the_exact_image(self):
+    def test_installer_names_the_exact_release(self):
+        # The rollercoaster installer does not pin the image digest; it prints
+        # SP_RELEASE and checks the image's size and gzip validity at flash time.
+        # What must be true here is that the banner names this exact build, so a
+        # user reading the recovery log knows which kernel went in.
         out = self.tmp / 'fm.zip'
         self.m.package(self.result, 'fresh-milk', out)
-        image_sha = sha((self.result / 'Image.gz.DO-NOT-FLASH').read_bytes())
         with zipfile.ZipFile(out) as z:
             entry = z.read('anykernel.sh').decode()
-        self.assertIn(image_sha, entry)
-        # The template's own pinned digest must be gone.
-        self.assertNotIn(self.m.TEMPLATE_IMAGE_SHA256, entry)
+        self.assertEqual(entry.count(f'SP_RELEASE="{RELEASE}"'), 1)
+        # The template's own release must be gone.
+        self.assertNotIn('Fresh-Milk-14.03"', entry)
 
     def test_banner_names_the_variant(self):
         out = self.tmp / 'fm.zip'
         self.m.package(self.result, 'fresh-milk', out)
         with zipfile.ZipFile(out) as z:
             entry = z.read('anykernel.sh').decode()
-        self.assertIn('Fresh-Milk 14.03', entry)
+        self.assertIn('Fresh-Milk 14.03B', entry)
         self.assertIn(RELEASE, entry)
 
     def test_no_private_key_or_debug_archive_is_shipped(self):
@@ -119,8 +132,18 @@ class Packaging(unittest.TestCase):
             meta = json.loads(z.read('BUILD-INFO.json'))
         self.assertEqual(meta['physical_boot_test_this_image'], 'NOT RUN')
         self.assertEqual(meta['auto_backup'], False)
-        self.assertEqual(meta['writes'], ['boot partition only, after runtime checks'])
-        self.assertIn('ksud', meta['does_not_write'])
+        # The metadata must agree with what the installer does: it writes the
+        # boot partition and installs the userspace daemon. Saying it does not
+        # touch ksud was the same falsehood as shipping no ksud at all.
+        self.assertEqual(meta['writes'][0], 'boot partition only, after runtime checks')
+        self.assertTrue(any('ksud' in w for w in meta['writes']), meta['writes'])
+        self.assertNotIn('ksud', meta['does_not_write'])
+        self.assertNotIn('modules', meta['writes'])
+        root = meta['root_userspace']
+        self.assertEqual(root['entry'], 'ksud')
+        self.assertEqual(root['destination'], self.m.KSUD_DEST)
+        self.assertEqual(root['sha256'], self.m.KSUD_SHA256)
+        self.assertEqual(root['bytes'], self.m.KSUD_BYTES)
 
     def test_refuses_a_tampered_image(self):
         (self.result / 'Image.gz.DO-NOT-FLASH').write_bytes(b'not the audited image')
@@ -129,7 +152,7 @@ class Packaging(unittest.TestCase):
 
     def test_refuses_another_variants_evidence(self):
         build_evidence(self.tmp / 'other', self.m,
-                       release='4.14.357-openela-CHEESE-BURGER-11.08')
+                       release='4.14.357-openela-CHEESE-BURGER-11.08B')
         with self.assertRaises(ValueError):
             self.m.collect(self.tmp / 'other', 'fresh-milk')
 

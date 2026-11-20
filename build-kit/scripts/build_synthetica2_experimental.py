@@ -241,6 +241,20 @@ def prepare_tree(tree: Path) -> None:
         print("Applied", name, flush=True)
     v3.fix_ikconfig(tree)
 
+    # Root stack. The tree ships KernelSU-Next wired in through its own runtime
+    # syscall hook; BakaSU needs source-level manual hooks on a 4.14 kernel and
+    # refuses to build without them. bakasu_root checks the tree with BakaSU's
+    # own rules before anything is compiled, so a missing hook stops the build
+    # here rather than minutes later inside the driver with a vaguer message.
+    import bakasu_root
+    archive = Path(__file__).resolve().parents[1] / "bakasu-cache" / "bakasu.tar.gz"
+    if not archive.is_file():
+        raise ValueError(f"BakaSU archive is missing: {archive}")
+    bakasu_root.fetch(tree, archive)
+    print(bakasu_root.apply_tree_patch(tree), flush=True)
+    print(bakasu_root.vendor(tree), flush=True)
+    print(bakasu_root.check_tree(tree), flush=True)
+
 
 def toolchain_info(kind: str, toolchain_bin: Path, neutron_archive: Path | None) -> dict[str, object]:
     if kind not in ("clang18", "neutron"):

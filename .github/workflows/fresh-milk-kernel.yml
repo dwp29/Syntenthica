@@ -29,15 +29,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The `B` suffix means the kernel carries the BakaSU root stack.
+          # These names differ from the KernelSU-Next releases on purpose: the
+          # release string is the only way to tell the two apart on a device.
           - variant: fresh-milk
             name: Fresh-Milk
-            release: 4.14.357-openela-Fresh-Milk-14.03
-            kver: '14.03'
+            release: 4.14.357-openela-Fresh-Milk-14.03B
+            kver: '14.03B'
             profile: synthetica
           - variant: cheese-burger
             name: CHEESE-BURGER
-            release: 4.14.357-openela-CHEESE-BURGER-11.08
-            kver: '11.08'
+            release: 4.14.357-openela-CHEESE-BURGER-11.08B
+            kver: '11.08B'
             profile: critical
     steps:
       - name: Check out triggering commit
@@ -101,6 +104,19 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_synthetica32_r1.py' -v
           python3 -m unittest discover -s tests -p 'test_synthetica3_root.py' -v
+
+      - name: Fetch and verify the pinned BakaSU sources
+        env:
+          FM_VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          # Pinned by commit, not by branch: "latest" must mean the same bytes
+          # every time this workflow runs, or a release cannot be reproduced.
+          archive="$RUNNER_TEMP/bakasu.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            https://codeload.github.com/Baka-SU/BakaSU/tar.gz/7b65bde0710b5e7c6f755545cb15a4abd417f3a8
+          echo '76bb25719b5da7c96f74bfd8dd9e7eb97ab90f013ee218efd1251b0298ee44f9  '"$archive" | sha256sum -c -
+          python3 build-kit/scripts/bakasu_root.py info "$RUNNER_TEMP" > /dev/null
 
       - name: Prepare isolated kit
         env:

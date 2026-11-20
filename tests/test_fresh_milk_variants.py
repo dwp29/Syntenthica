@@ -38,9 +38,9 @@ class VariantIdentity(unittest.TestCase):
     def test_capitalisation_is_preserved(self):
         # Users and the manager see this string; it is matched literally.
         self.assertEqual(self.m.VARIANTS['fresh-milk']['release'],
-                         '4.14.357-openela-Fresh-Milk-14.03')
+                         '4.14.357-openela-Fresh-Milk-14.03B')
         self.assertEqual(self.m.VARIANTS['cheese-burger']['release'],
-                         '4.14.357-openela-CHEESE-BURGER-11.08')
+                         '4.14.357-openela-CHEESE-BURGER-11.08B')
 
     def test_localversion_matches_release(self):
         for name, spec in self.m.VARIANTS.items():
@@ -267,7 +267,7 @@ class Workflow(unittest.TestCase):
     def test_matrix_carries_the_builder_identity(self):
         include = self.doc['jobs']['variant']['strategy']['matrix']['include']
         self.assertEqual([i['name'] for i in include], ['Fresh-Milk', 'CHEESE-BURGER'])
-        self.assertEqual([i['kver'] for i in include], ['14.03', '11.08'])
+        self.assertEqual([i['kver'] for i in include], ['14.03B', '11.08B'])
 
     def test_profile_exists_in_the_kit(self):
         include = self.doc['jobs']['variant']['strategy']['matrix']['include']

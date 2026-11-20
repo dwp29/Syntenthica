@@ -37,21 +37,26 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / 'build-kit/ci/fresh-milk'
 
 VARIANTS = {
+    # The `B` suffix marks the BakaSU root stack. A release string is the only
+    # thing a user can read off `uname -r` to tell which manager a kernel will
+    # answer to, so the two stacks must never share a name.
     'fresh-milk': {
         'name': 'Fresh-Milk',
-        'kver': '14.03',
-        'localversion': '"-Fresh-Milk-14.03"',
-        'release': '4.14.357-openela-Fresh-Milk-14.03',
+        'kver': '14.03B',
+        'localversion': '"-Fresh-Milk-14.03B"',
+        'release': '4.14.357-openela-Fresh-Milk-14.03B',
         'profile': 'synthetica',
         'focus': 'stability',
+        'root_stack': 'bakasu',
     },
     'cheese-burger': {
         'name': 'CHEESE-BURGER',
-        'kver': '11.08',
-        'localversion': '"-CHEESE-BURGER-11.08"',
-        'release': '4.14.357-openela-CHEESE-BURGER-11.08',
+        'kver': '11.08B',
+        'localversion': '"-CHEESE-BURGER-11.08B"',
+        'release': '4.14.357-openela-CHEESE-BURGER-11.08B',
         'profile': 'critical',
         'focus': 'gaming-performance',
+        'root_stack': 'bakasu',
     },
 }
 

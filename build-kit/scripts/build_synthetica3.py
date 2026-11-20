@@ -178,6 +178,10 @@ def prepare(source: Path, destination: Path, baseline: Path) -> None:
     manager = destination / "artifacts/manager/MANAGER.json"
     manager.parent.mkdir(parents=True)
     shutil.copy2(source / "artifacts/manager/MANAGER.json", manager)
+    # The BakaSU manual-hook patch and its 4.14 compat headers travel with the
+    # kit; a build that cannot find them must stop, not silently keep
+    # KernelSU-Next wired into the tree.
+    shutil.copytree(source / "bakasu", destination / "bakasu")
 
     builder = destination / "ci/rollercoaster/build-rollercoaster.sh"
     text = builder.read_text(encoding="utf-8")
