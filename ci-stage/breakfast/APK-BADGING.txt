@@ -1,1 +1,0 @@
-package: name='app.breakfast.manager' versionCode='31' versionName='0.1.0-run31' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'

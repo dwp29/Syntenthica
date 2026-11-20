@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.RootHonestyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:24:29.561Z" hostname="runnervm8axu0" time="0.001">
-  <properties/>
-  <testcase name="a granted snapshot reports the privileged reads as checked" classname="app.breakfast.manager.RootHonestyTest" time="0.0"/>
-  <testcase name="a blind probe is not a negative answer" classname="app.breakfast.manager.RootHonestyTest" time="0.0"/>
-  <testcase name="a device with a manager but unreadable su says so" classname="app.breakfast.manager.RootHonestyTest" time="0.001"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
