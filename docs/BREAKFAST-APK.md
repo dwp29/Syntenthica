@@ -526,3 +526,38 @@ Verifikasi: https://drive.google.com/file/d/1nJAAFRVtlqAg3EAXHenDP2yp2M6khqm9/vi
 
 Belum terbukti: root menyala, ROOT/MODULES terisi data nyata. Keduanya menunggu
 ZIP kernel yang memasang `ksud` dan izin aplikasi di Synthetica Manager.
+
+## Run 36: "paired" ternyata hanya `uname -r`
+
+Kritik itu tepat, dan lebih berharga daripada tiga putaran sebelumnya. Yang
+disebut "kernel cocok" di aplikasi ini tidak pernah mengukur apa pun:
+
+```
+tools/pairing.json
+    { "release": "4.14.357-openela-Fresh-Milk-14.03", "tuning": true }
+
+KernelPairing.canTune(release, kernels, hasRoot) = hasRoot && nama ada di tabel
+```
+
+Tidak ada satu node sysfs pun yang dibaca untuk membukanya. Kolom `tuning` diisi
+saat kernel diterbitkan, dari namanya. Akibatnya tiga, dan semuanya nyata: nama
+yang cocok dianggap izin (slider muncul untuk node yang mungkin tidak ada),
+kernel bagus dengan nama asing ditolak, dan lencana kernel di PULSE diberi warna
+aksen seolah nama itu sebuah putusan.
+
+Yang menggantikannya:
+
+- Kendali TUNING hanya muncul bila audit **membaca node itu** di perangkat dan
+  mendapat nilai. Itu satu-satunya syarat.
+- Nama kernel turun jadi keterangan: tidak membuka, tidak memblokir.
+- `"tuning"` dihapus dari tabel dan dari kode hasil generate. Setiap baris kini
+  `capabilities_verified: false` dengan `evidence: "none"`, karena memang begitu
+  keadaannya.
+- `canTune()` dihapus, bukan dihaluskan kalimatnya: aturan yang ia wakili adalah
+  bugnya.
+- `check_logic.py` menggagalkan build bila ada baris tabel yang kembali mengklaim
+  tuning atau kapabilitas terverifikasi.
+
+Konsekuensi yang harus diterima: selama node belum bisa dibaca (dan itu butuh
+root, yang masih menunggu `ksud` di ZIP kernel), halaman TUNING akan kosong. Itu
+jawaban yang benar, bukan kemunduran.
