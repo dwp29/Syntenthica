@@ -384,3 +384,44 @@ verifikasi APK **lolos**, lalu langkah penyimpanan artefak kalah cepat karena
 agent dan job push ke branch yang sama. APK yang sudah jadi terbuang. Langkah itu
 sekarang mencoba ulang sampai lima kali.
 
+## Run 31: force close, dan pustaka native yang memuat dirinya sendiri
+
+Run 30 tidak bisa dibuka sama sekali. Run 24 — yang tidak pernah menyentuh
+`libkernelsu.so` — bisa dibuka. Urutan itu sudah cukup untuk menunjuk tersangka,
+dan tidak ada tersangka lain yang cocok.
+
+Penyebabnya dua kesalahan saya yang bertumpuk:
+
+`System.loadLibrary` diletakkan di dalam `by lazy`, jadi pustaka dimuat pada
+pembacaan properti pertama — saat start-up, di worker — bukan di tempat yang
+saya pilih. Blok `lazy` yang melempar juga dicoba ulang pada setiap akses,
+sehingga kegagalan akan diulang selamanya.
+
+Kesalahan kedua lebih berat: **initialiser pustaka native bisa memanggil
+`abort()`**. Tidak ada `try/catch`, tidak ada `UncaughtExceptionHandler`, tidak
+ada kode Kotlin yang berjalan setelahnya — prosesnya sudah hilang. Membungkus
+pemuatan itu memang tidak akan pernah menolong, dan itu seharusnya sudah saya
+tahu sebelum mengirimkannya. `UnsatisfiedLinkError` juga sebuah `Error`, bukan
+`Exception`, jadi penanganan yang biasa pun tidak menjangkaunya.
+
+Run 31 mengubah kontraknya:
+
+- `Natives.load()` satu-satunya pintu masuk, mengembalikan `false` bila gagal.
+  Tidak ada yang berjalan di berkas itu sebelum ia berhasil.
+- Pustaka **tidak** dimuat saat start-up. Tombol di halaman ROOT adalah izinnya.
+- `NativeGuard` menulis penanda "percobaan sedang jalan" ke disk sebelum memuat.
+  Bila proses mati saat memuat, penanda itu selamat; start berikutnya melihatnya,
+  menolak memuat lagi, dan menjelaskannya di layar dengan tombol untuk mencoba
+  sekali lagi.
+- Worker start-up dibungkus: kegagalan apa pun menjadi kalimat di halaman ROOT,
+  bukan force close.
+- `RootStatus.snapshot(allowLibrary)` default `false`, sehingga jalur aman adalah
+  yang didapat pemanggil yang lupa memikirkannya.
+
+100 tes JVM lulus (97 dari run 30 + `NativeGuardTest` 2 + `NativeMarkerLogicTest`
+1). APK `versionCode 31`, sha256 `c54ee28d…`, tanda tangan sementara sehingga
+run 30 harus di-uninstall lebih dulu.
+
+Belum terbukti: aplikasi benar-benar terbuka di perangkat, dan ROOT/MODULES
+terisi. Keduanya menunggu tangkapan dari perangkat.
+
