@@ -21,6 +21,16 @@ therefore guarded as must-stay-on instead of listed as allowed changes -
 listing them as changes would make the exact-difference guard fail, which is
 exactly what it is there to do.
 
+Root stack. The inherited 3.2-r1 -> 3.0-root -> 3.0-rc1 -> 2.0-experiment finish
+chain runs source-hash and compiled-object checks that were written for the
+KernelSU-Next root. On the BakaSU stack those checks are not applicable: BakaSU
+exports no ksu_install_manager_exec_fd, has no KernelSU-Next/kernel/supercall,
+builds its Manager without the -fno-builtin-strncmp audit flag, and recognises
+the Manager by APK signature index rather than an embedded certificate-hash
+literal. Each such check is skipped when SP_ROOT_STACK=bakasu and recorded as
+not applicable in the status; the stack-agnostic checks (config, image,
+certificate, modules, export ABI) still run on every stack.
+
 Usage
     build_fresh_milk.py <variant> verify
     build_fresh_milk.py <variant> apply      # same guards, no compile
