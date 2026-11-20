@@ -50,7 +50,7 @@ import app.breakfast.manager.ui.theme.NumericStyle
 @Composable
 fun PulseScreen(
     variantLabel: String,
-    variantPaired: Boolean,
+    variantKnown: Boolean,
     readings: PulseReadings,
     uptimeText: String,
     auditAgeText: String,
@@ -104,9 +104,17 @@ fun PulseScreen(
                 }
             }
             Spacer(Modifier.height(10.dp))
+            // The release string is reported as a name, never as a verdict. The
+            // colour says "this string was never verified", not "this kernel is bad".
+            Text(
+                text = if (variantKnown) "nama kernel cocok" else "nama kernel belum dikenal",
+                fontSize = 10.sp,
+                color = c.textTertiary,
+            )
+            Spacer(Modifier.height(6.dp))
             Chip(
                 text = variantLabel,
-                color = if (variantPaired) c.accent else c.statusAttention,
+                color = c.accent,
                 filled = true,
             )
             Spacer(Modifier.height(18.dp))

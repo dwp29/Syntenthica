@@ -157,6 +157,12 @@ def main() -> int:
         failures += check(len(kernel["release"]) <= 64, f"pairing: {kernel['release']} exceeds utsname")
         failures += check(kernel["status"] != "boot_tested",
                           f"pairing: {kernel['release']} claims a boot test that did not happen")
+        # A published release is a name. It may never stand in for a capability,
+        # which is the mistake this whole table once encoded.
+        failures += check("tuning" not in kernel,
+                          f"pairing: {kernel['release']} still claims tuning permission")
+        failures += check(kernel.get("capabilities_verified", False) is False,
+                          f"pairing: {kernel['release']} claims verified capabilities")
     generated = (APP / "app/src/main/java/app/breakfast/manager/data/PairingGenerated.kt").read_text(encoding="utf-8")
     for release in releases:
         failures += check(f'release = "{release}"' in generated,

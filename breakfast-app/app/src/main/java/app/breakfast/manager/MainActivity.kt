@@ -377,9 +377,21 @@ class MainActivity : ComponentActivity() {
     private fun uiState() = BreakfastUiState(
         kernelRelease = release,
         variantLabel = decision.variant?.let { "FRESH-MILK-14.03" } ?: release.takeLast(16),
-        variantPaired = decision.known,
-        tuningEnabled = decision.tuningAllowed && report.nodes.isNotEmpty(),
-        tuningReason = if (decision.known) decision.reason else "unknown_kernel",
+        variantKnown = decision.known,
+        // Evidence, not a name. A control may be offered when the audit read its
+        // node on this device; the release string is only used to explain, never
+        // to permit. The old rule gated on uname and could hand out sliders for a
+        // kernel it had never read a single node from, or refuse a kernel whose
+        // nodes were right there.
+        tuningEnabled = report.supportedValues().isNotEmpty(),
+        tuningReason = when {
+            report.supportedValues().isNotEmpty() && !decision.known ->
+                "Node terbaca di perangkat ini; nama kernel tidak dikenal, dan itu tidak " +
+                    "dipakai sebagai bukti."
+            report.supportedValues().isNotEmpty() -> "paired"
+            !decision.known -> "unknown_kernel"
+            else -> "no_readable_node"
+        },
         hasRoot = hasRoot,
         auditing = auditing,
         canReset = lastPlan != null,

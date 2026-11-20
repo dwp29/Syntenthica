@@ -82,7 +82,7 @@ fun BreakfastApp(
                     when (target) {
                         Tab.PULSE -> PulseScreen(
                             variantLabel = state.variantLabel,
-                            variantPaired = state.variantPaired,
+                            variantKnown = state.variantKnown,
                             readings = state.readings,
                             uptimeText = state.uptimeText,
                             auditAgeText = state.auditAgeText,

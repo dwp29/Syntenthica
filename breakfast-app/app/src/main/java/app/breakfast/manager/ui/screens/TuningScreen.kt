@@ -95,7 +95,8 @@ fun TuningScreen(
                     }
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        text = "Kernel ini tidak ada di tabel pairing, jadi tidak ada parameter yang ditampilkan.",
+                        text = "Tidak ada satu pun node parameter yang terbaca di perangkat ini, " +
+                            "jadi tidak ada kendali yang ditampilkan.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = c.textPrimary,
                     )
@@ -107,9 +108,10 @@ fun TuningScreen(
                     )
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        text = "Aplikasi menolak menebak tata letak sysfs kernel yang tidak dikenalnya. " +
-                            "Menampilkan slider untuk node yang belum dipastikan berarti menawarkan " +
-                            "tombol yang tidak melakukan apa pun.",
+                        text = "Nama kernel bukan bukti: uname hanya menyebut string build, bukan " +
+                            "apakah sebuah node ada atau bisa ditulis. Buktinya adalah audit yang " +
+                            "membaca node itu di perangkat ini. Slider untuk node yang belum terbaca " +
+                            "hanya akan menjadi tombol yang tidak melakukan apa pun.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = c.textSecondary,
                     )

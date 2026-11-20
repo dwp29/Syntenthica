@@ -16,7 +16,9 @@ import app.breakfast.manager.data.TuningSession
 data class BreakfastUiState(
     val kernelRelease: String,
     val variantLabel: String,
-    val variantPaired: Boolean,
+    /** True when `uname -r` matched a release this build was published against.
+     *  A name match only: it is never evidence that a node exists or is writable. */
+    val variantKnown: Boolean,
     val tuningEnabled: Boolean,
     val tuningReason: String,
     val hasRoot: Boolean,

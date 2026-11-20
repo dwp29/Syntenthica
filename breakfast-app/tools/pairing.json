@@ -1,22 +1,24 @@
 {
   "schema": 1,
-  "note": "Kernel release -> manager compatibility. The manager refuses to enable tuning when the running kernel is not listed here. Add a row only after that kernel variant is published.",
+  "note": "Kernel release -> manager. This table matches NAMES only: uname -r says which string a kernel was built with, nothing about whether its sysfs nodes exist, what their ranges are, or whether a write is honoured. A row here is not evidence of anything and must never be read as one. Genuine evidence is the on-device audit: a control appears only when its node was read.",
   "kernels": [
     {
       "release": "4.14.357-openela-Fresh-Milk-14.03",
       "variant": "fresh-milk",
       "profile": "synthetica",
       "kernel_uapi": 4,
-      "tuning": true,
-      "status": "compiled_not_boot_tested"
+      "status": "compiled_not_boot_tested",
+      "capabilities_verified": false,
+      "evidence": "none: no node has been read on a device running this kernel"
     },
     {
       "release": "4.14.357-openela-CHEESE-BURGER-11.08",
       "variant": "cheese-burger",
       "profile": "critical",
       "kernel_uapi": 4,
-      "tuning": true,
-      "status": "compiled_not_boot_tested"
+      "status": "compiled_not_boot_tested",
+      "capabilities_verified": false,
+      "evidence": "none: no node has been read on a device running this kernel"
     }
   ],
   "fallback": {

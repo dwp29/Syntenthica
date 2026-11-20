@@ -37,7 +37,7 @@ def render(payload: dict) -> str:
             f"            variant = {variant},\n"
             f"            profile = {profile},\n"
             f"            kernelUapi = {int(kernel['kernel_uapi'])},\n"
-            f"            tuning = {'true' if kernel['tuning'] else 'false'},\n"
+            f"            capabilitiesVerified = {str(kernel.get('capabilities_verified', False)).lower()},\n"
             f"            status = {status},\n"
             "        ),\n"
         )

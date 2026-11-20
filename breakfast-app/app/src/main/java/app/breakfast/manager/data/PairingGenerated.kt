@@ -10,7 +10,7 @@ internal object PairingGenerated {
             variant = "fresh-milk",
             profile = "synthetica",
             kernelUapi = 4,
-            tuning = true,
+            capabilitiesVerified = false,
             status = "compiled_not_boot_tested",
         ),
         KernelPairing.Kernel(
@@ -18,7 +18,7 @@ internal object PairingGenerated {
             variant = "cheese-burger",
             profile = "critical",
             kernelUapi = 4,
-            tuning = true,
+            capabilitiesVerified = false,
             status = "compiled_not_boot_tested",
         ),
     )
