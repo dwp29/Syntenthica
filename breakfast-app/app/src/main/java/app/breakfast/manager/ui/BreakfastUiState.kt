@@ -34,7 +34,10 @@ data class BreakfastUiState(
     val rootMessage: String? = null,
     /** Checked facts for the ROOT page; null until the first probe finishes. */
     val rootSnapshot: RootStatus.Snapshot? = null,
-    /** /proc/modules, or null when the file could not be read at all. */
+    /** /data/adb/modules: the modules a person installs. */
+    val installedModules: ModuleScan.Installed? = null,
+
+    /** /proc/modules: *.ko objects linked in or loaded by the kernel. */
     val modules: ModuleScan.Result? = null,
     val onRefreshRoot: () -> Unit = {},
     val onRefreshModules: () -> Unit = {},

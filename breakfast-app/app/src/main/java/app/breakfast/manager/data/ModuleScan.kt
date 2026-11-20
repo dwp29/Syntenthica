@@ -1,16 +1,18 @@
 package app.breakfast.manager.data
 
 /**
- * Kernel modules actually loaded, from /proc/modules.
+ * KernelSU modules, from /data/adb/modules.
  *
- * The previous version returned an empty list both when the file could not be
- * read AND when it had no modules, so the screen said "Kernel ini tidak memuat
- * modul apa pun" on a device where the file simply was not readable. That is the
- * same mistake as reporting 0 C as a healthy temperature: an absence the app
- * never established, stated as fact.
+ * This page used to read /proc/modules, which is a different thing entirely:
+ * *.ko kernel objects, almost all of which a phone kernel links in statically.
+ * The modules a person installs (Zygisk, busybox, tweaks) live as directories
+ * under /data/adb/modules, and that is what was asked for. Reading the wrong file
+ * meant the page could never show them no matter how many were installed.
  *
- * [scan] now returns a [Result] carrying the reason, and the screen can only
- * claim "no modules" when the file was actually read.
+ * Both are kept, because both are facts worth having. Each carries its own
+ * confidence, and neither may be described with the other's sentence: a failed
+ * listing never becomes "0 modul", and a kernel object is never called an
+ * installed module.
  */
 object ModuleScan {
 
@@ -26,6 +28,99 @@ object ModuleScan {
 
         /** The file does not exist on this kernel at all. */
         data object NoProcModules : Result
+    }
+
+    /** One installed KernelSU module, as its directory says it is. */
+    data class InstalledModule(
+        val id: String,
+        val version: String?,
+        val description: String?,
+        val enabled: Boolean,
+        val updatePending: Boolean,
+        val removePending: Boolean,
+    )
+
+    /** The installed-module listing, with the same honesty as [Result]. */
+    sealed interface Installed {
+        /** The directory was listed. An empty list here is genuinely zero modules. */
+        data class Listed(val modules: List<InstalledModule>, val entries: Int) : Installed
+        data class Unreadable(val read: FileRead) : Installed
+        data object NoDirectory : Installed
+    }
+
+    const val INSTALLED_DIR = "/data/adb/modules"
+
+    /**
+     * Reads the modules directory through [read], which defaults to an ordinary
+     * file read. Directory listing is done separately because FileRead models
+     * files; the two failure modes are merged here with one rule: anything that
+     * is not a successful listing is not a count.
+     */
+    fun scanInstalled(
+        list: (String) -> List<String>? = { path -> java.io.File(path).list()?.toList() },
+        read: (String) -> FileRead = { FileRead.read(it) },
+    ): Installed {
+        val entries = try {
+            list(INSTALLED_DIR)
+        } catch (e: SecurityException) {
+            null
+        } ?: run {
+            val probe = read(INSTALLED_DIR)
+            return if (probe is FileRead.Missing) Installed.NoDirectory
+            else Installed.Unreadable(probe)
+        }
+
+        // A regular file such as .keep is not a module; only directories are.
+        val modules = entries
+            .filter { !it.startsWith(".") }
+            .sorted()
+            .map { id ->
+                val dir = "$INSTALLED_DIR/$id"
+                InstalledModule(
+                    id = id,
+                    version = read("$dir/module.prop").textOrNull()
+                        ?.let { prop(it, "version") },
+                    description = read("$dir/module.prop").textOrNull()
+                        ?.let { prop(it, "description") },
+                    // KernelSU's convention: a disable/remove file marks intent.
+                    enabled = !exists("$dir/disable", read),
+                    updatePending = exists("$dir/update", read),
+                    removePending = exists("$dir/remove", read),
+                )
+            }
+        return Installed.Listed(modules, entries.size)
+    }
+
+    private fun exists(path: String, read: (String) -> FileRead): Boolean =
+        read(path) !is FileRead.Missing
+
+    /** module.prop is a flat key=value file; a missing key is null, not empty. */
+    fun prop(text: String, key: String): String? =
+        text.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("$key=") }
+            ?.substringAfter('=')
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+    /** The sentence for installed modules, kept pure so a test can hold it still. */
+    fun describeInstalled(result: Installed): Pair<String, String?> = when (result) {
+        is Installed.Listed ->
+            if (result.modules.isEmpty()) {
+                "0 modul terpasang." to
+                    "$INSTALLED_DIR terbaca ${result.entries} entri dan tidak ada satu pun " +
+                    "direktori modul. Ini hasil pembacaan, bukan tebakan."
+            } else {
+                "${result.modules.size} modul terpasang" to null
+            }
+        is Installed.Unreadable ->
+            "Daftar modul terpasang tidak bisa dibaca." to
+                result.read.explain(INSTALLED_DIR) +
+                ". Ini bukan pernyataan bahwa tidak ada modul terpasang."
+        Installed.NoDirectory ->
+            "Belum ada modul terpasang." to
+                "$INSTALLED_DIR tidak ada. Pengelola root membuat direktori ini saat root " +
+                "pertama kali berjalan, jadi ini juga berarti root belum pernah aktif."
     }
 
     /** Parses /proc/modules: name size refcount deps state address. */

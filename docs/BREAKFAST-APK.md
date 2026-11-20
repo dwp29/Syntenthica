@@ -455,3 +455,55 @@ Urutan yang harus dibetulkan ada di paket kernel, bukan di APK: ZIP ikut memasan
 baru setelah keduanya cocok root bisa muncul. Aplikasi tidak bisa menambal
 ketiadaan itu, dan tidak lagi berpura-pura bisa.
 
+## Multi-manager: BakaSU dan KernelSU-Next tidak bisa berdampingan di satu kernel
+
+Pertanyaan yang diajukan: BREAKFAST berbasis BakaSU, Synthetica Manager berbasis
+KernelSU-Next — bisakah keduanya jalan bersama?
+
+Jawabannya perlu dipisah menjadi dua hal yang sering tertukar.
+
+**Backend root tidak bisa dua.** Kernel 4.14 hanya memuat satu backend: BakaSU,
+KernelSU-Next, SukiSU, dan APatch semuanya membajak jalur `setuid` dan `reboot`
+yang sama. `docs/HOLD-FITUR-DAN-RENCANA-KERNEL.md` §3 sudah mencatat keputusan ini:
+BakaSU (UAPI 6) ditunda, dan base 3.2 memakai KernelSU-Next in-tree (UAPI 4) karena
+mengganti backend sekaligus menambah fitur menghilangkan kemampuan membedakan mana
+yang membuat kernel gagal boot. Jadi "BREAKFAST berbasis BakaSU" bukan keadaan yang
+ada sekarang, dan tidak bisa dibuat tanpa mengganti backend kernel.
+
+**Manager bisa lebih dari satu, dan sudah begitu.** Sebuah manager hanyalah
+aplikasi yang berbicara kepada backend. Kernel hanya mengakui satu identitas manager
+(`net.ember.labs` + sertifikat `fe833710…`), tetapi aplikasi lain tetap boleh meminta
+`su`. Karena itu Synthetica Manager dan BREAKFAST sudah berjalan bersama di
+perangkat yang sama; memasang BREAKFAST tidak mengubah apa pun untuk root.
+
+**Yang harus dilakukan supaya BREAKFAST mendapat root.** Tiga hal, dan hanya satu
+di antaranya urusan aplikasi:
+
+1. ZIP kernel harus memasang `ksud` (belum; lihat bagian audit di atas).
+2. Aplikasi harus diizinkan di daftar aplikasi Synthetica Manager. KernelSU tidak
+   memunculkan permintaan izin dengan sendirinya untuk uid yang belum terdaftar:
+   `su` hanya memberi shell bila uid itu ada di allowlist. Tanpa langkah ini,
+   aplikasi akan selamanya melihat "izin belum diberikan".
+3. Halaman ROOT harus bisa membedakan "ditolak" dari "belum ditanya" — itu bug
+   aplikasi yang diperbaiki di commit ini (lihat bawah).
+
+## Tiga kesalahan yang ditemukan dari pertanyaan itu
+
+**Verdict ROOT salah urutan.** Pemeriksaan "pengelola root tidak terbaca" dijalankan
+lebih dulu, sehingga menelan kasus yang sebenarnya terjadi: manager terbaca, `su`
+menolak. Sekarang `su` ditimbang lebih dulu; hanya bila keduanya buta jawabannya
+"BELUM DIKETAHUI", dan kalimatnya menyebut dua sebab yang berbeda: backend memang
+tidak ada, atau profil terisolasi sehingga `su` tidak dipasang untuk proses ini.
+
+**MODULES membaca berkas yang salah.** Halaman itu membaca `/proc/modules`, yaitu
+objek kernel `*.ko`, bukan modul yang dipasang orang. Modul KernelSU ada di
+`/data/adb/modules`, dan itulah yang ditanyakan. Sekarang dua daftar ditampilkan
+terpisah — "modul terpasang" dari `/data/adb/modules`, "modul kernel termuat" dari
+`/proc/modules` — dan masing-masing punya kalimatnya sendiri. Hanya pembacaan yang
+berhasil boleh berkata "0 modul".
+
+**Hitung pengguna root dari API manager.** `getSuperuserCount()` adalah ioctl yang
+hanya boleh dijawab untuk manager atau root, yang tidak akan pernah diberikan kepada
+aplikasi ini. Angka itu tidak lagi dipakai sebagai fakta. Sebagai gantinya ada baris
+**multi-manager** yang membaca `CONFIG_KSU` dari `/proc/config.gz`: satu backend,
+disebut namanya, atau "tidak bisa dipastikan" bila berkasnya tidak terbaca.

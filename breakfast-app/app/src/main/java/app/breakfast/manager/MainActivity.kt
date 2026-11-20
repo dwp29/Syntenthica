@@ -156,6 +156,7 @@ class MainActivity : ComponentActivity() {
                 // abort the process while loading, and nothing in Java can catch that.
                 rootSnapshot = RootStatus.snapshot(allowLibrary = false)
                 modules = ModuleScan.scan()
+                installedModules = ModuleScan.scanInstalled()
 
                 publish {
                     readLedger()
@@ -281,6 +282,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshModules() {
         worker.execute {
             modules = ModuleScan.scan()
+            installedModules = ModuleScan.scanInstalled()
             publish { frame++ }
         }
     }
@@ -392,6 +394,7 @@ class MainActivity : ComponentActivity() {
         onRefreshModules = { refreshModules() },
         rootSnapshot = rootSnapshot,
         modules = modules,
+        installedModules = installedModules,
         intervalSeconds = intervalSeconds,
         onIntervalPick = { seconds ->
             intervalSeconds = seconds

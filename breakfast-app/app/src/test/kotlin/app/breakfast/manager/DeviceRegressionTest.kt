@@ -457,6 +457,38 @@ class RootHonestyTest {
     }
 
     @Test
+    fun `a readable manager with a refusing su is not called unreadable`() {
+        // The order of these checks was wrong: "manager unreadable" fired first
+        // and hid the case that actually happens - the manager is right there,
+        // and the shell was simply refused.
+        val s = snapshot(
+            manager = fact("tidak bisa dipastikan", RootStatus.Sure.UNKNOWN),
+            su = fact("tidak terbaca", RootStatus.Sure.UNKNOWN),
+        )
+        assertTrue(s.verdict().contains("BELUM DIKETAHUI"))
+
+        val readable = snapshot(
+            manager = fact("KernelSU v0.9.2", RootStatus.Sure.FILESYSTEM),
+            su = fact("/system/bin/su", RootStatus.Sure.FILESYSTEM),
+        )
+        val verdict = readable.verdict()
+        assertFalse("must not claim it could not check: $verdict", verdict.contains("BELUM DIKETAHUI"))
+        assertTrue("must name the refusal: $verdict", verdict.contains("belum diizinkan"))
+        assertTrue("must say a prompt does not appear by itself: $verdict",
+            verdict.contains("Tidak ada permintaan izin"))
+    }
+
+    @Test
+    fun `the root shell is what decides, not the blind directory`() {
+        // /data/adb being unreadable must not outrank a su that answered.
+        val s = snapshot(
+            manager = fact("tidak bisa dipastikan", RootStatus.Sure.UNKNOWN),
+            su = fact("/system/bin/su", RootStatus.Sure.FILESYSTEM),
+        )
+        assertTrue(s.verdict().contains("/system/bin/su"))
+    }
+
+    @Test
     fun `a granted snapshot reports the privileged reads as checked`() {
         // The helper builds dmesg as "tidak bisa dibaca" because that is what an
         // ungranted device looks like; a granted one must say so and be happy.
@@ -486,8 +518,8 @@ class NativeGuardTest {
     @Test
     fun `a skipped load still yields a complete snapshot`() {
         val snapshot = RootStatus.snapshot(allowLibrary = false)
-        // Six rows, none of them null, and a verdict a person can act on.
-        assertEquals(6, snapshot.lines().size)
+        // Seven rows, none of them null, and a verdict a person can act on.
+        assertEquals(7, snapshot.lines().size)
         assertTrue(snapshot.verdict().isNotEmpty())
     }
 }
@@ -502,5 +534,140 @@ class NativeMarkerLogicTest {
         assertFalse("a crashed attempt must not repeat automatically", mayLoad(true, false))
         assertTrue("but the user may ask once", mayLoad(true, true))
         assertTrue("a clean state loads normally", mayLoad(false, false))
+    }
+}
+
+/**
+ * The module list that was never read.
+ *
+ * MODULES pointed at /proc/modules, which holds kernel objects, not the modules a
+ * person installs. These tests hold the two lists apart and keep "could not read"
+ * from turning into "zero".
+ */
+class InstalledModulesTest {
+
+    private val modulesDir = ModuleScan.INSTALLED_DIR
+
+    private fun listing(
+        entries: List<String>? = emptyList(),
+        props: Map<String, String> = emptyMap(),
+        markers: Set<String> = emptySet(),
+    ): ModuleScan.Installed {
+        val fileReads = HashMap<String, FileRead>()
+        for ((id, prop) in props) fileReads["$modulesDir/$id/module.prop"] = FileRead.Ok(prop)
+        for (path in markers) fileReads[path] = FileRead.Ok("")
+        return ModuleScan.scanInstalled(
+            list = { if (it == modulesDir) entries else null },
+            read = { path -> fileReads[path] ?: FileRead.Missing },
+        )
+    }
+
+    @Test
+    fun `an installed module is listed with what its directory says`() {
+        val result = listing(
+            entries = listOf("busybox-ndk"),
+            props = mapOf("busybox-ndk" to "id=busybox-ndk\nversion=1.36.1\ndescription=BusyBox for Android\n"),
+        )
+        val listed = result as ModuleScan.Installed.Listed
+        assertEquals(1, listed.modules.size)
+        val module = listed.modules.single()
+        assertEquals("busybox-ndk", module.id)
+        assertEquals("1.36.1", module.version)
+        assertEquals("BusyBox for Android", module.description)
+        assertTrue(module.enabled)
+    }
+
+    @Test
+    fun `kernel su state files decide enabled, update and removal`() {
+        val result = listing(
+            entries = listOf("a-disabled", "b-update", "c-remove"),
+            markers = setOf(
+                "$modulesDir/a-disabled/disable",
+                "$modulesDir/b-update/update",
+                "$modulesDir/c-remove/remove",
+            ),
+        )
+        val byId = (result as ModuleScan.Installed.Listed).modules.associateBy { it.id }
+        assertFalse(byId.getValue("a-disabled").enabled)
+        assertTrue(byId.getValue("b-update").updatePending)
+        assertTrue(byId.getValue("c-remove").removePending)
+    }
+
+    @Test
+    fun `dotfiles are not modules`() {
+        val listed = listing(entries = listOf(".keep")) as ModuleScan.Installed.Listed
+        assertEquals(0, listed.modules.size)
+        assertEquals(1, listed.entries)
+    }
+
+    @Test
+    fun `only a successful listing may say zero modules`() {
+        val empty = listing(entries = emptyList())
+        assertEquals("0 modul terpasang.", ModuleScan.describeInstalled(empty).first)
+
+        val denied = ModuleScan.scanInstalled(
+            list = { null },
+            read = { FileRead.Denied },
+        )
+        assertTrue(denied is ModuleScan.Installed.Unreadable)
+        val sentence = ModuleScan.describeInstalled(denied).first
+        assertFalse("a failed read must not become a count: $sentence", sentence.contains("0 modul"))
+        assertTrue(sentence.contains("tidak bisa dibaca"))
+
+        val missing = ModuleScan.scanInstalled(
+            list = { null },
+            read = { FileRead.Missing },
+        )
+        assertEquals(ModuleScan.Installed.NoDirectory, missing)
+    }
+
+    @Test
+    fun `the kernel object list is never described as installed modules`() {
+        val kernelObjects = ModuleScan.Result.Loaded(
+            listOf(ModuleScan.Module("wlcore", 4096, "")), rawLines = 1,
+        )
+        val (headline, _) = ModuleScan.describe(kernelObjects)
+        assertFalse("$headline must not be called an install list", headline.contains("terpasang"))
+        assertTrue(headline.contains("modul"))
+    }
+
+    @Test
+    fun `prop parsing does not invent values`() {
+        assertEquals("1.0", ModuleScan.prop("version=1.0\n", "version"))
+        assertEquals(null, ModuleScan.prop("version=\n", "version"))
+        assertEquals(null, ModuleScan.prop("description=x\n", "version"))
+    }
+}
+
+/** The multi-backend answer is a kernel fact, not an impression. */
+class RootBackendTest {
+
+    @Test
+    fun `one backend is reported as one, from CONFIG_KSU`() {
+        val answer = RootStatus.MultiManager.fromConfig("CONFIG_KSU=y\nCONFIG_KSU_MANUAL_HOOK=y\n")
+        assertTrue(answer.startsWith("satu backend"))
+        assertTrue(answer.contains("KernelSU"))
+    }
+
+    @Test
+    fun `two backends in one kernel is never claimed`() {
+        // 4.14 cannot carry both; the sentence must say so rather than imply the
+        // user can add BakaSU next to a working KernelSU-Next.
+        val answer = RootStatus.MultiManager.fromConfig("CONFIG_KSU=y\n")
+        assertTrue(answer.contains("hanya bisa memuat satu backend"))
+        assertFalse(answer.contains("dua backend"))
+    }
+
+    @Test
+    fun `a read config without CONFIG_KSU claims nothing`() {
+        val answer = RootStatus.MultiManager.fromConfig("CONFIG_MODULES=y\n")
+        assertTrue("$answer must not claim a backend", answer.startsWith("tidak ditemukan"))
+    }
+
+    @Test
+    fun `an unreadable config is not an answer about the kernel`() {
+        val answer = RootStatus.MultiManager.answer { FileRead.Denied }
+        assertTrue(answer.startsWith("tidak bisa dipastikan"))
+        assertFalse(answer.contains("satu backend"))
     }
 }

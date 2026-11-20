@@ -69,21 +69,45 @@ object RootStatus {
             kernelVersion?.let { add("versi kernel" to it) }
             kernelUapi?.let { add("UAPI kernel" to it.toString()) }
             suEnabled?.let { add("su aktif" to if (it) "ya" else "tidak") }
-            superuserCount?.let { add("aplikasi ber-root" to "$it aplikasi") }
+            superuserCount?.let { add("daftar izin dibaca" to "$it entri") }
+            // Asked and answered in this file rather than by the kernel: the
+            // library's superuser count is a manager-only ioctl this app is not
+            // granted, and a number that never arrives is not a fact.
+            add("multi-manager" to MultiManager.answer())
             safeMode?.let { add("safe mode" to if (it) "ya - modul dinonaktifkan" else "tidak") }
         }
 
         /** One sentence a person can act on. */
         fun verdict(): String = when {
             granted -> "Root diberikan. Pembacaan istimewa berjalan."
-            manager.sure == Sure.UNKNOWN ->
-                "Aplikasi tidak bisa memeriksa root sama sekali: jalur /data/adb tidak " +
-                    "terbaca oleh sandbox. Status root di perangkat ini BELUM DIKETAHUI, " +
-                    "bukan negatif."
-            su.sure == Sure.UNKNOWN -> "Keberadaan su belum bisa dipastikan. Tekan BERI ROOT untuk mencoba."
-            su.value == "tidak ditemukan" -> "Tidak ada su yang bisa dijangkau dari aplikasi ini."
-            else -> "su ada tetapi belum memberi izin. Tekan BERI ROOT."
+            // su is the operative evidence, so it is weighed before a directory
+            // that could not be listed. Only when both are blind is the whole
+            // answer "unknown" - and then it says why, and what to check.
+            su.sure == Sure.UNKNOWN && manager.sure == Sure.UNKNOWN -> verdictUnknown()
+            su.sure == Sure.UNKNOWN ->
+                "Pengelola root terbaca, tetapi su belum menjawab. Tekan BERI ROOT untuk mencoba."
+            su.value == "tidak ditemukan" && manager.sure == Sure.UNKNOWN -> verdictUnknown()
+            su.value == "tidak ditemukan" ->
+                "Pengelola root tidak menyediakan su untuk aplikasi ini. " +
+                    "Lihat baris multi-manager di bawah."
+            else ->
+                "Pengelola root memasang su di ${su.value}, tetapi aplikasi ini belum " +
+                    "diizinkan. Tidak ada permintaan izin yang muncul dengan sendirinya: " +
+                    "izinkan aplikasi ini di pengelola root, lalu tekan PERIKSA ULANG."
         }
+
+        /**
+         * Why /data/adb and su both read as unknown on a rooted phone, and what to
+         * do about it. The previous one-liner blamed a sandbox and stopped there:
+         * true, and useless.
+         */
+        fun verdictUnknown(): String =
+            "/data/adb dan su sama-sama tidak terbaca, jadi status root di perangkat ini " +
+                "BELUM DIKETAHUI - bukan negatif. Ada dua sebab dengan arti yang berbeda: " +
+                "(1) kernel ini belum menjalankan pengelola root, artinya memang tidak ada root; " +
+                "(2) root ada, tetapi aplikasi ini berjalan di profil terisolasi terpisah sehingga " +
+                "su tidak dipasang untuk prosesnya. Periksa di pengelola root bahwa aplikasi ini " +
+                "ada dan diizinkan."
     }
 
     private val MANAGERS = listOf(
@@ -93,6 +117,59 @@ object RootStatus {
         "/data/adb/magisk" to "Magisk",
         "/data/adb/ap" to "APatch",
     )
+
+    /**
+     * Which root backends this kernel actually carries, from the kernel's own
+     * config. Not from guessing, and not from what is installed in userspace.
+     *
+     * A 4.14 kernel holds one backend: KernelSU, KernelSU-Next, SukiSU and
+     * BakaSU all hook the same setuid and reboot paths. Two managers can live
+     * side by side because a manager is only an app that talks to that backend;
+     * a second backend cannot.
+     */
+    object MultiManager {
+        const val KERNEL_CONFIG = "/proc/config.gz"
+
+        /** Answer shown on the ROOT page: one sentence, no speculation. */
+        fun answer(read: (String) -> FileRead = { FileRead.read(it) }): String =
+            when (val result = read(KERNEL_CONFIG)) {
+                is FileRead.Ok -> fromConfig(result.text)
+                FileRead.Missing ->
+                    "tidak bisa dipastikan: /proc/config.gz tidak ada, jadi isi kernel tidak terbaca"
+                FileRead.Denied ->
+                    "tidak bisa dipastikan: izin membaca /proc/config.gz ditolak"
+                FileRead.NotAFile -> "tidak bisa dipastikan: /proc/config.gz bukan berkas biasa"
+                is FileRead.Failed ->
+                    "tidak bisa dipastikan: /proc/config.gz gagal dibaca (${result.reason})"
+            }
+
+        /**
+         * Pure, so a unit test can hold it still.
+         *
+         * Only a successful read that *contains* CONFIG_KSU may claim a backend.
+         * An empty or truncated read claims nothing.
+         */
+        fun fromConfig(text: String): String {
+            // gzip magic; File.readText() cannot decompress it, so this function
+            // is only ever handed text that was already readable.
+            val set = mutableListOf<String>()
+            for (line in text.lineSequence()) {
+                val t = line.trim()
+                if (t == "CONFIG_KSU=y" || t == "CONFIG_KSU=m") set += "KernelSU/KernelSU-Next"
+                if (t == "CONFIG_KSU_SUSFS=y" || t == "CONFIG_KSU_SUSFS=m") set += "SuSFS"
+            }
+            return when {
+                set.isEmpty() ->
+                    "tidak ditemukan: config kernel terbaca tetapi tidak memuat CONFIG_KSU"
+                set.size == 1 && set[0] == "SuSFS" ->
+                    "tidak ditemukan: hanya CONFIG_KSU_SUSFS, tanpa CONFIG_KSU"
+                else ->
+                    "satu backend: ${set.joinToString(" + ")}. " +
+                        "Kernel 4.14 hanya bisa memuat satu backend root, jadi BakaSU atau " +
+                        "KernelSU-Next - bukan keduanya. Manager bisa lebih dari satu aplikasi."
+            }
+        }
+    }
 
     private val SU_PATHS = listOf(
         "/system/bin/su",
