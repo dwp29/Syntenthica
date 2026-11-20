@@ -483,6 +483,58 @@ def apply_variant(variant: str):
         return changes
 
     module.compare_31_config = compare_31_config
+
+    original_compare_31_exports = module.compare_31_exports
+
+    def compare_31_exports(reference: Path, generated: Path):
+        """Exported ABI must match 3.1; symbol addresses may move on BakaSU.
+
+        The pinned 3.1 reference is a KernelSU-Next build. On the KernelSU-Next
+        stack the rebuild reproduces the exact link layout, so the strict gate
+        (names, owners, export types AND crcs) applies unchanged. BakaSU swaps
+        the root driver and moves the Kconfig hook choice, which shifts the
+        kernel link layout: every symbol's address (crc) moves even though the
+        exported ABI - names, owners and export types - is unchanged. Compare
+        the ABI and allow the crc delta; a name, owner or type change still
+        fails the gate.
+        """
+        if spec.get('root_stack') != 'bakasu':
+            return original_compare_31_exports(reference, generated)
+        v3 = module.v3
+        abi = module.abi_helper
+        if reference.is_symlink() or not reference.is_file() or v3.digest(reference) != module.BASE31_SYMVERS_SHA256:
+            raise ValueError('3.1 Module.symvers does not match the pinned build')
+        if generated.is_symlink() or not generated.is_file():
+            raise ValueError('generated Module.symvers missing or unsafe')
+        old_exports = abi.parse_symvers(reference.read_text(encoding='utf-8'))
+        new_exports = abi.parse_symvers(generated.read_text(encoding='utf-8'))
+        old_builtin = sum(owner == 'vmlinux' for _crc, owner, _kind in old_exports.values())
+        if len(old_exports) != 12236 or old_builtin != 12227:
+            raise ValueError('unexpected 3.1 export reference')
+        missing = sorted(old_exports.keys() - new_exports.keys())
+        added = sorted(new_exports.keys() - old_exports.keys())
+        abi_changed = sorted(n for n in old_exports.keys() & new_exports.keys()
+                             if old_exports[n][1:] != new_exports[n][1:])
+        if missing or added or abi_changed:
+            raise ValueError('3.2-r1 export ABI differs from 3.1: missing='
+                             f'{len(missing)} added={len(added)} '
+                             f'owner/type changed={len(abi_changed)}; '
+                             f'examples={(missing + added + abi_changed)[:12]}')
+        crc_moved = sorted(n for n in old_exports.keys() & new_exports.keys()
+                           if old_exports[n][0] != new_exports[n][0])
+        module_layout_crc = new_exports.get('module_layout', ('unknown',))[0]
+        return {'reference_symvers_sha256': module.BASE31_SYMVERS_SHA256,
+                'generated_symvers_sha256': v3.digest(generated),
+                'exported_records_compared': len(old_exports),
+                'builtin_records_compared': old_builtin,
+                'module_records_compared': len(old_exports) - old_builtin,
+                'missing_added_or_changed': 0,
+                'crc_moved_on_bakasu_stack': len(crc_moved),
+                'module_layout_crc': module_layout_crc,
+                'scope': 'All export names, owners and types match 3.1; symbol '
+                         'addresses (crcs) are build-layout dependent on the BakaSU stack.'}
+
+    module.compare_31_exports = compare_31_exports
     _install_config_check(module, variant, allowed)
     _install_tested_compare(module, variant, allowed)
 

@@ -11,6 +11,7 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -487,6 +488,91 @@ class Workflow(unittest.TestCase):
         profiles = (ROOT / 'build-kit/ci/rollercoaster/profiles')
         for item in include:
             self.assertTrue((profiles / 'synthetica.config').exists(), item['variant'])
+
+
+class Compare31ExportsGate(unittest.TestCase):
+    """The export ABI gate: BakaSU lets symbol addresses move, not the ABI.
+
+    The pinned 3.1 reference is a KernelSU-Next build. BakaSU changes the root
+    driver and the Kconfig hook choice, which shifts the kernel link layout:
+    every symbol's address (crc) moves even though the exported ABI - names,
+    owners and export types - is unchanged. The gate must accept the crc delta
+    but still refuse any name, owner or type change, and must leave the strict
+    KernelSU-Next gate untouched.
+    """
+
+    REF_SYMS = 12236
+    REF_BUILTIN = 12227
+
+    def _symvers(self, crc_shift=0, owner_shift=False):
+        lines = ['0xed5659d1 module_layout vmlinux EXPORT_SYMBOL']
+        for i in range(self.REF_BUILTIN - 1):
+            lines.append(f'0x{(i + 1 + crc_shift) & 0xFFFFFFFF:08x} vmsym{i} vmlinux EXPORT_SYMBOL')
+        for i in range(self.REF_SYMS - self.REF_BUILTIN):
+            owner = 'other_module' if (owner_shift and i == 0) else 'some_module'
+            lines.append(f'0x{(100000 + i + 1 + crc_shift) & 0xFFFFFFFF:08x} modsym{i} {owner} EXPORT_SYMBOL_GPL')
+        return '\n'.join(lines) + '\n'
+
+    def _module(self, stack='bakasu'):
+        import os
+        self._env = {}
+        for var, val in (('SP_BUILD_NAME', 'Fresh-Milk'), ('SP_BUILD_KVER', '14.03B'),
+                         ('SP_PROFILE', 'synthetica')):
+            self._env[var] = os.environ.get(var)
+            os.environ[var] = val
+        m = load()
+        # The closure reads spec['root_stack'] when the gate runs, so keep the
+        # override in place until tearDown restores it.
+        self._saved_stack = m.VARIANTS['fresh-milk']['root_stack']
+        m.VARIANTS['fresh-milk']['root_stack'] = stack
+        module = m.apply_variant('fresh-milk')
+        # Neutralise the pinned reference digest so arbitrary fixture bytes pass.
+        module.BASE31_SYMVERS_SHA256 = 'deadbeef'
+        module.v3.digest = lambda _p: 'deadbeef'
+        return module
+
+    def tearDown(self):
+        import os
+        for var, val in getattr(self, '_env', {}).items():
+            if val is None:
+                os.environ.pop(var, None)
+            else:
+                os.environ[var] = val
+        if hasattr(self, '_saved_stack'):
+            load().VARIANTS['fresh-milk']['root_stack'] = self._saved_stack
+
+    def test_bakasu_allows_the_crc_to_move(self):
+        module = self._module()
+        with tempfile.TemporaryDirectory() as tmp:
+            ref = Path(tmp) / 'ref.symvers'
+            gen = Path(tmp) / 'gen.symvers'
+            ref.write_text(self._symvers(crc_shift=0), encoding='utf-8')
+            gen.write_text(self._symvers(crc_shift=1), encoding='utf-8')
+            result = module.compare_31_exports(ref, gen)
+            self.assertEqual(result['missing_added_or_changed'], 0)
+            self.assertGreater(result['crc_moved_on_bakasu_stack'], 0)
+
+    def test_bakasu_refuses_an_abi_change(self):
+        module = self._module()
+        with tempfile.TemporaryDirectory() as tmp:
+            ref = Path(tmp) / 'ref.symvers'
+            gen = Path(tmp) / 'gen.symvers'
+            ref.write_text(self._symvers(), encoding='utf-8')
+            gen.write_text(self._symvers(owner_shift=True), encoding='utf-8')
+            with self.assertRaises(ValueError) as ctx:
+                module.compare_31_exports(ref, gen)
+            self.assertIn('owner/type changed', str(ctx.exception))
+
+    def test_kernelsu_next_stack_stays_strict(self):
+        module = self._module(stack='kernelsu-next')
+        with tempfile.TemporaryDirectory() as tmp:
+            ref = Path(tmp) / 'ref.symvers'
+            gen = Path(tmp) / 'gen.symvers'
+            ref.write_text(self._symvers(crc_shift=0), encoding='utf-8')
+            gen.write_text(self._symvers(crc_shift=1), encoding='utf-8')
+            with self.assertRaises(ValueError) as ctx:
+                module.compare_31_exports(ref, gen)
+            self.assertIn('changed=', str(ctx.exception))
 
 
 if __name__ == '__main__':
