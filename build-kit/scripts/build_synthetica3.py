@@ -104,10 +104,17 @@ def check_config(baseline: str, generated: str) -> dict[str, dict[str, str]]:
     stack = os.environ.get("SP_ROOT_STACK", "kernelsu-next")
     if stack not in HOOK_METHOD_BY_STACK:
         raise ValueError(f"unknown root stack: {stack}")
-    required = (*REQUIRED_Y, *HOOK_METHOD_BY_STACK[stack])
-    for symbol in required:
+    for symbol in REQUIRED_Y:
         if old.get(symbol) != "y" or new.get(symbol) != "y":
             raise ValueError(f"required 2.0 feature/security config is not y: {symbol}")
+    # The hook method is a property of the *new* kernel, not of the saved 2.0
+    # config. That baseline is a KernelSU-Next one, where the manual hook is
+    # off and SuSFS is on; demanding KSU_MANUAL_HOOK=y there asserts something
+    # about a file nobody is building and fails every BakaSU run with a message
+    # that names the hook as "missing" even though the generated config has it.
+    for symbol in HOOK_METHOD_BY_STACK[stack]:
+        if new.get(symbol) != "y":
+            raise ValueError(f"required hook method is not y in the generated config: {symbol}")
     # Only BakaSU's choice is exclusive. Its config must not claim SuSFS, or the
     # release would advertise hiding features the kernel will not compile.
     if stack == "bakasu" and new.get("KSU_SUSFS") == "y":
