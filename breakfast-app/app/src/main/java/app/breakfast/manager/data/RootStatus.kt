@@ -75,8 +75,9 @@ object RootStatus {
         fun verdict(): String = when {
             granted -> "Root diberikan. Pembacaan istimewa berjalan."
             manager.sure == Sure.UNKNOWN ->
-                "Aplikasi tidak bisa memeriksa root sama sekali. Jalur /data/adb tidak " +
-                    "terbaca oleh sandbox, jadi ini bukan bukti perangkat tidak ber-root."
+                "Aplikasi tidak bisa memeriksa root sama sekali: jalur /data/adb tidak " +
+                    "terbaca oleh sandbox. Status root di perangkat ini BELUM DIKETAHUI, " +
+                    "bukan negatif."
             su.sure == Sure.UNKNOWN -> "Keberadaan su belum bisa dipastikan. Tekan BERI ROOT untuk mencoba."
             su.value == "tidak ditemukan" -> "Tidak ada su yang bisa dijangkau dari aplikasi ini."
             else -> "su ada tetapi belum memberi izin. Tekan BERI ROOT."

@@ -431,15 +431,16 @@ class RootHonestyTest {
         )
         val verdict = blind.verdict()
         assertTrue("must admit it could not check: $verdict", verdict.contains("tidak bisa memeriksa"))
-        // The sentence deliberately ends with "ini bukan bukti perangkat tidak
-        // ber-root" - a denial of the claim, not the claim. Assert the claim
-        // itself is absent rather than the substring.
-        assertFalse(
-            "must not assert the device is unrooted: $verdict",
-            verdict.contains("perangkat tidak ber-root.") || verdict.startsWith("Tidak ada su"),
+        // The verdict must state that the situation is UNKNOWN, and must not
+        // reach for any verdict about the device at all.
+        assertTrue(
+            "must call the state unknown: $verdict",
+            verdict.contains("BELUM DIKETAHUI") || verdict.contains("belum diketahui"),
         )
-        assertTrue("must say it could not look: $verdict", verdict.contains("tidak terbaca") ||
-            verdict.contains("tidak bisa memeriksa"))
+        assertFalse(
+            "must not claim root exists or is absent: $verdict",
+            verdict.startsWith("Root diberikan") || verdict.startsWith("Tidak ada su"),
+        )
         // The rows must carry the uncertainty through, not flatten it.
         val managerRow = blind.lines().first { it.first == "pengelola root" }.second
         assertEquals(RootStatus.Sure.UNKNOWN, managerRow.sure)
