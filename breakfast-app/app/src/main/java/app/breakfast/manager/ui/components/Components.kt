@@ -275,14 +275,14 @@ internal fun graphBounds(series: List<Float>, normalise: Boolean, fixedMax: Floa
 }
 
 /** Where a value sits in a chart, 0 at the bottom and 1 at the top. */
-internal fun scaleForTest(value: Float, fixedMax: Float?): Float {
+internal fun graphScale(value: Float, fixedMax: Float?): Float {
     val (lo, hi) = graphBounds(listOf(value, value, fixedMax ?: value), normalise = false, fixedMax = fixedMax)
     val span = (hi - lo).takeIf { it > 0.0001f } ?: 1f
     return ((value - lo) / span).coerceIn(0f, 1f)
 }
 
 /** CPU usage from two /proc/stat samples, or null when the delta is too small. */
-internal fun statDeltaForTest(totalDelta: Long, idleDelta: Long): Float? {
+internal fun cpuUsageFromDelta(totalDelta: Long, idleDelta: Long): Float? {
     if (totalDelta < 20L || idleDelta < 0L) return null
     return ((totalDelta - idleDelta).toFloat() / totalDelta.toFloat()).coerceIn(0f, 1f)
 }

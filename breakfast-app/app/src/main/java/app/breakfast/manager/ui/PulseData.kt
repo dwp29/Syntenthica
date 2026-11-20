@@ -152,7 +152,7 @@ object PulseReader {
         // 2-second samples on a throttled kernel. A delta of a few ticks is not
         // a load measurement, so it is reported as "not measurable" rather than
         // as 0% or 100%.
-        return app.breakfast.manager.ui.components.statDeltaForTest(totalDelta, idleDelta)
+        return app.breakfast.manager.ui.components.cpuUsageFromDelta(totalDelta, idleDelta)
     }
 
     /**

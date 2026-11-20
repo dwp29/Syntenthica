@@ -7,7 +7,9 @@ import app.breakfast.manager.data.TuningVisibility
 import app.breakfast.manager.data.TuningWhitelist
 import app.breakfast.manager.data.Uptime
 import app.breakfast.manager.ui.PulseReader
-import app.breakfast.manager.ui.components.Components
+import app.breakfast.manager.ui.components.graphBounds
+import app.breakfast.manager.ui.components.cpuUsageFromDelta
+import app.breakfast.manager.ui.components.graphScale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -173,8 +175,8 @@ class Run17RegressionTest {
         // Same numbers as the device: 60.6..61.2 out of 100. Before the fix the
         // lowest of these was drawn ON the floor and the highest at the ceiling.
         val series = listOf(60.6f, 60.8f, 61.0f, 61.1f, 61.2f)
-        val drawn = Components.scaleForTest(series.first(), fixedMax = 100f) to
-            Components.scaleForTest(series.last(), fixedMax = 100f)
+        val drawn = graphScale(series.first(), fixedMax = 100f) to
+            graphScale(series.last(), fixedMax = 100f)
         assertTrue("memory must sit above the floor, was ${drawn.first}", drawn.first > 0.15f)
         assertTrue("memory must sit below the ceiling", drawn.second < 0.9f)
         assertTrue("61% must be visibly high, not pinned to the bottom", drawn.second > 0.2f)
@@ -182,8 +184,8 @@ class Run17RegressionTest {
 
     @Test
     fun `a percentage series still shows its wobble`() {
-        val calm = Components.scaleForTest(60.6f, fixedMax = 100f)
-        val high = Components.scaleForTest(61.2f, fixedMax = 100f)
+        val calm = graphScale(60.6f, fixedMax = 100f)
+        val high = graphScale(61.2f, fixedMax = 100f)
         // Visible, but not exaggerated to the full height of the chart.
         assertTrue("difference must be visible", high - calm > 0.0005f)
         assertTrue("difference must not be 100% of the chart", high - calm < 0.3f)
@@ -203,8 +205,8 @@ class Run17RegressionTest {
 
     @Test
     fun `a stat delta below one tick window is rejected`() {
-        assertNull(Components.statDeltaForTest(totalDelta = 4L, idleDelta = 1L))
-        assertEquals(0.5f, Components.statDeltaForTest(totalDelta = 400L, idleDelta = 200L)!!, 0.001f)
+        assertNull(cpuUsageFromDelta(totalDelta = 4L, idleDelta = 1L))
+        assertEquals(0.5f, cpuUsageFromDelta(totalDelta = 400L, idleDelta = 200L)!!, 0.001f)
     }
 }
 
