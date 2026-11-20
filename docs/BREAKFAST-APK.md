@@ -173,3 +173,28 @@ Yang **tidak** perlu diperbaiki, meski terlihat seperti masalah di layar:
 Catatan: dua cacat di atas (butir 1 dan 2) hanya bisa ditemukan dari data
 perangkat. Ini alasan konkret mengapa klaim "belum diuji di perangkat" terus
 diulang: tanpa laporan Anda, APK run 9 akan tetap tampak benar.
+
+## UI: dari daftar debug ke antarmuka
+
+Build awal memakai widget bawaan Android. Itu cepat dibangun tetapi tidak bisa
+membuat cincin, gradien, atau grafik, dan hasilnya memang terlihat seperti
+daftar debug - bukan aplikasi. Desainnya sendiri sudah ada di
+`design/breakfast/` (20 layar + `SPEC-LAYAR.md`) dan sebelumnya tidak dipakai.
+
+| Aspek | Sebelum (run 11) | Sesudah (run 14) |
+|---|---|---|
+| Toolkit | View bawaan | Jetpack Compose |
+| Ukuran APK | 724 KB | 6,6 MB |
+| Navigasi | satu halaman memanjang | 5 tab: PULSE · ROOT · MODULES · TUNING · LAB |
+| PULSE | tidak ada | cincin suhu, 4 kartu, 3 grafik 60 dtk, 2 dtk/tick |
+| Tema | 5 tombol teks | pemilih dengan swatch, di balik ikon gerigi |
+| Izin | 0 | 0 |
+
+**Kenapa 6,6 MB.** Compose membawa runtime dan pustaka UI ke dalam APK. Itu
+biaya yang dibayar untuk cincin, gradien, sparkline, dan animasi tab. Yang tidak
+berubah: nol izin, tanpa INTERNET, tidak ada data yang disimpan atau dikirim.
+
+**Yang masih belum terlihat.** UI ini belum pernah dijalankan. Lingkungan kerja
+tidak punya emulator maupun Android SDK, jadi yang terbukti hanya kompilasi,
+63 tes logika, dan APK yang terbentuk benar. Tampilan sebenarnya baru terbukti
+saat dipasang di perangkat.
