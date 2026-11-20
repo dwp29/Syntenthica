@@ -120,7 +120,7 @@ fun BreakfastApp(
                             onRefresh = state.onRefreshRoot,
                         )
                         Tab.MODULES -> ModulesScreen(
-                            modules = state.modules,
+                            scan = state.modules,
                             onRefresh = state.onRefreshModules,
                         )
                     }

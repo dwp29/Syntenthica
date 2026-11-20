@@ -35,7 +35,7 @@ data class BreakfastUiState(
     /** Checked facts for the ROOT page; null until the first probe finishes. */
     val rootSnapshot: RootStatus.Snapshot? = null,
     /** /proc/modules, or null when the file could not be read at all. */
-    val modules: List<ModuleScan.Module>? = null,
+    val modules: ModuleScan.Result? = null,
     val onRefreshRoot: () -> Unit = {},
     val onRefreshModules: () -> Unit = {},
     val intervalSeconds: Int = 2,

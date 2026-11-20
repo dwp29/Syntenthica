@@ -3,7 +3,9 @@ package app.breakfast.manager
 import app.breakfast.manager.data.AuditRunner
 import app.breakfast.manager.data.ClockSource
 import app.breakfast.manager.data.DeviceAudit
+import app.breakfast.manager.data.FileRead
 import app.breakfast.manager.data.ModuleScan
+import app.breakfast.manager.data.RootStatus
 import app.breakfast.manager.data.TuningVisibility
 import app.breakfast.manager.data.TuningWhitelist
 import app.breakfast.manager.data.Uptime
@@ -356,10 +358,32 @@ class Run23RegressionTest {
     }
 
     @Test
-    fun `an unreadable proc modules is null, not an empty list`() {
-        // "could not read" and "no modules" are different answers.
-        assertTrue(ModuleScan.parse(null).isEmpty())
-        assertEquals(emptyList<ModuleScan.Module>(), ModuleScan.parse(null))
+    fun `an unreadable proc modules is not an empty module list`() {
+        // The device bug: /proc/modules could not be opened, and MODULES said
+        // "Kernel ini tidak memuat modul apa pun". Those are different answers.
+        val denied = ModuleScan.scan { FileRead.Denied }
+        assertTrue(denied is ModuleScan.Result.Unreadable)
+        val (headline, detail) = ModuleScan.describe(denied)
+        assertEquals("Daftar modul tidak bisa dibaca.", headline)
+        assertTrue("must not claim zero modules", !headline.contains("0 modul"))
+        assertTrue(detail!!.contains("bukan pernyataan bahwa tidak ada modul"))
+    }
+
+    @Test
+    fun `only a successful read may say zero modules`() {
+        val empty = ModuleScan.scan { FileRead.Ok("") }
+        assertTrue(empty is ModuleScan.Result.Loaded)
+        val (headline, _) = ModuleScan.describe(empty)
+        assertTrue(headline.contains("0 modul"))
+    }
+
+    @Test
+    fun `a missing proc modules is named as such`() {
+        val missing = ModuleScan.scan { FileRead.Missing }
+        assertEquals(ModuleScan.Result.NoProcModules, missing)
+        val (headline, detail) = ModuleScan.describe(missing)
+        assertTrue(headline.contains("tidak menyediakan"))
+        assertTrue(detail!!.contains("CONFIG_MODULES"))
     }
 
     @Test
@@ -378,5 +402,54 @@ class Run23RegressionTest {
         assertEquals(report.nodes.size, report.counted())
         assertEquals(5, report.countsBreakdown().size)
         assertEquals(5, report.countsBreakdown().sumOf { it.second })
+    }
+}
+
+/** ROOT must never turn "I could not look" into "there is nothing". */
+class RootHonestyTest {
+
+    private fun fact(value: String, sure: RootStatus.Sure) = RootStatus.Fact(value, sure)
+
+    private fun snapshot(
+        manager: RootStatus.Fact = fact("tidak ditemukan", RootStatus.Sure.FILESYSTEM),
+        su: RootStatus.Fact = fact("tidak ditemukan", RootStatus.Sure.FILESYSTEM),
+        uid: RootStatus.Fact = fact("tidak terbaca", RootStatus.Sure.UNKNOWN),
+        granted: Boolean = false,
+    ) = RootStatus.Snapshot(
+        manager = manager, su = su, uid = uid, granted = granted,
+        dmesg = fact("tidak bisa dibaca", RootStatus.Sure.SHELL),
+        writeNodes = fact("tidak diizinkan", RootStatus.Sure.SHELL),
+        kernelVersion = null, kernelUapi = null, suEnabled = null,
+        superuserCount = null, safeMode = null, checkedAtMs = 0L,
+    )
+
+    @Test
+    fun `a blind probe is not a negative answer`() {
+        val blind = snapshot(
+            manager = fact("tidak bisa dipastikan", RootStatus.Sure.UNKNOWN),
+            su = fact("tidak bisa dipastikan", RootStatus.Sure.UNKNOWN),
+        )
+        val verdict = blind.verdict()
+        assertTrue("must admit it could not check", verdict.contains("tidak bisa memeriksa"))
+        assertFalse(verdict.contains("tidak ber-root"))
+        // The rows must carry the uncertainty through, not flatten it.
+        val managerRow = blind.lines().first { it.first == "pengelola root" }.second
+        assertEquals(RootStatus.Sure.UNKNOWN, managerRow.sure)
+    }
+
+    @Test
+    fun `a device with a manager but unreadable su says so`() {
+        val s = snapshot(
+            manager = fact("KernelSU v0.9.2", RootStatus.Sure.LIBRARY),
+            su = fact("tidak terbaca", RootStatus.Sure.FILESYSTEM),
+        )
+        assertTrue(s.verdict().contains("su"))
+    }
+
+    @Test
+    fun `a granted snapshot reports the privileged reads as checked`() {
+        val s = snapshot(uid = fact("0", RootStatus.Sure.SHELL), granted = true)
+        assertTrue(s.verdict().startsWith("Root diberikan"))
+        assertEquals("bisa dibaca", s.dmesg.value)
     }
 }

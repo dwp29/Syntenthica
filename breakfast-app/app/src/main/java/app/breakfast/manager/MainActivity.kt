@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
     private var lastAuditMs = 0L
     private var rootMessage: String? = null
     private var rootSnapshot: RootStatus.Snapshot? = null
-    private var modules: List<ModuleScan.Module>? = null
+    private var modules: ModuleScan.Result? = null
 
     /** Sampling interval, chosen in settings; 2 s was the only option before. */
     private var intervalSeconds = 2
