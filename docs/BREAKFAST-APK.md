@@ -425,3 +425,33 @@ run 30 harus di-uninstall lebih dulu.
 Belum terbukti: aplikasi benar-benar terbuka di perangkat, dan ROOT/MODULES
 terisi. Keduanya menunggu tangkapan dari perangkat.
 
+## Audit sisi kernel: kenapa root tidak pernah muncul
+
+Keluhan yang sah dan menutup semua pekerjaan APK: tanpa root, halaman ROOT dan
+MODULES tidak akan pernah punya isi. Jadi yang diperiksa kali ini bukan aplikasi,
+melainkan paket kernelnya.
+
+**Satu. ZIP tidak memasang `ksud`.** `build-kit/scripts/package_fresh_milk.py`
+mendaftarkan `ksud` di `does_not_write`. KernelSU memerlukan proses userspace itu
+untuk menyalakan root dan membuat `/data/adb/ksu`. Sebuah kernel bisa membawa
+driver yang sempurna dan tetap tidak pernah memberikan root tanpa `ksud`. Ini juga
+menjelaskan kenapa `/data/adb` selalu "tidak terbaca" di setiap tangkapan:
+direktorinya belum pernah dibuat, jadi tidak ada yang bisa dibaca.
+
+**Dua. Kernel hanya menerima satu identitas Manager.** Dengan mendekompres
+`artifacts/Image.gz` langsung, isinya memuat tepat satu kemunculan `net.ember.labs`
+dan satu kemunculan sertifikat `fe833710…`, dan tidak memuat `com.rifsxd.ksunext`
+maupun sertifikat manager lain. Panjang sertifikat yang tertanam `0x53d` — cocok
+dengan manager 1.19.1 yang dipin, bukan 2.0 (`0x565`). Artinya APK bawaan
+`com.rifsxd.ksunext`, atau manager yang ditandatangani kunci lain, memang akan
+ditolak kernel itu. Penolakan itu by design, bukan kerusakan aplikasi.
+
+**Tiga. `/debug_ramdisk/su` bukan bukti root.** Jalur itu dibuat oleh manager; di
+tangkapan terakhir aplikasi menyebutnya apa adanya dan tetap menandai status root
+sebagai BELUM DIKETAHUI. Pemeriksaan yang otoritatif tetap `su -c id -u`.
+
+Urutan yang harus dibetulkan ada di paket kernel, bukan di APK: ZIP ikut memasang
+`ksud`, APK manager berasal dari keluarga sertifikat yang diterima kernel itu, dan
+baru setelah keduanya cocok root bisa muncul. Aplikasi tidak bisa menambal
+ketiadaan itu, dan tidak lagi berpura-pura bisa.
+
