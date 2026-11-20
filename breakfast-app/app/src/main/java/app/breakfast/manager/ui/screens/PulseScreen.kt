@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,9 +52,12 @@ fun PulseScreen(
     variantPaired: Boolean,
     readings: PulseReadings,
     uptimeText: String,
+    auditAgeText: String,
     modifier: Modifier = Modifier,
     onOpenAudit: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onRequestRoot: () -> Unit = {},
+    rootMessage: String? = null,
 ) {
     val c = LocalBreakfastColors.current
     val tempColor = when {
@@ -107,6 +111,30 @@ fun PulseScreen(
             Spacer(Modifier.height(18.dp))
         }
 
+        if (!readings.hasRoot) {
+            item {
+                // The dashboard cannot show half its numbers without root, and on
+                // the reporting device it simply showed dashes. Asking out loud,
+                // with the reason and a button, is the difference between "this
+                // app is broken" and "this app needs a permission".
+                SurfaceCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Chip("tanpa root", c.statusAttention, filled = true)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = rootMessage
+                            ?: "Suhu, zram, audit, dan skor stabilitas butuh root. Tanpa itu semuanya tampil \"—\".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = c.textPrimary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    AccentButton("BERI ROOT", onRequestRoot)
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+
         item {
             SurfaceCard(padding = 8.dp) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -141,15 +169,17 @@ fun PulseScreen(
                 StatTile(
                     glyph = "❧",
                     label = "MGLRU",
+                    // Same wording as the STATUS row: absent is a fact about the
+                    // kernel, not a failed read, so both say TIDAK ADA.
                     value = when (readings.mglruEnabled) {
                         true -> "ON"
                         false -> "OFF"
-                        null -> "—"
+                        null -> "N/A"
                     },
                     valueColor = when (readings.mglruEnabled) {
                         true -> c.statusStable
                         false -> c.statusAttention
-                        null -> c.textTertiary
+                        null -> c.statusAttention,
                     },
                     modifier = Modifier.weight(1f),
                 )
@@ -188,7 +218,9 @@ fun PulseScreen(
         item {
             GraphCard(
                 title = "CPU Load",
-                subtitle = readings.governor ?: "governor tidak terbaca",
+                subtitle = readings.cpuLoadReason
+                    ?: readings.governor
+                    ?: "governor tidak terbaca",
                 value = readings.cpuUsagePercent?.let { "${it.toInt()}%" } ?: "—",
                 valueColor = c.accent,
                 series = readings.cpuLoadHistory,
@@ -211,6 +243,9 @@ fun PulseScreen(
                 series = readings.memoryHistory,
                 color = c.statusNormal,
                 normalise = false,
+                // Percentages have a meaningful ceiling; auto-scaling made a flat
+                // 62% look like a flat 0%.
+                fixedMax = 100f,
             )
             Spacer(Modifier.height(10.dp))
         }
@@ -249,14 +284,18 @@ fun PulseScreen(
                     label = "MGLRU",
                     value = readings.mglruRaw?.trim()?.takeIf { it.isNotEmpty() } ?: "TIDAK ADA",
                     // MGLRU absent is a kernel fact, not a read failure, so it is
-                    // labelled TIDAK ADA rather than an em dash.
+                    // labelled TIDAK ADA rather than an em dash. The tile above
+                    // uses the same rule now; before, one said "—" and the other
+                    // "TIDAK ADA" for the same node.
                     valueColor = if (readings.mglruRaw.isNullOrBlank()) c.statusAttention else c.textPrimary,
                     mono = true,
                     note = "nilai mentah dari kernel, bukan tafsiran",
                 )
                 DataRow(
                     label = "Audit terakhir",
-                    value = uptimeText,
+                    // This row used to print uptime, which was simply the wrong
+                    // fact under that label.
+                    value = auditAgeText,
                     valueColor = c.textSecondary,
                     note = "buka LAB untuk melihat 16 node yang diperiksa",
                 )
@@ -274,6 +313,7 @@ private fun GraphCard(
     series: List<Float>,
     color: androidx.compose.ui.graphics.Color,
     normalise: Boolean,
+    fixedMax: Float? = null,
 ) {
     val c = LocalBreakfastColors.current
     SurfaceCard(padding = 14.dp) {
@@ -295,6 +335,12 @@ private fun GraphCard(
             )
         }
         Spacer(Modifier.height(8.dp))
-        Sparkline(series = series, color = color, height = 46.dp, normalise = normalise)
+        Sparkline(
+            series = series,
+            color = color,
+            height = 46.dp,
+            normalise = normalise,
+            fixedMax = fixedMax,
+        )
     }
 }

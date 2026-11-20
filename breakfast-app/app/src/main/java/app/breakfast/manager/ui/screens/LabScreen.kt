@@ -134,10 +134,10 @@ fun LabScreen(
                     DataRow("Kernel", report.kernelRelease, c.textPrimary, mono = true)
                     DataRow(
                         label = "Hasil",
-                        value = "${report.supported} / ${report.readOnly} / ${report.absent}",
+                        value = "${report.supported} / ${report.readOnly} / ${report.unreadable} / ${report.absent}",
                         valueColor = c.textPrimary,
                         mono = true,
-                        note = "didukung / baca-saja / tidak ada",
+                        note = "didukung / baca-saja / tidak bisa dibaca / tidak ada",
                     )
                     DataRow(
                         label = "Root",
@@ -161,15 +161,25 @@ fun LabScreen(
                             value = when (node.support) {
                                 DeviceAudit.Support.SUPPORTED -> node.value ?: "—"
                                 DeviceAudit.Support.READ_ONLY -> node.value ?: "baca-saja"
+                                // Exists but will not open: a different problem
+                                // from a node that is not there, and until now it
+                                // was reported as "tidak ada" in this list while
+                                // TUNING called the same node "tidak bisa dibaca".
+                                DeviceAudit.Support.UNREADABLE -> "tidak bisa dibaca"
                                 DeviceAudit.Support.ABSENT -> "tidak ada"
                             },
                             valueColor = when (node.support) {
                                 DeviceAudit.Support.SUPPORTED -> c.statusStable
                                 DeviceAudit.Support.READ_ONLY -> c.statusNormal
-                                DeviceAudit.Support.ABSENT -> c.statusAttention
+                                DeviceAudit.Support.UNREADABLE -> c.statusAttention
+                                DeviceAudit.Support.ABSENT -> c.textTertiary
                             },
                             mono = true,
-                            note = node.note,
+                            note = node.note ?: if (node.support == DeviceAudit.Support.ABSENT) {
+                                "node tidak ada di kernel ini"
+                            } else {
+                                null
+                            },
                         )
                     }
                 }

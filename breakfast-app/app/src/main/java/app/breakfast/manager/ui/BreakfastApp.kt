@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.breakfast.manager.ui.components.AccentButton
 import app.breakfast.manager.ui.screens.LabScreen
 import app.breakfast.manager.ui.screens.PulseScreen
 import app.breakfast.manager.ui.screens.TuningScreen
@@ -82,8 +83,11 @@ fun BreakfastApp(
                             variantPaired = state.variantPaired,
                             readings = state.readings,
                             uptimeText = state.uptimeText,
+                            auditAgeText = state.auditAgeText,
                             onOpenAudit = state.onAudit,
                             onOpenSettings = onOpenSettings,
+                            onRequestRoot = state.onRequestRoot,
+                            rootMessage = state.rootMessage,
                         )
 
                         Tab.TUNING -> TuningScreen(
@@ -106,7 +110,11 @@ fun BreakfastApp(
                             onAudit = state.onAudit,
                         )
 
-                        Tab.ROOT, Tab.MODULES -> ComingSoon(target, state)
+                        Tab.ROOT, Tab.MODULES -> ComingSoon(
+                            tab = target,
+                            state = state,
+                            onAction = if (target == Tab.ROOT) state.onRequestRoot else state.onAudit,
+                        )
                     }
                 }
             }
@@ -115,8 +123,16 @@ fun BreakfastApp(
     }
 }
 
+/**
+ * A page that is not built yet, plus a way out.
+ *
+ * The empty-state rule in SPEC-LAYAR says an empty screen must carry one action,
+ * because a screen with no button is a dead end. The first version of this page
+ * broke that rule; it now offers the action that is actually useful here - grant
+ * root, or re-run the audit.
+ */
 @Composable
-private fun ComingSoon(tab: Tab, state: BreakfastUiState) {
+private fun ComingSoon(tab: Tab, state: BreakfastUiState, onAction: () -> Unit) {
     val c = LocalBreakfastColors.current
     Column(
         Modifier.fillMaxSize().padding(28.dp),
@@ -147,7 +163,13 @@ private fun ComingSoon(tab: Tab, state: BreakfastUiState) {
             color = c.textSecondary,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
+        AccentButton(
+            text = if (tab == Tab.ROOT) "BERI ROOT" else "AUDIT ULANG",
+            onClick = onAction,
+            modifier = Modifier.fillMaxWidth(0.8f),
+        )
+        Spacer(Modifier.height(14.dp))
         Text(
             text = "Kernel ${state.kernelRelease}",
             fontSize = 11.sp,

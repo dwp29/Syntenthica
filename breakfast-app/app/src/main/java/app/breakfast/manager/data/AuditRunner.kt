@@ -80,7 +80,11 @@ object AuditRunner {
 
     fun observe(fs: Fs, path: String, readOnlyPaths: Set<String> = emptySet()): Observation {
         if (!fs.exists(path)) {
-            return Observation(null, readable = false, writable = false, permissions = null)
+            // exists() can be false either because the node is missing or because
+            // the app is not allowed to see the directory it lives in, so the
+            // permission probe is consulted before concluding "absent".
+            val permissions = fs.permissions(path)
+            return Observation(null, readable = false, writable = false, permissions = permissions)
         }
         val permissions = fs.permissions(path)
         val readable = fs.readable(path)
@@ -100,7 +104,12 @@ object AuditRunner {
      * hides the nodes that are physically present.
      */
     fun classify(observation: Observation, declaredReadOnly: Boolean): DeviceAudit.Support = when {
-        !observation.readable || observation.value == null -> DeviceAudit.Support.ABSENT
+        // No permissions string means observe() never found the file at all.
+        observation.permissions == null -> DeviceAudit.Support.ABSENT
+        // The file is there but the read did not produce a value. That is a
+        // permission or a policy problem, not an absence, and saying "tidak ada"
+        // here is what made LAB contradict TUNING on the same screen.
+        !observation.readable || observation.value == null -> DeviceAudit.Support.UNREADABLE
         declaredReadOnly -> DeviceAudit.Support.READ_ONLY
         !observation.writable -> DeviceAudit.Support.READ_ONLY
         else -> DeviceAudit.Support.SUPPORTED

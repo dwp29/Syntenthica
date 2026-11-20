@@ -202,23 +202,29 @@ def main() -> int:
         got = resolve(prev, new, running)
         failures += check(got == expected, f"resolve {prev}/{new}/{running}: {got} != {expected}")
 
-    def classify_node(readable, has_value, writable, declared_ro):
-        if not readable or not has_value:
+    def classify_node(readable, has_value, writable, declared_ro, permissions):
+        # Four states. "No permissions string" means the file was not there at
+        # all; a permissions string with no value means it is there and closed.
+        if permissions is None:
             return "absent"
+        if not readable or not has_value:
+            return "unreadable"
         if declared_ro or not writable:
             return "read_only"
         return "supported"
 
-    for readable, has_value, writable, declared_ro, expected in (
-        (False, False, False, False, "absent"),   # not readable at all
-        (True, False, False, False, "absent"),    # read returned nothing
-        (True, True, False, False, "read_only"),  # THE device bug: readable, unwritable
-        (True, True, True, True, "read_only"),    # declared read-only wins over writable
-        (True, True, True, False, "supported"),
+    for readable, has_value, writable, declared_ro, permissions, expected in (
+        (False, False, False, False, None, "absent"),            # not there
+        (False, False, False, False, "-rw-r--r--", "unreadable"), # there, closed
+        (True, False, False, False, "-rw-r--r--", "unreadable"),  # read gave nothing
+        (True, True, False, False, "-rw-r--r--", "read_only"),    # readable, unwritable
+        (True, True, True, True, "-rw-r--r--", "read_only"),      # declared read-only
+        (True, True, True, False, "-rw-r--r--", "supported"),
     ):
-        got = classify_node(readable, has_value, writable, declared_ro)
+        got = classify_node(readable, has_value, writable, declared_ro, permissions)
         failures += check(got == expected,
-                          f"audit classify readable={readable} value={has_value} writable={writable} ro={declared_ro}: {got} != {expected}")
+                          f"audit classify readable={readable} value={has_value} writable={writable} "
+                          f"ro={declared_ro} perms={permissions}: {got} != {expected}")
 
     # The ledger reads dmesg, so its failure copy must not name sysfs.
     states = (APP / "app/src/main/java/app/breakfast/manager/ui/States.kt").read_text(encoding="utf-8")
@@ -235,6 +241,26 @@ def main() -> int:
     audit = (APP / "app/src/main/java/app/breakfast/manager/data/DeviceAudit.kt").read_text(encoding="utf-8")
     for path in ("trip_point_0_temp", "thermal_zone0/type"):
         failures += check(path in audit, f"audit must inspect {path}")
+
+    # --- Temperature plausibility -------------------------------------------
+    def plausible(c):
+        return c is not None and 5 < c < 125
+
+    for celsius, expected in ((38.0, True), (0.0, False), (-5.0, False),
+                              (72.5, True), (250.0, False)):
+        failures += check(plausible(celsius) == expected,
+                          f"temperature {celsius} must be {'shown' if expected else 'suppressed'}")
+
+    # The source must actually gate on plausibility, not merely contain the word.
+    pulse = (APP / "app/src/main/java/app/breakfast/manager/ui/PulseData.kt").read_text(encoding="utf-8")
+    failures += check("isPlausibleTemperature(it)" in pulse,
+                      "PulseReader must filter implausible temperatures before publishing them")
+    failures += check("MIN_PLAUSIBLE_C = 5f" in pulse, "lower plausibility bound missing")
+
+    # Uptime must not depend on /proc being readable.
+    clock = (APP / "app/src/main/java/app/breakfast/manager/data/SystemClockSource.kt").read_text(encoding="utf-8")
+    failures += check("elapsedRealtime" in clock,
+                      "uptime must come from the monotonic clock, not only /proc/uptime")
 
     if failures:
         print(f"FAILED ({len(failures)}):")

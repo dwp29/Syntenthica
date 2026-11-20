@@ -18,6 +18,7 @@ import app.breakfast.manager.data.KernelPairing
 import app.breakfast.manager.data.LedgerReader
 import app.breakfast.manager.data.PairingGenerated
 import app.breakfast.manager.data.RootBridge
+import app.breakfast.manager.data.RootRequest
 import app.breakfast.manager.data.StabilityLedger
 import app.breakfast.manager.data.ThemeStore
 import app.breakfast.manager.data.TuningSession
@@ -64,6 +65,7 @@ class MainActivity : ComponentActivity() {
     private var auditDirty = false
     private var lastPlan: TuningSession.Plan? = null
     private var lastAuditMs = 0L
+    private var rootMessage: String? = null
 
     private var palette: ThemeCatalog.Palette = ThemeCatalog.ALL.first()
     private var settingsOpen by mutableStateOf(false)
@@ -144,7 +146,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sampleOnce() {
-        readings = PulseReader.sample(ledger)
+        readings = PulseReader.sample(ledger, hasRoot)
     }
 
     private fun readLedger() {
@@ -247,6 +249,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** "3 menit lalu" from the real last audit time, not from uptime. */
+    private fun auditAge(): String {
+        val last = lastAuditMs.takeIf { it > 0L } ?: return "belum pernah"
+        val age = (System.currentTimeMillis() - last).coerceAtLeast(0)
+        return "${DeviceAudit.ageLabel(age)} lalu"
+    }
+
+    /**
+     * Asks for root at the user's request, then redoes everything that depended
+     * on it: ledger, audit, and readings. This is the flow that was missing when
+     * the dashboard showed dashes everywhere.
+     */
+    private fun requestRoot() {
+        worker.execute {
+            val outcome = RootRequest.request()
+            hasRoot = outcome == RootRequest.Outcome.Granted
+            rootMessage = RootRequest.message(outcome)
+            if (hasRoot) {
+                readLedger()
+                readAudit(force = true)
+            }
+            sampleOnce()
+            publish { frame++ }
+        }
+    }
+
     private fun publish(block: () -> Unit) {
         runOnUiThread {
             block()
@@ -271,7 +299,10 @@ class MainActivity : ComponentActivity() {
         readings = readings,
         uptimeText = PulseReader.formatUptime(readings.uptimeHours),
         palette = palette,
+        auditAgeText = auditAge(),
+        rootMessage = rootMessage,
         onAudit = { audit(manual = true) },
+        onRequestRoot = { requestRoot() },
         onApply = { proposals -> apply(proposals) },
         onReset = { reset() },
     )

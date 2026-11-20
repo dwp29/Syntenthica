@@ -27,6 +27,9 @@ data class BreakfastUiState(
     val uptimeText: String,
     val palette: ThemeCatalog.Palette,
     val onAudit: () -> Unit = {},
+    val onRequestRoot: () -> Unit = {},
+    val auditAgeText: String = "—",
+    val rootMessage: String? = null,
     val onApply: (List<TuningSession.Proposal>) -> Unit = {},
     val onReset: () -> Unit = {},
 )

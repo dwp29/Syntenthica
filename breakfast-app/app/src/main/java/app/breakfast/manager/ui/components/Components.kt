@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -101,7 +102,9 @@ fun PulseRing(
                 size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
-            if (value != null) {
+            // Value null means "not measured". Drawing a zero-length arc would
+            // still paint the round cap as a dot, which reads as a data point.
+            if (value != null && target > 0f) {
                 drawArc(
                     brush = Brush.sweepGradient(
                         listOf(color.copy(alpha = 0.35f), color, color.copy(alpha = 0.55f)),
@@ -253,6 +256,7 @@ fun Sparkline(
     modifier: Modifier = Modifier,
     height: Dp = 44.dp,
     normalise: Boolean = true,
+    fixedMax: Float? = null,
 ) {
     val c = LocalBreakfastColors.current
     Canvas(modifier = modifier.fillMaxWidth().height(height)) {
@@ -266,7 +270,11 @@ fun Sparkline(
             return@Canvas
         }
         val min = if (normalise) series.min() else 0f
-        val max = if (normalise) series.max() else (series.max().takeIf { it > 0f } ?: 1f)
+        val max = when {
+            fixedMax != null -> fixedMax
+            normalise -> series.max()
+            else -> series.max().takeIf { it > 0f } ?: 1f
+        }
         val span = (max - min).takeIf { it > 0.0001f } ?: 1f
         val stepX = size.width / (series.size - 1)
 
@@ -302,7 +310,21 @@ fun Sparkline(
     }
 }
 
-/** One row: label on the left, value on the right, aligned baselines. */
+/**
+ * One row: label on the left, value on the right.
+ *
+ * Both sides are weighted AND bounded, which is the fix for two device bugs:
+ *
+ *  - A long value used to take unbounded width, squeezing the label column to a
+ *    few pixels; the label then wrapped per character ("Ker nel") and the card
+ *    grew taller than the screen.
+ *  - The value itself must never wrap into a paragraph, so it is capped at two
+ *    lines with an ellipsis and reports its full text through a tap target in
+ *    the LAB list.
+ *
+ * Weighting 0.55/0.45 rather than 0.9/1.1 matters: labels are words, values can
+ * be kernel paths, and the narrow side should always be the one that wraps.
+ */
 @Composable
 fun DataRow(
     label: String,
@@ -311,27 +333,33 @@ fun DataRow(
     modifier: Modifier = Modifier,
     mono: Boolean = false,
     note: String? = null,
+    maxValueLines: Int = 2,
 ) {
     val c = LocalBreakfastColors.current
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 7.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(0.52f)) {
             Text(
                 text = label,
                 style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                 color = c.textSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             if (note != null) {
                 Text(
                     text = note,
                     fontSize = 11.sp,
+                    lineHeight = 15.sp,
                     color = c.textTertiary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
         Text(
             text = value,
             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.let {
@@ -339,6 +367,30 @@ fun DataRow(
             },
             fontWeight = FontWeight.SemiBold,
             color = valueColor,
+            textAlign = TextAlign.End,
+            maxLines = maxValueLines,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(0.48f),
+        )
+    }
+}
+
+/** A row whose value is allowed to wrap fully, used for long kernel paths. */
+@Composable
+fun PathRow(label: String, path: String, modifier: Modifier = Modifier) {
+    val c = LocalBreakfastColors.current
+    Column(modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(
+            text = label,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+            color = c.textSecondary,
+        )
+        Text(
+            text = path,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            color = c.textTertiary,
+            style = NumericStyle,
         )
     }
 }

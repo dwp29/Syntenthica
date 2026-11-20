@@ -27,6 +27,10 @@ data class PulseReadings(
     val memoryUsedGb: Float?,
     val memoryTotalGb: Float?,
     val governor: String?,
+    /** Whether the readings were taken with root; drives the permission banner. */
+    val hasRoot: Boolean = false,
+    /** Why CPU load is unavailable, when it is. Never a bare dash. */
+    val cpuLoadReason: String? = null,
 ) {
     companion object {
         /** A device with nothing readable yet. */
@@ -70,13 +74,36 @@ object PulseReader {
         null
     }
 
+    /**
+     * Plausible temperature range, in Celsius.
+     *
+     * A thermal zone that reports 0 is present but not measuring: some kernels
+     * expose zones that are never clamped to a real sensor. Treating that as a
+     * reading is how the app once showed "0 C - Normal" in green, which is worse
+     * than showing nothing, because it looks like a healthy measurement.
+     */
+    private const val MIN_PLAUSIBLE_C = 5f
+    private const val MAX_PLAUSIBLE_C = 125f
+
+    fun isPlausibleTemperature(celsius: Float?): Boolean =
+        celsius != null && celsius > MIN_PLAUSIBLE_C && celsius < MAX_PLAUSIBLE_C
+
     private fun cpuTemps(): List<Float> =
-        (0 until 12).mapNotNull { zone ->
+        (0 until 16).mapNotNull { zone ->
             val type = read("/sys/class/thermal/thermal_zone$zone/type") ?: return@mapNotNull null
-            if (!type.contains("cpu", ignoreCase = true) && !type.contains("soc", ignoreCase = true)) {
+            if (!type.contains("cpu", ignoreCase = true) &&
+                !type.contains("soc", ignoreCase = true) &&
+                !type.contains("gpu", ignoreCase = true)
+            ) {
                 return@mapNotNull null
             }
-            read("/sys/class/thermal/thermal_zone$zone/temp")?.toFloatOrNull()?.let { it / 1000f }
+            val raw = read("/sys/class/thermal/thermal_zone$zone/temp")?.toFloatOrNull()
+                ?: return@mapNotNull null
+            // Kernels disagree on the unit: most report millidegrees, a few
+            // report whole degrees. A value under 200 cannot be a real
+            // millidegree reading above freezing, so it is taken as Celsius.
+            val celsius = if (raw > 200f) raw / 1000f else raw
+            celsius.takeIf { isPlausibleTemperature(it) }
         }
 
     private fun memory(): Pair<Float?, Float?> {
@@ -100,8 +127,40 @@ object PulseReader {
         return (load / cores).coerceIn(0f, 1f)
     }
 
-    private fun uptimeHours(): Double? =
-        read("/proc/uptime")?.split(' ')?.firstOrNull()?.toDoubleOrNull()?.div(3600.0)
+    /**
+     * Alternative load source: the idle delta from /proc/stat.
+     *
+     * Used when /proc/loadavg cannot be read, because "no load average" should
+     * not be reported as "no CPU data" when the counters are available.
+     */
+    private var lastStat: Pair<Long, Long>? = null
+
+    fun cpuUsageFromStat(): Float? {
+        val line = read("/proc/stat")?.lineSequence()?.firstOrNull { it.startsWith("cpu ") }
+            ?: return null
+        val parts = line.trim().split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
+        if (parts.size < 4) return null
+        val idle = parts[3] + (parts.getOrNull(4) ?: 0L)
+        val total = parts.sum()
+        val previous = lastStat
+        lastStat = total to idle
+        if (previous == null) return null
+        val totalDelta = total - previous.first
+        val idleDelta = idle - previous.second
+        if (totalDelta <= 0L) return null
+        return ((totalDelta - idleDelta).toFloat() / totalDelta.toFloat()).coerceIn(0f, 1f)
+    }
+
+    /**
+     * Uptime from the platform clock first.
+     *
+     * The kernel file is the fallback, not the source: /proc/uptime was empty on
+     * a device where the UPTIME tile should never have shown a dash, and
+     * elapsedRealtime needs no permission at all.
+     */
+    private fun uptimeHours(clock: app.breakfast.manager.data.ClockSource): Double? =
+        app.breakfast.manager.data.Uptime.hours(clock)
+            ?: read("/proc/uptime")?.split(' ')?.firstOrNull()?.toDoubleOrNull()?.div(3600.0)
 
     private fun zramPercent(): Float? {
         val disksize = read("/sys/block/zram0/disksize")?.toLongOrNull() ?: return null
@@ -111,12 +170,21 @@ object PulseReader {
         return ((used.toFloat() / disksize.toFloat()) * 100f).coerceIn(0f, 100f)
     }
 
-    fun sample(stability: StabilityLedger.Score?): PulseReadings {
+    fun sample(
+        stability: StabilityLedger.Score?,
+        hasRoot: Boolean = false,
+        clock: app.breakfast.manager.data.ClockSource = app.breakfast.manager.data.AndroidClock,
+    ): PulseReadings {
         val temps = cpuTemps()
         val temp = temps.maxOrNull()
         val (usedGb, totalGb) = memory()
-        val load = cpuLoad()
-        val uptime = uptimeHours()
+        val loadRaw = cpuLoad()
+        val load = loadRaw ?: cpuUsageFromStat()
+        val loadReason = when {
+            loadRaw != null || load != null -> null
+            else -> "load average tidak terbaca dan /proc/stat tidak memberikan delta"
+        }
+        val uptime = uptimeHours(clock)
         val zram = zramPercent()
         val mglruRaw = read("/sys/kernel/mm/lru_gen/enabled")
 
@@ -147,6 +215,8 @@ object PulseReader {
             memoryUsedGb = usedGb,
             memoryTotalGb = totalGb,
             governor = read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+            hasRoot = hasRoot,
+            cpuLoadReason = loadReason,
         )
     }
 

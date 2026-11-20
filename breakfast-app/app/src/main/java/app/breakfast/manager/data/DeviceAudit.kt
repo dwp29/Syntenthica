@@ -18,9 +18,18 @@ package app.breakfast.manager.data
  */
 object DeviceAudit {
 
+    /**
+     * Four states, because three could not tell the truth.
+     *
+     * UNREADABLE was previously folded into ABSENT, which made LAB say "tidak
+     * ada" for a node that exists and TUNING say "tidak bisa dibaca" for the
+     * same node on the same screen. Existing-but-unreadable is its own fact:
+     * the kernel has the node, this app was not allowed to look inside it.
+     */
     enum class Support(val label: String) {
         SUPPORTED("didukung"),
         READ_ONLY("baca-saja"),
+        UNREADABLE("tidak bisa dibaca"),
         ABSENT("tidak ada"),
     }
 
@@ -43,9 +52,16 @@ object DeviceAudit {
     ) {
         val supported: Int get() = nodes.count { it.support == Support.SUPPORTED }
         val readOnly: Int get() = nodes.count { it.support == Support.READ_ONLY }
+        val unreadable: Int get() = nodes.count { it.support == Support.UNREADABLE }
         val absent: Int get() = nodes.count { it.support == Support.ABSENT }
 
-        fun summary(): String = "Audit selesai: $supported didukung, $readOnly baca-saja, $absent tidak ada."
+        fun summary(): String = buildString {
+            append("Audit selesai: $supported didukung, $readOnly baca-saja")
+            // Only mention the unreadable bucket when it is non-empty, so a
+            // normal rooted audit stays short.
+            if (unreadable > 0) append(", $unreadable tidak bisa dibaca")
+            append(", $absent tidak ada.")
+        }
 
         /** Values that can back a TUNING control, keyed by whitelist key. */
         fun supportedValues(): Map<String, String> = nodes
@@ -54,6 +70,9 @@ object DeviceAudit {
 
         fun isPresent(path: String): Boolean =
             nodes.any { it.path == path && it.support != Support.ABSENT }
+
+        /** Nodes the kernel has but will not let us read; usually a root problem. */
+        fun unreadableNodes(): List<Node> = nodes.filter { it.support == Support.UNREADABLE }
     }
 
     /** Manual audits are rate-limited; automatic ones are not. */

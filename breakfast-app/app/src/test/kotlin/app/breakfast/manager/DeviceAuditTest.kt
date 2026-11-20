@@ -84,11 +84,14 @@ class DeviceAuditTest {
     }
 
     @Test
-    fun `writable but not readable is absent and says why`() {
+    fun `writable but not readable is unreadable, with its permissions shown`() {
         val fs = FakeFs(mapOf("/sys/block/zram0/mem_limit" to Triple("0", false, true)))
         val node = AuditRunner.run(fs, "k", 0L, specs, readOnly).nodes.first { it.path.endsWith("mem_limit") }
-        assertEquals(DeviceAudit.Support.ABSENT, node.support)
+        // The file exists; we simply may not read it. Calling that "absent" is
+        // what made LAB and TUNING disagree about the same node.
+        assertEquals(DeviceAudit.Support.UNREADABLE, node.support)
         assertTrue(node.note!!.contains("tidak bisa dibaca"))
+        assertFalse(node.readable)
     }
 
     @Test

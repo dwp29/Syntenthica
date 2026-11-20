@@ -35,6 +35,7 @@ import app.breakfast.manager.ui.components.AccentButton
 import app.breakfast.manager.ui.components.Chip
 import app.breakfast.manager.ui.components.DataRow
 import app.breakfast.manager.ui.components.GhostButton
+import app.breakfast.manager.ui.components.PathRow
 import app.breakfast.manager.ui.components.SectionLabel
 import app.breakfast.manager.ui.components.SurfaceCard
 import app.breakfast.manager.ui.theme.LocalBreakfastColors
@@ -180,21 +181,24 @@ fun TuningScreen(
             Spacer(Modifier.height(14.dp))
         }
 
-        // Locked parameters: marked, never hidden.
+        // Locked parameters: marked, never hidden, and never repeated. A node
+        // already shown in its own group is skipped here - on the reporting
+        // device zram_mem_limit appeared twice, once per list.
         item {
+            val shownInGroups = setOf("zram_comp_algorithm", "zram_disksize", "zram_mem_limit",
+                "schedutil_up_rate", "schedutil_down_rate", "schedutil_iowait")
             val locked = TuningWhitelist.PARAMETERS.filter { parameter ->
-                val node = report.nodes.firstOrNull { DeviceAudit.nodeToKey(it.path) == parameter.key }
-                node != null && node.support == DeviceAudit.Support.ABSENT
+                parameter.key !in shownInGroups || report.nodes.none {
+                    DeviceAudit.nodeToKey(it.path) == parameter.key
+                }
             }
             if (locked.isNotEmpty()) {
                 SectionLabel("tidak tersedia")
                 SurfaceCard {
                     for (parameter in locked) {
-                        DataRow(
+                        PathRow(
                             label = "🔒 ${parameter.key}",
-                            value = "tidak ada",
-                            valueColor = c.textTertiary,
-                            note = parameter.path,
+                            path = parameter.path,
                         )
                     }
                 }
@@ -287,7 +291,12 @@ private fun ZramControl(
             onChange = { pending["zram_mem_limit"] = it },
         )
     } else if (mem != null) {
-        DataRow("mem_limit", mem.value ?: "—", c.statusAttention, mono = true, note = mem.note)
+        val why = when (mem.support) {
+            DeviceAudit.Support.UNREADABLE -> "node ada, tapi isinya tidak bisa dibaca tanpa root"
+            DeviceAudit.Support.ABSENT -> "node tidak ada di kernel ini"
+            else -> mem.note
+        }
+        DataRow("mem_limit", "—", c.statusAttention, mono = true, note = why)
     }
 
     if (disk != null && disk.support == DeviceAudit.Support.SUPPORTED) {

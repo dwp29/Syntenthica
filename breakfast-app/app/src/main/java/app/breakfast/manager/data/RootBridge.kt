@@ -60,4 +60,25 @@ object RootBridge {
     }
 
     fun hasRoot(): Boolean = run("id -u").stdout.trim() == "0"
+
+    /**
+     * Whether a su binary exists at all.
+     *
+     * Distinguishes "not rooted" from "root refused": without this, a device
+     * with no KernelSU looks identical to one where the user tapped Deny, and
+     * the advice for the two is completely different.
+     */
+    fun suExists(): Boolean = listOf(
+        "/system/bin/su",
+        "/system/xbin/su",
+        "/sbin/su",
+        "/data/adb/ksu/bin/su",
+        "/debug_ramdisk/su",
+    ).any { path ->
+        try {
+            java.io.File(path).exists()
+        } catch (e: SecurityException) {
+            false
+        }
+    }
 }
