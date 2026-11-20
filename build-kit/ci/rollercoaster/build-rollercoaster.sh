@@ -262,6 +262,12 @@ grep -E '^CONFIG_LOCALVERSION=' "$OUT/.config"
 echo "--- prebuild ---"
 make -j"$JOBS" "${MO[@]}" security/selinux/ >/dev/null
 make -j"$JOBS" "${MO[@]}" fs/erofs/ lib/zstd/ >/dev/null
+# include/generated/compile.h tidak dibuat oleh `prepare`: ia dihasilkan oleh
+# aturan init/Makefile sebagai prasyarat init/version.o. KernelSU-Next tidak
+# menyertakan <generated/compile.h> di init.c-nya, jadi membangun drivers/kernelsu/
+# sebelum init/ aman. BakaSU menyertakannya, sehingga drivers/kernelsu/ harus
+# dibangun sesudah init/version.o (yang memunculkan compile.h) terlebih dahulu.
+[ "$KSU" = "yes" ] && make -j"$JOBS" "${MO[@]}" init/version.o >/dev/null
 [ "$KSU" = "yes" ] && make -j"$JOBS" "${MO[@]}" drivers/kernelsu/ fs/susfs.o >/dev/null
 
 # --- build -----------------------------------------------------------------
