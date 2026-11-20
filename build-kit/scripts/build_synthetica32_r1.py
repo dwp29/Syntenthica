@@ -153,8 +153,10 @@ def prepare_tree(tree: Path) -> None:
         # The profile files live in the kit (build-rollercoaster.sh reads
         # $SELF/profiles), not in the kernel tree. Resolving the hook choice
         # here means the config check reads the corrected values later.
-        print(bakasu_root.resolve_hook_choice(Path(__file__).resolve().parents[1]),
-              flush=True)
+        import os as _os
+        print(bakasu_root.resolve_hook_choice(
+            Path(__file__).resolve().parents[1] / 'ci/rollercoaster',
+            _os.environ.get('SP_PROFILE', 'synthetica')), flush=True)
 
     verify_vmscan(tree, patched=False)
     subprocess.run(['git', 'apply', '--check', str(PATCH)], cwd=tree, check=True)

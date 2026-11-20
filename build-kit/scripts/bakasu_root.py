@@ -304,7 +304,7 @@ def _driver_version(destination: Path) -> int:
     return 30000 + int(count) + 700
 
 
-def resolve_hook_choice(tree: Path) -> dict[str, object]:
+def resolve_hook_choice(kit: Path, profile: str) -> dict[str, object]:
     """Make the hook method explicit.
 
     BakaSU's Kconfig puts three methods in one `choice`: tracepoint (5.10+),
@@ -322,11 +322,27 @@ def resolve_hook_choice(tree: Path) -> dict[str, object]:
     This is recorded in the build output so the release does not imply hiding
     features it does not have.
     """
-    profiles = tree / "profiles"
+    kit = kit.resolve()
+    # Refuse to touch the repository itself: this is meant to rewrite the
+    # disposable kit only, and a mistake here would silently change every future
+    # build from this checkout. Checked before anything else so the refusal
+    # names the real problem.
+    repository = Path(__file__).resolve().parents[1].resolve()
+    if kit == repository:
+        raise ValueError("refusing to rewrite profiles in the repository; "
+                         "pass the disposable kit")
+    profiles = kit / "profiles"
     if not profiles.is_dir():
         raise ValueError(f"missing profiles directory: {profiles}")
+    # Only the shared base and the profile this build actually uses. Rewriting
+    # every profile would touch variants that are not being built, including
+    # the non-root `lite` one, and change files this release has no business in.
+    targets = [profiles / "00-common.config", profiles / f"{profile}.config"]
+    for target in targets:
+        if not target.is_file():
+            raise ValueError(f"missing profile: {target}")
     changed = []
-    for config in sorted(profiles.glob("*.config")):
+    for config in targets:
         text = config.read_text(encoding="utf-8")
         lines = []
         for line in text.splitlines():
