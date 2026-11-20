@@ -118,11 +118,15 @@ object AuditRunner {
                 permissions = fs.permissions(path), presence = Presence.PRESENT)
         }
         val permissions = fs.permissions(path)
-        val readable = fs.readable(path)
-        val value = if (readable) fs.read(path) else null
-        // canWrite is only meaningful once we know we can see the node.
-        val writable = if (value != null) fs.writable(path) else false
-        return Observation(value, readable && value != null, writable, permissions,
+        val canRead = fs.readable(path)
+        val value = if (canRead) fs.read(path) else null
+        // `readable` means "we obtained the contents", not just "canRead said
+        // yes": a node holding "0" is readable and its value is "0", while a node
+        // that opened but yielded nothing is not readable. The writable probe is
+        // only meaningful once the node can actually be seen.
+        val gotValue = canRead && value != null
+        val writable = if (gotValue) fs.writable(path) else false
+        return Observation(value, gotValue, writable, permissions,
             presence = Presence.PRESENT)
     }
 
@@ -192,6 +196,19 @@ object AuditRunner {
 
     /** Real filesystem access. `permissions` uses `stat`, the same tool a user would. */
     object SystemFs : Fs {
+        /**
+         * Names in the parent directory, or null when it cannot be listed.
+         *
+         * This is the only evidence that may turn into "tidak ada". File.exists()
+         * returning false proves nothing, because it also happens when the app
+         * may not traverse a parent directory.
+         */
+        override fun listing(path: String): List<String>? = try {
+            File(path).parentFile?.list()?.toList()
+        } catch (e: Exception) {
+            null
+        }
+
         override fun exists(path: String) = File(path).exists()
         override fun readable(path: String) = File(path).canRead()
         override fun writable(path: String) = File(path).canWrite()
@@ -202,6 +219,9 @@ object AuditRunner {
         }
 
         override fun permissions(path: String): String? = try {
+            // stat is available on most images but not guaranteed; when it is
+            // missing the audit must still record the node's presence, so the
+            // readability flags are used as a weaker but honest signal.
             val process = ProcessBuilder("stat", "-c", "%A %U:%G", path).start()
             val text = process.inputStream.bufferedReader().use { it.readText() }.trim()
             if (process.waitFor() == 0) text.takeIf { it.isNotEmpty() } else null

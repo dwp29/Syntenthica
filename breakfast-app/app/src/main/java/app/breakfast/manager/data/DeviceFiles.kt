@@ -12,19 +12,6 @@ import java.io.File
  */
 object DeviceFiles : TuningEngine.Files {
 
-    /**
-     * Names in the parent directory, or null when it cannot be listed.
-     *
-     * This is what turns "File.exists() said no" into either a verified absence
-     * or an honest "cannot tell". sysfs directories are 0755, but the app's
-     * sandbox can still be denied traversal above them by SELinux.
-     */
-    override fun listing(path: String): List<String>? = try {
-        File(path).parentFile?.list()?.toList()
-    } catch (e: Exception) {
-        null
-    }
-
     override fun exists(path: String): Boolean = try {
         File(path).exists()
     } catch (e: SecurityException) {
