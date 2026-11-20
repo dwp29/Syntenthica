@@ -1,1 +1,0 @@
-d27ada95e903fc0a243583e19472bfb793795ccfdfde687079bc86dff875bec0  ci-stage/breakfast/BREAKFAST-manager.apk
