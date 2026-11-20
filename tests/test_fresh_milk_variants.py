@@ -102,6 +102,93 @@ class ConfigScope(unittest.TestCase):
         self.assertFalse(allowed & mutated, sorted(allowed & mutated))
 
 
+class BakasuDelta(unittest.TestCase):
+    """The BakaSU config delta is a closed set, not a blanket KSU_* pass.
+
+    Two failures are being pinned here, both of which cost a CI run:
+
+      1. listing the whole SuSFS family as an *expected change* failed every
+         build, because those symbols are already off in the 2.0 baseline and
+         therefore never appear in the diff;
+      2. accepting "any KSU_* that moved" is not a guard at all - it would
+         stamp a config nobody reviewed. A symbol outside the list must fail.
+    """
+
+    BASE = [
+        'CONFIG_KSU=y', 'CONFIG_KSU_MANUAL_HOOK=y', 'CONFIG_SECCOMP=y',
+        'CONFIG_SECCOMP_FILTER=y', 'CONFIG_SCHED_WALT=y', 'CONFIG_SCHED_TUNE=y',
+        'CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y', 'CONFIG_CGROUP_SCHED=y',
+        'CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y', 'CONFIG_LRU_GEN=y',
+        '# CONFIG_LRU_GEN_ENABLED is not set',
+        '# CONFIG_KSU_SUSFS is not set', '# CONFIG_KSU_SUSFS_SUS_PATH is not set',
+        'CONFIG_KSU_MULTI_MANAGER_SUPPORT=y', 'CONFIG_KSU_FULL_NAME_FORMAT=y',
+        'CONFIG_LOCALVERSION="-Synthetica-2.0"',
+    ]
+    GENERATED = [
+        'CONFIG_KSU=y', 'CONFIG_KSU_MANUAL_HOOK=y', 'CONFIG_SECCOMP=y',
+        'CONFIG_SECCOMP_FILTER=y', 'CONFIG_SCHED_WALT=y', 'CONFIG_SCHED_TUNE=y',
+        'CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y', 'CONFIG_CGROUP_SCHED=y',
+        'CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y', 'CONFIG_LRU_GEN=y',
+        'CONFIG_LRU_GEN_ENABLED=y',
+        '# CONFIG_KSU_SUSFS is not set', '# CONFIG_KSU_SUSFS_SUS_PATH is not set',
+        '# CONFIG_KSU_MULTI_MANAGER_SUPPORT is not set',
+        '# CONFIG_KSU_FULL_NAME_FORMAT is not set',
+        'CONFIG_LOCALVERSION="-Fresh-Milk-14.03B"',
+    ]
+
+    def install(self):
+        m = load()
+        module = type('Module', (), {})()
+        v3 = type('V3', (), {'REQUIRED_Y': (), 'FORBIDDEN_Y': (),
+                             'read_config': staticmethod(m.read_config_symbols)})()
+        s2x = type('S2X', (), {})()
+        s2x.v3 = v3
+        s2x.ALLOWED_CHANGES = {
+            'LOCALVERSION': ('"-Synthetica-2.0"', '"-Fresh-Milk-14.03B"')}
+        s2x.MGLRU_FRAGMENTS = {'on': ('a', 'b'), 'off': ('c', 'd')}
+        rc = type('RC', (), {})()
+        rc.s2x = s2x
+        base = type('Base', (), {})()
+        base.rc = rc
+        module.old = type('Old', (), {'base': base})()
+        m._install_config_check(module, 'fresh-milk', set())
+        return m, s2x
+
+    def write(self, lines):
+        return '\n'.join(lines) + '\n'
+
+    def test_susfs_symbols_that_did_not_move_do_not_fail_the_build(self):
+        m, s2x = self.install()
+        changed = s2x.check_config(self.write(self.BASE), self.write(self.GENERATED))
+        for key in ('KSU_SUSFS', 'KSU_SUSFS_SUS_PATH'):
+            self.assertNotIn(key, changed, 'unchanged symbol must not be required to move')
+        self.assertIn('KSU_MULTI_MANAGER_SUPPORT', changed)
+
+    def test_a_ksu_symbol_outside_the_list_is_refused(self):
+        m, s2x = self.install()
+        stray = self.GENERATED + ['CONFIG_KSU_NOT_REVIEWED=y']
+        with self.assertRaises(ValueError) as ctx:
+            s2x.check_config(self.write(self.BASE), self.write(stray))
+        self.assertIn('outside the BakaSU set', str(ctx.exception))
+        self.assertIn('KSU_NOT_REVIEWED', str(ctx.exception))
+
+    def test_the_delta_is_closed_and_names_no_susfs_requirement(self):
+        m = load()
+        self.assertIsInstance(m.BAKASU_CONFIG_DELTA, tuple)
+        for key in m.BAKASU_CONFIG_DELTA:
+            self.assertTrue(key.startswith('KSU'), key)
+            # SuSFS can never be a required feature on the manual-hook stack;
+            # only the hook itself and the identity flags may be pinned on.
+            if key.startswith('KSU_SUSFS'):
+                self.assertNotIn(key, m.MUST_STAY_ON, key)
+
+    def test_every_susfs_symbol_is_declared_impossible(self):
+        m = load()
+        declared = {k for k in m.BAKASU_MUST_STAY_OFF if k.startswith('KSU_SUSFS')}
+        for key in declared:
+            self.assertIn(key, m.BAKASU_CONFIG_DELTA, key)
+
+
 class KitProfileGuard(unittest.TestCase):
     """The disposable kit must accept exactly the variant's own profile."""
 

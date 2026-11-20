@@ -345,12 +345,26 @@ def _install_config_check(module, variant: str, allowed: set[str]) -> None:
         if mglru == 'on':
             expected_values['LRU_GEN_ENABLED'] = ('n', 'y')
         if spec.get('root_stack') == 'bakasu':
-            # BakaSU's Kconfig differs from KernelSU-Next's, so these exact
-            # symbols are expected to move. The list is closed: any other
-            # difference still fails the check, rather than "anything KSU* is
-            # fine", which would accept a config nobody reviewed.
+            # BakaSU's Kconfig differs from KernelSU-Next's, so these symbols
+            # are allowed to move. The list is closed in both directions:
+            #
+            #   * a symbol that moved must be in this list, and
+            #   * a symbol in this list may only move the way the build says.
+            #
+            # A symbol that is in the list but did NOT move is not an error:
+            # most of the SuSFS family is already off in the 2.0 baseline, so
+            # "allowed to change" cannot mean "must change" - that would fail
+            # every build with symbols whose old and new values are identical.
             for key in BAKASU_CONFIG_DELTA:
-                expected_values[key] = (old.get(key, 'n'), new.get(key, 'n'))
+                if key in changed:
+                    expected_values[key] = (old.get(key, 'n'), new.get(key, 'n'))
+            # Anything else that moved and starts with KSU_ is exactly what the
+            # earlier version of this guard let slip through. Name it plainly.
+            stray = sorted(k for k in changed
+                           if k.startswith('KSU') and k not in BAKASU_CONFIG_DELTA)
+            if stray:
+                raise ValueError('config symbol changed outside the BakaSU set: '
+                                 + ', '.join(stray[:20]))
         for key in allowed:
             before = old.get(key, 'n')
             expected_values[key] = (before, new.get(key, 'n'))
