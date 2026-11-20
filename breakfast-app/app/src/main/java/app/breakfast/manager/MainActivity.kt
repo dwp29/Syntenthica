@@ -76,6 +76,9 @@ class MainActivity : ComponentActivity() {
     private var rootSnapshot: RootStatus.Snapshot? = null
     private var modules: ModuleScan.Result? = null
 
+    /** /data/adb/modules: what is installed, as opposed to what the kernel loaded. */
+    private var installedModules: ModuleScan.Installed? = null
+
     /** Sampling interval, chosen in settings; 2 s was the only option before. */
     private var intervalSeconds = 2
 
