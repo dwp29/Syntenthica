@@ -454,6 +454,12 @@ def apply_variant(variant: str):
                    if previous.get(k, 'n') != current.get(k, 'n')}
 
         allowed_keys = set(allowed) | {'LOCALVERSION'}
+        if spec.get('root_stack') == 'bakasu':
+            # The exact 3.1 config is a KernelSU-Next one. Moving to BakaSU
+            # moves the hook choice and the identity flags as a structural
+            # consequence of the Kconfig choice, not as a variant preference.
+            # The same closed set the other two gates accept.
+            allowed_keys |= set(BAKASU_CONFIG_DELTA)
         unexpected = sorted(k for k in changes if k not in allowed_keys)
         if unexpected:
             raise ValueError('config changed beyond the approved set: '
