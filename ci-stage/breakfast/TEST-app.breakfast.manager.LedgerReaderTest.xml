@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.LedgerReaderTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:08:49.647Z" hostname="ip-10-0-133-52" time="0.009">
+<testsuite name="app.breakfast.manager.LedgerReaderTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:10:57.165Z" hostname="ip-10-0-135-251" time="0.009">
   <properties/>
   <testcase name="band colours are the fixed status palette" classname="app.breakfast.manager.LedgerReaderTest" time="0.001"/>
-  <testcase name="readable ledger renders the number and the counts" classname="app.breakfast.manager.LedgerReaderTest" time="0.004"/>
-  <testcase name="unreadable dmesg shows a dash and never a zero" classname="app.breakfast.manager.LedgerReaderTest" time="0.0"/>
-  <testcase name="dmesg level prefix is stripped" classname="app.breakfast.manager.LedgerReaderTest" time="0.001"/>
-  <testcase name="unreadable score is a placeholder" classname="app.breakfast.manager.LedgerReaderTest" time="0.001"/>
+  <testcase name="readable ledger renders the number and the counts" classname="app.breakfast.manager.LedgerReaderTest" time="0.003"/>
+  <testcase name="unreadable dmesg shows a dash and never a zero" classname="app.breakfast.manager.LedgerReaderTest" time="0.001"/>
+  <testcase name="dmesg level prefix is stripped" classname="app.breakfast.manager.LedgerReaderTest" time="0.0"/>
+  <testcase name="unreadable score is a placeholder" classname="app.breakfast.manager.LedgerReaderTest" time="0.002"/>
   <testcase name="setting a themed accent cannot alter a status colour" classname="app.breakfast.manager.LedgerReaderTest" time="0.001"/>
-  <testcase name="unavailable dmesg names the cause instead of a generic error" classname="app.breakfast.manager.LedgerReaderTest" time="0.0"/>
+  <testcase name="unavailable dmesg names the cause instead of a generic error" classname="app.breakfast.manager.LedgerReaderTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

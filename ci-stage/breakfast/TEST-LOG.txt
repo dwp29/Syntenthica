@@ -49,13 +49,10 @@ Installing Android SDK Build-Tools 35 in /home/runner/android-sdk/build-tools/35
 
 > Task :app:testDebugUnitTest FAILED
 
-RootHonestyTest > a granted snapshot reports the privileged reads as checked FAILED
-    org.junit.ComparisonFailure at DeviceRegressionTest.kt:453
-
 RootHonestyTest > a blind probe is not a negative answer FAILED
-    java.lang.AssertionError at DeviceRegressionTest.kt:434
+    java.lang.AssertionError at DeviceRegressionTest.kt:437
 
-97 tests completed, 2 failed
+97 tests completed, 1 failed
 
 [Incubating] Problems report is available at: file:///home/runner/work/Syntenthica/Syntenthica/breakfast-app/build/reports/problems/problems-report.html
 

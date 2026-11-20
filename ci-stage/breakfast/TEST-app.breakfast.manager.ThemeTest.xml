@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.ThemeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:08:49.685Z" hostname="ip-10-0-133-52" time="0.002">
+<testsuite name="app.breakfast.manager.ThemeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:10:57.205Z" hostname="ip-10-0-135-251" time="0.002">
   <properties/>
-  <testcase name="black on white is exactly 21 to 1" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
+  <testcase name="black on white is exactly 21 to 1" classname="app.breakfast.manager.ThemeTest" time="0.001"/>
   <testcase name="light on light is rejected by the same rule" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
   <testcase name="all five themes are offered" classname="app.breakfast.manager.ThemeTest" time="0.0"/>
   <testcase name="status colours are fixed and do not follow the theme" classname="app.breakfast.manager.ThemeTest" time="0.0"/>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="app.breakfast.manager.Run17RegressionTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:08:49.663Z" hostname="ip-10-0-133-52" time="0.004">
+<testsuite name="app.breakfast.manager.Run17RegressionTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-20T03:10:57.182Z" hostname="ip-10-0-135-251" time="0.005">
   <properties/>
-  <testcase name="minutes are not rounded away to zero hours" classname="app.breakfast.manager.Run17RegressionTest" time="0.001"/>
-  <testcase name="a percentage series still shows its wobble" classname="app.breakfast.manager.Run17RegressionTest" time="0.002"/>
+  <testcase name="minutes are not rounded away to zero hours" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
+  <testcase name="a percentage series still shows its wobble" classname="app.breakfast.manager.Run17RegressionTest" time="0.004"/>
   <testcase name="a flat percentage series keeps its true height" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
   <testcase name="an unverified node is never counted as absent" classname="app.breakfast.manager.Run17RegressionTest" time="0.001"/>
   <testcase name="a stat delta below one tick window is rejected" classname="app.breakfast.manager.Run17RegressionTest" time="0.0"/>
