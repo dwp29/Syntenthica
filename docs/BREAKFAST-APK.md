@@ -259,3 +259,33 @@ Yang tidak bisa diperbaiki dari sisi aplikasi: kalau SELinux atau kebijakan
 KernelSU memblokir proses aplikasi, aplikasi sekarang **mengatakannya**, bukan
 berpura-pura node-nya tidak ada.
 
+## Run 21-22: suhu yang tidak bergerak, dan suntingan yang gagal diam-diam
+
+Dua tangkapan layar berturut-turut menunjukkan cincin pada 81 °C lalu 88 °C.
+Angka seperti itu tidak wajar untuk ponsel yang sedang menganggur, dan memang
+bukan suhu.
+
+**Penyebab.** Pembaca mengambil nilai terbesar dari setiap `thermal_zone` yang
+tipenya mengandung "cpu". Kernel punya zona seperti `cpu-0-limit`,
+`cpu-0-trip-point-0`, dan `cpu-0-stage`: isinya suhu **ambang** tempat kernel
+mulai menurunkan kecepatan. Ambang adalah konstanta; ia tidak berubah ketika CPU
+menjadi panas. Mengambil maksimum atas semua zona berarti memilih konstanta itu
+dan menggambarnya sebagai pengukuran.
+
+**Perbaikan.** Zona hanya dianggap termometer bila namanya menunjuk sensor
+(`cpu`/`soc`/`gpu`/`tsens`/`apc`) **dan** tidak mengandung penanda ambang
+(`limit`/`trip`/`stage`/`threshold`/`cool`/`warn`/`crit`/`virtual`/…). Cincin
+sekarang menyebut nama zona yang dipakai, dan LAB menampilkan seluruh zona
+beserta nilainya, sehingga angka di layar bisa diperiksa alih-alih dipercaya.
+
+**Kegagalan proses.** LAB mencetak `0 / 6 / 3 / 1` — empat angka berjumlah 10
+untuk audit 16 node. Penyebabnya bukan logika, melainkan sebuah `replace()` di
+skrip penyuntingan yang tidak cocok dan **tidak bersuara**. Dua langkah
+diambil:
+
+1. Angka itu sekarang dihasilkan dari laporan (`countsLine`/`countsLegend`), dan
+   tes memastikan kelima keranjang selalu berjumlah `nodes.size`.
+2. `tools/verify_edits.py` berjalan di CI dan **menggagalkan build** bila
+   perubahan yang diklaim tidak ada di dalam sumber. Diam bukan lagi hasil yang
+   mungkin dari sebuah suntingan.
+
