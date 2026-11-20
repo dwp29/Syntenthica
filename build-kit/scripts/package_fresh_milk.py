@@ -35,7 +35,7 @@ BASE_SHA256 = 'b1a0be5c7402a14d25f64fab495d6dd7e945dab18fa55c2fd164c5ced853897c'
 # boot repack: it never mentioned KernelSU, so no build from it could ever have
 # brought root up, and no APK could have changed that.
 SCRIPTS = ROOT / 'build-kit/ci/rollercoaster/anykernel'
-ENTRY_SHA256 = '97fb41196bea39911dce9f5ab3247c76c4581fba0a42e32f95b14f8504959db9'
+ENTRY_SHA256 = '04dca045c9f55a316c22e90c8ead2272e0571f023b0af4271bf448d641bb140d'
 KSUD = SCRIPTS / 'ksud'
 KSUD_SHA256 = '52ba3da465459bfbac98dd25c53f8d31f93ee5a8ee89d84f67a28fe0d18cdef2'
 KSUD_BYTES = 5518552
@@ -219,8 +219,14 @@ def collect(result: Path, variant: str) -> dict[str, bytes]:
     # requiring that constant here would demand something the shipped installer
     # never had. What matters instead is that the block it writes is the boot
     # partition and that it refuses a device that is not miatoll.
-    require(entry, b'block=/dev/block/bootdevice/by-name/boot;',
-            'targets the boot partition')
+    #
+    # The variable must be BLOCK (uppercase): the packaged ak3-core.sh (from
+    # the Synthetica-2.0 skeleton) reads its target from $BLOCK in setup_ak and
+    # write_boot. A lowercase `block=` leaves $BLOCK empty, so setup_ak aborts
+    # with "Unable to determine  partition" and the ZIP refuses to flash. The
+    # require below guards the exact name ak3-core.sh depends on.
+    require(entry, b'BLOCK=/dev/block/bootdevice/by-name/boot;',
+            'targets the boot partition as $BLOCK (uppercase, matching ak3-core.sh)')
     require(entry, b'device.name1=miatoll', 'checks the device before writing')
 
     metadata = {

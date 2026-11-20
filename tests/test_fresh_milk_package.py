@@ -93,6 +93,24 @@ class Packaging(unittest.TestCase):
             entry = z.read('anykernel.sh').decode()
             self.assertIn(f'cp -f ./ksud {self.m.KSUD_DEST}', entry)
 
+    def test_installer_block_var_matches_ak3_core(self):
+        # The packaged ak3-core.sh (from the Synthetica-2.0 skeleton) reads its
+        # target partition from $BLOCK (uppercase) in setup_ak and write_boot.
+        # If the entry script sets a lowercase `block=`, $BLOCK stays empty and
+        # setup_ak aborts with "Unable to determine  partition" — the ZIP
+        # flashes nothing. Guard the exact name the two scripts must agree on.
+        out = self.tmp / 'fm.zip'
+        self.m.package(self.result, 'fresh-milk', out)
+        with zipfile.ZipFile(out) as z:
+            entry = z.read('anykernel.sh').decode()
+            core = z.read('tools/ak3-core.sh').decode()
+        self.assertIn('BLOCK=/dev/block/bootdevice/by-name/boot;', entry)
+        # The entry must not introduce the lowercase name ak3-core.sh ignores.
+        self.assertNotIn('block=/dev/block/bootdevice/by-name/boot;', entry)
+        # ak3-core.sh must actually read the uppercase variable the entry sets.
+        self.assertIn('$BLOCK', core)
+        self.assertIn('case $BLOCK in', core)
+
     def test_installer_names_the_exact_release(self):
         # The rollercoaster installer does not pin the image digest; it prints
         # SP_RELEASE and checks the image's size and gzip validity at flash time.

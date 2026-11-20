@@ -26,7 +26,11 @@ supported.vendorpatchlevels=
 '; } # end properties
 
 # shell variables
-block=/dev/block/bootdevice/by-name/boot;
+# The packaged ak3-core.sh (from the Synthetica-2.0 skeleton) reads its target
+# partition from $BLOCK (uppercase). Using lowercase `block` here leaves $BLOCK
+# empty, so setup_ak aborts with "Unable to determine  partition" and the ZIP
+# refuses to flash. Keep the name uppercase to match ak3-core.sh.
+BLOCK=/dev/block/bootdevice/by-name/boot;
 is_slot_device=0;
 ramdisk_compression=auto;
 patch_vbmeta_flag=auto;
@@ -95,7 +99,7 @@ ui_print " "
 log_line "Fresh-Milk / CHEESE-BURGER - installation log"
 log_line "started=$stamp"
 log_line "release=$SP_RELEASE"
-log_line "block=$block"
+log_line "block=$BLOCK"
 
 sp_bar 10 "Checking device"
 if [ -f Image.gz ] && [ -x tools/busybox ]; then
