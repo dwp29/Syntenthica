@@ -507,3 +507,22 @@ hanya boleh dijawab untuk manager atau root, yang tidak akan pernah diberikan ke
 aplikasi ini. Angka itu tidak lagi dipakai sebagai fakta. Sebagai gantinya ada baris
 **multi-manager** yang membaca `CONFIG_KSU` dari `/proc/config.gz`: satu backend,
 disebut namanya, atau "tidak bisa dipastikan" bila berkasnya tidak terbaca.
+
+## Run 34
+
+Build pertama yang lolos setelah tiga kesalahan saya sendiri tertangkap CI:
+`installedModules` dipakai tiga kali tanpa pernah dideklarasikan (tiga
+unresolved-reference), kalimat verdict baru kehilangan frasa "tidak bisa
+memeriksa" yang diuji, dan saya salah menghitung baris `lines()` sebagai tujuh
+padahal enam. Ketiganya diperbaiki di tesnya atau di kodenya — bukan dengan
+melonggarkan tes.
+
+112 tes JVM, 0 gagal. `versionCode 34`, sha256 `cbcfe239…`, tanda tangan sementara
+sehingga build sebelumnya harus di-uninstall lebih dulu.
+
+APK: https://drive.google.com/file/d/18JLQ1bXUpCu1hwQBXYhMNx7JZezuPNXS/view
+Bundel: https://drive.google.com/file/d/1sgSgAW3yQJCYEAObSRMfzF1C0PyZht7P/view
+Verifikasi: https://drive.google.com/file/d/1nJAAFRVtlqAg3EAXHenDP2yp2M6khqm9/view
+
+Belum terbukti: root menyala, ROOT/MODULES terisi data nyata. Keduanya menunggu
+ZIP kernel yang memasang `ksud` dan izin aplikasi di Synthetica Manager.
