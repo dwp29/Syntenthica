@@ -4,6 +4,10 @@ Dua varian, satu tree, satu resep induk (`build_synthetica32_r1.py`).
 Perbedaan varian **hanya identitas rilis**. Tidak ada kode, patch, toolchain,
 SuSFS, atau root yang berbeda.
 
+> **Catatan 2026-10:** tree ini sekarang juga membangun kedua varian di **stack
+> BakaSU** (root alternatif, manual hook tanpa SuSFS). Bukti build, empat
+> perbaikan yang dibutuhkan, dan jebakan untuk pengembangan ada di **§9**.
+
 ---
 
 ## 1. Bukti kompilasi (nyata, bukan klaim)
@@ -202,3 +206,129 @@ kalau `/data` masih terenkripsi.
 
 Sesuai `docs/KERNEL-WORK-RULES.md` §1, tidak ada tingkat di atas yang boleh
 diklaim sebelum buktinya ada.
+
+---
+
+## 9. Stack BakaSU (root alternatif pada tree 4.14)
+
+Selain KernelSU-Next, tree ini dapat dibangun dengan **BakaSU** sebagai root
+stack. Kedua varian (`fresh-milk`, `cheese-burger`) sekarang membangun di stack
+ini. Catatan ini untuk pengembangan kelak: apa yang berbeda, apa yang sudah
+diperbaiki, dan jebakan yang sudah dipastikan.
+
+### 9.1 Cara stack dipilih
+
+- `build-kit/scripts/build_fresh_milk.py` menandai tiap varian dengan
+  `root_stack: 'bakasu'` di tabel `VARIANTS`.
+- `apply_variant()` memasang **`SP_ROOT_STACK`** di environment (di `main()`,
+  bukan di fungsi yang dipanggil tes langsung, agar tidak bocor ke tes lain).
+- Resep 3.2-r1 memeriksa `SP_ROOT_STACK == 'bakasu'` untuk memicu integrasi
+  BakaSU. **Jangan** kunci pada `BAKASU_ARCHIVE` di tahap `finish`: variabel itu
+  hanya ada di langkah prepare/compile, sedangkan langkah finish hanya membawa
+  `FM_VARIANT`.
+- `BAKASU_ARCHIVE` tetap dipakai di `prepare_tree()` (tahap compile) karena di
+  situ archive memang sudah diekstrak.
+
+### 9.2 Layout tree BakaSU
+
+- `drivers/kernelsu` adalah **symlink** ke `../BakaSU/kernel` (dibuat oleh
+  `bakasu_root.py::apply_tree_patch`).
+- `BakaSU/kernel/Kbuild` ditambal menambahkan
+  `ccflags-y += -I$(src)/../compat-4.14`; `compat-4.14/linux/` membawa
+  `hex.h`, `minmax.h`, `pgtable.h`, `unaligned.h` (header pasca-4.14 yang
+  tidak ada di tree ini).
+- Directory `KernelSU-Next/` **tetap ada** di tree (patch seccomp/setuid-hook
+  dari resep warisan diterapkan ke sana). Yang **tidak** ada:
+  `ksu_install_manager_exec_fd`, `KernelSU-Next/kernel/supercall/`, dan flag
+  build manager `-fno-builtin-strncmp`.
+
+### 9.3 Empat perbaikan yang dibutuhkan (semua sudah masuk CI)
+
+1. **`generated/compile.h`** — BakaSU `init.c` menyertakan
+   `<generated/compile.h>`. Berkas ini dihasilkan oleh aturan `init/Makefile`
+   sebagai prasyarat `init/version.o`, **bukan** oleh `prepare`. KernelSU-Next
+   tidak menyertakannya, jadi `drivers/kernelsu/` dulu dibangun sebelum `init/`
+   tanpa masalah. Pada BakaSU, `build-rollercoaster.sh` sekarang membangun
+   `init/version.o` **sebelum** `drivers/kernelsu/`.
+2. **Gerbang export ABI** — `compare_31_exports` membandingkan
+   `(crc, owner, kind)`. BakaSU menggeser layout tautan, jadi **8193 alamat
+   simbol bergeser** meski ABI (nama/owner/tipe) sama persis (`missing=0
+   added=0`). `build_fresh_milk.py` membandingkan ABI (nama/owner/tipe) dan
+   mengizinkan delta crc di stack BakaSU; stack KernelSU-Next tetap menggunakan
+   gerbang ketat asli.
+3. **Verifikasi finish yang hanya berlaku KernelSU-Next** — rantai finish
+   (`3.2-r1 → 3.0-root → 3.0-rc1 → 2.0-experiment`) menjalankan pemeriksaan
+   sumber/objek yang ditulis untuk root KernelSU-Next. Pada stack BakaSU,
+   semuanya dilewati saat `SP_ROOT_STACK=bakasu` dan dicatat sebagai tidak
+   berlaku di status:
+   - `build_synthetica3_root.finish`: `verify_root_source`, `verify_exec_objects`
+   - `build_synthetica3_rc.finish`: `verify_hook_object` (dan `verify_source`)
+   - `build_synthetica2_experimental.finish`: `verify_manager_object`, serta pin
+     hash sertifikat Manager di dalam image (BakaSU mengenali Manager lewat
+     indeks signature APK, bukan literal hash)
+   Pemeriksaan yang berlaku umum (config, image, cert, modul, ABI) tetap
+   berjalan di kedua stack.
+4. **`SP_PROFILE` di langkah prepare** — `resolve_hook_choice()` berjalan di
+   `prepare()` dan menulis ulang profil yang akan dibangun. Langkah prepare
+   dulu hanya membawa `FM_VARIANT`, sehingga `SP_PROFILE` jatuh ke default
+   `synthetica`. Varian lain (cheese-burger → `critical`) tidak pernah
+   ditesolusi: SuSFS tetap on dan manual hook dropped, lalu compile gagal di
+   gerbang retained-feature. Workflow sekarang mengirim `SP_PROFILE` dari
+   matrix ke env langkah prepare.
+
+### 9.4 Resolusi hook choice
+
+BakaSU menempatkan tracepoint / manual hook / SuSFS dalam satu `choice` Kconfig.
+Pada 4.14 hanya **manual hook** yang valid. `resolve_hook_choice()`:
+
+- mematikan seluruh keluarga `CONFIG_KSU_SUSFS*` dan
+  `CONFIG_KSU_TRACEPOINT_HOOK` (`=y` → `# ... is not set`);
+- menambahkan `CONFIG_KSU_MANUAL_HOOK=y`;
+- hanya menyentuh `00-common.config` dan `<profil>.config` (tidak semua profil).
+
+Tanpa ini, `olddefconfig` memilih SuSFS dan mengalahkan manual hook — inilah
+sebabnya SuSFS **harus** distrip dari profil **sebelum** build.
+
+### 9.5 Bukti build (run CI 44726068179, kedua varian sukses)
+
+| | Fresh-Milk-14.03B | CHEESE-BURGER-11.08B |
+|---|---|---|
+| profil | `synthetica` | `critical` |
+| `image_sha256` | `ddb75b68…08abe58` | `309d1bc1…0a7d0be6` |
+| ZIP | `Fresh-Milk-14.03B.zip` (19.761.514 B) | `CHEESE-BURGER-11.08B.zip` (19.764.420 B) |
+| `sha256` ZIP | `03d740ee…5452c07525` | `bdd1bbe2…0d30af69a36d` |
+
+Delta config = tepat `BAKASU_CONFIG_DELTA` (KSU hook/identitas + simbol
+`KSU_SUSFS*` + `LOCALVERSION`), plus delta profil gaming untuk cheese-burger.
+
+### 9.6 Catatan untuk pengembangan kelak
+
+- **Jangan** menambal `apk_sign.c` BakaSU dengan patch KernelSU-Next; BakaSU
+  menolak blok v3 di APK (v1+v2 cukup).
+- **Jangan** mem-build BakaSU sebelum hook dipasang.
+- Pin `build-rollercoaster.sh` (digest di `PINNED_INPUTS`) **harus** diperbarui
+  setiap kali skrip itu berubah — ada tes yang mengecek digest ini.
+- Perubahan ke `build-rollercoaster.sh` / `build_synthetica3.py` /
+  `build-fresh-milk.py` memicu workflow (jalur `paths` sudah mencakupnya).
+  Commit kosong **tidak** memicu (filter `paths` butuh perubahan berkas nyata).
+- `gh run rerun` tidak tersedia untuk job; untuk memicu ulang, buat commit
+  berkas nyata atau gunakan `workflow_dispatch`.
+- Sandbox **tidak bisa** mengunduh aset rilis / artifact CI (host
+  `release-assets.githubusercontent.com` dan blob hasil produksi diblokir).
+  Download ZIP dilakukan dari tautan rilis di luar sandbox.
+- Build hanya bisa dikompilasi lewat CI (sandbox tidak punya clang/cross-
+  compiler aarch64). Reproduksi config lokal dengan `make olddefconfig` + gcc
+  host masih mungkin untuk mengecek gerbang config.
+
+### 9.7 Status klaim (stack BakaSU)
+
+| Tingkat | Status |
+|---|---|
+| Kompilasi | **lulus** (run 44726068179) |
+| Statis (ABI, config) | **lulus**, ABI 0 selisih, crc bergeser seperti yang diizinkan |
+| Paket flashable | **lulus** — ZIP + installer + penjaga digest |
+| Boot perangkat | **belum** |
+| Teruji | **belum** |
+
+Kernel ini menggunakan **manual hook tanpa SuSFS**; Manager APK bertanda tangan
+**ephemeral**. Bukti fisik boot dan kecocokan modul ROM tetap belum ada.
